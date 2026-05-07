@@ -2,49 +2,48 @@ name: Build Android APK
 
 on:
   push:
-      branches: [ main, master ]
-        workflow_dispatch:
+    branches: [main, master]
+  workflow_dispatch:
 
-        jobs:
-          build:
-              runs-on: ubuntu-latest
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-                  steps:
-                        - name: Checkout repo
-                                uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-                                      - name: Set up Java
-                                              uses: actions/setup-java@v4
-                                                      with:
-                                                                distribution: 'temurin'
-                                                                          java-version: '17'
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.27.0"
+          channel: stable
+          cache: true
 
-                                                                                - name: Set up Flutter
-                                                                                        uses: subosito/flutter-action@v2
-                                                                                                with:
-                                                                                                          flutter-version: '3.27.0'
-                                                                                                                    channel: 'stable'
-                                                                                                                              cache: true
-                                                                                                                              
-                                                                                                                                    - name: Generate Android project scaffold
-                                                                                                                                            run: |
-                                                                                                                                                      cp pubspec.yaml pubspec_backup.yaml
-                                                                                                                                                                cp -r lib lib_backup
-                                                                                                                                                                          flutter create --project-name karthik_fitness --no-pub .
-                                                                                                                                                                                    cp pubspec_backup.yaml pubspec.yaml
-                                                                                                                                                                                              rm -rf lib
-                                                                                                                                                                                                        cp -r lib_backup lib
-                                                                                                                                                                                                                  rm -rf lib_backup pubspec_backup.yaml
-                                                                                                                                                                                                                  
-                                                                                                                                                                                                                        - name: Flutter pub get
-                                                                                                                                                                                                                                run: flutter pub get
-                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                      - name: Build APK
-                                                                                                                                                                                                                                              run: flutter build apk --release --no-tree-shake-icons
-                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                    - name: Upload APK artifact
-                                                                                                                                                                                                                                                            uses: actions/upload-artifact@v4
-                                                                                                                                                                                                                                                                    with:
-                                                                                                                                                                                                                                                                              name: karthik-fitness-app
-                                                                                                                                                                                                                                                                                        path: build/app/outputs/flutter-apk/app-release.apk
-                                                                                                                                                                                                                                                                                                  retention-days: 30
+      - name: Generate Android scaffold
+        run: |
+          cp pubspec.yaml pubspec_backup.yaml
+          cp -r lib lib_backup
+          flutter create --project-name karthik_fitness --no-pub .
+          cp pubspec_backup.yaml pubspec.yaml
+          rm -rf lib
+          cp -r lib_backup lib
+          rm -rf lib_backup pubspec_backup.yaml
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: karthik-fitness-app
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
