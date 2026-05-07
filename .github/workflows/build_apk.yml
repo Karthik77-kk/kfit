@@ -1,0 +1,46 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:   # lets you trigger manually from GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout your code
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2. Set up Java 17
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Set up Flutter (stable)
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.0'
+          channel: 'stable'
+          cache: true
+
+      # 4. Install dependencies
+      - name: Flutter pub get
+        run: flutter pub get
+
+      # 5. Build release APK
+      - name: Build APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      # 6. Upload APK so you can download it
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: karthik-fitness-app
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30

@@ -1,0 +1,295 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/fitness_provider.dart';
+import '../services/notification_service.dart';
+
+class WaterScreen extends StatefulWidget {
+  const WaterScreen({super.key});
+
+  @override
+  State<WaterScreen> createState() => _WaterScreenState();
+}
+
+class _WaterScreenState extends State<WaterScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.93).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  void _addWater(BuildContext context, int ml) async {
+    _animController.forward().then((_) => _animController.reverse());
+    await context.read<FitnessProvider>().addWater(ml);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    final pct = (p.todayWaterMl / FitnessProvider.kWaterGoalMl).clamp(0.0, 1.0);
+    final remaining = (FitnessProvider.kWaterGoalMl - p.todayWaterMl).clamp(0, 99999);
+    final goalMet = p.todayWaterMl >= FitnessProvider.kWaterGoalMl;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Water Tracker 💧'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            tooltip: 'Set water reminders',
+            onPressed: () async {
+              await NotificationService().scheduleWaterReminders();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('💧 Water reminders set (9am–6pm)'),
+                  backgroundColor: Color(0xFF5C9BD6),
+                ));
+              }
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // ── Circular water indicator ─────────────────────────────
+                AnimatedBuilder(
+                  animation: _scaleAnim,
+                  builder: (_, child) =>
+                      Transform.scale(scale: _scaleAnim.value, child: child),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: CircularProgressIndicator(
+                          value: pct,
+                          strokeWidth: 14,
+                          backgroundColor: const Color(0xFF5C9BD6).withOpacity(0.15),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            goalMet
+                                ? const Color(0xFF27AE60)
+                                : const Color(0xFF5C9BD6),
+                          ),
+                          strokeCap: StrokeCap.round,
+                        ),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            goalMet ? '🎉' : '💧',
+                            style: const TextStyle(fontSize: 36),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${p.todayWaterMl}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'ml',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Goal info ────────────────────────────────────────────
+                goalMet
+                    ? const Text(
+                        '🎉 Goal reached! Great job!',
+                        style: TextStyle(
+                          color: Color(0xFF27AE60),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : Text(
+                        '${remaining}ml left to reach 2.5L',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.6),
+                          fontSize: 16,
+                        ),
+                      ),
+                const SizedBox(height: 6),
+                Text(
+                  'Goal: ${FitnessProvider.kWaterGoalMl}ml · ${(pct * 100).toInt()}% done',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.35), fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Add buttons ──────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _WaterButton(
+                        label: '+150ml',
+                        sublabel: '½ glass',
+                        color: const Color(0xFF5C9BD6),
+                        onTap: () => _addWater(context, 150),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _WaterButton(
+                        label: '+250ml',
+                        sublabel: '1 glass',
+                        color: const Color(0xFF3A8BC8),
+                        onTap: () => _addWater(context, 250),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _WaterButton(
+                        label: '+500ml',
+                        sublabel: '1 bottle',
+                        color: const Color(0xFF1A6BAA),
+                        onTap: () => _addWater(context, 500),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: p.todayWaterMl > 0
+                          ? () => context.read<FitnessProvider>().removeWater(250)
+                          : null,
+                      icon: const Icon(Icons.remove_circle_outline,
+                          size: 16, color: Colors.white54),
+                      label: const Text('-250ml',
+                          style:
+                              TextStyle(color: Colors.white54, fontSize: 13)),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: p.todayWaterMl > 0
+                          ? () => context.read<FitnessProvider>().removeWater(500)
+                          : null,
+                      icon: const Icon(Icons.remove_circle_outline,
+                          size: 16, color: Colors.white54),
+                      label: const Text('-500ml',
+                          style:
+                              TextStyle(color: Colors.white54, fontSize: 13)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── Progress bar at bottom ───────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text('☀️ Tip:',
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 12)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Drinking water before meals helps control hunger and reduces calorie intake.',
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WaterButton extends StatelessWidget {
+  final String label;
+  final String sublabel;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _WaterButton({
+    required this.label,
+    required this.sublabel,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.5), width: 1.5),
+        ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              sublabel,
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.4), fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
