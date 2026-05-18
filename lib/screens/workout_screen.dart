@@ -93,9 +93,9 @@ class _DoneCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF27AE60).withOpacity(0.15),
+        color: const Color(0xFF30D158).withOpacity(0.15),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF27AE60).withOpacity(0.4)),
+        border: Border.all(color: const Color(0xFF30D158).withOpacity(0.4)),
       ),
       child: Row(
         children: [
@@ -107,7 +107,7 @@ class _DoneCard extends StatelessWidget {
               Text(
                 'Workout ${workout.workoutType.name.toUpperCase()} done today!',
                 style: const TextStyle(
-                    color: Color(0xFF27AE60),
+                    color: Color(0xFF30D158),
                     fontWeight: FontWeight.bold,
                     fontSize: 15),
               ),
@@ -141,13 +141,13 @@ class _WorkoutTypeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = 'Workout ${type.name.toUpperCase()}';
     final color = type == WorkoutType.a
-        ? const Color(0xFFFF6B35)
-        : const Color(0xFF4ECDC4);
+        ? const Color(0xFF30D158)
+        : const Color(0xFF40C8E0);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withOpacity(0.3), width: 1.5),
       ),
@@ -201,14 +201,14 @@ class _WorkoutHistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = workout.workoutType == WorkoutType.a
-        ? const Color(0xFFFF6B35)
-        : const Color(0xFF4ECDC4);
+        ? const Color(0xFF30D158)
+        : const Color(0xFF40C8E0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(12),
         border:
             Border.all(color: Colors.white.withOpacity(0.06), width: 1),
@@ -245,7 +245,7 @@ class _WorkoutHistoryTile extends StatelessWidget {
             ),
           ),
           const Icon(Icons.check_circle,
-              color: Color(0xFF27AE60), size: 18),
+              color: Color(0xFF30D158), size: 18),
         ],
       ),
     );
@@ -260,7 +260,7 @@ class _TipCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF6B35).withOpacity(0.1),
+        color: const Color(0xFF30D158).withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: const Text(
@@ -308,19 +308,24 @@ class _ActiveWorkoutScreenState extends State<_ActiveWorkoutScreen> {
       return ExerciseLog(name: e.name, sets: sets);
     }).toList();
 
+    final provider = context.read<FitnessProvider>();
+    final weightKg = provider.latestWeightKg ?? 70.0;
+    final burned = estimateCaloriesBurned(weightKg, duration.clamp(1, 300));
+
     final log = WorkoutLog(
       id: const Uuid().v4(),
       date: DateTime.now(),
       workoutType: widget.type,
       exercises: exercises,
       durationMinutes: duration,
+      caloriesBurned: burned,
     );
 
-    context.read<FitnessProvider>().logWorkout(log);
+    provider.logWorkout(log);
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       content: Text('🏋️ Workout saved! Great work!'),
-      backgroundColor: Color(0xFF27AE60),
+      backgroundColor: Color(0xFF30D158),
       duration: Duration(seconds: 2),
     ));
   }
@@ -328,11 +333,11 @@ class _ActiveWorkoutScreenState extends State<_ActiveWorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     final color = widget.type == WorkoutType.a
-        ? const Color(0xFFFF6B35)
-        : const Color(0xFF4ECDC4);
+        ? const Color(0xFF30D158)
+        : const Color(0xFF40C8E0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: const Colors.black,
       appBar: AppBar(
         title: Text('Workout ${widget.type.name.toUpperCase()} 💪'),
         actions: [
@@ -370,7 +375,7 @@ class _ActiveWorkoutScreenState extends State<_ActiveWorkoutScreen> {
             label: const Text('Save Workout',
                 style: TextStyle(color: Colors.white, fontSize: 16)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF27AE60),
+              backgroundColor: const Color(0xFF30D158),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
@@ -422,7 +427,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
             color: widget.color.withOpacity(0.2), width: 1),

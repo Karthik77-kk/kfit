@@ -25,7 +25,7 @@ class FoodScreen extends StatelessWidget {
                   style: TextStyle(
                     color: p.todayCalories > FitnessProvider.kCalorieGoal
                         ? Colors.redAccent
-                        : const Color(0xFFFF6B35),
+                        : const Color(0xFF30D158),
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -42,7 +42,7 @@ class FoodScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddFoodSheet(context),
-        backgroundColor: const Color(0xFFFF6B35),
+        backgroundColor: const Color(0xFF30D158),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Add Food', style: TextStyle(color: Colors.white)),
       ),
@@ -84,7 +84,7 @@ class FoodScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1C1C1E),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -203,7 +203,7 @@ class _FoodEntryTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(12),
         border:
             Border.all(color: Colors.white.withOpacity(0.06), width: 1),
@@ -223,7 +223,7 @@ class _FoodEntryTile extends StatelessWidget {
               Text(
                 '${entry.calories.toInt()} kcal',
                 style: const TextStyle(
-                  color: Color(0xFFFF6B35),
+                  color: Color(0xFF30D158),
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
@@ -231,7 +231,7 @@ class _FoodEntryTile extends StatelessWidget {
               Text(
                 '${entry.protein.toStringAsFixed(1)}g protein',
                 style: TextStyle(
-                    color: const Color(0xFF4ECDC4).withOpacity(0.8),
+                    color: const Color(0xFF40C8E0).withOpacity(0.8),
                     fontSize: 11),
               ),
             ],
@@ -302,7 +302,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     Navigator.pop(ctx);
     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
       content: Text('${item.name} added ✓'),
-      backgroundColor: const Color(0xFF27AE60),
+      backgroundColor: const Color(0xFF30D158),
       duration: const Duration(seconds: 1),
     ));
   }
@@ -379,7 +379,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                             horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
                           color: selected
-                              ? const Color(0xFFFF6B35)
+                              ? const Color(0xFF30D158)
                               : Colors.white.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -430,12 +430,12 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       icon: Icon(
                         _showCustom ? Icons.expand_less : Icons.add,
                         size: 18,
-                        color: const Color(0xFF4ECDC4),
+                        color: const Color(0xFF40C8E0),
                       ),
                       label: Text(
                         _showCustom ? 'Hide custom entry' : 'Add custom food',
                         style: const TextStyle(
-                            color: Color(0xFF4ECDC4), fontSize: 13),
+                            color: Color(0xFF40C8E0), fontSize: 13),
                       ),
                     ),
                   ],
@@ -469,7 +469,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       ElevatedButton(
                         onPressed: () => _addCustom(context),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF6B35),
+                          backgroundColor: const Color(0xFF30D158),
                           padding: const EdgeInsets.all(12),
                           minimumSize: Size.zero,
                         ),
@@ -503,7 +503,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.add_circle,
-                            color: Color(0xFFFF6B35)),
+                            color: Color(0xFF30D158)),
                         onPressed: () => _addItem(context, item),
                       ),
                     );

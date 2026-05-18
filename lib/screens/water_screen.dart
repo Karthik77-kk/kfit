@@ -57,7 +57,7 @@ class _WaterScreenState extends State<WaterScreen>
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                   content: Text('💧 Water reminders set (9am–6pm)'),
-                  backgroundColor: Color(0xFF5C9BD6),
+                  backgroundColor: Color(0xFF40C8E0),
                 ));
               }
             },
@@ -84,11 +84,11 @@ class _WaterScreenState extends State<WaterScreen>
                         child: CircularProgressIndicator(
                           value: pct,
                           strokeWidth: 14,
-                          backgroundColor: const Color(0xFF5C9BD6).withOpacity(0.15),
+                          backgroundColor: const Color(0xFF40C8E0).withOpacity(0.15),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             goalMet
-                                ? const Color(0xFF27AE60)
-                                : const Color(0xFF5C9BD6),
+                                ? const Color(0xFF30D158)
+                                : const Color(0xFF40C8E0),
                           ),
                           strokeCap: StrokeCap.round,
                         ),
@@ -128,7 +128,7 @@ class _WaterScreenState extends State<WaterScreen>
                     ? const Text(
                         '🎉 Goal reached! Great job!',
                         style: TextStyle(
-                          color: Color(0xFF27AE60),
+                          color: Color(0xFF30D158),
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -161,7 +161,7 @@ class _WaterScreenState extends State<WaterScreen>
                       child: _WaterButton(
                         label: '+150ml',
                         sublabel: '½ glass',
-                        color: const Color(0xFF5C9BD6),
+                        color: const Color(0xFF40C8E0),
                         onTap: () => _addWater(context, 150),
                       ),
                     ),

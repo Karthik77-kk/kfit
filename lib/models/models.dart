@@ -77,6 +77,7 @@ class WorkoutLog {
   final WorkoutType workoutType;
   final List<ExerciseLog> exercises;
   final int durationMinutes;
+  final int caloriesBurned;
 
   WorkoutLog({
     required this.id,
@@ -84,6 +85,7 @@ class WorkoutLog {
     required this.workoutType,
     required this.exercises,
     required this.durationMinutes,
+    this.caloriesBurned = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -92,6 +94,7 @@ class WorkoutLog {
         'workoutType': workoutType.index,
         'exercises': exercises.map((e) => e.toJson()).toList(),
         'durationMinutes': durationMinutes,
+        'caloriesBurned': caloriesBurned,
       };
 
   factory WorkoutLog.fromJson(Map<String, dynamic> j) => WorkoutLog(
@@ -101,6 +104,37 @@ class WorkoutLog {
         exercises:
             (j['exercises'] as List).map((e) => ExerciseLog.fromJson(e)).toList(),
         durationMinutes: j['durationMinutes'] ?? 0,
+        caloriesBurned: j['caloriesBurned'] ?? 0,
+      );
+}
+
+// ─── Body Entry ───────────────────────────────────────────────────────────────
+
+class BodyEntry {
+  final String id;
+  final DateTime date;
+  final double weightKg;
+  final int steps;
+
+  BodyEntry({
+    required this.id,
+    required this.date,
+    required this.weightKg,
+    this.steps = 0,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'date': date.toIso8601String(),
+        'weightKg': weightKg,
+        'steps': steps,
+      };
+
+  factory BodyEntry.fromJson(Map<String, dynamic> j) => BodyEntry(
+        id: j['id'],
+        date: DateTime.parse(j['date']),
+        weightKg: (j['weightKg'] as num).toDouble(),
+        steps: j['steps'] ?? 0,
       );
 }
 
@@ -160,26 +194,56 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Paneer Bhurji (100g)', calories: 200, protein: 16, category: 'Protein', emoji: '🧆'),
   FoodItem(name: 'Dal (200ml)', calories: 120, protein: 8, category: 'Protein', emoji: '🫘'),
   FoodItem(name: 'Whey Protein Scoop (1)', calories: 120, protein: 24, category: 'Supplement', emoji: '💪'),
+  FoodItem(name: 'Rajma (150g)', calories: 195, protein: 12, category: 'Protein', emoji: '🫘'),
+  FoodItem(name: 'Chole (150g)', calories: 210, protein: 11, category: 'Protein', emoji: '🫘'),
   // Carbs
   FoodItem(name: 'Oats (40g)', calories: 148, protein: 5, category: 'Carbs', emoji: '🥣'),
   FoodItem(name: 'Roti (1)', calories: 104, protein: 3, category: 'Carbs', emoji: '🫓'),
   FoodItem(name: 'Brown Bread (1 slice)', calories: 69, protein: 3, category: 'Carbs', emoji: '🍞'),
   FoodItem(name: 'Rice (100g cooked)', calories: 130, protein: 2.7, category: 'Carbs', emoji: '🍚'),
   FoodItem(name: 'Biryani (1 plate)', calories: 450, protein: 20, category: 'Carbs', emoji: '🍚'),
+  FoodItem(name: 'Idli (2 pieces)', calories: 140, protein: 4, category: 'Carbs', emoji: '🫓'),
+  FoodItem(name: 'Dosa (1 plain)', calories: 165, protein: 4, category: 'Carbs', emoji: '🫓'),
+  FoodItem(name: 'Upma (1 bowl)', calories: 175, protein: 5, category: 'Carbs', emoji: '🥣'),
+  FoodItem(name: 'Paratha (1)', calories: 200, protein: 4, category: 'Carbs', emoji: '🫓'),
+  FoodItem(name: 'Poha (1 bowl)', calories: 180, protein: 4, category: 'Carbs', emoji: '🥣'),
   // Fruits & Dairy
   FoodItem(name: 'Banana (1)', calories: 89, protein: 1, category: 'Fruits', emoji: '🍌'),
   FoodItem(name: 'Apple (1)', calories: 52, protein: 0.3, category: 'Fruits', emoji: '🍎'),
   FoodItem(name: 'Milk (200ml)', calories: 122, protein: 6.4, category: 'Dairy', emoji: '🥛'),
+  FoodItem(name: 'Curd/Yogurt (100g)', calories: 60, protein: 3.5, category: 'Dairy', emoji: '🥛'),
+  FoodItem(name: 'Mango (1 medium)', calories: 135, protein: 1.4, category: 'Fruits', emoji: '🥭'),
   // Nuts & Extras
   FoodItem(name: 'Almonds (10g)', calories: 58, protein: 2, category: 'Nuts', emoji: '🌰'),
   FoodItem(name: 'Walnuts (10g)', calories: 65, protein: 1.5, category: 'Nuts', emoji: '🫑'),
   FoodItem(name: 'Mixed Salad', calories: 50, protein: 2, category: 'Veggies', emoji: '🥗'),
   FoodItem(name: 'Black Coffee', calories: 2, protein: 0.3, category: 'Drinks', emoji: '☕'),
   FoodItem(name: 'Tea (no sugar)', calories: 5, protein: 0, category: 'Drinks', emoji: '🍵'),
+  FoodItem(name: 'Samosa (1)', calories: 240, protein: 4, category: 'Snacks', emoji: '🥟'),
+  FoodItem(name: 'Peanuts (30g)', calories: 170, protein: 8, category: 'Nuts', emoji: '🥜'),
 ];
 
 // Workout A & B templates
 const Map<WorkoutType, List<String>> kWorkoutExercises = {
-  WorkoutType.a: ['Push-ups', 'Squats', 'Bicep Curls', 'Plank (hold)'],
-  WorkoutType.b: ['Shoulder Press', 'Bent-over Rows', 'Forearm Curls', 'Lunges'],
+  WorkoutType.a: [
+    'Push-ups',
+    'Squats',
+    'Bicep Curls',
+    'Plank (hold)',
+    'Tricep Dips',
+  ],
+  WorkoutType.b: [
+    'Shoulder Press',
+    'Bent-over Rows',
+    'Forearm Curls',
+    'Lunges',
+    'Lat Pulldown',
+  ],
 };
+
+// Calorie burn estimate: MET * weight * duration
+// Strength training MET ≈ 5
+int estimateCaloriesBurned(double weightKg, int durationMinutes) {
+  const double met = 5.0;
+  return ((met * weightKg * durationMinutes) / 60).round();
+}

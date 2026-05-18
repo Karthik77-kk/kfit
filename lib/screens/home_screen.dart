@@ -1,8 +1,17 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+
+// ─── Apple Fitness design tokens ──────────────────────────────────────────────
+const _kGreen = Color(0xFF30D158);
+const _kBlue = Color(0xFF40C8E0);
+const _kRed = Color(0xFFFF453A);
+const _kOrange = Color(0xFFFF9F0A);
+const _kCard = Color(0xFF1C1C1E);
+const _kSecondary = Color(0xFF8E8E93);
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -17,193 +26,138 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
-    final today = DateFormat('EEEE, d MMMM').format(DateTime.now());
+    final today = DateFormat('EEEE, MMMM d').format(DateTime.now());
 
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Header ──────────────────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      backgroundColor: Colors.black,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 100,
+            pinned: true,
+            backgroundColor: Colors.black,
+            surfaceTintColor: Colors.transparent,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding:
+                  const EdgeInsets.only(left: 20, bottom: 14, right: 20),
+              title: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Text(
+                    today,
+                    style: const TextStyle(
+                      color: _kSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  Text(
+                    '${_greeting()}, Karthik',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16, top: 8),
+                child: _StreakBadge(streak: p.workoutStreak),
+              ),
+            ],
+          ),
+
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _SectionHeader(title: "Today's Activity"),
+                const SizedBox(height: 12),
+                _ActivityRingsCard(provider: p),
+                const SizedBox(height: 24),
+
+                const _SectionHeader(title: 'Move'),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _MetricTile(
+                        label: 'Steps',
+                        value: '${p.todaySteps}',
+                        goal: '/ ${FitnessProvider.kStepGoal}',
+                        icon: Icons.directions_walk_rounded,
+                        color: _kBlue,
+                        progress: p.stepProgress,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _MetricTile(
+                        label: 'Cal Burned',
+                        value: '${p.todayCaloriesBurned}',
+                        goal: 'kcal',
+                        icon: Icons.local_fire_department_rounded,
+                        color: _kRed,
+                        progress: p.todayCaloriesBurned > 0 ? 1.0 : 0.0,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                const _SectionHeader(title: 'Nutrition'),
+                const SizedBox(height: 12),
+                _NutritionCard(provider: p),
+                const SizedBox(height: 24),
+
+                const _SectionHeader(title: 'Workout'),
+                const SizedBox(height: 12),
+                _WorkoutCard(workout: p.todayWorkout),
+                const SizedBox(height: 24),
+
+                const _SectionHeader(title: 'Supplements'),
+                const SizedBox(height: 12),
+                _SupplementsCard(supp: p.supplements),
+                const SizedBox(height: 24),
+
+                if (p.latestWeightKg != null) ...[
+                  const _SectionHeader(title: 'Body'),
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
-                      Text(
-                        '${_greeting()}, Karthik 👋',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      Expanded(
+                        child: _MetricTile(
+                          label: 'Weight',
+                          value: p.latestWeightKg!.toStringAsFixed(1),
+                          goal: 'kg',
+                          icon: Icons.monitor_weight_outlined,
+                          color: _kOrange,
+                          progress: -1,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        today,
-                        style: TextStyle(
-                            color: Colors.white.withOpacity(0.5), fontSize: 13),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _MetricTile(
+                          label: 'BMI',
+                          value: p.bmi?.toStringAsFixed(1) ?? '--',
+                          goal: p.bmiCategory,
+                          icon: Icons.health_and_safety_outlined,
+                          color: p.bmiColor(context),
+                          progress: -1,
+                        ),
                       ),
                     ],
                   ),
-                  _WorkoutStreakBadge(streak: p.workoutStreak),
+                  const SizedBox(height: 24),
                 ],
-              ),
-              const SizedBox(height: 20),
 
-              // ── Calories card ───────────────────────────────────────────
-              _MacroCard(
-                title: 'Calories',
-                current: p.todayCalories.toInt(),
-                goal: FitnessProvider.kCalorieGoal,
-                unit: 'kcal',
-                progress: p.calorieProgress,
-                color: const Color(0xFFFF6B35),
-                icon: Icons.local_fire_department,
-              ),
-              const SizedBox(height: 12),
-
-              // ── Protein & Water row ─────────────────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: _MacroCard(
-                      title: 'Protein',
-                      current: p.todayProtein.toInt(),
-                      goal: FitnessProvider.kProteinGoal,
-                      unit: 'g',
-                      progress: p.proteinProgress,
-                      color: const Color(0xFF4ECDC4),
-                      icon: Icons.egg_alt,
-                      compact: true,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MacroCard(
-                      title: 'Water',
-                      current: p.todayWaterMl,
-                      goal: FitnessProvider.kWaterGoalMl,
-                      unit: 'ml',
-                      progress: p.waterProgress,
-                      color: const Color(0xFF5C9BD6),
-                      icon: Icons.water_drop,
-                      compact: true,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // ── Supplements row ─────────────────────────────────────────
-              _SupplementCard(supp: p.supplements),
-              const SizedBox(height: 12),
-
-              // ── Workout card ────────────────────────────────────────────
-              _WorkoutCard(workout: p.todayWorkout),
-              const SizedBox(height: 12),
-
-              // ── Tip card ────────────────────────────────────────────────
-              _TipCard(calories: p.todayCalories, protein: p.todayProtein),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Macro progress card ────────────────────────────────────────────────────────
-
-class _MacroCard extends StatelessWidget {
-  final String title;
-  final int current;
-  final int goal;
-  final String unit;
-  final double progress;
-  final Color color;
-  final IconData icon;
-  final bool compact;
-
-  const _MacroCard({
-    required this.title,
-    required this.current,
-    required this.goal,
-    required this.unit,
-    required this.progress,
-    required this.color,
-    required this.icon,
-    this.compact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(compact ? 14 : 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.25), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: compact ? 16 : 20),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: compact ? 12 : 13,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${(progress * 100).toInt()}%',
-                style: TextStyle(
-                  color: color,
-                  fontSize: compact ? 11 : 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: compact ? 8 : 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '$current',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: compact ? 22 : 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                ' / $goal $unit',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
-                  fontSize: compact ? 11 : 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: compact ? 6 : 8,
-              backgroundColor: color.withOpacity(0.15),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
+                _SmartTip(calories: p.todayCalories, protein: p.todayProtein),
+              ]),
             ),
           ),
         ],
@@ -212,92 +166,48 @@ class _MacroCard extends StatelessWidget {
   }
 }
 
-// ── Supplement status card ─────────────────────────────────────────────────────
-
-class _SupplementCard extends StatelessWidget {
-  final SupplementStatus supp;
-  const _SupplementCard({required this.supp});
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: const Color(0xFF9B59B6).withOpacity(0.25), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.medication, color: Color(0xFF9B59B6), size: 18),
-              const SizedBox(width: 6),
-              Text(
-                'Supplements Today',
-                style: TextStyle(
-                    color: Colors.white.withOpacity(0.6), fontSize: 13),
-              ),
-              const Spacer(),
-              Text(
-                '${supp.takenCount}/3',
-                style: const TextStyle(
-                  color: Color(0xFF9B59B6),
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _SuppPill(label: 'Whey', taken: supp.whey, emoji: '💪'),
-              _SuppPill(label: 'Creatine', taken: supp.creatine, emoji: '⚡'),
-              _SuppPill(label: 'Multivit', taken: supp.multivitamin, emoji: '🌿'),
-            ],
-          ),
-        ],
+    return Text(
+      title.toUpperCase(),
+      style: const TextStyle(
+        color: _kSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.8,
       ),
     );
   }
 }
 
-class _SuppPill extends StatelessWidget {
-  final String label;
-  final bool taken;
-  final String emoji;
-  const _SuppPill({required this.label, required this.taken, required this.emoji});
+class _StreakBadge extends StatelessWidget {
+  final int streak;
+  const _StreakBadge({required this.streak});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: taken
-            ? const Color(0xFF27AE60).withOpacity(0.2)
-            : Colors.white.withOpacity(0.05),
+        color: _kRed.withOpacity(0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: taken
-              ? const Color(0xFF27AE60).withOpacity(0.5)
-              : Colors.white.withOpacity(0.1),
-        ),
+        border: Border.all(color: _kRed.withOpacity(0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(taken ? '✅' : emoji, style: const TextStyle(fontSize: 13)),
+          const Text('🔥', style: TextStyle(fontSize: 14)),
           const SizedBox(width: 4),
           Text(
-            label,
-            style: TextStyle(
-              color: taken ? const Color(0xFF27AE60) : Colors.white.withOpacity(0.5),
+            '$streak day${streak == 1 ? "" : "s"}',
+            style: const TextStyle(
+              color: _kRed,
               fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -306,68 +216,60 @@ class _SuppPill extends StatelessWidget {
   }
 }
 
-// ── Workout card ───────────────────────────────────────────────────────────────
-
-class _WorkoutCard extends StatelessWidget {
-  final WorkoutLog? workout;
-  const _WorkoutCard({this.workout});
+class _ActivityRingsCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _ActivityRingsCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: workout != null
-              ? const Color(0xFF27AE60).withOpacity(0.4)
-              : const Color(0xFFFF6B35).withOpacity(0.25),
-          width: 1,
-        ),
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: workout != null
-                  ? const Color(0xFF27AE60).withOpacity(0.15)
-                  : const Color(0xFFFF6B35).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              workout != null ? Icons.check_circle : Icons.fitness_center,
-              color: workout != null
-                  ? const Color(0xFF27AE60)
-                  : const Color(0xFFFF6B35),
-              size: 22,
+          SizedBox(
+            width: 110,
+            height: 110,
+            child: CustomPaint(
+              painter: _RingsPainter(
+                rings: [
+                  _Ring(provider.calorieProgress, _kRed),
+                  _Ring(provider.proteinProgress, _kGreen),
+                  _Ring(provider.waterProgress, _kBlue),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  workout != null
-                      ? 'Workout ${workout!.workoutType.name.toUpperCase()} ✅'
-                      : "Today's Workout",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
+                _RingLegendRow(
+                  color: _kRed,
+                  label: 'Calories',
+                  value:
+                      '${provider.todayCalories.toInt()} / ${FitnessProvider.kCalorieGoal} kcal',
+                  progress: provider.calorieProgress,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  workout != null
-                      ? '${workout!.durationMinutes} min · ${workout!.exercises.length} exercises logged'
-                      : 'Not logged yet — head to Workout tab!',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 12,
-                  ),
+                const SizedBox(height: 14),
+                _RingLegendRow(
+                  color: _kGreen,
+                  label: 'Protein',
+                  value:
+                      '${provider.todayProtein.toInt()} / ${FitnessProvider.kProteinGoal}g',
+                  progress: provider.proteinProgress,
+                ),
+                const SizedBox(height: 14),
+                _RingLegendRow(
+                  color: _kBlue,
+                  label: 'Water',
+                  value:
+                      '${provider.todayWaterMl} / ${FitnessProvider.kWaterGoalMl}ml',
+                  progress: provider.waterProgress,
                 ),
               ],
             ),
@@ -378,47 +280,146 @@ class _WorkoutCard extends StatelessWidget {
   }
 }
 
-// ── Streak badge ───────────────────────────────────────────────────────────────
+class _Ring {
+  final double progress;
+  final Color color;
+  _Ring(this.progress, this.color);
+}
 
-class _WorkoutStreakBadge extends StatelessWidget {
-  final int streak;
-  const _WorkoutStreakBadge({required this.streak});
+class _RingsPainter extends CustomPainter {
+  final List<_Ring> rings;
+  _RingsPainter({required this.rings});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const strokeWidth = 12.0;
+    const gap = 6.0;
+
+    for (int i = 0; i < rings.length; i++) {
+      final radius =
+          (size.width / 2) - (i * (strokeWidth + gap)) - strokeWidth / 2;
+      final ring = rings[i];
+
+      final trackPaint = Paint()
+        ..color = ring.color.withOpacity(0.15)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+      canvas.drawCircle(center, radius, trackPaint);
+
+      final progressPaint = Paint()
+        ..color = ring.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+      final sweepAngle = 2 * math.pi * ring.progress.clamp(0.0, 1.0);
+      if (sweepAngle > 0) {
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: radius),
+          -math.pi / 2,
+          sweepAngle,
+          false,
+          progressPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingsPainter old) => true;
+}
+
+class _RingLegendRow extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String value;
+  final double progress;
+
+  const _RingLegendRow({
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: _kSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${(progress * 100).toInt()}%',
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NutritionCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _NutritionCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF6B35).withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: const Color(0xFFFF6B35).withOpacity(0.4), width: 1),
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
         children: [
-          const Text('🔥', style: TextStyle(fontSize: 16)),
-          const SizedBox(width: 4),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                '$streak',
-                style: const TextStyle(
-                  color: Color(0xFFFF6B35),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  height: 1.1,
-                ),
-              ),
-              Text(
-                'streak',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 10,
-                ),
-              ),
-            ],
+          _NutritionRow(
+            label: 'Calories',
+            current: provider.todayCalories.toInt(),
+            goal: FitnessProvider.kCalorieGoal,
+            unit: 'kcal',
+            color: _kRed,
+            progress: provider.calorieProgress,
+          ),
+          const SizedBox(height: 4),
+          const Divider(height: 20),
+          _NutritionRow(
+            label: 'Protein',
+            current: provider.todayProtein.toInt(),
+            goal: FitnessProvider.kProteinGoal,
+            unit: 'g',
+            color: _kGreen,
+            progress: provider.proteinProgress,
           ),
         ],
       ),
@@ -426,41 +427,304 @@ class _WorkoutStreakBadge extends StatelessWidget {
   }
 }
 
-// ── Daily tip card ─────────────────────────────────────────────────────────────
+class _NutritionRow extends StatelessWidget {
+  final String label;
+  final int current;
+  final int goal;
+  final String unit;
+  final Color color;
+  final double progress;
 
-class _TipCard extends StatelessWidget {
+  const _NutritionRow({
+    required this.label,
+    required this.current,
+    required this.goal,
+    required this.unit,
+    required this.color,
+    required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500),
+            ),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: '$current',
+                    style: TextStyle(
+                        color: color,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700),
+                  ),
+                  TextSpan(
+                    text: ' / $goal $unit',
+                    style: const TextStyle(color: _kSecondary, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 4,
+            backgroundColor: color.withOpacity(0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final String goal;
+  final IconData icon;
+  final Color color;
+  final double progress;
+
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.goal,
+    required this.icon,
+    required this.color,
+    required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: const TextStyle(
+              color: _kSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
+          ),
+          Text(
+            goal,
+            style: const TextStyle(color: _kSecondary, fontSize: 12),
+          ),
+          if (progress >= 0) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 4,
+                backgroundColor: color.withOpacity(0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkoutCard extends StatelessWidget {
+  final WorkoutLog? workout;
+  const _WorkoutCard({this.workout});
+
+  @override
+  Widget build(BuildContext context) {
+    final done = workout != null;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: done
+                  ? _kGreen.withOpacity(0.15)
+                  : _kOrange.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              done ? Icons.check_rounded : Icons.fitness_center_rounded,
+              color: done ? _kGreen : _kOrange,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  done
+                      ? 'Workout ${workout!.workoutType.name.toUpperCase()} Complete'
+                      : 'No Workout Yet',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  done
+                      ? '${workout!.durationMinutes} min · ${workout!.exercises.length} exercises · ${workout!.caloriesBurned} kcal'
+                      : 'Tap Workout tab to log today\'s session',
+                  style: const TextStyle(color: _kSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupplementsCard extends StatelessWidget {
+  final SupplementStatus supp;
+  const _SupplementsCard({required this.supp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _SuppChip(label: 'Whey', emoji: '💪', taken: supp.whey),
+          _SuppChip(label: 'Creatine', emoji: '⚡', taken: supp.creatine),
+          _SuppChip(label: 'Multivit', emoji: '🌿', taken: supp.multivitamin),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuppChip extends StatelessWidget {
+  final String label;
+  final String emoji;
+  final bool taken;
+  const _SuppChip(
+      {required this.label, required this.emoji, required this.taken});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: taken
+            ? _kGreen.withOpacity(0.12)
+            : Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: taken ? _kGreen.withOpacity(0.4) : Colors.white.withOpacity(0.08),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(taken ? '✅' : emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: taken ? _kGreen : _kSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SmartTip extends StatelessWidget {
   final double calories;
   final double protein;
-  const _TipCard({required this.calories, required this.protein});
+  const _SmartTip({required this.calories, required this.protein});
 
   String _tip() {
-    if (protein < 50) return '⚡ Protein is low — add eggs, chicken or a whey scoop to hit your 100g goal.';
-    if (calories < 800) return '🍽️ You\'ve eaten very little today. Make sure you fuel those muscles!';
-    if (calories > 1800) return '⚠️ Close to calorie limit. Keep dinner low-carb to stay in the deficit.';
-    if (protein >= 80) return '💪 Great protein intake today! Keep it up — muscle preservation on track.';
+    if (protein < 50) {
+      return '⚡ Protein is low — add eggs, chicken, or a whey scoop to hit your 100g goal.';
+    }
+    if (calories < 800) {
+      return '🍽️ You have eaten very little today. Make sure you fuel those muscles!';
+    }
+    if (calories > 1800) {
+      return '⚠️ Close to calorie limit. Keep dinner light to stay in your deficit.';
+    }
+    if (protein >= 80) {
+      return '💪 Solid protein intake! Muscle preservation is on track — keep it up.';
+    }
     return '👊 Consistency is your biggest weapon. Hit your targets and results will follow!';
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFFF6B35).withOpacity(0.15),
-            const Color(0xFF4ECDC4).withOpacity(0.10),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(14),
+        color: _kGreen.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kGreen.withOpacity(0.2), width: 1),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(width: 4),
+          const Icon(Icons.lightbulb_outline_rounded, color: _kGreen, size: 18),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               _tip(),
-              style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+              style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.5),
             ),
           ),
         ],

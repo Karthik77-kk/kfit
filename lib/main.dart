@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
 import 'screens/home_screen.dart';
@@ -6,11 +7,20 @@ import 'screens/food_screen.dart';
 import 'screens/water_screen.dart';
 import 'screens/workout_screen.dart';
 import 'screens/supplements_screen.dart';
+import 'screens/stats_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Color(0xFF000000),
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
   await NotificationService().initialize();
+  await NotificationService().scheduleWaterReminders();
+  await NotificationService().scheduleSupplementReminders();
   runApp(
     ChangeNotifierProvider(
       create: (_) => FitnessProvider()..loadData(),
@@ -28,37 +38,78 @@ class KarthikFitnessApp extends StatelessWidget {
       title: 'Karthik Fitness',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        brightness: Brightness.dark,
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFF6B35),
-          secondary: Color(0xFF4ECDC4),
-          surface: Color(0xFF1A1A2E),
-          onPrimary: Colors.white,
+          primary: Color(0xFF30D158),
+          secondary: Color(0xFF40C8E0),
+          surface: Color(0xFF1C1C1E),
+          onPrimary: Colors.black,
           onSurface: Colors.white,
+          error: Color(0xFFFF453A),
         ),
-        scaffoldBackgroundColor: const Color(0xFF0F0F1A),
-        cardColor: const Color(0xFF1A1A2E),
+        scaffoldBackgroundColor: Colors.black,
+        cardColor: const Color(0xFF1C1C1E),
         useMaterial3: true,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0F0F1A),
+          backgroundColor: Colors.black,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           titleTextStyle: TextStyle(
             color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
           ),
           iconTheme: IconThemeData(color: Colors.white),
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+          ),
         ),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Color(0xFF1A1A2E),
-          selectedItemColor: Color(0xFFFF6B35),
-          unselectedItemColor: Color(0xFF6B7280),
+          backgroundColor: Color(0xFF111111),
+          selectedItemColor: Color(0xFF30D158),
+          unselectedItemColor: Color(0xFF8E8E93),
           type: BottomNavigationBarType.fixed,
-          selectedLabelStyle:
-              TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-          unselectedLabelStyle: TextStyle(fontSize: 11),
+          elevation: 0,
+          selectedLabelStyle: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.1,
+          ),
+          unselectedLabelStyle: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w400,
+          ),
         ),
         snackBarTheme: const SnackBarThemeData(
-          backgroundColor: Color(0xFF1A1A2E),
+          backgroundColor: Color(0xFF2C2C2E),
+          contentTextStyle: TextStyle(color: Colors.white),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF2C2C2E),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF30D158), width: 1.5),
+          ),
+          hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
+          labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFF38383A),
+          thickness: 0.5,
         ),
       ),
       home: const MainNavigationScreen(),
@@ -81,6 +132,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     FoodScreen(),
     WaterScreen(),
     WorkoutScreen(),
+    StatsScreen(),
     SupplementsScreen(),
   ];
 
@@ -91,31 +143,48 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         index: _index,
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              activeIcon: Icon(Icons.dashboard),
-              label: 'Home'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.restaurant_outlined),
-              activeIcon: Icon(Icons.restaurant),
-              label: 'Food'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.water_drop_outlined),
-              activeIcon: Icon(Icons.water_drop),
-              label: 'Water'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center_outlined),
-              activeIcon: Icon(Icons.fitness_center),
-              label: 'Workout'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.medication_outlined),
-              activeIcon: Icon(Icons.medication),
-              label: 'Supps'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: Color(0xFF38383A), width: 0.5),
+          ),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _index,
+          onTap: (i) => setState(() => _index = i),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.house_outlined, size: 24),
+              activeIcon: Icon(Icons.house_rounded, size: 24),
+              label: 'Summary',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.restaurant_menu_outlined, size: 24),
+              activeIcon: Icon(Icons.restaurant_menu_rounded, size: 24),
+              label: 'Food',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.water_drop_outlined, size: 24),
+              activeIcon: Icon(Icons.water_drop_rounded, size: 24),
+              label: 'Water',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.fitness_center_outlined, size: 24),
+              activeIcon: Icon(Icons.fitness_center_rounded, size: 24),
+              label: 'Workout',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart_outlined, size: 24),
+              activeIcon: Icon(Icons.bar_chart_rounded, size: 24),
+              label: 'Stats',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.medication_liquid_outlined, size: 24),
+              activeIcon: Icon(Icons.medication_liquid_rounded, size: 24),
+              label: 'Supps',
+            ),
+          ],
+        ),
       ),
     );
   }

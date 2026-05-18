@@ -22,7 +22,7 @@ class SupplementsScreen extends StatelessWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                   content: Text('⏰ Supplement reminders set!'),
-                  backgroundColor: Color(0xFF9B59B6),
+                  backgroundColor: Color(0xFF40C8E0),
                 ));
               }
             },
@@ -44,7 +44,7 @@ class SupplementsScreen extends StatelessWidget {
             amount: '1 scoop (25g protein)',
             timing: 'Post-workout · or anytime',
             tip: 'Mix with 200ml water or milk. 2 scoops only if dietary protein is low.',
-            color: const Color(0xFFFF6B35),
+            color: const Color(0xFF30D158),
             taken: p.supplements.whey,
             onToggle: (val) => p.updateSupplement('whey', val),
           ),
@@ -57,7 +57,7 @@ class SupplementsScreen extends StatelessWidget {
             amount: '3–5g daily',
             timing: 'Any time · Every day (incl. rest days)',
             tip: 'No loading phase needed. Can mix with whey or plain water. Take it consistently.',
-            color: const Color(0xFF4ECDC4),
+            color: const Color(0xFF40C8E0),
             taken: p.supplements.creatine,
             onToggle: (val) => p.updateSupplement('creatine', val),
           ),
@@ -70,7 +70,7 @@ class SupplementsScreen extends StatelessWidget {
             amount: '1 tablet daily',
             timing: 'After breakfast — always with food',
             tip: 'Covers micronutrient gaps. Not a substitute for a good diet, but great as backup.',
-            color: const Color(0xFF9B59B6),
+            color: const Color(0xFF40C8E0),
             taken: p.supplements.multivitamin,
             onToggle: (val) => p.updateSupplement('multivitamin', val),
           ),
@@ -109,19 +109,19 @@ class _ProgressHeader extends StatelessWidget {
         gradient: LinearGradient(
           colors: taken == 3
               ? [
-                  const Color(0xFF27AE60).withOpacity(0.25),
-                  const Color(0xFF27AE60).withOpacity(0.10),
+                  const Color(0xFF30D158).withOpacity(0.25),
+                  const Color(0xFF30D158).withOpacity(0.10),
                 ]
               : [
-                  const Color(0xFF9B59B6).withOpacity(0.2),
-                  const Color(0xFF9B59B6).withOpacity(0.08),
+                  const Color(0xFF40C8E0).withOpacity(0.2),
+                  const Color(0xFF40C8E0).withOpacity(0.08),
                 ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: taken == 3
-              ? const Color(0xFF27AE60).withOpacity(0.4)
-              : const Color(0xFF9B59B6).withOpacity(0.3),
+              ? const Color(0xFF30D158).withOpacity(0.4)
+              : const Color(0xFF40C8E0).withOpacity(0.3),
         ),
       ),
       child: Row(
@@ -138,15 +138,15 @@ class _ProgressHeader extends StatelessWidget {
                   backgroundColor: Colors.white.withOpacity(0.1),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     taken == 3
-                        ? const Color(0xFF27AE60)
-                        : const Color(0xFF9B59B6),
+                        ? const Color(0xFF30D158)
+                        : const Color(0xFF40C8E0),
                   ),
                 ),
                 Text(
                   '$taken/3',
                   style: TextStyle(
                     color: taken == 3
-                        ? const Color(0xFF27AE60)
+                        ? const Color(0xFF30D158)
                         : Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -216,7 +216,7 @@ class _SupplementCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: taken
             ? color.withOpacity(0.12)
-            : const Color(0xFF1A1A2E),
+            : const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: taken ? color.withOpacity(0.5) : color.withOpacity(0.2),
