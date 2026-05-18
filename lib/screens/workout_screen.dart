@@ -183,7 +183,7 @@ class _WorkoutTypeCard extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 10),
               ),
-              child: const Text('Start', fontWeight: FontWeight.bold),
+              child: const Text('Start', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
