@@ -50,23 +50,27 @@ class NotificationService {
     // 9am, 11am, 1pm, 3pm, 6pm
     final hours = [9, 11, 13, 15, 18];
     for (int i = 0; i < hours.length; i++) {
-      final now = tz.TZDateTime.now(tz.local);
-      var scheduled = tz.TZDateTime(
-          tz.local, now.year, now.month, now.day, hours[i]);
-      if (scheduled.isBefore(now)) {
-        scheduled = scheduled.add(const Duration(days: 1));
+      try {
+        final now = tz.TZDateTime.now(tz.local);
+        var scheduled = tz.TZDateTime(
+            tz.local, now.year, now.month, now.day, hours[i]);
+        if (scheduled.isBefore(now)) {
+          scheduled = scheduled.add(const Duration(days: 1));
+        }
+        await _plugin.zonedSchedule(
+          10 + i,
+          'Karthik Fitness 💪',
+          messages[i],
+          scheduled,
+          const NotificationDetails(android: androidDetails),
+          androidScheduleMode: AndroidScheduleMode.inexact,
+          matchDateTimeComponents: DateTimeComponents.time,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        // Permission not granted — skip silently
       }
-      await _plugin.zonedSchedule(
-        10 + i,
-        'Karthik Fitness 💪',
-        messages[i],
-        scheduled,
-        const NotificationDetails(android: androidDetails),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
     }
   }
 
@@ -84,35 +88,39 @@ class NotificationService {
 
     final now = tz.TZDateTime.now(tz.local);
 
-    // Multivitamin — 8:30 AM
-    var mv = tz.TZDateTime(tz.local, now.year, now.month, now.day, 8, 30);
-    if (mv.isBefore(now)) mv = mv.add(const Duration(days: 1));
-    await _plugin.zonedSchedule(
-      1,
-      'Supplement Reminder 🌿',
-      'Take your MuscleBlaze Multivitamin after breakfast!',
-      mv,
-      const NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+    try {
+      // Multivitamin — 8:30 AM
+      var mv = tz.TZDateTime(tz.local, now.year, now.month, now.day, 8, 30);
+      if (mv.isBefore(now)) mv = mv.add(const Duration(days: 1));
+      await _plugin.zonedSchedule(
+        1,
+        'Supplement Reminder 🌿',
+        'Take your MuscleBlaze Multivitamin after breakfast!',
+        mv,
+        const NotificationDetails(android: androidDetails),
+        androidScheduleMode: AndroidScheduleMode.inexact,
+        matchDateTimeComponents: DateTimeComponents.time,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
 
-    // Creatine — 10 AM (anytime daily)
-    var cr = tz.TZDateTime(tz.local, now.year, now.month, now.day, 10, 0);
-    if (cr.isBefore(now)) cr = cr.add(const Duration(days: 1));
-    await _plugin.zonedSchedule(
-      2,
-      'Creatine Time 💊',
-      'Don\'t forget 3–5g Creatine today — can mix with water or whey!',
-      cr,
-      const NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+      // Creatine — 10 AM
+      var cr = tz.TZDateTime(tz.local, now.year, now.month, now.day, 10, 0);
+      if (cr.isBefore(now)) cr = cr.add(const Duration(days: 1));
+      await _plugin.zonedSchedule(
+        2,
+        'Creatine Time 💊',
+        'Don\'t forget 3–5g Creatine today — can mix with water or whey!',
+        cr,
+        const NotificationDetails(android: androidDetails),
+        androidScheduleMode: AndroidScheduleMode.inexact,
+        matchDateTimeComponents: DateTimeComponents.time,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      // Permission not granted — skip silently
+    }
   }
 
   Future<void> showWorkoutReminder() async {

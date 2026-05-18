@@ -18,9 +18,10 @@ void main() async {
     systemNavigationBarColor: Color(0xFF000000),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
-  await NotificationService().initialize();
-  await NotificationService().scheduleWaterReminders();
-  await NotificationService().scheduleSupplementReminders();
+  // Only initialize — don't schedule here (exact alarm permission not guaranteed)
+  try {
+    await NotificationService().initialize();
+  } catch (_) {}
   runApp(
     ChangeNotifierProvider(
       create: (_) => FitnessProvider()..loadData(),
@@ -76,12 +77,8 @@ class KarthikFitnessApp extends StatelessWidget {
           selectedLabelStyle: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w500,
-            letterSpacing: 0.1,
           ),
-          unselectedLabelStyle: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w400,
-          ),
+          unselectedLabelStyle: TextStyle(fontSize: 10),
         ),
         snackBarTheme: const SnackBarThemeData(
           backgroundColor: Color(0xFF2C2C2E),
