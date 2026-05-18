@@ -337,7 +337,7 @@ class _ActiveWorkoutScreenState extends State<_ActiveWorkoutScreen> {
         : const Color(0xFF40C8E0);
 
     return Scaffold(
-      backgroundColor: const Colors.black,
+      backgroundColor: Colors.black,
       appBar: AppBar(
         title: Text('Workout ${widget.type.name.toUpperCase()} 💪'),
         actions: [
