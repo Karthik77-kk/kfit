@@ -391,27 +391,3 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Mass Gainer (1 scoop)', calories: 380, protein: 28, category: 'Supplement', emoji: '💪', serving: '1 scoop (100g)'),
 ];
 
-// Workout A & B templates
-const Map<WorkoutType, List<String>> kWorkoutExercises = {
-  WorkoutType.a: [
-    'Push-ups',
-    'Squats',
-    'Bicep Curls',
-    'Plank (hold)',
-    'Tricep Dips',
-  ],
-  WorkoutType.b: [
-    'Shoulder Press',
-    'Bent-over Rows',
-    'Forearm Curls',
-    'Lunges',
-    'Lat Pulldown',
-  ],
-};
-
-// Calorie burn estimate: MET * weight * duration
-// Strength training MET ≈ 5
-int estimateCaloriesBurned(double weightKg, int durationMinutes) {
-  const double met = 5.0;
-  return ((met * weightKg * durationMinutes) / 60).round();
-}

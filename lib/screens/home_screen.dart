@@ -626,8 +626,7 @@ class _PredictionPainter extends CustomPainter {
       canvas.drawLine(
         Offset(0, goalY), Offset(size.width, goalY),
         Paint()..color = _kOrange.withOpacity(0.4)..strokeWidth = 1
-          ..style = PaintingStyle.stroke
-          ..strokeDashOffset = 0,
+          ..style = PaintingStyle.stroke,
       );
       // Draw dashed line manually
       final dashPaint = Paint()..color = _kOrange.withOpacity(0.5)..strokeWidth = 1.5;
