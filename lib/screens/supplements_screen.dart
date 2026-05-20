@@ -47,7 +47,10 @@ class SupplementsScreen extends StatelessWidget {
             tip: 'Mix with 200ml water or milk. 2 scoops only if dietary protein is low.',
             color: const Color(0xFF30D158),
             taken: p.supplements.whey,
-            onToggle: (val) => p.updateSupplement('whey', val),
+            onToggle: (val) {
+              HapticFeedback.selectionClick();
+              p.updateSupplement('whey', val);
+            },
           ),
           const SizedBox(height: 12),
 
@@ -60,7 +63,10 @@ class SupplementsScreen extends StatelessWidget {
             tip: 'No loading phase needed. Can mix with whey or plain water. Take it consistently.',
             color: const Color(0xFF40C8E0),
             taken: p.supplements.creatine,
-            onToggle: (val) => p.updateSupplement('creatine', val),
+            onToggle: (val) {
+              HapticFeedback.selectionClick();
+              p.updateSupplement('creatine', val);
+            },
           ),
           const SizedBox(height: 12),
 
@@ -73,7 +79,10 @@ class SupplementsScreen extends StatelessWidget {
             tip: 'Covers micronutrient gaps. Not a substitute for a good diet, but great as backup.',
             color: const Color(0xFF40C8E0),
             taken: p.supplements.multivitamin,
-            onToggle: (val) => p.updateSupplement('multivitamin', val),
+            onToggle: (val) {
+              HapticFeedback.selectionClick();
+              p.updateSupplement('multivitamin', val);
+            },
           ),
           const SizedBox(height: 24),
 
@@ -257,10 +266,7 @@ class _SupplementCard extends StatelessWidget {
                 scale: 1.2,
                 child: Checkbox(
                   value: taken,
-                  onChanged: (v) {
-                    HapticFeedback.selectionClick();
-                    onToggle(v ?? false);
-                  },
+                  onChanged: (v) => onToggle(v ?? false),
                   activeColor: color,
                   checkColor: Colors.white,
                   side: BorderSide(color: color.withOpacity(0.5), width: 1.5),

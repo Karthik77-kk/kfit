@@ -1,99 +1,125 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
-const _kGreen = Color(0xFF30D158);
-const _kBlue = Color(0xFF40C8E0);
-const _kRed = Color(0xFFFF453A);
+const _kGreen  = Color(0xFF30D158);
+const _kBlue   = Color(0xFF40C8E0);
 const _kOrange = Color(0xFFFF9F0A);
-const _kCard = Color(0xFF1C1C1E);
-const _kSecondary = Color(0xFF8E8E93);
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Stats Screen
-// ══════════════════════════════════════════════════════════════════════════════
+const _kRed    = Color(0xFFFF453A);
+const _kCard   = Color(0xFF1C1C1E);
+const _kSecond = Color(0xFF8E8E93);
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
-
   @override
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
 class _StatsScreenState extends State<StatsScreen> {
-  final _weightCtrl = TextEditingController();
-  final _stepsCtrl = TextEditingController();
-  final _heightCtrl = TextEditingController();
-  final _ageCtrl = TextEditingController();
-  final _goalWeightCtrl = TextEditingController();
+  final _weightCtrl  = TextEditingController();
+  final _stepsCtrl   = TextEditingController();
+  final _heightCtrl  = TextEditingController();
+  final _ageCtrl     = TextEditingController();
+  final _goalWtCtrl  = TextEditingController();
 
-  // 1RM state
+  // 1RM calculator state
+  double _ormWeight   = 60;
+  int    _ormReps     = 8;
   String _ormExercise = 'Bench Press';
-  double _ormWeight = 60;
-  int _ormReps = 8;
 
-  static const _ormExercises = [
-    'Bench Press', 'Squat', 'Deadlift', 'OHP', 'Barbell Row',
-    'Incline Press', 'Romanian DL'
-  ];
+  // Prevents re-populating fields after user edits them
+  bool _fieldsPopulated = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final p = context.read<FitnessProvider>();
-      _heightCtrl.text = p.heightCm.toStringAsFixed(0);
-      _ageCtrl.text = p.age.toString();
-      _goalWeightCtrl.text = p.goalWeightKg.toStringAsFixed(1);
-      if (p.latestWeightKg != null) {
-        _weightCtrl.text = p.latestWeightKg!.toStringAsFixed(1);
-      }
-      if (p.todaySteps > 0) {
-        _stepsCtrl.text = p.todaySteps.toString();
-      }
-    });
+    // Post-frame so provider is available; also handles IndexedStack pre-build
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryPopulateFields());
+  }
+
+  /// Populate text controllers from provider once data is loaded.
+  /// Safe to call multiple times — only runs once (_fieldsPopulated guard).
+  void _tryPopulateFields() {
+    if (_fieldsPopulated || !mounted) return;
+    final p = context.read<FitnessProvider>();
+    if (!p.isLoaded) {
+      // Data not ready yet — listen for the next change
+      p.addListener(_onProviderChange);
+      return;
+    }
+    _applyProviderValues(p);
+  }
+
+  void _onProviderChange() {
+    if (!mounted) return;
+    final p = context.read<FitnessProvider>();
+    if (p.isLoaded) {
+      p.removeListener(_onProviderChange);
+      _applyProviderValues(p);
+    }
+  }
+
+  void _applyProviderValues(FitnessProvider p) {
+    if (_fieldsPopulated) return;
+    _fieldsPopulated = true;
+    _heightCtrl.text = p.heightCm.toStringAsFixed(0);
+    _ageCtrl.text    = p.age.toString();
+    _goalWtCtrl.text = p.goalWeightKg.toStringAsFixed(1);
+    if (p.latestWeightKg != null) {
+      _weightCtrl.text = p.latestWeightKg!.toStringAsFixed(1);
+    }
+    if (p.todaySteps > 0) {
+      _stepsCtrl.text = p.todaySteps.toString();
+    }
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    // Remove listener if it was added but never fired
+    try {
+      context.read<FitnessProvider>().removeListener(_onProviderChange);
+    } catch (_) {}
     _weightCtrl.dispose();
     _stepsCtrl.dispose();
     _heightCtrl.dispose();
     _ageCtrl.dispose();
-    _goalWeightCtrl.dispose();
+    _goalWtCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _saveEntries() async {
     FocusScope.of(context).unfocus();
     HapticFeedback.mediumImpact();
-
     final p = context.read<FitnessProvider>();
-    final weight = double.tryParse(_weightCtrl.text);
-    final steps = int.tryParse(_stepsCtrl.text) ?? 0;
-    final height = double.tryParse(_heightCtrl.text);
-    final age = int.tryParse(_ageCtrl.text);
-    final goalWeight = double.tryParse(_goalWeightCtrl.text);
 
+    final weight = double.tryParse(_weightCtrl.text.trim());
+    final steps  = int.tryParse(_stepsCtrl.text.trim()) ?? 0;
+    final height = double.tryParse(_heightCtrl.text.trim());
+    final age    = int.tryParse(_ageCtrl.text.trim());
+    final goalWt = double.tryParse(_goalWtCtrl.text.trim());
+
+    // Validate
+    if (weight == null || weight <= 10 || weight >= 500) {
+      _showError('Enter a valid weight (10–500 kg)');
+      return;
+    }
+
+    final futures = <Future>[];
+    futures.add(p.logBodyEntry(weightKg: weight, steps: steps.clamp(0, 100000)));
     if (height != null && height > 50 && height < 300) {
-      await p.saveHeight(height);
+      futures.add(p.saveHeight(height));
     }
-    if (age != null && age > 10 && age < 120) {
-      await p.saveAge(age);
+    if (age != null && age >= 10 && age <= 100) {
+      futures.add(p.saveAge(age));
     }
-    if (goalWeight != null && goalWeight > 30 && goalWeight < 300) {
-      await p.saveGoalWeight(goalWeight);
-    }
-    if (weight != null && weight > 10 && weight < 500) {
-      await p.logBodyEntry(weightKg: weight, steps: steps);
-    } else if (steps > 0) {
-      await p.updateTodaySteps(steps);
+    if (goalWt != null && goalWt > 10 && goalWt < 500) {
+      futures.add(p.saveGoalWeight(goalWt));
     }
 
+    await Future.wait(futures);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -105,264 +131,252 @@ class _StatsScreenState extends State<StatsScreen> {
     }
   }
 
-  double _epley1RM(double weight, int reps) {
-    if (reps == 1) return weight;
-    return weight * (1 + reps / 30.0);
+  void _showError(String msg) {
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('⚠️ $msg'),
+        backgroundColor: _kRed,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
+
+  // Epley 1RM formula: weight × (1 + reps/30)
+  double get _oneRM => _ormWeight * (1 + _ormReps / 30);
 
   @override
   Widget build(BuildContext context) {
-    final p = context.watch<FitnessProvider>();
+    final p      = context.watch<FitnessProvider>();
     final recent = p.getRecentBodyEntries(days: 30);
+    final bottom = MediaQuery.of(context).padding.bottom;
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          title: const Text(
-            'Body & Stats',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.black,
+              surfaceTintColor: Colors.transparent,
+              title: const Text('Stats & Body'),
             ),
-          ),
-        ),
-        body: ListView(
-          padding: EdgeInsets.fromLTRB(
-              16, 8, 16, 24 + MediaQuery.of(context).padding.bottom),
-          children: [
-            // ── Log Today ────────────────────────────────────────────────
-            _SectionHeader('LOG TODAY'),
-            _AppleCard(
-              child: Column(
-                children: [
-                  _FieldRow(
-                    label: 'Weight',
-                    unit: 'kg',
-                    controller: _weightCtrl,
-                    icon: Icons.monitor_weight_outlined,
-                    iconColor: _kGreen,
-                    action: TextInputAction.next,
-                    onNext: () => FocusScope.of(context).nextFocus(),
-                  ),
-                  _Divider(),
-                  _FieldRow(
-                    label: 'Steps',
-                    unit: 'steps',
-                    controller: _stepsCtrl,
-                    icon: Icons.directions_walk_outlined,
-                    iconColor: _kGreen,
-                    keyboard: TextInputType.number,
-                    action: TextInputAction.next,
-                    onNext: () => FocusScope.of(context).nextFocus(),
-                  ),
-                  _Divider(),
-                  _FieldRow(
-                    label: 'Height',
-                    unit: 'cm',
-                    controller: _heightCtrl,
-                    icon: Icons.height_outlined,
-                    iconColor: _kBlue,
-                    action: TextInputAction.next,
-                    onNext: () => FocusScope.of(context).nextFocus(),
-                  ),
-                  _Divider(),
-                  _FieldRow(
-                    label: 'Age',
-                    unit: 'yrs',
-                    controller: _ageCtrl,
-                    icon: Icons.cake_outlined,
-                    iconColor: _kOrange,
-                    keyboard: TextInputType.number,
-                    action: TextInputAction.next,
-                    onNext: () => FocusScope.of(context).nextFocus(),
-                  ),
-                  _Divider(),
-                  _FieldRow(
-                    label: 'Goal Weight',
-                    unit: 'kg',
-                    controller: _goalWeightCtrl,
-                    icon: Icons.flag_outlined,
-                    iconColor: _kRed,
-                    action: TextInputAction.done,
-                    onNext: _saveEntries,
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _SaveBtn(onPressed: _saveEntries),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottom),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
 
-            // ── BMR / TDEE card ─────────────────────────────────────────
-            _SectionHeader('METABOLISM'),
-            _BmrTdeeCard(p: p),
-            const SizedBox(height: 12),
-
-            // ── Goal progress ───────────────────────────────────────────
-            _GoalCard(p: p),
-            const SizedBox(height: 20),
-
-            // ── Overview stats ──────────────────────────────────────────
-            _SectionHeader('OVERVIEW'),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    label: 'Current Weight',
-                    value: p.latestWeightKg != null
-                        ? '${p.latestWeightKg!.toStringAsFixed(1)} kg'
-                        : '—',
-                    sub: _weightChangeLine(p),
-                    color: _kGreen,
-                    icon: Icons.monitor_weight_outlined,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    label: 'BMI',
-                    value: p.bmi != null ? p.bmi!.toStringAsFixed(1) : '—',
-                    sub: p.bmiCategory,
-                    color: p.bmi != null
-                        ? p.bmiColor(context)
-                        : _kSecondary,
-                    icon: Icons.accessibility_new_outlined,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    label: "Today's Steps",
-                    value:
-                        p.todaySteps > 0 ? _fmt(p.todaySteps) : '—',
-                    sub: p.todaySteps > 0
-                        ? '${(p.stepProgress * 100).round()}% of goal'
-                        : '8,000 goal',
-                    color: _kGreen,
-                    icon: Icons.directions_walk_outlined,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    label: 'Workout Streak',
-                    value: '${p.workoutStreak}d',
-                    sub: p.workoutStreak > 0
-                        ? 'Keep going! 🔥'
-                        : 'Start today',
-                    color: _kOrange,
-                    icon: Icons.local_fire_department_outlined,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    label: 'Cal Burned Today',
-                    value: p.todayCaloriesBurned > 0
-                        ? '${p.todayCaloriesBurned} kcal'
-                        : '—',
-                    sub: 'From workout',
-                    color: _kRed,
-                    icon: Icons.whatshot_outlined,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    label: 'Weekly Burned',
-                    value: p.weeklyCaloriesBurned > 0
-                        ? '${p.weeklyCaloriesBurned} kcal'
-                        : '—',
-                    sub: 'Last 7 days',
-                    color: _kRed,
-                    icon: Icons.bar_chart_outlined,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // ── 1RM Calculator ───────────────────────────────────────────
-            _SectionHeader('1RM CALCULATOR (EPLEY)'),
-            _OrmCalc(
-              exercises: _ormExercises,
-              selected: _ormExercise,
-              weight: _ormWeight,
-              reps: _ormReps,
-              orm: _epley1RM(_ormWeight, _ormReps),
-              onExercise: (e) => setState(() => _ormExercise = e),
-              onWeight: (v) => setState(() => _ormWeight = v),
-              onReps: (v) => setState(() => _ormReps = v),
-            ),
-            const SizedBox(height: 20),
-
-            // ── Weight history chart ─────────────────────────────────────
-            if (recent.length >= 2) ...[
-              _SectionHeader('WEIGHT TREND (30 DAYS)'),
-              _AppleCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _MiniWeightChart(entries: recent),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // ── Log Today ──────────────────────────────────────────
+                  const _SectionLabel('LOG TODAY'),
+                  _Card(
+                    child: Column(
                       children: [
-                        _ChartStat('Low',
-                            '${recent.map((e) => e.weightKg).reduce(math.min).toStringAsFixed(1)} kg'),
-                        _ChartStat('High',
-                            '${recent.map((e) => e.weightKg).reduce(math.max).toStringAsFixed(1)} kg'),
-                        _ChartStat('Avg',
-                            '${(recent.map((e) => e.weightKg).reduce((a, b) => a + b) / recent.length).toStringAsFixed(1)} kg'),
+                        _FieldRow(
+                          label: 'Weight',
+                          icon: Icons.monitor_weight_outlined,
+                          iconColor: _kGreen,
+                          unit: 'kg',
+                          ctrl: _weightCtrl,
+                          nextFocus: FocusNode(),
+                        ),
+                        _HDivider(),
+                        _FieldRow(
+                          label: 'Steps',
+                          icon: Icons.directions_walk_outlined,
+                          iconColor: _kGreen,
+                          unit: 'steps',
+                          ctrl: _stepsCtrl,
+                          keyboard: TextInputType.number,
+                        ),
+                        _HDivider(),
+                        _FieldRow(
+                          label: 'Height',
+                          icon: Icons.height_outlined,
+                          iconColor: _kBlue,
+                          unit: 'cm',
+                          ctrl: _heightCtrl,
+                        ),
+                        _HDivider(),
+                        _FieldRow(
+                          label: 'Age',
+                          icon: Icons.cake_outlined,
+                          iconColor: _kBlue,
+                          unit: 'yrs',
+                          ctrl: _ageCtrl,
+                          keyboard: TextInputType.number,
+                        ),
+                        _HDivider(),
+                        _FieldRow(
+                          label: 'Goal Weight',
+                          icon: Icons.flag_outlined,
+                          iconColor: _kOrange,
+                          unit: 'kg',
+                          ctrl: _goalWtCtrl,
+                          isLast: true,
+                        ),
+                        const SizedBox(height: 14),
+                        _SaveBtn(onPressed: _saveEntries),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // ── BMI scale ────────────────────────────────────────────────
-            _SectionHeader('BMI SCALE'),
-            _AppleCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _BmiBar(bmi: p.bmi),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _BmiLabel(
-                          'Under', '< 18.5', const Color(0xFF40C8E0)),
-                      _BmiLabel(
-                          'Normal', '18.5–25', const Color(0xFF30D158)),
-                      _BmiLabel(
-                          'Over', '25–30', const Color(0xFFFF9F0A)),
-                      _BmiLabel(
-                          'Obese', '≥ 30', const Color(0xFFFF453A)),
-                    ],
                   ),
-                ],
+                  const SizedBox(height: 24),
+
+                  // ── Overview ───────────────────────────────────────────
+                  const _SectionLabel('OVERVIEW'),
+                  _Grid2x2(children: [
+                    _StatCard(
+                      label: 'Current Weight',
+                      value: p.latestWeightKg != null
+                          ? '${p.latestWeightKg!.toStringAsFixed(1)} kg'
+                          : '—',
+                      sub: _weightChangeLine(p),
+                      color: _kGreen,
+                      icon: Icons.monitor_weight_outlined,
+                    ),
+                    _StatCard(
+                      label: 'BMI',
+                      value: p.bmi?.toStringAsFixed(1) ?? '—',
+                      sub: p.bmiCategory,
+                      color: p.bmi != null ? p.bmiColor(context) : _kSecond,
+                      icon: Icons.accessibility_new_outlined,
+                    ),
+                    _StatCard(
+                      label: 'Today\'s Steps',
+                      value: p.todaySteps > 0 ? _fmtNum(p.todaySteps) : '—',
+                      sub: p.todaySteps > 0
+                          ? '${(p.stepProgress * 100).round()}% of 8k'
+                          : '8,000 goal',
+                      color: _kBlue,
+                      icon: Icons.directions_walk_outlined,
+                    ),
+                    _StatCard(
+                      label: 'Workout Streak',
+                      value: '${p.workoutStreak}d',
+                      sub: p.workoutStreak > 0 ? 'Keep going! 🔥' : 'Start today',
+                      color: _kOrange,
+                      icon: Icons.local_fire_department_outlined,
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  _Grid2x2(children: [
+                    _StatCard(
+                      label: 'Cal Burned Today',
+                      value: p.todayCaloriesBurned > 0
+                          ? '${p.todayCaloriesBurned} kcal'
+                          : '—',
+                      sub: 'From workout',
+                      color: _kRed,
+                      icon: Icons.whatshot_outlined,
+                    ),
+                    _StatCard(
+                      label: 'Weekly Burned',
+                      value: p.weeklyCaloriesBurned > 0
+                          ? '${p.weeklyCaloriesBurned} kcal'
+                          : '—',
+                      sub: 'Last 7 days',
+                      color: _kRed,
+                      icon: Icons.bar_chart_outlined,
+                    ),
+                    _StatCard(
+                      label: 'Net Cal Today',
+                      value: p.todayCalories > 0
+                          ? '${p.netCalories} kcal'
+                          : '—',
+                      sub: p.inDeficit ? '🎯 In deficit' : 'Over goal',
+                      color: p.inDeficit ? _kGreen : _kRed,
+                      icon: Icons.balance_outlined,
+                    ),
+                    _StatCard(
+                      label: 'Protein Today',
+                      value: p.todayProtein > 0
+                          ? '${p.todayProtein.round()}g'
+                          : '—',
+                      sub: '/ ${FitnessProvider.kProteinGoal}g goal',
+                      color: _kGreen,
+                      icon: Icons.egg_alt_outlined,
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
+
+                  // ── BMR / TDEE ─────────────────────────────────────────
+                  const _SectionLabel('METABOLISM (MIFFLIN–ST JEOR)'),
+                  _BmrTdeeCard(provider: p),
+                  const SizedBox(height: 24),
+
+                  // ── Goal Progress ──────────────────────────────────────
+                  if (p.latestWeightKg != null && p.kgToGoal != null) ...[
+                    const _SectionLabel('GOAL PROGRESS'),
+                    _GoalCard(provider: p),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // ── Weight History ─────────────────────────────────────
+                  if (recent.length >= 2) ...[
+                    const _SectionLabel('WEIGHT TREND (30 DAYS)'),
+                    _Card(
+                      child: Column(
+                        children: [
+                          _MiniWeightChart(entries: recent),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceAround,
+                            children: [
+                              _ChartStat('Low',
+                                  '${recent.map((e) => e.weightKg).reduce((a, b) => a < b ? a : b).toStringAsFixed(1)} kg'),
+                              _ChartStat('High',
+                                  '${recent.map((e) => e.weightKg).reduce((a, b) => a > b ? a : b).toStringAsFixed(1)} kg'),
+                              _ChartStat('Avg',
+                                  '${(recent.map((e) => e.weightKg).reduce((a, b) => a + b) / recent.length).toStringAsFixed(1)} kg'),
+                              _ChartStat('Entries',
+                                  '${recent.length}d'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // ── BMI Scale ──────────────────────────────────────────
+                  const _SectionLabel('BMI SCALE'),
+                  _Card(
+                    child: Column(
+                      children: [
+                        _BmiBar(bmi: p.bmi),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: const [
+                            _BmiLabel('Under', '< 18.5', _kBlue),
+                            _BmiLabel('Normal', '18.5–24.9', _kGreen),
+                            _BmiLabel('Over', '25–29.9', _kOrange),
+                            _BmiLabel('Obese', '≥ 30', _kRed),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── 1RM Calculator ─────────────────────────────────────
+                  const _SectionLabel('1RM ESTIMATOR (EPLEY FORMULA)'),
+                  _OrmCalc(
+                    weight: _ormWeight,
+                    reps: _ormReps,
+                    exercise: _ormExercise,
+                    oneRM: _oneRM,
+                    onWeightChanged: (v) => setState(() => _ormWeight = v),
+                    onRepsChanged: (v) => setState(() => _ormReps = v),
+                    onExerciseChanged: (v) => setState(() => _ormExercise = v),
+                  ),
+                  const SizedBox(height: 16),
+                ]),
               ),
             ),
-            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -371,71 +385,99 @@ class _StatsScreenState extends State<StatsScreen> {
 
   String _weightChangeLine(FitnessProvider p) {
     final change = p.weightChangeKg;
-    if (change == null) return 'Log daily to track trend';
+    if (change == null) return 'Log daily to track';
     final sign = change > 0 ? '+' : '';
     return '$sign${change.toStringAsFixed(1)} kg this month';
   }
-
-  String _fmt(int n) {
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return n.toString();
-  }
 }
 
-// ── BMR / TDEE card ────────────────────────────────────────────────────────────
+String _fmtNum(int n) {
+  if (n >= 1000) return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k';
+  return '$n';
+}
+
+// ─── BMR / TDEE Card ───────────────────────────────────────────────────────────
 class _BmrTdeeCard extends StatelessWidget {
-  final FitnessProvider p;
-  const _BmrTdeeCard({required this.p});
+  final FitnessProvider provider;
+  const _BmrTdeeCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
-    return _AppleCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Text('🔥', style: TextStyle(fontSize: 18)),
-              SizedBox(width: 8),
-              Text(
-                'Your Metabolism',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600),
+    final p     = provider;
+    final bmr   = p.bmr;
+    final tdee  = p.tdee;
+    final target = p.fatLossCalorieTarget;
+
+    if (bmr == null) {
+      return _Card(
+        child: Row(
+          children: const [
+            Icon(Icons.info_outline, color: _kSecond, size: 18),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Log your weight to see BMR & TDEE',
+                style: TextStyle(color: _kSecond, fontSize: 13),
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _Card(
+      child: Column(
+        children: [
           Row(
             children: [
-              _MetaChip(
+              Expanded(child: _MetaChip(
                 label: 'BMR',
-                value: '${p.bmr.round()} kcal',
-                sub: 'At rest',
+                value: '${bmr.round()}',
+                unit: 'kcal/day',
                 color: _kBlue,
-              ),
+                tooltip: 'Calories burned at complete rest',
+              )),
               const SizedBox(width: 10),
-              _MetaChip(
+              Expanded(child: _MetaChip(
                 label: 'TDEE',
-                value: '${p.tdee.round()} kcal',
-                sub: 'With activity',
+                value: '${tdee?.round() ?? '—'}',
+                unit: 'kcal/day',
                 color: _kOrange,
-              ),
+                tooltip: 'Total daily energy expenditure',
+              )),
               const SizedBox(width: 10),
-              _MetaChip(
+              Expanded(child: _MetaChip(
                 label: 'Cut Target',
-                value: '${p.fatLossCalorieTarget.round()} kcal',
-                sub: '500 kcal deficit',
+                value: '${target?.round() ?? '—'}',
+                unit: 'kcal/day',
                 color: _kGreen,
-              ),
+                tooltip: '500 kcal below TDEE for fat loss',
+              )),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            'Mifflin-St Jeor formula · ${p.weeklyWorkoutDays} workout days/week',
-            style:
-                const TextStyle(color: _kSecondary, fontSize: 11),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _kGreen.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Text('💡', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    target != null
+                        ? 'Your fat-loss target is ~${target.round()} kcal/day. '
+                          'Your current goal is set to ${FitnessProvider.kCalorieGoal} kcal.'
+                        : 'Enter weight, height and age to compute your targets.',
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 12, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -446,226 +488,177 @@ class _BmrTdeeCard extends StatelessWidget {
 class _MetaChip extends StatelessWidget {
   final String label;
   final String value;
-  final String sub;
+  final String unit;
   final Color color;
-  const _MetaChip(
-      {required this.label,
-      required this.value,
-      required this.sub,
-      required this.color});
+  final String tooltip;
+  const _MetaChip({
+    required this.label, required this.value,
+    required this.unit, required this.color, required this.tooltip,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label,
-                style: TextStyle(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700)),
-            const SizedBox(height: 3),
-            Text(value,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700)),
-            Text(sub,
-                style: const TextStyle(
-                    color: _kSecondary, fontSize: 9)),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(value,
+              style: TextStyle(
+                  color: color, fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(unit,
+              style: const TextStyle(color: _kSecond, fontSize: 10)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: TextStyle(
+                  color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
 }
 
-// ── Goal progress card ─────────────────────────────────────────────────────────
+// ─── Goal Progress Card ────────────────────────────────────────────────────────
 class _GoalCard extends StatelessWidget {
-  final FitnessProvider p;
-  const _GoalCard({required this.p});
+  final FitnessProvider provider;
+  const _GoalCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
-    final current = p.latestWeightKg;
-    final goal = p.goalWeightKg;
-    final eta = p.estimatedGoalDate;
-    final wc = p.weeklyWeightChange;
+    final p        = provider;
+    final current  = p.latestWeightKg!;
+    final goal     = p.goalWeightKg;
+    final kg       = p.kgToGoal!;
+    final isLosing = kg > 0;
+    final color    = isLosing ? _kOrange : _kGreen;
+    final weeks    = p.weeksToGoal;
 
-    if (current == null) return const SizedBox.shrink();
+    // Progress 0–1: how close to goal
+    final startEstimate = current + (isLosing ? 10.0 : -10.0);
+    double progress = 0;
+    if (isLosing) {
+      progress = 1 - (current - goal).clamp(0.0, 10.0) / 10.0;
+    } else {
+      progress = 1.0; // Already at or below goal
+    }
 
-    final startWeight = p.bodyHistory.isNotEmpty
-        ? p.bodyHistory.first.weightKg
-        : current;
-    final totalToLose = (startWeight - goal).clamp(0.01, 200.0);
-    final lost = (startWeight - current).clamp(0.0, totalToLose);
-    final progress = (lost / totalToLose).clamp(0.0, 1.0);
-
-    return _AppleCard(
+    return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('🎯', style: TextStyle(fontSize: 18)),
+              Icon(isLosing ? Icons.trending_down_rounded : Icons.check_circle_rounded,
+                  color: color, size: 20),
               const SizedBox(width: 8),
-              const Text('Goal Progress',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600)),
-              const Spacer(),
               Text(
-                '${current.toStringAsFixed(1)} → ${goal.toStringAsFixed(1)} kg',
-                style: const TextStyle(color: _kSecondary, fontSize: 12),
+                isLosing
+                    ? '${kg.toStringAsFixed(1)} kg to goal'
+                    : 'Goal weight reached! 🎉',
+                style: TextStyle(
+                    color: color, fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${current.toStringAsFixed(1)} kg',
+                      style: const TextStyle(color: Colors.white, fontSize: 13)),
+                  Text('→ ${goal.toStringAsFixed(1)} kg',
+                      style: const TextStyle(color: _kSecond, fontSize: 11)),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.white.withOpacity(0.08),
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(_kGreen),
-              minHeight: 10,
+              value: progress.clamp(0.0, 1.0),
+              backgroundColor: color.withOpacity(0.15),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 6,
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${(progress * 100).toStringAsFixed(1)}% complete',
-                style: const TextStyle(color: _kGreen, fontSize: 12),
-              ),
-              Text(
-                eta != null
-                    ? 'ETA: ${_fmtDate(eta)}'
-                    : wc != null && wc >= 0
-                        ? 'Gaining weight ⚠️'
-                        : 'Log more data',
-                style: const TextStyle(color: _kSecondary, fontSize: 12),
-              ),
-            ],
-          ),
-          if (wc != null) ...[
-            const SizedBox(height: 6),
+          if (weeks != null && weeks > 0) ...[
+            const SizedBox(height: 8),
             Text(
-              '${wc < 0 ? '📉' : '📈'} ${wc.toStringAsFixed(2)} kg/week trend',
-              style: TextStyle(
-                  color: wc < 0 ? _kGreen : _kOrange, fontSize: 11),
+              '⏱ At current deficit: ~${weeks.toStringAsFixed(0)} weeks to reach goal',
+              style: const TextStyle(color: _kSecond, fontSize: 12),
             ),
           ],
         ],
       ),
     );
   }
-
-  String _fmtDate(DateTime d) {
-    final diff = d.difference(DateTime.now()).inDays;
-    if (diff < 7) return 'This week!';
-    if (diff < 30) return '${(diff / 7).round()} weeks';
-    return '${(diff / 30).round()} months';
-  }
 }
 
-// ── 1RM Calculator ─────────────────────────────────────────────────────────────
+// ─── 1RM Calculator ────────────────────────────────────────────────────────────
 class _OrmCalc extends StatelessWidget {
-  final List<String> exercises;
-  final String selected;
   final double weight;
   final int reps;
-  final double orm;
-  final void Function(String) onExercise;
-  final void Function(double) onWeight;
-  final void Function(int) onReps;
+  final String exercise;
+  final double oneRM;
+  final ValueChanged<double> onWeightChanged;
+  final ValueChanged<int> onRepsChanged;
+  final ValueChanged<String> onExerciseChanged;
 
   const _OrmCalc({
-    required this.exercises,
-    required this.selected,
-    required this.weight,
-    required this.reps,
-    required this.orm,
-    required this.onExercise,
-    required this.onWeight,
-    required this.onReps,
+    required this.weight, required this.reps, required this.exercise,
+    required this.oneRM, required this.onWeightChanged,
+    required this.onRepsChanged, required this.onExerciseChanged,
   });
+
+  static const _exercises = [
+    'Bench Press', 'Squat', 'Deadlift', 'Overhead Press',
+    'Barbell Row', 'Incline Press', 'Romanian Deadlift',
+  ];
 
   @override
   Widget build(BuildContext context) {
-    // Training zones from 1RM
+    // Training zones based on % of 1RM
     final zones = [
-      (
-        'Strength',
-        _kRed,
-        '${(orm * 0.85).round()}–${orm.round()} kg',
-        '1–5 reps'
-      ),
-      (
-        'Hypertrophy',
-        _kOrange,
-        '${(orm * 0.67).round()}–${(orm * 0.85).round()} kg',
-        '6–12 reps'
-      ),
-      (
-        'Endurance',
-        _kGreen,
-        '<${(orm * 0.67).round()} kg',
-        '13+ reps'
-      ),
+      ('Strength', '85–100%', '${(oneRM * 0.85).round()}–${oneRM.round()} kg', _kRed),
+      ('Hypertrophy', '67–85%', '${(oneRM * 0.67).round()}–${(oneRM * 0.85).round()} kg', _kGreen),
+      ('Endurance', '50–67%', '${(oneRM * 0.5).round()}–${(oneRM * 0.67).round()} kg', _kBlue),
     ];
 
-    return _AppleCard(
+    return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Exercise picker
-          SizedBox(
-            height: 34,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: exercises.length,
-              itemBuilder: (_, i) {
-                final ex = exercises[i];
-                final sel = ex == selected;
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _exercises.map((ex) {
+                final sel = ex == exercise;
                 return GestureDetector(
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    onExercise(ex);
+                    onExerciseChanged(ex);
                   },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
+                  child: Container(
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: sel
-                          ? _kBlue
-                          : Colors.white.withOpacity(0.07),
+                      color: sel ? _kGreen : Colors.white.withOpacity(0.07),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       ex,
                       style: TextStyle(
-                        color: sel ? Colors.black : _kSecondary,
+                        color: sel ? Colors.black : _kSecond,
                         fontSize: 12,
-                        fontWeight: sel
-                            ? FontWeight.w700
-                            : FontWeight.normal,
+                        fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ),
                 );
-              },
+              }).toList(),
             ),
           ),
           const SizedBox(height: 16),
@@ -673,238 +666,216 @@ class _OrmCalc extends StatelessWidget {
           // Weight slider
           Row(
             children: [
-              const Text('Weight',
-                  style: TextStyle(color: _kSecondary, fontSize: 12)),
-              const Spacer(),
-              Text(
-                '${weight.toStringAsFixed(1)} kg',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14),
-              ),
+              const SizedBox(width: 4),
+              Text('Weight: ', style: const TextStyle(color: _kSecond, fontSize: 13)),
+              Text('${weight.round()} kg',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
             ],
           ),
           SliderTheme(
             data: SliderThemeData(
-              activeTrackColor: _kBlue,
-              inactiveTrackColor: Colors.white.withOpacity(0.1),
-              thumbColor: _kBlue,
-              overlayColor: _kBlue.withOpacity(0.2),
+              activeTrackColor: _kGreen,
+              inactiveTrackColor: _kGreen.withOpacity(0.2),
+              thumbColor: _kGreen,
+              overlayColor: _kGreen.withOpacity(0.15),
               trackHeight: 4,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 8),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
             ),
             child: Slider(
-              value: weight,
-              min: 5,
-              max: 200,
+              value: weight.clamp(5, 200),
+              min: 5, max: 200,
               divisions: 195,
-              onChanged: onWeight,
+              onChanged: (v) => onWeightChanged(v.roundToDouble()),
             ),
           ),
 
           // Reps slider
           Row(
             children: [
-              const Text('Reps',
-                  style: TextStyle(color: _kSecondary, fontSize: 12)),
-              const Spacer(),
-              Text(
-                '$reps reps',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14),
-              ),
+              const SizedBox(width: 4),
+              Text('Reps: ', style: const TextStyle(color: _kSecond, fontSize: 13)),
+              Text('$reps',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(width: 8),
+              if (reps > 12)
+                const Text('(use ≤12 for accuracy)',
+                    style: TextStyle(color: _kOrange, fontSize: 11)),
             ],
           ),
           SliderTheme(
             data: SliderThemeData(
-              activeTrackColor: _kOrange,
-              inactiveTrackColor: Colors.white.withOpacity(0.1),
-              thumbColor: _kOrange,
-              overlayColor: _kOrange.withOpacity(0.2),
+              activeTrackColor: _kBlue,
+              inactiveTrackColor: _kBlue.withOpacity(0.2),
+              thumbColor: _kBlue,
+              overlayColor: _kBlue.withOpacity(0.15),
               trackHeight: 4,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 8),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
             ),
             child: Slider(
-              value: reps.toDouble(),
-              min: 1,
-              max: 20,
+              value: reps.toDouble().clamp(1, 20),
+              min: 1, max: 20,
               divisions: 19,
-              onChanged: (v) => onReps(v.round()),
+              onChanged: (v) => onRepsChanged(v.round()),
             ),
           ),
 
-          const SizedBox(height: 6),
           // 1RM result
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_kBlue.withOpacity(0.2), _kGreen.withOpacity(0.15)],
-              ),
+              color: _kOrange.withOpacity(0.12),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _kBlue.withOpacity(0.3)),
+              border: Border.all(color: _kOrange.withOpacity(0.3)),
             ),
-            child: Column(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Estimated 1RM',
-                    style: TextStyle(color: _kSecondary, fontSize: 12)),
-                const SizedBox(height: 4),
-                Text(
-                  '${orm.round()} kg',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Estimated 1RM',
+                        style: TextStyle(color: _kSecond, fontSize: 12)),
+                    Text('${oneRM.round()} kg',
+                        style: const TextStyle(
+                            color: _kOrange, fontSize: 28,
+                            fontWeight: FontWeight.w800, height: 1.1)),
+                  ],
                 ),
-                Text(
-                  '(${(orm * 2.205).round()} lbs)',
-                  style: const TextStyle(color: _kSecondary, fontSize: 11),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('${weight.round()}kg × $reps reps',
+                        style: const TextStyle(color: _kSecond, fontSize: 11)),
+                    Text('Epley formula', style: const TextStyle(color: _kSecond, fontSize: 10)),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // Training zones
-          const Text('TRAINING ZONES',
-              style: TextStyle(
-                  color: _kSecondary,
-                  fontSize: 10,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
           ...zones.map((z) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                          color: z.$2, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(z.$1,
-                        style: TextStyle(
-                            color: z.$2,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    Text(z.$3,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 12)),
-                    const SizedBox(width: 8),
-                    Text(z.$4,
-                        style: const TextStyle(
-                            color: _kSecondary, fontSize: 11)),
-                  ],
-                ),
-              )),
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Container(width: 10, height: 10,
+                    decoration: BoxDecoration(color: z.$4, shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Text('${z.$1} (${z.$2})',
+                    style: TextStyle(color: z.$4, fontSize: 12, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                Text(z.$3,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              ],
+            ),
+          )),
         ],
       ),
     );
   }
 }
 
-// ── Reusable widgets ───────────────────────────────────────────────────────────
+// ─── Reusable widgets ──────────────────────────────────────────────────────────
 
-class _SaveBtn extends StatelessWidget {
-  final VoidCallback onPressed;
-  const _SaveBtn({required this.onPressed});
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8, top: 4),
+    child: Text(text, style: const TextStyle(
+      color: _kSecond, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8,
+    )),
+  );
+}
 
+class _Card extends StatelessWidget {
+  final Widget child;
+  const _Card({required this.child});
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: _kCard, borderRadius: BorderRadius.circular(16),
+    ),
+    child: child,
+  );
+}
+
+class _Grid2x2 extends StatelessWidget {
+  final List<Widget> children;
+  const _Grid2x2({required this.children});
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: _kGreen,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        alignment: Alignment.center,
-        child: const Text(
-          'Save',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
+    final rows = <Widget>[];
+    for (int i = 0; i < children.length; i += 2) {
+      rows.add(Row(
+        children: [
+          Expanded(child: children[i]),
+          const SizedBox(width: 12),
+          Expanded(child: i + 1 < children.length ? children[i + 1] : const SizedBox()),
+        ],
+      ));
+      if (i + 2 < children.length) rows.add(const SizedBox(height: 12));
+    }
+    return Column(children: rows);
   }
 }
 
 class _FieldRow extends StatelessWidget {
   final String label;
-  final String unit;
-  final TextEditingController controller;
   final IconData icon;
   final Color iconColor;
+  final String unit;
+  final TextEditingController ctrl;
   final TextInputType keyboard;
-  final TextInputAction action;
-  final VoidCallback onNext;
+  final bool isLast;
+  final FocusNode? nextFocus;
 
   const _FieldRow({
-    required this.label,
-    required this.unit,
-    required this.controller,
-    required this.icon,
-    required this.iconColor,
-    this.keyboard =
-        const TextInputType.numberWithOptions(decimal: true),
-    required this.action,
-    required this.onNext,
+    required this.label, required this.icon, required this.iconColor,
+    required this.unit, required this.ctrl,
+    this.keyboard = const TextInputType.numberWithOptions(decimal: true),
+    this.isLast = false, this.nextFocus,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 34, height: 34,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.15),
+              color: iconColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: iconColor, size: 17),
+            child: Icon(icon, color: iconColor, size: 18),
           ),
           const SizedBox(width: 12),
-          Text(label,
-              style:
-                  const TextStyle(color: Colors.white, fontSize: 15)),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 15)),
           const Spacer(),
           SizedBox(
             width: 90,
             child: TextField(
-              controller: controller,
+              controller: ctrl,
               keyboardType: keyboard,
               textAlign: TextAlign.right,
-              textInputAction: action,
+              textInputAction: isLast ? TextInputAction.done : TextInputAction.next,
+              onSubmitted: isLast
+                  ? (_) => FocusScope.of(context).unfocus()
+                  : (_) => FocusScope.of(context).nextFocus(),
               style: const TextStyle(color: Colors.white, fontSize: 15),
-              onSubmitted: (_) => onNext(),
               decoration: InputDecoration(
                 isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 4),
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
                 border: InputBorder.none,
-                hintText: '0',
-                hintStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.3)),
-                suffix: Text(' $unit',
-                    style: const TextStyle(
-                        color: _kSecondary, fontSize: 13)),
+                hintText: '—',
+                hintStyle: const TextStyle(color: _kSecond),
+                suffix: Text(' $unit', style: const TextStyle(color: _kSecond, fontSize: 12)),
               ),
             ),
           ),
@@ -914,287 +885,180 @@ class _FieldRow extends StatelessWidget {
   }
 }
 
-class _Divider extends StatelessWidget {
+class _HDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
-        height: 0.5,
-        color: const Color(0xFF3A3A3C),
-        margin: const EdgeInsets.symmetric(vertical: 4),
-      );
+    height: 0.5, color: const Color(0xFF3A3A3C),
+    margin: const EdgeInsets.symmetric(vertical: 2),
+  );
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String text;
-  const _SectionHeader(this.text);
-
+class _SaveBtn extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _SaveBtn({required this.onPressed});
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 4),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: _kSecondary,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-        ),
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _kGreen, foregroundColor: Colors.black,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
       ),
-    );
-  }
-}
-
-class _AppleCard extends StatelessWidget {
-  final Widget child;
-  const _AppleCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: child,
-    );
-  }
+      child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+    ),
+  );
 }
 
 class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final String sub;
+  final String label, value, sub;
   final Color color;
   final IconData icon;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.sub,
-    required this.color,
-    required this.icon,
-  });
+  const _StatCard({required this.label, required this.value, required this.sub, required this.color, required this.icon});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500)),
-          Text(sub,
-              style: const TextStyle(color: _kSecondary, fontSize: 11)),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, color: color, size: 20),
+      const SizedBox(height: 8),
+      Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+      const SizedBox(height: 2),
+      Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
+      Text(sub, style: const TextStyle(color: _kSecond, fontSize: 10)),
+    ]),
+  );
 }
 
+class _ChartStat extends StatelessWidget {
+  final String label, value;
+  const _ChartStat(this.label, this.value);
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
+    Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+  ]);
+}
+
+class _BmiLabel extends StatelessWidget {
+  final String label, range;
+  final Color color;
+  const _BmiLabel(this.label, this.range, this.color);
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+    Text(range, style: const TextStyle(color: _kSecond, fontSize: 9)),
+  ]);
+}
+
+// ─── Mini weight chart ─────────────────────────────────────────────────────────
 class _MiniWeightChart extends StatelessWidget {
   final List<BodyEntry> entries;
   const _MiniWeightChart({required this.entries});
-
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 80,
-      child: CustomPaint(
-        painter: _WeightChartPainter(entries: entries),
-        size: Size.infinite,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SizedBox(
+    height: 90,
+    child: CustomPaint(painter: _WeightPainter(entries), size: Size.infinite),
+  );
 }
 
-class _WeightChartPainter extends CustomPainter {
+class _WeightPainter extends CustomPainter {
   final List<BodyEntry> entries;
-  const _WeightChartPainter({required this.entries});
+  const _WeightPainter(this.entries);
 
   @override
   void paint(Canvas canvas, Size size) {
     if (entries.length < 2) return;
-
-    final minW = entries.map((e) => e.weightKg).reduce(math.min);
-    final maxW = entries.map((e) => e.weightKg).reduce(math.max);
+    final minW = entries.map((e) => e.weightKg).reduce((a, b) => a < b ? a : b);
+    final maxW = entries.map((e) => e.weightKg).reduce((a, b) => a > b ? a : b);
     final range = (maxW - minW).clamp(0.5, double.infinity);
-
     final minD = entries.first.date.millisecondsSinceEpoch.toDouble();
     final maxD = entries.last.date.millisecondsSinceEpoch.toDouble();
     final dateRange = (maxD - minD).clamp(1.0, double.infinity);
 
-    Offset toOffset(BodyEntry e) {
-      final x =
-          ((e.date.millisecondsSinceEpoch - minD) / dateRange) * size.width;
-      final y = size.height - ((e.weightKg - minW) / range) * size.height * 0.9;
+    Offset toOff(BodyEntry e) {
+      final x = ((e.date.millisecondsSinceEpoch - minD) / dateRange) * size.width;
+      final y = size.height - ((e.weightKg - minW) / range) * (size.height - 16) - 8;
       return Offset(x, y);
     }
 
+    final pts = entries.map(toOff).toList();
+
     // Fill
-    final fillPath = Path()..moveTo(0, size.height);
-    for (final e in entries) {
-      final o = toOffset(e);
-      fillPath.lineTo(o.dx, o.dy);
-    }
-    fillPath.lineTo(size.width, size.height);
-    fillPath.close();
-    canvas.drawPath(fillPath,
-        Paint()..color = _kGreen.withOpacity(0.15)..style = PaintingStyle.fill);
+    final fill = Path()..moveTo(0, size.height);
+    for (final pt in pts) fill.lineTo(pt.dx, pt.dy);
+    fill..lineTo(size.width, size.height)..close();
+    canvas.drawPath(fill, Paint()
+      ..color = _kGreen.withOpacity(0.15)
+      ..style = PaintingStyle.fill);
 
     // Line
-    final linePath = Path();
-    for (int i = 0; i < entries.length; i++) {
-      final o = toOffset(entries[i]);
-      if (i == 0) {
-        linePath.moveTo(o.dx, o.dy);
-      } else {
-        linePath.lineTo(o.dx, o.dy);
-      }
-    }
-    canvas.drawPath(
-        linePath,
-        Paint()
-          ..color = _kGreen
-          ..strokeWidth = 2
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round);
+    final linePath = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (final pt in pts.skip(1)) linePath.lineTo(pt.dx, pt.dy);
+    canvas.drawPath(linePath, Paint()
+      ..color = _kGreen
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round);
 
     // Dots
-    final dotPaint = Paint()..color = _kGreen..style = PaintingStyle.fill;
-    for (final e in entries) {
-      canvas.drawCircle(toOffset(e), 2.5, dotPaint);
+    for (final pt in pts) {
+      canvas.drawCircle(pt, 2.5, Paint()..color = _kGreen);
     }
-    // Last dot bigger
-    canvas.drawCircle(toOffset(entries.last), 4.5, dotPaint);
+    // Highlight last point
+    canvas.drawCircle(pts.last, 5,
+      Paint()..color = _kGreen.withOpacity(0.3)..style = PaintingStyle.fill);
+    canvas.drawCircle(pts.last, 4,
+      Paint()..color = _kGreen..style = PaintingStyle.fill);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => true;
+  bool shouldRepaint(covariant CustomPainter _) => true;
 }
 
+// ─── BMI Bar ───────────────────────────────────────────────────────────────────
 class _BmiBar extends StatelessWidget {
   final double? bmi;
   const _BmiBar({this.bmi});
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 16,
-      child: LayoutBuilder(builder: (_, constraints) {
-        const segments = [_kBlue, _kGreen, _kOrange, _kRed];
-        return Stack(
-          children: [
-            Row(
-              children: [
-                for (int i = 0; i < 4; i++)
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: segments[i],
-                        borderRadius: BorderRadius.horizontal(
-                          left: i == 0
-                              ? const Radius.circular(8)
-                              : Radius.zero,
-                          right: i == 3
-                              ? const Radius.circular(8)
-                              : Radius.zero,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            if (bmi != null)
-              Positioned(
-                left: (((bmi! - 15) / 25).clamp(0.0, 1.0) *
-                        constraints.maxWidth -
-                    6),
-                top: 0,
-                child: Container(
-                  width: 12,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
+  Widget build(BuildContext context) => SizedBox(
+    height: 18,
+    child: LayoutBuilder(builder: (_, c) {
+      const segs = [_kBlue, _kGreen, _kOrange, _kRed];
+      return Stack(children: [
+        Row(children: [
+          for (int i = 0; i < 4; i++)
+            Expanded(child: Container(
+              decoration: BoxDecoration(
+                color: segs[i],
+                borderRadius: BorderRadius.horizontal(
+                  left: i == 0 ? const Radius.circular(9) : Radius.zero,
+                  right: i == 3 ? const Radius.circular(9) : Radius.zero,
                 ),
               ),
-          ],
-        );
-      }),
-    );
-  }
-}
-
-class _ChartStat extends StatelessWidget {
-  final String label;
-  final String value;
-  const _ChartStat(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(label,
-            style: const TextStyle(color: _kSecondary, fontSize: 11)),
-        Text(value,
-            style: const TextStyle(
+            )),
+        ]),
+        if (bmi != null)
+          Positioned(
+            left: (((bmi! - 15) / 25).clamp(0.0, 1.0) * (c.maxWidth - 12)),
+            top: 1,
+            child: Container(
+              width: 12, height: 16,
+              decoration: BoxDecoration(
                 color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-}
-
-class _BmiLabel extends StatelessWidget {
-  final String label;
-  final String range;
-  final Color color;
-  const _BmiLabel(this.label, this.range, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(label,
-            style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w600)),
-        Text(range,
-            style:
-                const TextStyle(color: _kSecondary, fontSize: 10)),
-      ],
-    );
-  }
+                borderRadius: BorderRadius.circular(3),
+                boxShadow: [BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 4, offset: const Offset(0, 2),
+                )],
+              ),
+            ),
+          ),
+      ]);
+    }),
+  );
 }

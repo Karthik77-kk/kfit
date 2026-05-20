@@ -8,6 +8,7 @@ import 'screens/water_screen.dart';
 import 'screens/workout_screen.dart';
 import 'screens/supplements_screen.dart';
 import 'screens/stats_screen.dart';
+import 'screens/history_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -18,9 +19,14 @@ void main() async {
     systemNavigationBarColor: Color(0xFF000000),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
-  // Only initialize — don't schedule here (exact alarm permission not guaranteed)
+  // Initialize notifications and request permission (Android 13+)
   try {
-    await NotificationService().initialize();
+    final ns = NotificationService();
+    await ns.initialize();
+    final granted = await ns.requestPermission();
+    if (granted) {
+      await ns.scheduleMorningSummary();
+    }
   } catch (_) {}
   runApp(
     ChangeNotifierProvider(
@@ -131,6 +137,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     WorkoutScreen(),
     StatsScreen(),
     SupplementsScreen(),
+    HistoryScreen(),
   ];
 
   @override
@@ -179,6 +186,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               icon: Icon(Icons.medication_liquid_outlined, size: 24),
               activeIcon: Icon(Icons.medication_liquid_rounded, size: 24),
               label: 'Supps',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.history_outlined, size: 24),
+              activeIcon: Icon(Icons.history_rounded, size: 24),
+              label: 'History',
             ),
           ],
         ),

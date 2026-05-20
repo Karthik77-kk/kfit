@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/fitness_provider.dart';
@@ -8,21 +7,15 @@ import '../models/models.dart';
 import '../services/weather_service.dart';
 import '../services/notification_service.dart';
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
-const _kGreen = Color(0xFF30D158);
-const _kBlue = Color(0xFF40C8E0);
-const _kRed = Color(0xFFFF453A);
+// ─── Design tokens ─────────────────────────────────────────────────────────────
+const _kGreen  = Color(0xFF30D158);
+const _kBlue   = Color(0xFF40C8E0);
+const _kRed    = Color(0xFFFF453A);
 const _kOrange = Color(0xFFFF9F0A);
-const _kCard = Color(0xFF1C1C1E);
-const _kSecondary = Color(0xFF8E8E93);
+const _kCard   = Color(0xFF1C1C1E);
+const _kSecond = Color(0xFF8E8E93);
 
-String _fmtInt(num v) => v.round().toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Home Screen
-// ══════════════════════════════════════════════════════════════════════════════
-
+// ─── Home Screen ───────────────────────────────────────────────────────────────
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -37,25 +30,22 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadWeather();
+    // Schedule morning notification on first load
     NotificationService().scheduleMorningSummary();
   }
 
   Future<void> _loadWeather() async {
-    setState(() => _weatherLoading = true);
-    final data = await WeatherService().fetchWeather();
-    if (mounted) {
-      setState(() {
-        _weather = data;
-        _weatherLoading = false;
-      });
-    }
+    final w = await WeatherService().fetchWeather();
+    if (mounted) setState(() { _weather = w; _weatherLoading = false; });
   }
 
   String _greeting() {
     final h = DateTime.now().hour;
+    if (h < 6)  return 'Rise and grind';
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (h < 21) return 'Good evening';
+    return 'Good night';
   }
 
   @override
@@ -71,74 +61,136 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: _kCard,
         onRefresh: _loadWeather,
         child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            // ── Header ────────────────────────────────────────────────────
             SliverAppBar(
               expandedHeight: 110,
               pinned: true,
               backgroundColor: Colors.black,
               surfaceTintColor: Colors.transparent,
               flexibleSpace: FlexibleSpaceBar(
-                titlePadding:
-                    const EdgeInsets.only(left: 20, bottom: 14, right: 20),
+                titlePadding: const EdgeInsets.only(left: 20, bottom: 14, right: 20),
                 title: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      today,
-                      style: const TextStyle(
-                        color: _kSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      '${_greeting()}, Karthik 👋',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
+                    Text(today, style: const TextStyle(color: _kSecond, fontSize: 11, fontWeight: FontWeight.w400)),
+                    Text('${_greeting()}, Karthik 👋', style: const TextStyle(
+                      color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700, letterSpacing: -0.5,
+                    )),
                   ],
                 ),
               ),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 16, top: 8),
+                  child: _StreakBadge(streak: p.workoutStreak),
+                ),
+              ],
             ),
 
-            // ── Content ───────────────────────────────────────────────────
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomPad),
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottomPad),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  // Weather
+
+                  // ── Weather card ──────────────────────────────────────────
                   _WeatherCard(weather: _weather, loading: _weatherLoading),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
-                  // Activity rings
-                  _ActivityRingsCard(p: p),
-                  const SizedBox(height: 16),
+                  // ── Activity rings ────────────────────────────────────────
+                  const _SectionHdr('TODAY\'S ACTIVITY'),
+                  const SizedBox(height: 10),
+                  _ActivityRingsCard(provider: p),
+                  const SizedBox(height: 20),
 
-                  // Calorie balance
-                  _CalorieBalanceCard(p: p),
-                  const SizedBox(height: 16),
+                  // ── Calorie balance ───────────────────────────────────────
+                  const _SectionHdr('CALORIE BALANCE'),
+                  const SizedBox(height: 10),
+                  _CalorieBalanceCard(provider: p),
+                  const SizedBox(height: 20),
 
-                  // Weight prediction
-                  _WeightPredictionCard(p: p),
-                  const SizedBox(height: 16),
+                  // ── Move metrics ──────────────────────────────────────────
+                  const _SectionHdr('MOVE'),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: _MetricTile(
+                      label: 'Steps', value: _fmtInt(p.todaySteps),
+                      goal: '/ ${_fmtInt(FitnessProvider.kStepGoal)}',
+                      icon: Icons.directions_walk_rounded, color: _kBlue,
+                      progress: p.stepProgress,
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(child: _MetricTile(
+                      label: 'Cal Burned', value: '${p.todayCaloriesBurned}',
+                      goal: 'kcal',
+                      icon: Icons.local_fire_department_rounded, color: _kRed,
+                      progress: (p.todayCaloriesBurned / 400).clamp(0.0, 1.0),
+                    )),
+                  ]),
+                  const SizedBox(height: 20),
 
-                  // Weekly snapshot
-                  _WeeklySnapshotCard(p: p),
-                  const SizedBox(height: 16),
+                  // ── Nutrition ─────────────────────────────────────────────
+                  const _SectionHdr('NUTRITION'),
+                  const SizedBox(height: 10),
+                  _NutritionCard(provider: p),
+                  const SizedBox(height: 20),
 
-                  // Nutrition breakdown
-                  _NutritionCard(p: p),
-                  const SizedBox(height: 16),
+                  // ── Weight prediction chart ───────────────────────────────
+                  if (p.getRecentBodyEntries(days: 90).length >= 3) ...[
+                    const _SectionHdr('WEIGHT PREDICTION (AI TREND)'),
+                    const SizedBox(height: 10),
+                    _WeightPredictionCard(provider: p),
+                    const SizedBox(height: 20),
+                  ],
 
-                  // Smart tip
-                  _SmartTip(p: p),
+                  // ── Workout ───────────────────────────────────────────────
+                  const _SectionHdr('WORKOUT'),
+                  const SizedBox(height: 10),
+                  _WorkoutCard(workout: p.todayWorkout),
+                  const SizedBox(height: 20),
+
+                  // ── Supplements ───────────────────────────────────────────
+                  const _SectionHdr('SUPPLEMENTS'),
+                  const SizedBox(height: 10),
+                  _SupplementsCard(supp: p.supplements),
+                  const SizedBox(height: 20),
+
+                  // ── Body ──────────────────────────────────────────────────
+                  if (p.latestWeightKg != null) ...[
+                    const _SectionHdr('BODY'),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: _MetricTile(
+                        label: 'Weight',
+                        value: p.latestWeightKg!.toStringAsFixed(1),
+                        goal: 'kg  •  Goal: ${p.goalWeightKg.toStringAsFixed(1)} kg',
+                        icon: Icons.monitor_weight_outlined,
+                        color: _kOrange, progress: -1,
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: _MetricTile(
+                        label: 'BMI',
+                        value: p.bmi?.toStringAsFixed(1) ?? '--',
+                        goal: p.bmiCategory,
+                        icon: Icons.health_and_safety_outlined,
+                        color: p.bmiColor(context), progress: -1,
+                      )),
+                    ]),
+                    if (p.weightChangeKg != null) ...[
+                      const SizedBox(height: 8),
+                      _WeightChangeBadge(change: p.weightChangeKg!),
+                    ],
+                    const SizedBox(height: 20),
+                  ],
+
+                  // ── Weekly snapshot ───────────────────────────────────────
+                  const _SectionHdr('THIS WEEK'),
+                  const SizedBox(height: 10),
+                  _WeeklySnapshotCard(provider: p),
+                  const SizedBox(height: 20),
+
+                  // ── Smart tip ─────────────────────────────────────────────
+                  _SmartTip(provider: p),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -150,7 +202,48 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ── Weather card ───────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+String _fmtInt(int n) {
+  if (n >= 1000) return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k';
+  return '$n';
+}
+
+// ─── Section header ────────────────────────────────────────────────────────────
+class _SectionHdr extends StatelessWidget {
+  final String text;
+  const _SectionHdr(this.text);
+  @override
+  Widget build(BuildContext context) => Text(text, style: const TextStyle(
+    color: _kSecond, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8,
+  ));
+}
+
+// ─── Streak badge ──────────────────────────────────────────────────────────────
+class _StreakBadge extends StatelessWidget {
+  final int streak;
+  const _StreakBadge({required this.streak});
+  @override
+  Widget build(BuildContext context) {
+    if (streak == 0) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: _kOrange.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _kOrange.withOpacity(0.3)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Text('🔥', style: TextStyle(fontSize: 14)),
+        const SizedBox(width: 4),
+        Text('$streak day${streak == 1 ? '' : 's'}', style: const TextStyle(
+          color: _kOrange, fontSize: 12, fontWeight: FontWeight.w600,
+        )),
+      ]),
+    );
+  }
+}
+
+// ─── Weather Card ──────────────────────────────────────────────────────────────
 class _WeatherCard extends StatelessWidget {
   final WeatherData? weather;
   final bool loading;
@@ -160,42 +253,25 @@ class _WeatherCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (loading) {
       return Container(
-        height: 90,
-        decoration: BoxDecoration(
-          color: _kCard,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-                strokeWidth: 2, color: _kBlue),
-          ),
-        ),
+        height: 80,
+        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+        child: const Center(child: SizedBox(
+          width: 20, height: 20,
+          child: CircularProgressIndicator(color: _kGreen, strokeWidth: 2),
+        )),
       );
     }
 
     final w = weather;
     if (w == null) {
       return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _kCard,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            const Text('🌡️', style: TextStyle(fontSize: 28)),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Bangalore weather unavailable\nCheck your connection',
-                style: TextStyle(color: _kSecondary, fontSize: 13),
-              ),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+        child: const Row(children: [
+          Text('🌐', style: TextStyle(fontSize: 20)),
+          SizedBox(width: 10),
+          Text('Weather unavailable — check connection', style: TextStyle(color: _kSecond, fontSize: 13)),
+        ]),
       );
     }
 
@@ -203,193 +279,100 @@ class _WeatherCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF1A2A3A),
-            _kCard,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [const Color(0xFF1A2A3A), _kCard],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kBlue.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(18),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(w.emoji, style: const TextStyle(fontSize: 36)),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${w.tempC.round()}°C',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          w.description,
-                          style: const TextStyle(
-                              color: _kSecondary, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Bangalore  💧 ${w.humidity.round()}%  💨 ${w.windKph.round()} km/h',
-                      style: const TextStyle(
-                          color: _kSecondary, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _kBlue.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              w.workoutAdvice,
-              style: const TextStyle(color: _kBlue, fontSize: 12),
-            ),
-          ),
-        ],
-      ),
+      child: Row(children: [
+        Text(w.emoji, style: const TextStyle(fontSize: 40)),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Text('${w.tempC.round()}°C', style: const TextStyle(
+              color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700,
+            )),
+            const SizedBox(width: 10),
+            Text(w.description, style: const TextStyle(color: _kSecond, fontSize: 14)),
+          ]),
+          const SizedBox(height: 4),
+          Text(w.workoutAdvice, style: TextStyle(
+            color: Colors.white.withOpacity(0.65), fontSize: 12,
+          )),
+        ])),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('💧 ${w.humidity}%', style: const TextStyle(color: _kBlue, fontSize: 12)),
+          const SizedBox(height: 4),
+          Text('💨 ${w.windKph.round()} km/h', style: const TextStyle(color: _kSecond, fontSize: 12)),
+          const SizedBox(height: 2),
+          const Text('Bangalore', style: TextStyle(color: _kSecond, fontSize: 10)),
+        ]),
+      ]),
     );
   }
 }
 
-// ── Activity rings card ────────────────────────────────────────────────────────
+// ─── Activity Rings ────────────────────────────────────────────────────────────
 class _ActivityRingsCard extends StatelessWidget {
-  final FitnessProvider p;
-  const _ActivityRingsCard({required this.p});
+  final FitnessProvider provider;
+  const _ActivityRingsCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
+    final p = provider;
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          // Rings
-          SizedBox(
-            width: 110,
-            height: 110,
-            child: CustomPaint(
-              painter: _RingsPainter(
-                values: [p.calorieProgress, p.proteinProgress, p.waterProgress],
-                colors: [_kRed, _kGreen, _kBlue],
-              ),
-            ),
-          ),
-          const SizedBox(width: 20),
-          // Legend
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Today\'s Rings',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _RingLegend(
-                  color: _kRed,
-                  label: 'Calories',
-                  value:
-                      '${_fmtInt(p.todayCalories)} / ${_fmtInt(FitnessProvider.kCalorieGoal)}',
-                  progress: p.calorieProgress,
-                ),
-                const SizedBox(height: 8),
-                _RingLegend(
-                  color: _kGreen,
-                  label: 'Protein',
-                  value:
-                      '${p.todayProtein.round()}g / ${FitnessProvider.kProteinGoal}g',
-                  progress: p.proteinProgress,
-                ),
-                const SizedBox(height: 8),
-                _RingLegend(
-                  color: _kBlue,
-                  label: 'Water',
-                  value:
-                      '${(p.todayWaterMl / 1000).toStringAsFixed(1)}L / 2.5L',
-                  progress: p.waterProgress,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
+      child: Row(children: [
+        SizedBox(
+          width: 110, height: 110,
+          child: CustomPaint(painter: _RingsPainter(
+            values: [p.calorieProgress, p.proteinProgress, p.waterProgress],
+            colors: [_kRed, _kGreen, _kBlue],
+          )),
+        ),
+        const SizedBox(width: 18),
+        Expanded(child: Column(children: [
+          _RingRow(color: _kRed, label: 'Calories',
+            value: '${p.todayCalories.round()} / ${FitnessProvider.kCalorieGoal} kcal',
+            progress: p.calorieProgress),
+          const SizedBox(height: 10),
+          _RingRow(color: _kGreen, label: 'Protein',
+            value: '${p.todayProtein.round()} / ${FitnessProvider.kProteinGoal}g',
+            progress: p.proteinProgress),
+          const SizedBox(height: 10),
+          _RingRow(color: _kBlue, label: 'Water',
+            value: '${p.todayWaterMl} / ${FitnessProvider.kWaterGoalMl} ml',
+            progress: p.waterProgress),
+        ])),
+      ]),
     );
   }
 }
 
-class _RingLegend extends StatelessWidget {
+class _RingRow extends StatelessWidget {
   final Color color;
-  final String label;
-  final String value;
+  final String label, value;
   final double progress;
-  const _RingLegend(
-      {required this.color,
-      required this.label,
-      required this.value,
-      required this.progress});
+  const _RingRow({required this.color, required this.label, required this.value, required this.progress});
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration:
-              BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style:
-                      const TextStyle(color: _kSecondary, fontSize: 11)),
-              Text(value,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ),
-        Text(
-          '${(progress * 100).round()}%',
-          style: TextStyle(
-              color: progress >= 1 ? color : _kSecondary, fontSize: 11),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(children: [
+      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 6),
+      Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
+      const Spacer(),
+      Text('${(progress * 100).round()}%', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+    ]),
+    const SizedBox(height: 4),
+    ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(
+      value: progress, backgroundColor: color.withOpacity(0.15),
+      valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 5,
+    )),
+    const SizedBox(height: 2),
+    Text(value, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+  ]);
 }
 
 class _RingsPainter extends CustomPainter {
@@ -400,37 +383,24 @@ class _RingsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    const ringCount = 3;
-    final maxRadius = math.min(size.width, size.height) / 2 - 4;
-    const strokeW = 12.0;
-    const gap = 6.0;
-
-    for (int i = 0; i < ringCount; i++) {
-      final radius = maxRadius - i * (strokeW + gap);
-      final progress = values[i].clamp(0.0, 1.0);
-
-      // Background track
-      canvas.drawCircle(
-        center,
-        radius,
-        Paint()
-          ..color = colors[i].withOpacity(0.18)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeW
-          ..strokeCap = StrokeCap.round,
-      );
-
-      // Progress arc
-      if (progress > 0) {
+    const stroke = 10.0;
+    const gap = 14.0;
+    for (int i = 0; i < values.length; i++) {
+      final r = size.width / 2 - stroke / 2 - i * gap;
+      if (r <= 0) continue;
+      canvas.drawCircle(center, r, Paint()
+        ..color = colors[i].withOpacity(0.15)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke);
+      if (values[i] > 0) {
         canvas.drawArc(
-          Rect.fromCircle(center: center, radius: radius),
-          -math.pi / 2,
-          2 * math.pi * progress,
+          Rect.fromCircle(center: center, radius: r),
+          -math.pi / 2, 2 * math.pi * values[i].clamp(0.0, 1.0),
           false,
           Paint()
             ..color = colors[i]
             ..style = PaintingStyle.stroke
-            ..strokeWidth = strokeW
+            ..strokeWidth = stroke
             ..strokeCap = StrokeCap.round,
         );
       }
@@ -438,749 +408,610 @@ class _RingsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingsPainter old) => true;
+  bool shouldRepaint(_) => true;
 }
 
-// ── Calorie balance card ───────────────────────────────────────────────────────
+// ─── Calorie Balance Card ──────────────────────────────────────────────────────
 class _CalorieBalanceCard extends StatelessWidget {
-  final FitnessProvider p;
-  const _CalorieBalanceCard({required this.p});
+  final FitnessProvider provider;
+  const _CalorieBalanceCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
+    final p = provider;
     final deficit = p.calorieDeficit;
-    final isDeficit = p.inDeficit;
-    final color = isDeficit ? _kGreen : _kOrange;
-    final icon = isDeficit ? '📉' : '📈';
-    final label = isDeficit ? 'Calorie Deficit' : 'Calorie Surplus';
+    final inDef = deficit > 0;
+    final color = inDef ? _kGreen : _kRed;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(16),
+        color: _kCard, borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withOpacity(0.25)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(icon, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${deficit > 0 ? '' : '+'}${_fmtInt(deficit.abs())} kcal',
-                  style: TextStyle(
-                      color: color,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _CalStat(
-                  label: 'Eaten',
-                  value: '${_fmtInt(p.todayCalories)} kcal',
-                  color: _kRed),
-              const SizedBox(width: 8),
-              _CalStat(
-                  label: 'Burned',
-                  value: '${_fmtInt(p.todayCaloriesBurned)} kcal',
-                  color: _kOrange),
-              const SizedBox(width: 8),
-              _CalStat(
-                  label: 'TDEE',
-                  value: '${_fmtInt(p.tdee)} kcal',
-                  color: _kSecondary),
-            ],
-          ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (p.todayCalories / p.tdee).clamp(0.0, 1.5),
-              backgroundColor: Colors.white.withOpacity(0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                p.todayCalories > p.tdee ? _kRed : _kGreen,
-              ),
-              minHeight: 6,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            isDeficit
-                ? '${_fmtInt(p.caloriesRemaining)} kcal remaining to hit your target'
-                : 'Over target by ${_fmtInt((p.todayCalories - FitnessProvider.kCalorieGoal).abs())} kcal',
-            style: const TextStyle(color: _kSecondary, fontSize: 11),
-          ),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(inDef ? Icons.trending_down_rounded : Icons.trending_up_rounded, color: color, size: 18),
+          const SizedBox(width: 8),
+          Text(inDef ? 'In Deficit 🎯' : 'In Surplus', style: TextStyle(
+            color: color, fontSize: 13, fontWeight: FontWeight.w600,
+          )),
+          const Spacer(),
+          Text('${inDef ? '-' : '+'}${deficit.abs()} kcal', style: TextStyle(
+            color: color, fontSize: 22, fontWeight: FontWeight.w700,
+          )),
+        ]),
+        const SizedBox(height: 12),
+        ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(
+          value: (p.netCalories / FitnessProvider.kCalorieGoal).clamp(0.0, 1.0),
+          backgroundColor: Colors.white.withOpacity(0.08),
+          valueColor: AlwaysStoppedAnimation<Color>(p.netCalories > FitnessProvider.kCalorieGoal ? _kRed : _kGreen),
+          minHeight: 8,
+        )),
+        const SizedBox(height: 10),
+        Row(children: [
+          _BalStat('Eaten', '${p.todayCalories.round()}', _kOrange),
+          const Text(' − ', style: TextStyle(color: _kSecond, fontSize: 12)),
+          _BalStat('Burned', '${p.todayCaloriesBurned}', _kRed),
+          const Text(' = ', style: TextStyle(color: _kSecond, fontSize: 12)),
+          _BalStat('Net', '${p.netCalories}', inDef ? _kGreen : _kRed),
+          const Spacer(),
+          Text('Goal: ${FitnessProvider.kCalorieGoal}', style: const TextStyle(color: _kSecond, fontSize: 11)),
+        ]),
+      ]),
     );
   }
 }
 
-class _CalStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  const _CalStat(
-      {required this.label, required this.value, required this.color});
-
+class _BalStat extends StatelessWidget {
+  final String l, v;
+  final Color c;
+  const _BalStat(this.l, this.v, this.c);
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(color: _kSecondary, fontSize: 10),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              value,
-              style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(v, style: TextStyle(color: c, fontSize: 15, fontWeight: FontWeight.bold)),
+    Text(l, style: const TextStyle(color: _kSecond, fontSize: 10)),
+  ]);
 }
 
-// ── Weight prediction card ─────────────────────────────────────────────────────
+// ─── Weight Prediction Card ────────────────────────────────────────────────────
 class _WeightPredictionCard extends StatelessWidget {
-  final FitnessProvider p;
-  const _WeightPredictionCard({required this.p});
+  final FitnessProvider provider;
+  const _WeightPredictionCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
+    final p = provider;
     final forecast = p.weightForecast(days: 30);
-    final current = p.latestWeightKg;
-    final predicted = p.predictedWeightInDays(30);
-    final goal = p.goalWeightKg;
-    final eta = p.estimatedGoalDate;
-    final weeklyChange = p.weeklyWeightChange;
+    final current = p.latestWeightKg!;
+    final weekly = p.weeklyWeightChange;
+    final goalDate = p.estimatedGoalDate;
+    final predicted30 = forecast.isNotEmpty ? forecast.last.$2 : null;
+
+    final isLosing = weekly != null && weekly < 0;
+    final trendColor = isLosing ? _kGreen : _kRed;
 
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('⚖️', style: TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
-              const Text(
-                'Weight Prediction',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              if (weeklyChange != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: weeklyChange < 0
-                        ? _kGreen.withOpacity(0.15)
-                        : _kOrange.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${weeklyChange < 0 ? '' : '+'}${weeklyChange.toStringAsFixed(2)} kg/wk',
-                    style: TextStyle(
-                      color: weeklyChange < 0 ? _kGreen : _kOrange,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          if (p.bodyHistory.length < 3)
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Row(children: [
+          Text('🤖', style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('AI Weight Forecast', style: TextStyle(
+              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600,
+            )),
+            Text('Linear trend from your last ${p.getRecentBodyEntries(days: 90).length} logs',
+                style: const TextStyle(color: _kSecond, fontSize: 11)),
+          ]),
+          const Spacer(),
+          if (weekly != null)
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
+                color: trendColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: trendColor.withOpacity(0.3)),
               ),
-              child: const Text(
-                'Log your weight for at least 3 days to see AI predictions and trends.',
-                style: TextStyle(
-                    color: _kSecondary, fontSize: 13, height: 1.5),
-                textAlign: TextAlign.center,
-              ),
-            )
-          else ...[
-            // Chart
-            SizedBox(
-              height: 140,
-              child: CustomPaint(
-                painter: _PredictionPainter(
-                  history: p.bodyHistory,
-                  forecast: forecast,
-                  goalWeight: goal,
-                ),
-                size: Size.infinite,
+              child: Text(
+                '${weekly >= 0 ? '+' : ''}${weekly.toStringAsFixed(2)} kg/wk',
+                style: TextStyle(color: trendColor, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ),
-            const SizedBox(height: 16),
+        ]),
+        const SizedBox(height: 14),
 
-            // Legend
-            Row(
-              children: [
-                _ChartLegend(color: _kGreen, label: 'Actual', dashed: false),
-                const SizedBox(width: 16),
-                _ChartLegend(color: _kBlue, label: '30-day AI', dashed: true),
-                const SizedBox(width: 16),
-                _ChartLegend(
-                    color: _kOrange, label: 'Goal', dashed: true),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Stats row
-            Row(
-              children: [
-                _PredStat(
-                  label: 'Now',
-                  value: current != null
-                      ? '${current.toStringAsFixed(1)} kg'
-                      : '—',
-                  color: _kGreen,
-                ),
-                _PredStat(
-                  label: 'In 30 days',
-                  value: predicted != null
-                      ? '${predicted.toStringAsFixed(1)} kg'
-                      : '—',
-                  color: _kBlue,
-                ),
-                _PredStat(
-                  label: 'Goal',
-                  value: '${goal.toStringAsFixed(1)} kg',
-                  color: _kOrange,
-                ),
-                _PredStat(
-                  label: 'ETA',
-                  value: eta != null
-                      ? DateFormat('d MMM').format(eta)
-                      : '—',
-                  color: _kSecondary,
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ChartLegend extends StatelessWidget {
-  final Color color;
-  final String label;
-  final bool dashed;
-  const _ChartLegend(
-      {required this.color, required this.label, required this.dashed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
+        // Prediction chart
         SizedBox(
-          width: 20,
-          height: 2,
+          height: 120,
           child: CustomPaint(
-            painter: _DashLinePainter(color: color, dashed: dashed),
+            painter: _PredictionPainter(
+              history: p.getRecentBodyEntries(days: 30),
+              forecast: forecast,
+              goalWeight: p.goalWeightKg,
+            ),
+            size: Size.infinite,
           ),
         ),
-        const SizedBox(width: 4),
-        Text(label,
-            style: const TextStyle(color: _kSecondary, fontSize: 11)),
-      ],
+        const SizedBox(height: 12),
+
+        // Stats row
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _PredStat('Now', '${current.toStringAsFixed(1)} kg', Colors.white),
+          _PredStat('In 30 days', predicted30 != null
+              ? '${predicted30.toStringAsFixed(1)} kg' : '—', trendColor),
+          _PredStat('Goal', '${p.goalWeightKg.toStringAsFixed(1)} kg', _kOrange),
+          _PredStat('ETA', goalDate != null
+              ? DateFormat('d MMM').format(goalDate) : '—', _kBlue),
+        ]),
+
+        if (goalDate != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: _kGreen.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(children: [
+              const Text('🎯', style: TextStyle(fontSize: 14)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(
+                'At this rate you\'ll reach ${p.goalWeightKg.toStringAsFixed(1)} kg by ${DateFormat('d MMMM yyyy').format(goalDate)}',
+                style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+              )),
+            ]),
+          ),
+        ],
+      ]),
     );
   }
-}
-
-class _DashLinePainter extends CustomPainter {
-  final Color color;
-  final bool dashed;
-  const _DashLinePainter({required this.color, required this.dashed});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.5;
-    if (!dashed) {
-      canvas.drawLine(
-          Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint);
-    } else {
-      double x = 0;
-      while (x < size.width) {
-        canvas.drawLine(Offset(x, size.height / 2),
-            Offset(math.min(x + 4, size.width), size.height / 2), paint);
-        x += 7;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashLinePainter old) => false;
 }
 
 class _PredStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  const _PredStat(
-      {required this.label, required this.value, required this.color});
-
+  final String l, v;
+  final Color c;
+  const _PredStat(this.l, this.v, this.c);
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(value,
-              style: TextStyle(
-                  color: color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(label,
-              style:
-                  const TextStyle(color: _kSecondary, fontSize: 10)),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Column(children: [
+    Text(v, style: TextStyle(color: c, fontSize: 14, fontWeight: FontWeight.bold)),
+    Text(l, style: const TextStyle(color: _kSecond, fontSize: 10)),
+  ]);
 }
 
-// ── Weight chart painter ───────────────────────────────────────────────────────
 class _PredictionPainter extends CustomPainter {
   final List<BodyEntry> history;
   final List<(DateTime, double)> forecast;
   final double goalWeight;
 
   const _PredictionPainter({
-    required this.history,
-    required this.forecast,
-    required this.goalWeight,
+    required this.history, required this.forecast, required this.goalWeight,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (history.isEmpty) return;
+    if (history.isEmpty && forecast.isEmpty) return;
 
-    // Compute bounds
+    // Build all points for scale
     final allWeights = [
       ...history.map((e) => e.weightKg),
-      ...forecast.map((t) => t.$2),
+      ...forecast.map((f) => f.$2),
       goalWeight,
     ];
-    final minW = allWeights.reduce(math.min) - 1;
-    final maxW = allWeights.reduce(math.max) + 1;
-    final wRange = maxW - minW;
+    final minW = allWeights.reduce(math.min) - 1.0;
+    final maxW = allWeights.reduce(math.max) + 1.0;
+    final range = (maxW - minW).clamp(0.5, double.infinity);
 
-    // Date bounds
-    final firstDate = history.first.date;
-    final lastForecastDate =
-        forecast.isNotEmpty ? forecast.last.$1 : DateTime.now();
-    final totalDays =
-        lastForecastDate.difference(firstDate).inDays.toDouble();
+    // Time range: history start to forecast end
+    final allDates = [
+      if (history.isNotEmpty) history.first.date,
+      if (forecast.isNotEmpty) forecast.last.$1,
+    ];
+    if (allDates.length < 2) return;
+    final minT = allDates.first.millisecondsSinceEpoch.toDouble();
+    final maxT = allDates.last.millisecondsSinceEpoch.toDouble();
+    final timeRange = (maxT - minT).clamp(1.0, double.infinity);
 
-    double xOf(DateTime d) {
-      if (totalDays <= 0) return 0;
-      return (d.difference(firstDate).inDays / totalDays) * size.width;
+    Offset toOff(DateTime d, double w) {
+      final x = ((d.millisecondsSinceEpoch - minT) / timeRange) * size.width;
+      final y = size.height - ((w - minW) / range) * size.height;
+      return Offset(x.clamp(0, size.width), y.clamp(0, size.height));
     }
 
-    double yOf(double w) {
-      return size.height - ((w - minW) / wRange) * size.height;
-    }
-
-    // ── Goal line (dashed orange) ──────────────────────────────────────────
-    final goalY = yOf(goalWeight);
-    final goalPaint = Paint()
-      ..color = _kOrange.withOpacity(0.5)
-      ..strokeWidth = 1.5;
-    double x = 0;
-    while (x < size.width) {
+    // Draw goal weight line
+    if (goalWeight >= minW && goalWeight <= maxW) {
+      final goalY = size.height - ((goalWeight - minW) / range) * size.height;
       canvas.drawLine(
-          Offset(x, goalY), Offset(math.min(x + 6, size.width), goalY), goalPaint);
-      x += 10;
-    }
-
-    // ── Forecast line (dashed blue) ────────────────────────────────────────
-    if (forecast.length >= 2) {
-      final forecastPaint = Paint()
-        ..color = _kBlue.withOpacity(0.8)
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.round;
-      final path = Path();
-      path.moveTo(xOf(forecast.first.$1), yOf(forecast.first.$2));
-      for (final point in forecast.skip(1)) {
-        path.lineTo(xOf(point.$1), yOf(point.$2));
+        Offset(0, goalY), Offset(size.width, goalY),
+        Paint()..color = _kOrange.withOpacity(0.4)..strokeWidth = 1
+          ..style = PaintingStyle.stroke
+          ..strokeDashOffset = 0,
+      );
+      // Draw dashed line manually
+      final dashPaint = Paint()..color = _kOrange.withOpacity(0.5)..strokeWidth = 1.5;
+      for (double x = 0; x < size.width; x += 10) {
+        canvas.drawLine(Offset(x, goalY), Offset((x + 6).clamp(0, size.width), goalY), dashPaint);
       }
-      _drawDashedPath(canvas, path, forecastPaint, size.width);
     }
 
-    // ── History line (solid green) ─────────────────────────────────────────
+    // Draw history (solid green)
     if (history.length >= 2) {
-      final histPaint = Paint()
-        ..color = _kGreen
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
-      final path = Path();
-      for (int i = 0; i < history.length; i++) {
-        final px = xOf(history[i].date);
-        final py = yOf(history[i].weightKg);
-        if (i == 0) {
-          path.moveTo(px, py);
-        } else {
-          path.lineTo(px, py);
-        }
-      }
-      canvas.drawPath(path, histPaint);
+      final histPath = Path();
+      final histPts = history.map((e) => toOff(e.date, e.weightKg)).toList();
+      histPath.moveTo(histPts.first.dx, histPts.first.dy);
+      for (final pt in histPts.skip(1)) histPath.lineTo(pt.dx, pt.dy);
+      canvas.drawPath(histPath, Paint()
+        ..color = _kGreen..strokeWidth = 2.5..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
 
-      // Dots on each history point
-      final dotPaint = Paint()..color = _kGreen;
-      for (final e in history) {
-        canvas.drawCircle(Offset(xOf(e.date), yOf(e.weightKg)), 3.0, dotPaint);
+      // Dots
+      for (final pt in histPts) {
+        canvas.drawCircle(pt, 3, Paint()..color = _kGreen);
       }
     }
-  }
 
-  void _drawDashedPath(
-      Canvas canvas, Path path, Paint paint, double width) {
-    final metrics = path.computeMetrics();
-    const dashLen = 8.0;
-    const gapLen = 5.0;
-    for (final metric in metrics) {
-      double distance = 0;
-      bool draw = true;
-      while (distance < metric.length) {
-        final len = draw ? dashLen : gapLen;
-        final next = (distance + len).clamp(0.0, metric.length);
-        if (draw) {
-          canvas.drawPath(metric.extractPath(distance, next), paint);
+    // Draw forecast (dashed blue)
+    if (forecast.isNotEmpty && history.isNotEmpty) {
+      final startPt = toOff(history.last.date, history.last.weightKg);
+      final forecastPts = [startPt, ...forecast.map((f) => toOff(f.$1, f.$2))];
+
+      // Dashed forecast line
+      final dashPaint = Paint()
+        ..color = _kBlue..strokeWidth = 2..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
+      for (int i = 0; i < forecastPts.length - 1; i++) {
+        if (i % 3 == 0) { // Draw every 3rd segment for dashed effect
+          canvas.drawLine(forecastPts[i], forecastPts[i + 1], dashPaint);
         }
-        distance = next;
-        draw = !draw;
       }
+
+      // Shade forecast area
+      final shadePath = Path()
+        ..moveTo(startPt.dx, size.height)
+        ..lineTo(startPt.dx, startPt.dy);
+      for (final pt in forecastPts.skip(1)) shadePath.lineTo(pt.dx, pt.dy);
+      shadePath.lineTo(forecastPts.last.dx, size.height);
+      shadePath.close();
+      canvas.drawPath(shadePath, Paint()
+        ..color = _kBlue.withOpacity(0.07)..style = PaintingStyle.fill);
+
+      // End dot
+      canvas.drawCircle(forecastPts.last, 5,
+        Paint()..color = _kBlue.withOpacity(0.3)..style = PaintingStyle.fill);
+      canvas.drawCircle(forecastPts.last, 4,
+        Paint()..color = _kBlue..style = PaintingStyle.fill);
     }
   }
 
   @override
-  bool shouldRepaint(_PredictionPainter old) => true;
+  bool shouldRepaint(_) => true;
 }
 
-// ── Weekly snapshot card ───────────────────────────────────────────────────────
-class _WeeklySnapshotCard extends StatelessWidget {
-  final FitnessProvider p;
-  const _WeeklySnapshotCard({required this.p});
+// ─── Metric Tile ───────────────────────────────────────────────────────────────
+class _MetricTile extends StatelessWidget {
+  final String label, value, goal;
+  final IconData icon;
+  final Color color;
+  final double progress;
+  const _MetricTile({
+    required this.label, required this.value, required this.goal,
+    required this.icon, required this.color, required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [Icon(icon, color: color, size: 16), const SizedBox(width: 6),
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 11))]),
+      const SizedBox(height: 8),
+      Text(value, style: const TextStyle(color: Colors.white, fontSize: 22,
+          fontWeight: FontWeight.w700, height: 1.0)),
+      Text(goal, style: const TextStyle(color: _kSecond, fontSize: 11)),
+      if (progress >= 0) ...[
+        const SizedBox(height: 8),
+        ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(
+          value: progress, backgroundColor: color.withOpacity(0.15),
+          valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 4,
+        )),
+      ],
+    ]),
+  );
+}
+
+// ─── Nutrition Card ────────────────────────────────────────────────────────────
+class _NutritionCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _NutritionCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
+    final p = provider;
+    final rem = p.caloriesRemaining;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${p.todayCalories.round()}', style: const TextStyle(
+              color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700, height: 1.0)),
+            const Text('kcal eaten', style: TextStyle(color: _kSecond, fontSize: 12)),
+          ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('${rem.abs()}', style: TextStyle(
+              color: rem >= 0 ? Colors.white : _kRed, fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(rem >= 0 ? 'remaining' : 'over goal',
+              style: TextStyle(color: rem >= 0 ? _kSecond : _kRed, fontSize: 11)),
+          ]),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(
+          value: p.calorieProgress,
+          backgroundColor: _kOrange.withOpacity(0.15),
+          valueColor: AlwaysStoppedAnimation<Color>(p.calorieProgress >= 1 ? _kRed : _kOrange),
+          minHeight: 6,
+        )),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _NutrChip('Protein', '${p.todayProtein.round()}g',
+              '/${FitnessProvider.kProteinGoal}g', _kGreen, p.proteinProgress),
+          _NutrChip('Breakfast', '${p.breakfastEntries.fold(0.0, (s, e) => s + e.calories).round()}',
+              'kcal', _kBlue, -1),
+          _NutrChip('Items', '${p.todayFood.length}', 'logged', _kSecond, -1),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _NutrChip extends StatelessWidget {
+  final String label, value, sub;
+  final Color color;
+  final double progress;
+  const _NutrChip(this.label, this.value, this.sub, this.color, this.progress);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+    child: Column(children: [
+      Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
+      Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
+      if (progress >= 0) ...[
+        const SizedBox(height: 3),
+        SizedBox(width: 55, child: ClipRRect(borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(value: progress,
+            backgroundColor: color.withOpacity(0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 3))),
+      ],
+    ]),
+  );
+}
+
+// ─── Workout Card ──────────────────────────────────────────────────────────────
+class _WorkoutCard extends StatelessWidget {
+  final WorkoutLog? workout;
+  const _WorkoutCard({required this.workout});
+
+  @override
+  Widget build(BuildContext context) {
+    if (workout == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+        child: Row(children: [
+          Container(padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: _kGreen.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.fitness_center_rounded, color: _kGreen, size: 20)),
+          const SizedBox(width: 14),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('No workout logged yet', style: TextStyle(
+              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            Text('Tap Workout tab to start', style: TextStyle(color: _kSecond, fontSize: 12)),
+          ]),
+        ]),
+      );
+    }
+    final color = workout!.workoutType == WorkoutType.a ? _kGreen : _kBlue;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3))),
+      child: Row(children: [
+        Icon(Icons.check_circle_rounded, color: color, size: 26),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Workout ${workout!.workoutType.name.toUpperCase()} done!',
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+          Text('${workout!.durationMinutes} min · ${workout!.exercises.length} exercises · ${workout!.caloriesBurned} kcal',
+            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+        ])),
+      ]),
+    );
+  }
+}
+
+// ─── Supplements Card ──────────────────────────────────────────────────────────
+class _SupplementsCard extends StatelessWidget {
+  final SupplementStatus supp;
+  const _SupplementsCard({required this.supp});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [('Whey', supp.whey, '🥛'), ('Creatine', supp.creatine, '⚡'), ('Multivitamin', supp.multivitamin, '💊')];
+    final done = items.where((e) => e.$2).length;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('$done/${items.length} taken', style: const TextStyle(color: _kSecond, fontSize: 12)),
+          const Spacer(),
+          if (done == items.length) const Text('✅ All done!',
+              style: TextStyle(color: _kGreen, fontSize: 12, fontWeight: FontWeight.w600)),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: items.map((item) => Expanded(child: Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: item.$2 ? _kGreen.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: item.$2 ? _kGreen.withOpacity(0.4) : Colors.transparent),
+            ),
+            child: Column(children: [
+              Text(item.$3, style: const TextStyle(fontSize: 20)),
+              const SizedBox(height: 4),
+              Text(item.$1, style: TextStyle(
+                color: item.$2 ? _kGreen : _kSecond, fontSize: 10, fontWeight: FontWeight.w500)),
+            ]),
+          ),
+        ))).toList()),
+      ]),
+    );
+  }
+}
+
+// ─── Weight Change Badge ───────────────────────────────────────────────────────
+class _WeightChangeBadge extends StatelessWidget {
+  final double change;
+  const _WeightChangeBadge({required this.change});
+
+  @override
+  Widget build(BuildContext context) {
+    final loss = change < 0;
+    final color = loss ? _kGreen : _kRed;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(loss ? Icons.trending_down_rounded : Icons.trending_up_rounded, color: color, size: 14),
+        const SizedBox(width: 6),
+        Text('${loss ? '' : '+'}${change.toStringAsFixed(1)} kg this month',
+          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+}
+
+// ─── Weekly Snapshot Card ──────────────────────────────────────────────────────
+class _WeeklySnapshotCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _WeeklySnapshotCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = provider;
     final map = p.weeklyWorkoutMap;
     final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final todayIndex = DateTime.now().weekday - 1; // 0=Mon
+    final today = DateTime.now().weekday - 1;
 
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('📅', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 8),
-              const Text(
-                'This Week',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
+      child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(7, (i) {
+            final done = i < map.length ? map[i] : false;
+            final isToday = i == today;
+            return Column(children: [
+              Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(
+                  color: done ? _kGreen.withOpacity(0.2) : isToday
+                      ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.04),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: done ? _kGreen : isToday ? Colors.white38 : Colors.transparent, width: 1.5),
                 ),
+                child: done ? const Icon(Icons.check_rounded, color: _kGreen, size: 16) : null,
               ),
-              const Spacer(),
-              Text(
-                '${p.weeklyWorkoutDays}/6 workouts',
-                style: const TextStyle(color: _kSecondary, fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(7, (i) {
-              final done = map[i];
-              final isToday = i == todayIndex;
-              return Column(
-                children: [
-                  Text(
-                    days[i],
-                    style: TextStyle(
-                      color: isToday ? Colors.white : _kSecondary,
-                      fontSize: 11,
-                      fontWeight: isToday
-                          ? FontWeight.w700
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: done
-                          ? _kGreen
-                          : isToday
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.white.withOpacity(0.05),
-                      shape: BoxShape.circle,
-                      border: isToday && !done
-                          ? Border.all(color: _kGreen, width: 1.5)
-                          : null,
-                    ),
-                    child: Center(
-                      child: done
-                          ? const Icon(Icons.check,
-                              color: Colors.black, size: 16)
-                          : Text(
-                              days[i],
-                              style: TextStyle(
-                                color: isToday
-                                    ? _kGreen
-                                    : Colors.white.withOpacity(0.3),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: p.weeklyWorkoutDays / 6,
-              backgroundColor: Colors.white.withOpacity(0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(_kGreen),
-              minHeight: 4,
-            ),
-          ),
-        ],
-      ),
+              const SizedBox(height: 4),
+              Text(days[i], style: TextStyle(
+                color: done ? _kGreen : isToday ? Colors.white : _kSecond,
+                fontSize: 11, fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+              )),
+            ]);
+          }),
+        ),
+        const SizedBox(height: 12),
+        const Divider(color: Color(0xFF38383A), thickness: 0.5, height: 1),
+        const SizedBox(height: 12),
+        Row(children: [
+          _WeekStat('Workouts', '${p.weeklyWorkoutDays}/7', _kGreen, Icons.fitness_center_rounded),
+          const SizedBox(width: 12),
+          _WeekStat('Kcal Burned', '${p.weeklyCaloriesBurned}', _kRed, Icons.local_fire_department_rounded),
+          const SizedBox(width: 12),
+          _WeekStat('Streak', '${p.workoutStreak} 🔥', _kOrange, null),
+        ]),
+      ]),
     );
   }
 }
 
-// ── Nutrition card ─────────────────────────────────────────────────────────────
-class _NutritionCard extends StatelessWidget {
-  final FitnessProvider p;
-  const _NutritionCard({required this.p});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Text('🥗', style: TextStyle(fontSize: 18)),
-              SizedBox(width: 8),
-              Text(
-                'Nutrition',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _NutrBar(
-            label: 'Calories',
-            current: p.todayCalories.round(),
-            goal: FitnessProvider.kCalorieGoal,
-            unit: 'kcal',
-            color: _kRed,
-          ),
-          const SizedBox(height: 10),
-          _NutrBar(
-            label: 'Protein',
-            current: p.todayProtein.round(),
-            goal: FitnessProvider.kProteinGoal,
-            unit: 'g',
-            color: _kGreen,
-          ),
-          const SizedBox(height: 10),
-          _NutrBar(
-            label: 'Water',
-            current: p.todayWaterMl,
-            goal: FitnessProvider.kWaterGoalMl,
-            unit: 'ml',
-            color: _kBlue,
-          ),
-          const SizedBox(height: 10),
-          _NutrBar(
-            label: 'Steps',
-            current: p.todaySteps,
-            goal: FitnessProvider.kStepGoal,
-            unit: 'steps',
-            color: _kOrange,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NutrBar extends StatelessWidget {
-  final String label;
-  final int current;
-  final int goal;
-  final String unit;
+class _WeekStat extends StatelessWidget {
+  final String label, value;
   final Color color;
-  const _NutrBar(
-      {required this.label,
-      required this.current,
-      required this.goal,
-      required this.unit,
-      required this.color});
+  final IconData? icon;
+  const _WeekStat(this.label, this.value, this.color, this.icon);
 
   @override
-  Widget build(BuildContext context) {
-    final progress = (current / goal).clamp(0.0, 1.0);
-    return Column(
-      children: [
-        Row(
-          children: [
-            Text(label,
-                style:
-                    const TextStyle(color: _kSecondary, fontSize: 12)),
-            const Spacer(),
-            Text(
-              '${_fmtInt(current)} / ${_fmtInt(goal)} $unit',
-              style: TextStyle(
-                  color: progress >= 1 ? color : Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.white.withOpacity(0.07),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 5,
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Expanded(child: Container(
+    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+    decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (icon != null) ...[Icon(icon, color: color, size: 14), const SizedBox(height: 4)],
+      Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
+      Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
+    ]),
+  ));
 }
 
-// ── Smart tip ──────────────────────────────────────────────────────────────────
+// ─── Smart Tip ─────────────────────────────────────────────────────────────────
 class _SmartTip extends StatelessWidget {
-  final FitnessProvider p;
-  const _SmartTip({required this.p});
+  final FitnessProvider provider;
+  const _SmartTip({required this.provider});
 
-  String _tip() {
-    final wc = p.weeklyWeightChange;
-    if (p.bodyHistory.length < 3) {
-      return '📊 Log your weight daily to unlock AI predictions and personalised tips!';
-    }
-    if (wc != null && wc > 0.3) {
-      return '⚠️ You\'re gaining weight. Try reducing carbs and increasing steps.';
-    }
-    if (wc != null && wc < -1.0) {
-      return '🔥 You\'re losing weight fast. Make sure protein stays above 100g to protect muscle.';
-    }
-    if (!p.inDeficit) {
-      return '🍽️ You\'re over your calorie target today. Skip the evening snack!';
-    }
-    if (p.todayProtein < 80) {
-      return '💪 Protein is low today — add a whey shake or chicken meal to hit 100g.';
-    }
-    if (p.waterProgress < 0.5) {
-      return '💧 You\'re under halfway on water. Drink 500 ml right now!';
-    }
-    if (p.workoutStreak >= 5) {
-      return '🔥 ${p.workoutStreak}-day streak! You\'re on fire. Consider a deload next week.';
-    }
-    return '✅ You\'re on track today! Stay consistent and the results will follow.';
+  String _tip(FitnessProvider p) {
+    final deficit = p.calorieDeficit;
+    final weekly = p.weeklyWeightChange;
+    if (p.todayCalories == 0)
+      return '🌅 Start logging meals to track your 1700 kcal goal. Consistency is everything!';
+    if (p.todayProtein < 60)
+      return '💪 Protein is low (${p.todayProtein.round()}g). Add chicken, paneer, eggs or whey to protect muscle.';
+    if (weekly != null && weekly < -0.8)
+      return '⚠️ Losing ${weekly.abs().toStringAsFixed(2)} kg/week — that\'s too fast. Add 200–300 kcal to preserve muscle.';
+    if (weekly != null && weekly > 0.2)
+      return '📈 Trend shows weight gain. Reduce dinner portion or skip evening snacks.';
+    if (deficit > 300)
+      return '🎯 $deficit kcal deficit today — great fat-loss progress! Keep it consistent.';
+    if (deficit < -200)
+      return '⚠️ ${deficit.abs()} kcal over goal. A 30-min walk burns ~${(p.latestWeightKg ?? 70) ~/ 10 * 30} kcal.';
+    if (p.todayWaterMl < 1000)
+      return '💧 Only ${p.todayWaterMl}ml water so far. Hydration speeds up metabolism and reduces hunger.';
+    if (p.todayWorkout == null && DateTime.now().hour > 10)
+      return '🏋️ No workout yet. Even 30 min burns ~${estimateCaloriesBurned(p.latestWeightKg ?? 70, 30)} kcal.';
+    return '✅ You\'re on track, Karthik! Consistency over 90 days = transformation. 💪';
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _kGreen.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kGreen.withOpacity(0.2)),
-      ),
-      child: Text(
-        _tip(),
-        style: const TextStyle(
-            color: Colors.white, fontSize: 13, height: 1.5),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: _kGreen.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: _kGreen.withOpacity(0.2)),
+    ),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('💡', style: TextStyle(fontSize: 18)),
+      const SizedBox(width: 10),
+      Expanded(child: Text(_tip(provider),
+        style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5))),
+    ]),
+  );
 }
