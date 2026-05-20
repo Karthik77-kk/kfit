@@ -528,7 +528,7 @@ class _CalorieBalanceCard extends StatelessWidget {
           Text(
             isDeficit
                 ? '${_fmtInt(p.caloriesRemaining)} kcal remaining to hit your target'
-                : 'Over target by ${_fmtInt((p.todayCalories - p.kCalorieGoal).abs())} kcal',
+                : 'Over target by ${_fmtInt((p.todayCalories - FitnessProvider.kCalorieGoal).abs())} kcal',
             style: const TextStyle(color: _kSecondary, fontSize: 11),
           ),
         ],
