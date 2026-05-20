@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
@@ -184,7 +185,21 @@ class _MealSection extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 20),
                 child: const Icon(Icons.delete_outline, color: Colors.red),
               ),
-              onDismissed: (_) => provider.removeFoodEntry(entry.id),
+              onDismissed: (_) {
+                HapticFeedback.mediumImpact();
+                final removed = entry;
+                provider.removeFoodEntry(entry.id);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('${removed.name} removed'),
+                  backgroundColor: const Color(0xFF1C1C1E),
+                  duration: const Duration(seconds: 3),
+                  action: SnackBarAction(
+                    label: 'Undo',
+                    textColor: const Color(0xFF30D158),
+                    onPressed: () => provider.addFoodEntry(removed),
+                  ),
+                ));
+              },
               child: _FoodEntryTile(entry: entry),
             ),
           ),
@@ -290,6 +305,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   }
 
   void _addItem(BuildContext ctx, FoodItem item) {
+    HapticFeedback.lightImpact();
     final provider = ctx.read<FitnessProvider>();
     provider.addFoodEntry(FoodEntry(
       id: provider.newId(),
@@ -311,8 +327,25 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     final name = _nameCtrl.text.trim();
     final cal = double.tryParse(_calCtrl.text) ?? 0;
     final prot = double.tryParse(_protCtrl.text) ?? 0;
-    if (name.isEmpty || cal == 0) return;
 
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+        content: Text('Please enter a food name'),
+        backgroundColor: Color(0xFFFF453A),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+    if (cal <= 0) {
+      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+        content: Text('Please enter calories greater than 0'),
+        backgroundColor: Color(0xFFFF453A),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+
+    HapticFeedback.lightImpact();
     final provider = ctx.read<FitnessProvider>();
     provider.addFoodEntry(FoodEntry(
       id: provider.newId(),

@@ -11,22 +11,111 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   Future<void> initialize() async {
-    tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
+    try {
+      tz.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
 
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: android);
-    await _plugin.initialize(settings);
+      const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const settings = InitializationSettings(android: android);
+      await _plugin.initialize(settings);
 
-    // Request permission (Android 13+)
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+    } catch (_) {
+      // Ignore initialization errors silently
+    }
   }
 
+  // ── Morning summary notification (8 AM daily) ──────────────────────────────
+  Future<void> scheduleMorningSummary() async {
+    await _plugin.cancel(50);
+
+    const androidDetails = AndroidNotificationDetails(
+      'morning_channel',
+      'Morning Summary',
+      channelDescription: 'Daily 8 AM fitness briefing',
+      importance: Importance.high,
+      priority: Priority.high,
+      styleInformation: BigTextStyleInformation(''),
+    );
+
+    final hint = _getTodayWorkoutHint();
+    final quote = _getDailyQuote();
+    final body =
+        '$hint\n\n"$quote"\n\nOpen the app to track today\'s progress 💪';
+
+    try {
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduled =
+          tz.TZDateTime(tz.local, now.year, now.month, now.day, 8, 0);
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+
+      final details = AndroidNotificationDetails(
+        'morning_channel',
+        'Morning Summary',
+        channelDescription: 'Daily 8 AM fitness briefing',
+        importance: Importance.high,
+        priority: Priority.high,
+        styleInformation: BigTextStyleInformation(body),
+      );
+
+      await _plugin.zonedSchedule(
+        50,
+        'Good morning, Karthik! 🌅',
+        hint,
+        scheduled,
+        NotificationDetails(android: details),
+        androidScheduleMode: AndroidScheduleMode.inexact,
+        matchDateTimeComponents: DateTimeComponents.time,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      // Permission not granted — skip silently
+    }
+  }
+
+  Future<void> cancelMorningSummary() async {
+    await _plugin.cancel(50);
+  }
+
+  String _getTodayWorkoutHint() {
+    final day = DateTime.now().weekday; // 1=Mon ... 7=Sun
+    switch (day) {
+      case 1:
+      case 3:
+      case 5:
+        return '🏋️ Today is Workout A — Bench, Squat, Row. Let\'s go!';
+      case 2:
+      case 4:
+      case 6:
+        return '💪 Today is Workout B — OHP, Deadlift, Incline, RDL!';
+      default:
+        return '🛌 Rest day — stretch, walk, and eat clean today.';
+    }
+  }
+
+  String _getDailyQuote() {
+    const quotes = [
+      'Every rep counts. Every meal matters.',
+      'The body achieves what the mind believes.',
+      'Discipline is doing it even when you don\'t feel like it.',
+      'Small daily improvements lead to stunning results.',
+      'You are one workout away from a better mood.',
+      'Consistency beats perfection every time.',
+      'Fat loss is simple — not easy. Stay the course.',
+      'Progress, not perfection. Keep showing up.',
+    ];
+    final index = DateTime.now().difference(DateTime(2024)).inDays % quotes.length;
+    return quotes[index];
+  }
+
+  // ── Water reminders ────────────────────────────────────────────────────────
   Future<void> scheduleWaterReminders() async {
-    // Cancel existing water reminders
     for (int i = 10; i <= 20; i++) {
       await _plugin.cancel(i);
     }
@@ -44,16 +133,15 @@ class NotificationService {
       '💧 Stay hydrated! 2.5L is the goal today.',
       '💧 Water check! Have you had your glass?',
       '💧 Hydration reminder — keep that water flowing!',
-      '💧 Evening water reminder. Don\'t let yourself get dehydrated!',
+      '💧 Evening water reminder. Don\'t get dehydrated!',
     ];
 
-    // 9am, 11am, 1pm, 3pm, 6pm
     final hours = [9, 11, 13, 15, 18];
     for (int i = 0; i < hours.length; i++) {
       try {
         final now = tz.TZDateTime.now(tz.local);
-        var scheduled = tz.TZDateTime(
-            tz.local, now.year, now.month, now.day, hours[i]);
+        var scheduled =
+            tz.TZDateTime(tz.local, now.year, now.month, now.day, hours[i]);
         if (scheduled.isBefore(now)) {
           scheduled = scheduled.add(const Duration(days: 1));
         }
@@ -68,12 +156,11 @@ class NotificationService {
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
         );
-      } catch (_) {
-        // Permission not granted — skip silently
-      }
+      } catch (_) {}
     }
   }
 
+  // ── Supplement reminders ───────────────────────────────────────────────────
   Future<void> scheduleSupplementReminders() async {
     await _plugin.cancel(1);
     await _plugin.cancel(2);
@@ -89,7 +176,6 @@ class NotificationService {
     final now = tz.TZDateTime.now(tz.local);
 
     try {
-      // Multivitamin — 8:30 AM
       var mv = tz.TZDateTime(tz.local, now.year, now.month, now.day, 8, 30);
       if (mv.isBefore(now)) mv = mv.add(const Duration(days: 1));
       await _plugin.zonedSchedule(
@@ -104,13 +190,12 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
       );
 
-      // Creatine — 10 AM
       var cr = tz.TZDateTime(tz.local, now.year, now.month, now.day, 10, 0);
       if (cr.isBefore(now)) cr = cr.add(const Duration(days: 1));
       await _plugin.zonedSchedule(
         2,
         'Creatine Time 💊',
-        'Don\'t forget 3–5g Creatine today — can mix with water or whey!',
+        'Don\'t forget 3–5g Creatine — mix with water or whey!',
         cr,
         const NotificationDetails(android: androidDetails),
         androidScheduleMode: AndroidScheduleMode.inexact,
@@ -118,9 +203,7 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
-    } catch (_) {
-      // Permission not granted — skip silently
-    }
+    } catch (_) {}
   }
 
   Future<void> showWorkoutReminder() async {

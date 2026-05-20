@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../services/notification_service.dart';
@@ -34,6 +35,7 @@ class _WaterScreenState extends State<WaterScreen>
   }
 
   void _addWater(BuildContext context, int ml) async {
+    HapticFeedback.lightImpact();
     _animController.forward().then((_) => _animController.reverse());
     await context.read<FitnessProvider>().addWater(ml);
   }

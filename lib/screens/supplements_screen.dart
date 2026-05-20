@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../services/notification_service.dart';
@@ -256,7 +257,10 @@ class _SupplementCard extends StatelessWidget {
                 scale: 1.2,
                 child: Checkbox(
                   value: taken,
-                  onChanged: (v) => onToggle(v ?? false),
+                  onChanged: (v) {
+                    HapticFeedback.selectionClick();
+                    onToggle(v ?? false);
+                  },
                   activeColor: color,
                   checkColor: Colors.white,
                   side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
