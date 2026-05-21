@@ -59,7 +59,10 @@ class _HomeScreenState extends State<HomeScreen> {
       body: RefreshIndicator(
         color: _kGreen,
         backgroundColor: _kCard,
-        onRefresh: _loadWeather,
+        onRefresh: () async {
+          await WeatherService().clearCache();
+          await _loadWeather();
+        },
         child: CustomScrollView(
           slivers: [
             SliverAppBar(
