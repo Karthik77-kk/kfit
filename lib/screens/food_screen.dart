@@ -253,9 +253,26 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   List<FoodItem> get _filtered {
     if (_search.isNotEmpty) {
       final q = _search.toLowerCase();
-      return kFoodDatabase
-          .where((f) => f.name.toLowerCase().contains(q) || f.category.toLowerCase().contains(q))
-          .toList();
+      // Deduplicate by name — keep first occurrence (specific category wins over Popular)
+      final seen = <String>{};
+      // Pass 1: non-Popular items first (more specific)
+      final results = <FoodItem>[];
+      for (final f in kFoodDatabase) {
+        if (f.category == 'Popular') continue;
+        if ((f.name.toLowerCase().contains(q) || f.category.toLowerCase().contains(q))
+            && seen.add(f.name.toLowerCase())) {
+          results.add(f);
+        }
+      }
+      // Pass 2: Popular items not already shown
+      for (final f in kFoodDatabase) {
+        if (f.category != 'Popular') continue;
+        if ((f.name.toLowerCase().contains(q) || f.category.toLowerCase().contains(q))
+            && seen.add(f.name.toLowerCase())) {
+          results.add(f);
+        }
+      }
+      return results;
     }
     return kFoodDatabase.where((f) => f.category == _selectedCategory).toList();
   }
@@ -453,7 +470,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 style: const TextStyle(color: Colors.white),
                 onChanged: (v) => setState(() => _search = v),
                 decoration: InputDecoration(
-                  hintText: 'Search 100+ Indian foods...',
+                  hintText: 'Search 200+ Indian foods...',
                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
                   prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.4)),
                   suffixIcon: _search.isNotEmpty

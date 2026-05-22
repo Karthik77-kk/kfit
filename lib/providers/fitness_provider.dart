@@ -686,18 +686,22 @@ class FitnessProvider extends ChangeNotifier {
 
   // ── Home-screen widget data sync ───────────────────────────────────────────
   void _updateWidgets() {
+    _doUpdateWidgets().catchError((_) {});
+  }
+
+  Future<void> _doUpdateWidgets() async {
     try {
-      HomeWidget.saveWidgetData<int>('water_ml', _todayWaterMl);
-      HomeWidget.saveWidgetData<int>('steps_today', todaySteps);
-      HomeWidget.updateWidget(
+      await HomeWidget.saveWidgetData<int>('water_ml', _todayWaterMl);
+      await HomeWidget.saveWidgetData<int>('steps_today', todaySteps);
+      await HomeWidget.updateWidget(
         androidName: 'WaterWidget',
         iOSName: 'WaterWidget',
       );
-      HomeWidget.updateWidget(
+      await HomeWidget.updateWidget(
         androidName: 'StepsWidget',
         iOSName: 'StepsWidget',
       );
-    } catch (_) {/* widgets not installed */}
+    } catch (_) {/* widgets not installed or API mismatch — non-fatal */}
   }
 
   // Helper
