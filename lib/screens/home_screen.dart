@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
-import '../services/weather_service.dart';
 import '../services/notification_service.dart';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
@@ -23,20 +22,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  WeatherData? _weather;
-  bool _weatherLoading = true;
-
   @override
   void initState() {
     super.initState();
-    _loadWeather();
     // Schedule morning notification on first load
     NotificationService().scheduleMorningSummary();
-  }
-
-  Future<void> _loadWeather() async {
-    final w = await WeatherService().fetchWeather();
-    if (mounted) setState(() { _weather = w; _weatherLoading = false; });
   }
 
   String _greeting() {
@@ -60,8 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: _kGreen,
         backgroundColor: _kCard,
         onRefresh: () async {
-          await WeatherService().clearCache();
-          await _loadWeather();
+          await context.read<FitnessProvider>().loadData();
         },
         child: CustomScrollView(
           slivers: [
@@ -96,10 +85,6 @@ class _HomeScreenState extends State<HomeScreen> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
 
-                  // ── Weather card ──────────────────────────────────────────
-                  _WeatherCard(weather: _weather, loading: _weatherLoading),
-                  const SizedBox(height: 20),
-
                   // ── Activity rings ────────────────────────────────────────
                   const _SectionHdr('TODAY\'S ACTIVITY'),
                   const SizedBox(height: 10),
@@ -117,7 +102,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 10),
                   Row(children: [
                     Expanded(child: _MetricTile(
-                      label: 'Steps', value: _fmtInt(p.todaySteps),
+                      label: p.hasPedometerData ? 'Steps 📱' : 'Steps',
+                      value: _fmtInt(p.todaySteps),
                       goal: '/ ${_fmtInt(FitnessProvider.kStepGoal)}',
                       icon: Icons.directions_walk_rounded, color: _kBlue,
                       progress: p.stepProgress,
@@ -241,75 +227,6 @@ class _StreakBadge extends StatelessWidget {
         Text('$streak day${streak == 1 ? '' : 's'}', style: const TextStyle(
           color: _kOrange, fontSize: 12, fontWeight: FontWeight.w600,
         )),
-      ]),
-    );
-  }
-}
-
-// ─── Weather Card ──────────────────────────────────────────────────────────────
-class _WeatherCard extends StatelessWidget {
-  final WeatherData? weather;
-  final bool loading;
-  const _WeatherCard({required this.weather, required this.loading});
-
-  @override
-  Widget build(BuildContext context) {
-    if (loading) {
-      return Container(
-        height: 80,
-        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
-        child: const Center(child: SizedBox(
-          width: 20, height: 20,
-          child: CircularProgressIndicator(color: _kGreen, strokeWidth: 2),
-        )),
-      );
-    }
-
-    final w = weather;
-    if (w == null) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
-        child: const Row(children: [
-          Text('🌐', style: TextStyle(fontSize: 20)),
-          SizedBox(width: 10),
-          Text('Weather unavailable — check connection', style: TextStyle(color: _kSecond, fontSize: 13)),
-        ]),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [const Color(0xFF1A2A3A), _kCard],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(children: [
-        Text(w.emoji, style: const TextStyle(fontSize: 40)),
-        const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Text('${w.tempC.round()}°C', style: const TextStyle(
-              color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700,
-            )),
-            const SizedBox(width: 10),
-            Text(w.description, style: const TextStyle(color: _kSecond, fontSize: 14)),
-          ]),
-          const SizedBox(height: 4),
-          Text(w.workoutAdvice, style: TextStyle(
-            color: Colors.white.withOpacity(0.65), fontSize: 12,
-          )),
-        ])),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('💧 ${w.humidity}%', style: const TextStyle(color: _kBlue, fontSize: 12)),
-          const SizedBox(height: 4),
-          Text('💨 ${w.windKph.round()} km/h', style: const TextStyle(color: _kSecond, fontSize: 12)),
-          const SizedBox(height: 2),
-          const Text('Bangalore', style: TextStyle(color: _kSecond, fontSize: 10)),
-        ]),
       ]),
     );
   }

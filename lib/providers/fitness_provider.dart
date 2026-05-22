@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:uuid/uuid.dart';
+import 'package:pedometer/pedometer.dart';
+import 'package:home_widget/home_widget.dart';
 import '../models/models.dart';
 
 class FitnessProvider extends ChangeNotifier {
@@ -34,6 +37,12 @@ class FitnessProvider extends ChangeNotifier {
   Map<String, List<FoodEntry>> _foodHistory = {};
   Map<String, int> _waterHistory = {};
   Map<String, SupplementStatus> _supplementHistory = {};
+
+  // ── Pedometer ──────────────────────────────────────────────────────────────
+  StreamSubscription<StepCount>? _stepSubscription;
+  int _livePedometerTotal = 0;   // cumulative total from sensor
+  int _pedometerDayBaseline = -1; // sensor total at start of today
+  String _pedometerBaselineDate = '';
 
   // ── Getters ────────────────────────────────────────────────────────────────
   List<FoodEntry> get todayFood => _todayFood;
@@ -156,7 +165,18 @@ class FitnessProvider extends ChangeNotifier {
     return (kg * daysPerKg / 7).clamp(0, 999);
   }
 
-  int get todaySteps => latestBodyEntry?.steps ?? 0;
+  /// True when pedometer is actively delivering data
+  bool get hasPedometerData =>
+      _pedometerDayBaseline >= 0 && _livePedometerTotal >= _pedometerDayBaseline;
+
+  /// Live steps if pedometer available, otherwise last manually-logged steps.
+  int get todaySteps {
+    if (hasPedometerData) {
+      return math.max(0, _livePedometerTotal - _pedometerDayBaseline);
+    }
+    return latestBodyEntry?.steps ?? 0;
+  }
+
   double get stepProgress => (todaySteps / kStepGoal).clamp(0.0, 1.0);
 
   List<BodyEntry> getRecentBodyEntries({int days = 30}) {
@@ -381,6 +401,9 @@ class FitnessProvider extends ChangeNotifier {
 
     _isLoaded = true;
     notifyListeners();
+
+    // Start pedometer after data is loaded (non-blocking)
+    startPedometer();
   }
 
   // ── Food actions ───────────────────────────────────────────────────────────
@@ -409,12 +432,14 @@ class FitnessProvider extends ChangeNotifier {
     _todayWaterMl += ml;
     await _saveWater();
     notifyListeners();
+    _updateWidgets();
   }
 
   Future<void> removeWater(int ml) async {
     _todayWaterMl = (_todayWaterMl - ml).clamp(0, 99999);
     await _saveWater();
     notifyListeners();
+    _updateWidgets();
   }
 
   Future<void> _saveWater() async {
@@ -615,6 +640,64 @@ class FitnessProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('goal_weight_kg', _goalWeightKg);
     notifyListeners();
+  }
+
+  // ── Pedometer ──────────────────────────────────────────────────────────────
+  Future<void> startPedometer() async {
+    final prefs = await SharedPreferences.getInstance();
+    _pedometerBaselineDate = prefs.getString('pedometer_date') ?? '';
+    _pedometerDayBaseline  = prefs.getInt('pedometer_baseline') ?? -1;
+
+    // Reset if saved baseline is from a previous day
+    if (_pedometerBaselineDate != _todayKey) {
+      _pedometerDayBaseline = -1;
+      _pedometerBaselineDate = '';
+    }
+
+    _stepSubscription?.cancel();
+    try {
+      _stepSubscription = Pedometer.stepCountStream.listen(
+        (StepCount event) async {
+          _livePedometerTotal = event.steps;
+
+          // Record baseline at first reading of today
+          if (_pedometerDayBaseline < 0) {
+            _pedometerDayBaseline = event.steps;
+            _pedometerBaselineDate = _todayKey;
+            final p = await SharedPreferences.getInstance();
+            await p.setInt('pedometer_baseline', _pedometerDayBaseline);
+            await p.setString('pedometer_date', _pedometerBaselineDate);
+          }
+
+          notifyListeners();
+          _updateWidgets();
+        },
+        onError: (_) {/* sensor not available or permission denied */},
+        cancelOnError: false,
+      );
+    } catch (_) {/* pedometer unsupported */}
+  }
+
+  @override
+  void dispose() {
+    _stepSubscription?.cancel();
+    super.dispose();
+  }
+
+  // ── Home-screen widget data sync ───────────────────────────────────────────
+  void _updateWidgets() {
+    try {
+      HomeWidget.saveWidgetData<int>('water_ml', _todayWaterMl);
+      HomeWidget.saveWidgetData<int>('steps_today', todaySteps);
+      HomeWidget.updateWidget(
+        androidName: 'WaterWidget',
+        iOSName: 'WaterWidget',
+      );
+      HomeWidget.updateWidget(
+        androidName: 'StepsWidget',
+        iOSName: 'StepsWidget',
+      );
+    } catch (_) {/* widgets not installed */}
   }
 
   // Helper

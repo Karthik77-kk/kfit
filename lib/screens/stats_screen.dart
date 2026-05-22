@@ -362,6 +362,11 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  // ── AI Predictions ────────────────────────────────────
+                  const _SectionLabel('AI PREDICTIONS'),
+                  _AiPredictionsCard(provider: p),
+                  const SizedBox(height: 24),
+
                   // ── 1RM Calculator ─────────────────────────────────────
                   const _SectionLabel('1RM ESTIMATOR (EPLEY FORMULA)'),
                   _OrmCalc(
@@ -394,6 +399,185 @@ class _StatsScreenState extends State<StatsScreen> {
 String _fmtNum(int n) {
   if (n >= 1000) return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k';
   return '$n';
+}
+
+// ─── AI Predictions Card ───────────────────────────────────────────────────────
+class _AiPredictionsCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _AiPredictionsCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = provider;
+    final entries = p.getRecentBodyEntries(days: 90);
+
+    if (entries.length < 3) {
+      return _Card(
+        child: Row(children: const [
+          Text('🤖', style: TextStyle(fontSize: 22)),
+          SizedBox(width: 12),
+          Expanded(child: Text(
+            'Log your weight for at least 3 days to unlock AI predictions.',
+            style: TextStyle(color: _kSecond, fontSize: 13, height: 1.4),
+          )),
+        ]),
+      );
+    }
+
+    final weekly  = p.weeklyWeightChange;
+    final pred30  = p.predictedWeightInDays(30);
+    final pred90  = p.predictedWeightInDays(90);
+    final goalDate = p.estimatedGoalDate;
+    final tdee     = p.tdee;
+    final target   = p.fatLossCalorieTarget;
+
+    // Smart calorie suggestion based on weight trend
+    String calSuggestion;
+    Color  calColor = _kGreen;
+    if (weekly == null || tdee == null) {
+      calSuggestion = 'Log weight + height for calorie suggestion';
+      calColor = _kSecond;
+    } else if (weekly < -0.8) {
+      calSuggestion =
+          'Losing ${weekly.abs().toStringAsFixed(2)} kg/wk — too fast! '
+          'Eat ~${((weekly.abs() - 0.5) * 7700 / 7).round()} kcal more/day.';
+      calColor = _kOrange;
+    } else if (weekly < -0.1) {
+      calSuggestion =
+          'Losing ${weekly.abs().toStringAsFixed(2)} kg/wk — perfect pace! '
+          'Stay at ~${target?.round() ?? 1700} kcal/day.';
+      calColor = _kGreen;
+    } else if (weekly > 0.2) {
+      calSuggestion =
+          'Gaining ${weekly.toStringAsFixed(2)} kg/wk. '
+          'Cut ~${((weekly - 0.1) * 7700 / 7).round()} kcal/day to reverse trend.';
+      calColor = _kRed;
+    } else {
+      calSuggestion =
+          'Weight is stable. Reduce by 200–300 kcal/day for fat loss.';
+      calColor = _kBlue;
+    }
+
+    return _Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Row(children: [
+          const Text('🤖', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 8),
+          const Text('AI Weight Forecast',
+              style: TextStyle(color: Colors.white, fontSize: 14,
+                  fontWeight: FontWeight.w700)),
+          const Spacer(),
+          if (weekly != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (weekly < 0 ? _kGreen : _kRed).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${weekly >= 0 ? '+' : ''}${weekly.toStringAsFixed(2)} kg/wk',
+                style: TextStyle(
+                  color: weekly < 0 ? _kGreen : _kRed,
+                  fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 14),
+
+        // Prediction row
+        Row(children: [
+          _PredChip('Now',
+              '${p.latestWeightKg?.toStringAsFixed(1) ?? '—'} kg', Colors.white),
+          const SizedBox(width: 8),
+          _PredChip('30 days',
+              pred30 != null ? '${pred30.toStringAsFixed(1)} kg' : '—',
+              weekly != null && weekly < 0 ? _kGreen : _kRed),
+          const SizedBox(width: 8),
+          _PredChip('90 days',
+              pred90 != null ? '${pred90.toStringAsFixed(1)} kg' : '—',
+              _kBlue),
+          const SizedBox(width: 8),
+          _PredChip('Goal by',
+              goalDate != null
+                  ? '${goalDate.day}/${goalDate.month}/${goalDate.year % 100}'
+                  : '—',
+              _kOrange),
+        ]),
+        const SizedBox(height: 14),
+
+        // Smart calorie suggestion
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: calColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: calColor.withOpacity(0.25)),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('💡', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(calSuggestion,
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 12, height: 1.4))),
+          ]),
+        ),
+
+        if (tdee != null && target != null) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            _MetaChip2('TDEE', '${tdee.round()} kcal', _kOrange),
+            const SizedBox(width: 8),
+            _MetaChip2('Fat Loss Target', '${target.round()} kcal', _kGreen),
+            const SizedBox(width: 8),
+            _MetaChip2('Current Goal', '${FitnessProvider.kCalorieGoal} kcal', _kBlue),
+          ]),
+        ],
+      ]),
+    );
+  }
+}
+
+class _PredChip extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  const _PredChip(this.label, this.value, this.color);
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(children: [
+        Text(value, style: TextStyle(
+            color: color, fontSize: 13, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 9)),
+      ]),
+    ),
+  );
+}
+
+class _MetaChip2 extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  const _MetaChip2(this.label, this.value, this.color);
+  @override
+  Widget build(BuildContext context) => Expanded(child: Container(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(value, style: TextStyle(
+          color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+      Text(label, style: const TextStyle(color: _kSecond, fontSize: 9)),
+    ]),
+  ));
 }
 
 // ─── BMR / TDEE Card ───────────────────────────────────────────────────────────
