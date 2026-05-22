@@ -17,8 +17,8 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
   cupertino_icons: ^1.0.8
-  pedometer: ^3.0.1
-  home_widget: ^0.4.2
+  pedometer: ^4.2.0
+  home_widget: ^0.9.1
 
 dev_dependencies:
   flutter_test:

@@ -167,7 +167,7 @@ jobs:
               android:widgetCategory="home_screen"/>
           XMLEOF
 
-          # ── 6. Kotlin AppWidgetProvider classes ───────────────────────────────
+          # ── 6. Kotlin HomeWidgetProvider classes (home_widget 0.9.x API) ──────
           PKG_DIR="android/app/src/main/kotlin/com/example/karthik_fitness"
           mkdir -p "$PKG_DIR"
 
@@ -175,21 +175,21 @@ jobs:
           package com.example.karthik_fitness
 
           import android.appwidget.AppWidgetManager
-          import android.appwidget.AppWidgetProvider
           import android.content.Context
+          import android.content.SharedPreferences
           import android.widget.RemoteViews
-          import es.antonborri.home_widget.HomeWidgetPlugin
+          import es.antonborri.home_widget.HomeWidgetProvider
 
-          class WaterWidget : AppWidgetProvider() {
+          class WaterWidget : HomeWidgetProvider() {
               override fun onUpdate(
                   context: Context,
                   appWidgetManager: AppWidgetManager,
-                  appWidgetIds: IntArray
+                  appWidgetIds: IntArray,
+                  widgetData: SharedPreferences,
               ) {
-                  val data = HomeWidgetPlugin.getData(context)
                   for (id in appWidgetIds) {
                       val views = RemoteViews(context.packageName, R.layout.water_widget)
-                      val ml = data.getInt("water_ml", 0)
+                      val ml = widgetData.getInt("water_ml", 0)
                       views.setTextViewText(R.id.water_amount, "$ml ml")
                       views.setTextViewText(R.id.water_goal, "/ 2500 ml goal")
                       appWidgetManager.updateAppWidget(id, views)
@@ -202,21 +202,21 @@ jobs:
           package com.example.karthik_fitness
 
           import android.appwidget.AppWidgetManager
-          import android.appwidget.AppWidgetProvider
           import android.content.Context
+          import android.content.SharedPreferences
           import android.widget.RemoteViews
-          import es.antonborri.home_widget.HomeWidgetPlugin
+          import es.antonborri.home_widget.HomeWidgetProvider
 
-          class StepsWidget : AppWidgetProvider() {
+          class StepsWidget : HomeWidgetProvider() {
               override fun onUpdate(
                   context: Context,
                   appWidgetManager: AppWidgetManager,
-                  appWidgetIds: IntArray
+                  appWidgetIds: IntArray,
+                  widgetData: SharedPreferences,
               ) {
-                  val data = HomeWidgetPlugin.getData(context)
                   for (id in appWidgetIds) {
                       val views = RemoteViews(context.packageName, R.layout.steps_widget)
-                      val steps = data.getInt("steps_today", 0)
+                      val steps = widgetData.getInt("steps_today", 0)
                       views.setTextViewText(R.id.steps_count, "$steps")
                       appWidgetManager.updateAppWidget(id, views)
                   }
