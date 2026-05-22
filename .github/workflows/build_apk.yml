@@ -35,12 +35,14 @@ jobs:
           cp -r lib_backup lib
           rm -rf lib_backup pubspec_backup.yaml
 
-      - name: Bump Kotlin Gradle plugin to 2.0.21
+      - name: Bump Kotlin Gradle plugin to 2.2.20
         run: |
-          # home_widget 0.9.x requires Kotlin 2.0+; Flutter 3.27 scaffolds with 1.8.10
-          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*" apply false/id "org.jetbrains.kotlin.android" version "2.0.21" apply false/' android/settings.gradle
+          # home_widget 0.9.x ships kotlin-stdlib-2.2.20.jar (metadata 2.2.0)
+          # must use same Kotlin compiler version to avoid binary metadata mismatch
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*" apply false/id "org.jetbrains.kotlin.android" version "2.2.20" apply false/' android/settings.gradle
           echo "Kotlin version after patch:"
-          grep "kotlin.android" android/settings.gradle
+          grep "kotlin.android" android/settings.gradle || echo "WARNING: sed pattern did not match"
+          cat android/settings.gradle
 
       - name: Inject Android permissions and widget configuration
         run: |
