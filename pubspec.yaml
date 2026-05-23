@@ -18,7 +18,9 @@ dependencies:
   timezone: ^0.9.4
   cupertino_icons: ^1.0.8
   pedometer: ^4.1.1
-  home_widget: ">=0.4.0 <0.5.0"
+  # home_widget removed: all versions 0.5.0+ include Jetpack Glance (incompatible
+  # with AGP <9.1 / compileSdk <37), and 0.4.x is broken on Flutter 3.27.0.
+  # Widget data is now written via SharedPreferences and triggered via MethodChannel.
 
 dev_dependencies:
   flutter_test:

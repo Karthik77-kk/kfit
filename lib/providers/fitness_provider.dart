@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:uuid/uuid.dart';
 import 'package:pedometer/pedometer.dart';
-import 'package:home_widget/home_widget.dart';
+import 'package:flutter/services.dart';
 import '../models/models.dart';
 
 class FitnessProvider extends ChangeNotifier {
@@ -691,17 +691,15 @@ class FitnessProvider extends ChangeNotifier {
 
   Future<void> _doUpdateWidgets() async {
     try {
-      await HomeWidget.saveWidgetData<int>('water_ml', _todayWaterMl);
-      await HomeWidget.saveWidgetData<int>('steps_today', todaySteps);
-      await HomeWidget.updateWidget(
-        androidName: 'WaterWidget',
-        iOSName: 'WaterWidget',
-      );
-      await HomeWidget.updateWidget(
-        androidName: 'StepsWidget',
-        iOSName: 'StepsWidget',
-      );
-    } catch (_) {/* widgets not installed or API mismatch — non-fatal */}
+      // Write data directly to FlutterSharedPreferences (with flutter. prefix)
+      // The Kotlin AppWidgetProvider reads these keys directly.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('water_ml', _todayWaterMl);
+      await prefs.setInt('steps_today', todaySteps);
+      // Trigger widget redraw via MethodChannel (fails gracefully on non-Android)
+      const _channel = MethodChannel('com.example.karthik_fitness/widgets');
+      await _channel.invokeMethod('updateWidgets');
+    } catch (_) {/* not on Android or widget not installed — non-fatal */}
   }
 
   // Helper

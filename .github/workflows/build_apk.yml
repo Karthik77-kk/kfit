@@ -202,64 +202,145 @@ jobs:
               android:widgetCategory="home_screen"/>
           XMLEOF
 
-          # ── 6. Kotlin HomeWidgetProvider classes (home_widget 0.9.x API) ──────
+          # ── 6. Kotlin AppWidgetProvider classes (no home_widget dep) ────────────
           PKG_DIR="android/app/src/main/kotlin/com/example/karthik_fitness"
           mkdir -p "$PKG_DIR"
 
           cat > "$PKG_DIR/WaterWidget.kt" << 'KTEOF'
-          package com.example.karthik_fitness
+package com.example.karthik_fitness
 
-          import android.appwidget.AppWidgetManager
-          import android.content.Context
-          import android.content.SharedPreferences
-          import android.widget.RemoteViews
-          import es.antonborri.home_widget.HomeWidgetProvider
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.Context
+import android.widget.RemoteViews
 
-          class WaterWidget : HomeWidgetProvider() {
-              override fun onUpdate(
-                  context: Context,
-                  appWidgetManager: AppWidgetManager,
-                  appWidgetIds: IntArray,
-                  widgetData: SharedPreferences,
-              ) {
-                  for (id in appWidgetIds) {
-                      val views = RemoteViews(context.packageName, R.layout.water_widget)
-                      val ml = widgetData.getInt("water_ml", 0)
-                      views.setTextViewText(R.id.water_amount, "$ml ml")
-                      views.setTextViewText(R.id.water_goal, "/ 2500 ml goal")
-                      appWidgetManager.updateAppWidget(id, views)
-                  }
-              }
-          }
+class WaterWidget : AppWidgetProvider() {
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+    ) {
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        for (id in appWidgetIds) {
+            val views = RemoteViews(context.packageName, R.layout.water_widget)
+            val ml = prefs.getInt("flutter.water_ml", 0)
+            views.setTextViewText(R.id.water_amount, "$ml ml")
+            views.setTextViewText(R.id.water_goal, "/ 2500 ml goal")
+            appWidgetManager.updateAppWidget(id, views)
+        }
+    }
+}
           KTEOF
 
           cat > "$PKG_DIR/StepsWidget.kt" << 'KTEOF'
-          package com.example.karthik_fitness
+package com.example.karthik_fitness
 
-          import android.appwidget.AppWidgetManager
-          import android.content.Context
-          import android.content.SharedPreferences
-          import android.widget.RemoteViews
-          import es.antonborri.home_widget.HomeWidgetProvider
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.Context
+import android.widget.RemoteViews
 
-          class StepsWidget : HomeWidgetProvider() {
-              override fun onUpdate(
-                  context: Context,
-                  appWidgetManager: AppWidgetManager,
-                  appWidgetIds: IntArray,
-                  widgetData: SharedPreferences,
-              ) {
-                  for (id in appWidgetIds) {
-                      val views = RemoteViews(context.packageName, R.layout.steps_widget)
-                      val steps = widgetData.getInt("steps_today", 0)
-                      views.setTextViewText(R.id.steps_count, "$steps")
-                      appWidgetManager.updateAppWidget(id, views)
-                  }
-              }
-          }
+class StepsWidget : AppWidgetProvider() {
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+    ) {
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        for (id in appWidgetIds) {
+            val views = RemoteViews(context.packageName, R.layout.steps_widget)
+            val steps = prefs.getInt("flutter.steps_today", 0)
+            views.setTextViewText(R.id.steps_count, "$steps")
+            appWidgetManager.updateAppWidget(id, views)
+        }
+    }
+}
+          KTEOF
+
+          # ── 7. MainActivity with MethodChannel for widget refresh ─────────────
+          cat > "$PKG_DIR/MainActivity.kt" << 'KTEOF'
+package com.example.karthik_fitness
+
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity : FlutterActivity() {
+    private val CHANNEL = "com.example.karthik_fitness/widgets"
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "updateWidgets") {
+                    try {
+                        sendBroadcast(Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+                            component = ComponentName(this@MainActivity, WaterWidget::class.java)
+                        })
+                        sendBroadcast(Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+                            component = ComponentName(this@MainActivity, StepsWidget::class.java)
+                        })
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("UPDATE_FAILED", e.message, null)
+                    }
+                } else {
+                    result.notImplemented()
+                }
+            }
+    }
+}
           KTEOF
 
           echo "Android widget configuration injected successfully"
+
+      - name: Generate app icon (grey background, black K)
+        run: |
+          pip install Pillow --break-system-packages -q
+          python3 - << 'PYEOF'
+import os
+from PIL import Image, ImageDraw, ImageFont
+
+def create_k_icon(size):
+    bg = (90, 90, 90, 255)
+    fg = (0, 0, 0, 255)
+    img = Image.new('RGBA', (size, size), bg)
+    draw = ImageDraw.Draw(img)
+    font = None
+    for path in [
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+        '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+    ]:
+        if os.path.exists(path):
+            font = ImageFont.truetype(path, int(size * 0.62))
+            break
+    if font:
+        bbox = draw.textbbox((0, 0), 'K', font=font)
+        tw = bbox[2] - bbox[0]
+        th = bbox[3] - bbox[1]
+        draw.text(((size - tw) / 2 - bbox[0], (size - th) / 2 - bbox[1]), 'K', fill=fg, font=font)
+    else:
+        m, s = size * 0.18, max(size * 0.13, 3)
+        cx = size * 0.46
+        draw.rectangle([m, m, m+s, size-m], fill=fg)
+        draw.polygon([(cx, size*0.5), (cx+s*0.6, size*0.5), (size-m, m), (size-m-s, m)], fill=fg)
+        draw.polygon([(cx, size*0.5), (cx+s*0.6, size*0.5), (size-m, size-m), (size-m-s, size-m)], fill=fg)
+    return img
+
+sizes = {'mipmap-mdpi': 48, 'mipmap-hdpi': 72, 'mipmap-xhdpi': 96, 'mipmap-xxhdpi': 144, 'mipmap-xxxhdpi': 192}
+for dirname, sz in sizes.items():
+    path = f'android/app/src/main/res/{dirname}'
+    os.makedirs(path, exist_ok=True)
+    icon = create_k_icon(sz).convert('RGB')
+    icon.save(f'{path}/ic_launcher.png')
+    icon.save(f'{path}/ic_launcher_round.png')
+
+print('App icons generated for all densities')
+          PYEOF
 
       - name: Flutter pub get
         run: flutter pub get
