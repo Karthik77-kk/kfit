@@ -166,7 +166,8 @@ class _WeightHistory extends StatelessWidget {
     final entries = p.getRecentBodyEntries(days: 30);
     if (entries.length < 2) {
       return const Center(child: Text('Log at least 2 weight entries to see a chart',
-          style: TextStyle(color: Color(0xFF8E8E93), textAlign: TextAlign.center)));
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFF8E8E93))));
     }
     final spots = entries.asMap().entries.map((e) =>
         FlSpot(e.key.toDouble(), e.value.weightKg)).toList();
