@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:uuid/uuid.dart';
 import 'package:pedometer/pedometer.dart';
@@ -16,7 +18,7 @@ class FitnessProvider extends ChangeNotifier {
   static const int kStepGoal = 8000;
 
   // ── User profile ───────────────────────────────────────────────────────────
-  double _heightCm = 170.0;
+  double _heightCm = 160.0;
   double get heightCm => _heightCm;
 
   int _age = 24; // Karthik's age
@@ -31,6 +33,7 @@ class FitnessProvider extends ChangeNotifier {
   SupplementStatus _supplements = SupplementStatus();
   List<WorkoutLog> _workoutHistory = [];
   List<BodyEntry> _bodyHistory = [];
+  List<SmartScaleEntry> _scaleHistory = [];
   bool _isLoaded = false;
 
   // ── Historical data (last 30 days, loaded at startup) ──────────────────────
@@ -44,12 +47,26 @@ class FitnessProvider extends ChangeNotifier {
   int _pedometerDayBaseline = -1; // sensor total at start of today
   String _pedometerBaselineDate = '';
 
+  // ── Water reminder interval ────────────────────────────────────────────────
+  int _waterReminderIntervalHours = 1;
+  int get waterReminderIntervalHours => _waterReminderIntervalHours;
+
+  Future<void> setWaterReminderInterval(int hours) async {
+    _waterReminderIntervalHours = hours.clamp(1, 6);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('water_reminder_interval', _waterReminderIntervalHours);
+    notifyListeners();
+  }
+
   // ── Getters ────────────────────────────────────────────────────────────────
   List<FoodEntry> get todayFood => _todayFood;
   int get todayWaterMl => _todayWaterMl;
   SupplementStatus get supplements => _supplements;
   List<WorkoutLog> get workoutHistory => _workoutHistory;
   List<BodyEntry> get bodyHistory => _bodyHistory;
+  List<SmartScaleEntry> get scaleHistory => _scaleHistory;
+  SmartScaleEntry? get latestScaleEntry =>
+      _scaleHistory.isEmpty ? null : _scaleHistory.last;
   bool get isLoaded => _isLoaded;
 
   /// All food entries keyed by 'YYYY-MM-DD', including today's.
@@ -72,16 +89,28 @@ class FitnessProvider extends ChangeNotifier {
   double get todayProtein =>
       _todayFood.fold(0.0, (sum, e) => sum + e.protein);
 
+  /// Calories from checked supplements (whey protein = 120 kcal per scoop)
+  double get supplementCalories => _supplements.whey ? 120.0 : 0.0;
+
+  /// Protein from checked supplements (whey = 25g)
+  double get supplementProtein => _supplements.whey ? 25.0 : 0.0;
+
+  /// Total calories including supplements
+  double get todayCaloriesTotal => todayCalories + supplementCalories;
+
+  /// Total protein including supplements
+  double get todayProteinTotal => todayProtein + supplementProtein;
+
   double get calorieProgress =>
-      (todayCalories / kCalorieGoal).clamp(0.0, 1.0);
+      (todayCaloriesTotal / kCalorieGoal).clamp(0.0, 1.0);
   double get proteinProgress =>
-      (todayProtein / kProteinGoal).clamp(0.0, 1.0);
+      (todayProteinTotal / kProteinGoal).clamp(0.0, 1.0);
   double get waterProgress =>
       (_todayWaterMl / kWaterGoalMl).clamp(0.0, 1.0);
 
   // ── Net calories & deficit ─────────────────────────────────────────────────
   /// Calories eaten minus calories burned from workout
-  int get netCalories => (todayCalories - todayCaloriesBurned).round();
+  int get netCalories => (todayCaloriesTotal - todayCaloriesBurned).round();
 
   /// Positive = deficit (good for fat loss), Negative = surplus
   int get calorieDeficit => kCalorieGoal - netCalories;
@@ -90,13 +119,14 @@ class FitnessProvider extends ChangeNotifier {
   bool get inDeficit => netCalories < kCalorieGoal;
 
   /// Remaining calories left to eat (vs goal). Can be negative if over.
-  int get caloriesRemaining => kCalorieGoal - todayCalories.round();
+  int get caloriesRemaining => kCalorieGoal - todayCaloriesTotal.round();
 
   // ── Body / weight ──────────────────────────────────────────────────────────
   BodyEntry? get latestBodyEntry =>
       _bodyHistory.isEmpty ? null : _bodyHistory.last;
 
-  double? get latestWeightKg => latestBodyEntry?.weightKg;
+  double? get latestWeightKg =>
+      latestScaleEntry?.weightKg ?? latestBodyEntry?.weightKg;
 
   double? get bmi {
     final w = latestWeightKg;
@@ -123,17 +153,16 @@ class FitnessProvider extends ChangeNotifier {
     return const Color(0xFFFF453A);
   }
 
-  /// BMR using Mifflin-St Jeor equation (male)
-  /// BMR = 10×weight + 6.25×height − 5×age + 5
+  /// BMR — prefer scale BMR if available (scale's measurement is more accurate)
   double? get bmr {
+    final scaleBmr = latestScaleEntry?.bmr;
+    if (scaleBmr != null && scaleBmr > 0) return scaleBmr;
     final w = latestWeightKg;
     if (w == null) return null;
     return 10 * w + 6.25 * _heightCm - 5 * _age + 5;
   }
 
   /// TDEE = BMR × activity multiplier
-  /// 1.375 = lightly active (1-3 days/week)
-  /// 1.55  = moderately active (3-5 days/week)
   double? get tdee {
     final b = bmr;
     if (b == null) return null;
@@ -160,7 +189,6 @@ class FitnessProvider extends ChangeNotifier {
     final kg = kgToGoal;
     final deficit = calorieDeficit;
     if (kg == null || kg <= 0 || deficit <= 0) return null;
-    // 1 kg fat ≈ 7700 kcal deficit
     final daysPerKg = 7700 / deficit;
     return (kg * daysPerKg / 7).clamp(0, 999);
   }
@@ -279,7 +307,6 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   /// Calories burned from steps (walking)
-  /// Formula: steps × 0.04 × (weight/70) — scales with body weight
   double get walkingCaloriesBurned {
     final w = latestWeightKg ?? 70.0;
     return todaySteps * 0.04 * (w / 70.0);
@@ -289,8 +316,8 @@ class FitnessProvider extends ChangeNotifier {
   double get totalCaloriesBurned =>
       restingCaloriesBurned + walkingCaloriesBurned + todayCaloriesBurned;
 
-  /// Net calories = eaten - total burned
-  double get netCaloriesDouble => todayCalories - totalCaloriesBurned;
+  /// Net calories = eaten (incl. supplements) - total burned
+  double get netCaloriesDouble => todayCaloriesTotal - totalCaloriesBurned;
 
   int get weeklyCaloriesBurned {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
@@ -311,7 +338,6 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   /// Get the last logged weight (kg) for a given exercise name.
-  /// Returns null if never logged.
   double? getLastExerciseWeight(String exerciseName) {
     for (final workout in _workoutHistory.reversed) {
       for (final ex in workout.exercises) {
@@ -356,8 +382,7 @@ class FitnessProvider extends ChangeNotifier {
   /// Days of the current week (Mon-Sun) with workout done
   List<bool> get weeklyWorkoutMap {
     final now = DateTime.now();
-    // Monday = 1, Sunday = 7
-    final weekday = now.weekday; // 1=Mon ... 7=Sun
+    final weekday = now.weekday;
     final result = List<bool>.filled(7, false);
     for (int i = 0; i < 7; i++) {
       final day = now.subtract(Duration(days: weekday - 1 - i));
@@ -379,9 +404,12 @@ class FitnessProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
 
     // User profile
-    _heightCm = prefs.getDouble('height_cm') ?? 170.0;
+    _heightCm = prefs.getDouble('height_cm') ?? 160.0;
     _age = prefs.getInt('age') ?? 24;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
+
+    // Water reminder interval
+    _waterReminderIntervalHours = prefs.getInt('water_reminder_interval') ?? 1;
 
     // Food
     final foodJson = prefs.getString('food_$_todayKey');
@@ -414,6 +442,14 @@ class FitnessProvider extends ChangeNotifier {
       final list = jsonDecode(bodyJson) as List;
       _bodyHistory = list.map((e) => BodyEntry.fromJson(e)).toList();
       _bodyHistory.sort((a, b) => a.date.compareTo(b.date));
+    }
+
+    // Smart scale history
+    final scaleJson = prefs.getString('scale_history');
+    if (scaleJson != null) {
+      final list = jsonDecode(scaleJson) as List;
+      _scaleHistory = list.map((e) => SmartScaleEntry.fromJson(e)).toList();
+      _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
     }
 
     // Historical food, water, supplement for last 30 days
@@ -595,8 +631,68 @@ class FitnessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Smart Scale actions ────────────────────────────────────────────────────
+  Future<void> logScaleEntry(SmartScaleEntry entry) async {
+    final now = DateTime.now();
+    _scaleHistory.removeWhere((e) =>
+        e.date.year == now.year &&
+        e.date.month == now.month &&
+        e.date.day == now.day);
+    _scaleHistory.add(entry);
+    _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
+    final cutoff = now.subtract(const Duration(days: 365));
+    _scaleHistory.removeWhere((e) => e.date.isBefore(cutoff));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'scale_history',
+      jsonEncode(_scaleHistory.map((e) => e.toJson()).toList()),
+    );
+    // Also update bodyHistory weight to match scale
+    await logBodyEntry(weightKg: entry.weightKg);
+    notifyListeners();
+  }
+
+  // ── Export / Import ────────────────────────────────────────────────────────
+  Future<String> exportAllData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final allKeys = prefs.getKeys();
+    final Map<String, dynamic> data = {};
+    for (final key in allKeys) {
+      final val = prefs.get(key);
+      data[key] = val;
+    }
+    final dir = await getApplicationDocumentsDirectory();
+    final timestamp = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .substring(0, 19);
+    final file = File('${dir.path}/karthik_fitness_backup_$timestamp.json');
+    await file.writeAsString(jsonEncode(data));
+    return file.path;
+  }
+
+  Future<bool> importAllData(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+      final content = await file.readAsString();
+      final Map<String, dynamic> data = jsonDecode(content);
+      final prefs = await SharedPreferences.getInstance();
+      for (final entry in data.entries) {
+        final val = entry.value;
+        if (val is String) await prefs.setString(entry.key, val);
+        else if (val is int) await prefs.setInt(entry.key, val);
+        else if (val is double) await prefs.setDouble(entry.key, val);
+        else if (val is bool) await prefs.setBool(entry.key, val);
+      }
+      await loadData(); // reload everything
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ── Weight Prediction (Linear Regression) ─────────────────────────────────
-  /// Returns (slope_per_day, intercept) for weight trend, or null if < 3 entries.
   ({double slope, double intercept})? get _weightRegression {
     final entries = getRecentBodyEntries(days: 90);
     if (entries.length < 3) return null;
@@ -619,7 +715,6 @@ class FitnessProvider extends ChangeNotifier {
     return (slope: slope, intercept: intercept);
   }
 
-  /// Predicted weight N days from today based on current trend.
   double? predictedWeightInDays(int days) {
     final reg = _weightRegression;
     if (reg == null) return null;
@@ -631,14 +726,12 @@ class FitnessProvider extends ChangeNotifier {
     return reg.intercept + reg.slope * x;
   }
 
-  /// kg per week based on trend (negative = losing)
   double? get weeklyWeightChange {
     final reg = _weightRegression;
     if (reg == null) return null;
     return reg.slope * 7;
   }
 
-  /// List of (date, predictedWeight) for the next N days
   List<(DateTime, double)> weightForecast({int days = 30}) {
     final reg = _weightRegression;
     if (reg == null) return [];
@@ -653,18 +746,16 @@ class FitnessProvider extends ChangeNotifier {
     });
   }
 
-  /// Estimated date to reach goal weight (null if trend is wrong direction)
   DateTime? get estimatedGoalDate {
     final reg = _weightRegression;
     final w = latestWeightKg;
     if (reg == null || w == null) return null;
-    if (reg.slope >= 0 && w > _goalWeightKg) return null; // Gaining, not losing
+    if (reg.slope >= 0 && w > _goalWeightKg) return null;
     final entries = getRecentBodyEntries(days: 90);
     if (entries.isEmpty) return null;
     final first = entries.first.date.millisecondsSinceEpoch.toDouble();
     final today = DateTime.now().millisecondsSinceEpoch.toDouble();
     final x0 = (today - first) / 86400000.0;
-    // intercept + slope * x = goalWeight → x = (goal - intercept) / slope
     if (reg.slope == 0) return null;
     final xGoal = (_goalWeightKg - reg.intercept) / reg.slope;
     final daysToGoal = xGoal - x0;
@@ -692,7 +783,6 @@ class FitnessProvider extends ChangeNotifier {
     _pedometerBaselineDate = prefs.getString('pedometer_date') ?? '';
     _pedometerDayBaseline  = prefs.getInt('pedometer_baseline') ?? -1;
 
-    // Reset if saved baseline is from a previous day
     if (_pedometerBaselineDate != _todayKey) {
       _pedometerDayBaseline = -1;
       _pedometerBaselineDate = '';
@@ -702,17 +792,13 @@ class FitnessProvider extends ChangeNotifier {
     try {
       _stepSubscription = Pedometer.stepCountStream.listen(
         (StepCount event) async {
-          // Sanity check: pedometer gives cumulative steps since boot.
-          // If it jumps by more than 1000 in one event, it's likely a sensor glitch.
           if (_livePedometerTotal > 0 && event.steps > _livePedometerTotal + 1000) {
-            // Treat as sensor restart — reset baseline
             _pedometerDayBaseline = event.steps - (_livePedometerTotal - _pedometerDayBaseline);
             final p = await SharedPreferences.getInstance();
             await p.setInt('pedometer_baseline', _pedometerDayBaseline);
           }
           _livePedometerTotal = event.steps;
 
-          // Record baseline at first reading of today
           if (_pedometerDayBaseline < 0) {
             _pedometerDayBaseline = event.steps;
             _pedometerBaselineDate = _todayKey;
@@ -723,10 +809,10 @@ class FitnessProvider extends ChangeNotifier {
 
           notifyListeners();
         },
-        onError: (_) {/* sensor not available or permission denied */},
+        onError: (_) {},
         cancelOnError: false,
       );
-    } catch (_) {/* pedometer unsupported */}
+    } catch (_) {}
   }
 
   @override

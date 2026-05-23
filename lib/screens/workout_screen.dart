@@ -15,11 +15,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   final List<ExerciseLog> _exercises = [];
   String _workoutName = '';
   String? _selectedCategory;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _workoutName = _defaultWorkoutName();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   String _defaultWorkoutName() {
@@ -77,8 +85,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           children: [
             if (pr != null)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFF9F0A).withOpacity(0.15),
@@ -87,69 +94,53 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.emoji_events,
-                        color: Color(0xFFFF9F0A), size: 16),
+                    const Icon(Icons.emoji_events, color: Color(0xFFFF9F0A), size: 16),
                     const SizedBox(width: 6),
                     Text('PR: ${pr.toStringAsFixed(1)} kg',
-                        style: const TextStyle(
-                            color: Color(0xFFFF9F0A), fontSize: 13)),
+                        style: const TextStyle(color: Color(0xFFFF9F0A), fontSize: 13)),
                   ],
                 ),
               ),
             Row(children: [
-              Expanded(
-                  child: _buildField('Sets', setsCtrl, isDecimal: false)),
+              Expanded(child: _buildField('Sets', setsCtrl, isDecimal: false)),
               const SizedBox(width: 8),
-              Expanded(
-                  child: _buildField('Reps', repsCtrl, isDecimal: false)),
+              Expanded(child: _buildField('Reps', repsCtrl, isDecimal: false)),
               const SizedBox(width: 8),
               Expanded(child: _buildField('kg', weightCtrl)),
             ]),
             const SizedBox(height: 8),
             if (lastWeight != null)
-              Text(
-                  'Last session: ${lastWeight.toStringAsFixed(1)} kg × ${lastReps ?? '?'} reps',
-                  style: const TextStyle(
-                      color: Color(0xFF8E8E93), fontSize: 12)),
+              Text('Last session: ${lastWeight.toStringAsFixed(1)} kg × ${lastReps ?? '?'} reps',
+                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(color: Color(0xFF8E8E93))),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF30D158),
               foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
               final sets = int.tryParse(setsCtrl.text) ?? 3;
               final reps = int.tryParse(repsCtrl.text) ?? 10;
               final weight = double.tryParse(weightCtrl.text) ?? 0;
-
               final tip = ExerciseDatabase.progressiveOverloadTip(
                   exerciseName, sets, reps, weight, lastReps ?? 10);
-
-              final setLogs = List.generate(
-                  sets, (_) => SetData(reps: reps, weight: weight));
+              final setLogs = List.generate(sets, (_) => SetData(reps: reps, weight: weight));
               setState(() {
-                final existingIdx =
-                    _exercises.indexWhere((e) => e.name == exerciseName);
+                final existingIdx = _exercises.indexWhere((e) => e.name == exerciseName);
                 if (existingIdx >= 0) {
                   _exercises[existingIdx] = ExerciseLog(
                     name: exerciseName,
-                    sets: [
-                      ..._exercises[existingIdx].sets,
-                      ...setLogs
-                    ],
+                    sets: [..._exercises[existingIdx].sets, ...setLogs],
                   );
                 } else {
-                  _exercises
-                      .add(ExerciseLog(name: exerciseName, sets: setLogs));
+                  _exercises.add(ExerciseLog(name: exerciseName, sets: setLogs));
                 }
               });
               HapticFeedback.lightImpact();
@@ -181,8 +172,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(fontSize: 12),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       ),
     );
   }
@@ -211,8 +201,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              'Workout saved! ~${provider.calculateWorkoutCalories(workout)} kcal burned'),
+          content: Text('Workout saved! ~${provider.calculateWorkoutCalories(workout)} kcal burned'),
           backgroundColor: const Color(0xFF30D158).withOpacity(0.9),
         ),
       );
@@ -220,6 +209,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         _exercises.clear();
         _workoutName = _defaultWorkoutName();
         _selectedCategory = null;
+        _searchCtrl.clear();
+        _searchQuery = '';
       });
     }
   }
@@ -237,12 +228,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           if (_exercises.isNotEmpty)
             TextButton.icon(
               onPressed: _saveWorkout,
-              icon: const Icon(Icons.check_circle,
-                  color: Color(0xFF30D158)),
+              icon: const Icon(Icons.check_circle, color: Color(0xFF30D158)),
               label: const Text('Save',
-                  style: TextStyle(
-                      color: Color(0xFF30D158),
-                      fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: Color(0xFF30D158), fontWeight: FontWeight.w600)),
             ),
         ],
       ),
@@ -251,8 +239,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           // Today's logged workout (if exists)
           if (todayWorkout != null) ...[
             SliverToBoxAdapter(
-              child: _TodayWorkoutCard(
-                  workout: todayWorkout, provider: provider),
+              child: _TodayWorkoutCard(workout: todayWorkout, provider: provider),
             ),
           ],
 
@@ -264,23 +251,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 child: Row(
                   children: [
                     const Text('Current Session',
-                        style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w700)),
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF30D158).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text(
-                        '~$_estimatedCalories kcal',
-                        style: const TextStyle(
-                            color: Color(0xFF30D158),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600),
-                      ),
+                      child: Text('~$_estimatedCalories kcal',
+                          style: const TextStyle(
+                              color: Color(0xFF30D158), fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -305,13 +286,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     backgroundColor: const Color(0xFF30D158),
                     foregroundColor: Colors.black,
                     minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: _saveWorkout,
                   child: const Text('Save Workout',
-                      style: TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w700)),
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
@@ -323,73 +302,100 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: const Text('Add Exercise',
-                  style: TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w700)),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             ),
           ),
+
+          // Search bar
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() {
+                  _searchQuery = v.toLowerCase();
+                  if (_searchQuery.isNotEmpty) _selectedCategory = null;
+                }),
+                decoration: InputDecoration(
+                  hintText: 'Search exercises...',
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF8E8E93), size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18, color: Color(0xFF8E8E93)),
+                          onPressed: () => setState(() {
+                            _searchCtrl.clear();
+                            _searchQuery = '';
+                          }),
+                        )
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+              ),
+            ),
+          ),
+
           // Category chips
           SliverToBoxAdapter(
             child: SizedBox(
-              height: 38,
+              height: 46,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 itemCount: categories.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (ctx, i) {
                   final cat = categories[i];
-                  final selected = _selectedCategory == cat;
+                  final selected = _selectedCategory == cat && _searchQuery.isEmpty;
                   return ChoiceChip(
                     label: Text(cat),
                     selected: selected,
-                    selectedColor:
-                        const Color(0xFF30D158).withOpacity(0.2),
+                    selectedColor: const Color(0xFF30D158).withOpacity(0.2),
                     labelStyle: TextStyle(
-                      color: selected
-                          ? const Color(0xFF30D158)
-                          : const Color(0xFF8E8E93),
+                      color: selected ? const Color(0xFF30D158) : const Color(0xFF8E8E93),
                       fontSize: 13,
-                      fontWeight: selected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                     ),
-                    onSelected: (_) => setState(() => _selectedCategory =
-                        selected ? null : cat),
+                    onSelected: (_) => setState(() {
+                      _selectedCategory = selected ? null : cat;
+                      if (!selected) {
+                        _searchCtrl.clear();
+                        _searchQuery = '';
+                      }
+                    }),
                     backgroundColor: const Color(0xFF1C1C1E),
                     side: BorderSide(
-                      color: selected
-                          ? const Color(0xFF30D158)
-                          : const Color(0xFF38383A),
+                      color: selected ? const Color(0xFF30D158) : const Color(0xFF38383A),
                     ),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 0),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                   );
                 },
               ),
             ),
           ),
-          // Exercise grid for selected category (or all)
+
+          // Exercise grid — filtered by search or category
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
             sliver: Builder(
               builder: (ctx) {
-                final exercises = _selectedCategory != null
-                    ? ExerciseDatabase.categories[_selectedCategory]!
-                    : ExerciseDatabase.allExercises;
+                final exercises = _searchQuery.isNotEmpty
+                    ? ExerciseDatabase.allExercises
+                        .where((e) => e.toLowerCase().contains(_searchQuery))
+                        .toList()
+                    : (_selectedCategory != null
+                        ? ExerciseDatabase.categories[_selectedCategory]!
+                        : ExerciseDatabase.allExercises);
                 return SliverGrid(
                   delegate: SliverChildBuilderDelegate(
                     (ctx2, i) {
                       final name = exercises[i];
-                      final alreadyAdded =
-                          _exercises.any((e) => e.name == name);
+                      final alreadyAdded = _exercises.any((e) => e.name == name);
                       return InkWell(
                         onTap: () => _addExercise(name),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                           decoration: BoxDecoration(
                             color: alreadyAdded
                                 ? const Color(0xFF30D158).withOpacity(0.12)
@@ -410,16 +416,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: alreadyAdded
-                                      ? const Color(0xFF30D158)
-                                      : Colors.white,
+                                  color: alreadyAdded ? const Color(0xFF30D158) : Colors.white,
                                 ),
                               ),
                               if (alreadyAdded) ...[
                                 const SizedBox(height: 2),
-                                const Icon(Icons.check,
-                                    size: 12,
-                                    color: Color(0xFF30D158)),
+                                const Icon(Icons.check, size: 12, color: Color(0xFF30D158)),
                               ],
                             ],
                           ),
@@ -428,8 +430,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     },
                     childCount: exercises.length,
                   ),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
@@ -448,8 +449,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 class _TodayWorkoutCard extends StatelessWidget {
   final WorkoutLog workout;
   final FitnessProvider provider;
-  const _TodayWorkoutCard(
-      {required this.workout, required this.provider});
+  const _TodayWorkoutCard({required this.workout, required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -460,42 +460,34 @@ class _TodayWorkoutCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: const Color(0xFF30D158).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.check_circle,
-                color: Color(0xFF30D158), size: 18),
+            const Icon(Icons.check_circle, color: Color(0xFF30D158), size: 18),
             const SizedBox(width: 6),
             Text(workout.name,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600, fontSize: 15)),
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             const Spacer(),
             Text('~$cals kcal',
-                style: const TextStyle(
-                    color: Color(0xFF30D158), fontSize: 13)),
+                style: const TextStyle(color: Color(0xFF30D158), fontSize: 13)),
           ]),
           const SizedBox(height: 8),
           ...workout.exercises.map((ex) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Row(children: [
                   const SizedBox(width: 8),
-                  const Icon(Icons.fiber_manual_record,
-                      size: 6, color: Color(0xFF8E8E93)),
+                  const Icon(Icons.fiber_manual_record, size: 6, color: Color(0xFF8E8E93)),
                   const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(ex.name,
-                          style: const TextStyle(fontSize: 13))),
+                  Expanded(child: Text(ex.name, style: const TextStyle(fontSize: 13))),
                   Text(
                     ex.sets.isNotEmpty
                         ? '${ex.sets.length} × ${ex.sets.first.reps} reps'
                             '${ex.sets.first.weight > 0 ? ' @ ${ex.sets.first.weight.toStringAsFixed(1)}kg' : ''}'
                         : '',
-                    style: const TextStyle(
-                        color: Color(0xFF8E8E93), fontSize: 12),
+                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
                   ),
                 ]),
               )),
@@ -511,10 +503,7 @@ class _ExerciseCard extends StatelessWidget {
   final VoidCallback onEdit;
   final FitnessProvider provider;
   const _ExerciseCard(
-      {required this.exercise,
-      required this.onRemove,
-      required this.onEdit,
-      required this.provider});
+      {required this.exercise, required this.onRemove, required this.onEdit, required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -532,29 +521,25 @@ class _ExerciseCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(exercise.name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 15)),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               const SizedBox(height: 4),
               Text(
                 '${sets.length} set${sets.length == 1 ? '' : 's'}'
                 '${sets.isNotEmpty ? ' × ${sets.first.reps} reps' : ''}'
                 '${sets.isNotEmpty && sets.first.weight > 0 ? ' @ ${sets.first.weight.toStringAsFixed(1)} kg' : ''}',
-                style: const TextStyle(
-                    color: Color(0xFF8E8E93), fontSize: 13),
+                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
               ),
             ],
           ),
         ),
         IconButton(
           onPressed: onEdit,
-          icon: const Icon(Icons.add_circle_outline,
-              color: Color(0xFF30D158), size: 22),
+          icon: const Icon(Icons.add_circle_outline, color: Color(0xFF30D158), size: 22),
           tooltip: 'Add more sets',
         ),
         IconButton(
           onPressed: onRemove,
-          icon: const Icon(Icons.remove_circle_outline,
-              color: Color(0xFFFF453A), size: 22),
+          icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFFF453A), size: 22),
         ),
       ]),
     );

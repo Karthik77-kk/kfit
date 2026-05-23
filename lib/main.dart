@@ -9,6 +9,8 @@ import 'screens/workout_screen.dart';
 import 'screens/supplements_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/history_screen.dart';
+import 'screens/smart_scale_screen.dart';
+import 'screens/settings_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -27,7 +29,8 @@ void main() async {
     if (granted) {
       await ns.scheduleMorningSummary();
       await ns.scheduleSupplementReminders();
-      await ns.scheduleWaterReminders();
+      await ns.scheduleWaterReminders(intervalHours: 1);
+      await ns.scheduleEveningChecklist();
     }
   } catch (_) {}
   runApp(
@@ -82,10 +85,7 @@ class KarthikFitnessApp extends StatelessWidget {
           unselectedItemColor: Color(0xFF8E8E93),
           type: BottomNavigationBarType.fixed,
           elevation: 0,
-          selectedLabelStyle: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
+          selectedLabelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
           unselectedLabelStyle: TextStyle(fontSize: 10),
         ),
         snackBarTheme: const SnackBarThemeData(
@@ -137,9 +137,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     FoodScreen(),
     WaterScreen(),
     WorkoutScreen(),
+    SmartScaleScreen(),
     StatsScreen(),
     SupplementsScreen(),
-    HistoryScreen(),
   ];
 
   @override
@@ -180,6 +180,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               label: 'Workout',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.monitor_weight_outlined, size: 24),
+              activeIcon: Icon(Icons.monitor_weight_rounded, size: 24),
+              label: 'Scale',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart_outlined, size: 24),
               activeIcon: Icon(Icons.bar_chart_rounded, size: 24),
               label: 'Stats',
@@ -188,11 +193,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               icon: Icon(Icons.medication_liquid_outlined, size: 24),
               activeIcon: Icon(Icons.medication_liquid_rounded, size: 24),
               label: 'Supps',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined, size: 24),
-              activeIcon: Icon(Icons.history_rounded, size: 24),
-              label: 'History',
             ),
           ],
         ),

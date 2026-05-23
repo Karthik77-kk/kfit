@@ -15,7 +15,8 @@ class NotificationService {
   static const int _morningId = 0;
   static const int _multivitaminId = 1;
   static const int _creatineId = 2;
-  // Water reminders: IDs 10–14
+  // Water reminders: IDs 10–23
+  static const int _eveningChecklistId = 30;
 
   // ── Motivational quotes ───────────────────────────────────────────────────
   static const List<String> _quotes = [
@@ -41,7 +42,6 @@ class NotificationService {
   }
 
   /// Request Android 13+ notification permission.
-  /// Returns true if granted (or already granted on older Android).
   Future<bool> requestPermission() async {
     try {
       final granted = await _plugin
@@ -63,7 +63,7 @@ class NotificationService {
   }
 
   String _getTodayWorkoutHint() {
-    final weekday = DateTime.now().weekday; // 1=Mon … 7=Sun
+    final weekday = DateTime.now().weekday;
     if (weekday == 7) return '🛌 Rest day — recovery is part of the plan.';
     if (weekday == 1 || weekday == 3 || weekday == 5) {
       return '💪 Workout A today: Push-ups · Squats · Bicep Curls';
@@ -110,9 +110,7 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
-    } catch (_) {
-      // Silently skip if permission not granted
-    }
+    } catch (_) {}
   }
 
   Future<void> cancelMorningSummary() async {
@@ -174,42 +172,46 @@ class NotificationService {
     }
   }
 
-  // ── Water Reminders ───────────────────────────────────────────────────────
+  // ── Water Reminders (configurable interval) ───────────────────────────────
 
-  Future<bool> scheduleWaterReminders() async {
+  /// Schedule water reminders every [intervalHours] hours from 8 AM to 9 PM
+  Future<bool> scheduleWaterReminders({int intervalHours = 1}) async {
     try {
-      for (int i = 10; i <= 14; i++) {
+      // Cancel existing water reminders (IDs 10–23)
+      for (int i = 10; i <= 23; i++) {
         await _plugin.cancel(i);
       }
 
+      const messages = [
+        '💧 Start your day with a glass of water!',
+        '💧 Hydration check! Time to drink up.',
+        '💧 Keep that 2500ml goal in sight!',
+        '💧 Sip some water — your body will thank you.',
+        '💧 Halfway through the day. Water status?',
+        '💧 Afternoon hydration reminder!',
+        '💧 Water break time!',
+        '💧 Don\'t forget to hydrate!',
+        '💧 Evening water check.',
+        '💧 Last reminder for today. Finish strong! 🎯',
+      ];
+
       const androidDetails = AndroidNotificationDetails(
-        'water_channel',
-        'Water Reminders',
+        'water_channel', 'Water Reminders',
         channelDescription: 'Reminds you to drink water throughout the day',
         importance: Importance.defaultImportance,
         priority: Priority.defaultPriority,
       );
 
-      const messages = [
-        '💧 Good morning! Start your day with a glass of water.',
-        '💧 Hydration check! Have you had your 2nd glass yet?',
-        '💧 Afternoon reminder — keep that 2.5L goal in sight!',
-        '💧 Evening water check. Don\'t forget to hydrate!',
-        '💧 Last reminder for today. Finish strong! 🎯',
-      ];
-      const hours = [9, 11, 13, 15, 18];
-
       final now = tz.TZDateTime.now(tz.local);
-      for (int i = 0; i < hours.length; i++) {
-        var scheduled = tz.TZDateTime(
-            tz.local, now.year, now.month, now.day, hours[i]);
-        if (scheduled.isBefore(now)) {
-          scheduled = scheduled.add(const Duration(days: 1));
-        }
+      int id = 10;
+      int msgIdx = 0;
+      for (int hour = 8; hour <= 21; hour += intervalHours) {
+        var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour);
+        if (scheduled.isBefore(now)) scheduled = scheduled.add(const Duration(days: 1));
         await _plugin.zonedSchedule(
-          10 + i,
+          id++,
           'Karthik Fitness 💧',
-          messages[i],
+          messages[msgIdx % messages.length],
           scheduled,
           const NotificationDetails(android: androidDetails),
           androidScheduleMode: AndroidScheduleMode.inexact,
@@ -217,11 +219,48 @@ class NotificationService {
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
         );
+        msgIdx++;
+        if (id > 23) break;
       }
       return true;
     } catch (_) {
       return false;
     }
+  }
+
+  // ── Evening Checklist (10 PM daily) ──────────────────────────────────────
+
+  Future<void> scheduleEveningChecklist() async {
+    try {
+      await _plugin.cancel(_eveningChecklistId);
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, 22, 0);
+      if (scheduled.isBefore(now)) scheduled = scheduled.add(const Duration(days: 1));
+
+      await _plugin.zonedSchedule(
+        _eveningChecklistId,
+        '📋 Daily Log Check — 10 PM',
+        'Did you log everything? 🍽️ Food  💧 Water  💪 Workout  💊 Supplements',
+        scheduled,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'evening_checklist', 'Evening Checklist',
+            channelDescription: 'Daily 10 PM reminder to complete your fitness log',
+            importance: Importance.high,
+            priority: Priority.high,
+            styleInformation: BigTextStyleInformation(
+              '✅ Tap to open the app and fill in anything you missed today.\n\n🍽️ Food logged?\n💧 Water intake updated?\n💪 Workout logged?\n💊 Supplements checked?',
+              summaryText: 'Daily Log Reminder',
+            ),
+            color: const Color(0xFFFF9F0A),
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexact,
+        matchDateTimeComponents: DateTimeComponents.time,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {}
   }
 
   // ── Cancel all ────────────────────────────────────────────────────────────

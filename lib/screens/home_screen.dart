@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/notification_service.dart';
+import 'settings_screen.dart';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
@@ -25,7 +26,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Schedule morning notification on first load
     NotificationService().scheduleMorningSummary();
   }
 
@@ -74,8 +74,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               actions: [
                 Padding(
-                  padding: const EdgeInsets.only(right: 16, top: 8),
+                  padding: const EdgeInsets.only(right: 4, top: 8),
                   child: _StreakBadge(streak: p.workoutStreak),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, size: 22),
+                  onPressed: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen())),
                 ),
               ],
             ),
@@ -91,37 +96,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   _ActivityRingsCard(provider: p),
                   const SizedBox(height: 20),
 
-                  // ── Calorie balance ───────────────────────────────────────
+                  // ── Calorie ring tile ─────────────────────────────────────
                   const _SectionHdr('CALORIE BALANCE'),
                   const SizedBox(height: 10),
-                  _CalorieBalanceCard(provider: p),
+                  const _CalorieRingTile(),
+                  const SizedBox(height: 10),
+                  const _MacroRow(),
                   const SizedBox(height: 20),
 
-                  // ── Move metrics ──────────────────────────────────────────
-                  const _SectionHdr('MOVE'),
+                  // ── Burn breakdown ────────────────────────────────────────
+                  const _SectionHdr('BURN BREAKDOWN'),
                   const SizedBox(height: 10),
-                  Row(children: [
-                    Expanded(child: _MetricTile(
-                      label: p.hasPedometerData ? 'Steps 📱' : 'Steps',
-                      value: _fmtInt(p.todaySteps),
-                      goal: '/ ${_fmtInt(FitnessProvider.kStepGoal)}',
-                      icon: Icons.directions_walk_rounded, color: _kBlue,
-                      progress: p.stepProgress,
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _MetricTile(
-                      label: 'Total Burned', value: '${p.totalCaloriesBurned.round()}',
-                      goal: 'kcal  •  workout ${p.todayCaloriesBurned}',
-                      icon: Icons.local_fire_department_rounded, color: _kRed,
-                      progress: (p.totalCaloriesBurned / 600).clamp(0.0, 1.0),
-                    )),
-                  ]),
+                  const _BurnBreakdownTile(),
                   const SizedBox(height: 20),
 
-                  // ── Nutrition ─────────────────────────────────────────────
-                  const _SectionHdr('NUTRITION'),
+                  // ── Steps + Water ─────────────────────────────────────────
+                  const _SectionHdr('MOVE & HYDRATE'),
                   const SizedBox(height: 10),
-                  _NutritionCard(provider: p),
+                  const _StepsWaterRow(),
+                  const SizedBox(height: 20),
+
+                  // ── Body stats ────────────────────────────────────────────
+                  const _BodyStatsTile(),
                   const SizedBox(height: 20),
 
                   // ── Weight prediction chart ───────────────────────────────
@@ -143,34 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 10),
                   _SupplementsCard(supp: p.supplements),
                   const SizedBox(height: 20),
-
-                  // ── Body ──────────────────────────────────────────────────
-                  if (p.latestWeightKg != null) ...[
-                    const _SectionHdr('BODY'),
-                    const SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(child: _MetricTile(
-                        label: 'Weight',
-                        value: p.latestWeightKg!.toStringAsFixed(1),
-                        goal: 'kg  •  Goal: ${p.goalWeightKg.toStringAsFixed(1)} kg',
-                        icon: Icons.monitor_weight_outlined,
-                        color: _kOrange, progress: -1,
-                      )),
-                      const SizedBox(width: 12),
-                      Expanded(child: _MetricTile(
-                        label: 'BMI',
-                        value: p.bmi?.toStringAsFixed(1) ?? '--',
-                        goal: p.bmiCategory,
-                        icon: Icons.health_and_safety_outlined,
-                        color: p.bmiColor(context), progress: -1,
-                      )),
-                    ]),
-                    if (p.weightChangeKg != null) ...[
-                      const SizedBox(height: 8),
-                      _WeightChangeBadge(change: p.weightChangeKg!),
-                    ],
-                    const SizedBox(height: 20),
-                  ],
 
                   // ── Weekly snapshot ───────────────────────────────────────
                   const _SectionHdr('THIS WEEK'),
@@ -254,11 +222,11 @@ class _ActivityRingsCard extends StatelessWidget {
         const SizedBox(width: 18),
         Expanded(child: Column(children: [
           _RingRow(color: _kRed, label: 'Calories',
-            value: '${p.todayCalories.round()} / ${FitnessProvider.kCalorieGoal} kcal',
+            value: '${p.todayCaloriesTotal.round()} / ${FitnessProvider.kCalorieGoal} kcal',
             progress: p.calorieProgress),
           const SizedBox(height: 10),
           _RingRow(color: _kGreen, label: 'Protein',
-            value: '${p.todayProtein.round()} / ${FitnessProvider.kProteinGoal}g',
+            value: '${p.todayProteinTotal.round()} / ${FitnessProvider.kProteinGoal}g',
             progress: p.proteinProgress),
           const SizedBox(height: 10),
           _RingRow(color: _kBlue, label: 'Water',
@@ -331,76 +299,417 @@ class _RingsPainter extends CustomPainter {
   bool shouldRepaint(_) => true;
 }
 
-// ─── Calorie Balance Card ──────────────────────────────────────────────────────
-class _CalorieBalanceCard extends StatelessWidget {
-  final FitnessProvider provider;
-  const _CalorieBalanceCard({required this.provider});
-
+// ─── Calorie Ring Tile ─────────────────────────────────────────────────────────
+class _CalorieRingTile extends StatelessWidget {
+  const _CalorieRingTile();
   @override
   Widget build(BuildContext context) {
-    final p = provider;
-    // Use total burn (resting + walking + workout) for deficit
-    final deficit = (FitnessProvider.kCalorieGoal - p.netCaloriesDouble).round();
-    final inDef = deficit > 0;
-    final color = inDef ? _kGreen : _kRed;
+    final p = context.watch<FitnessProvider>();
+    final eaten = p.todayCaloriesTotal;
+    final burned = p.totalCaloriesBurned;
+    final goal = FitnessProvider.kCalorieGoal.toDouble();
+    final net = eaten - burned;
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _kCard, borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.25)),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(20)),
+      child: Column(
+        children: [
+          const Text('Calorie Balance',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 180,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CustomPaint(
+                  size: const Size(180, 180),
+                  painter: _CalorieRingPainter(eaten: eaten, burned: burned, goal: goal),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      net >= 0 ? '+${net.round()}' : '${net.round()}',
+                      style: TextStyle(
+                        fontSize: 32, fontWeight: FontWeight.w800,
+                        color: net > 200 ? _kRed : net < -200 ? _kGreen : Colors.white,
+                      ),
+                    ),
+                    Text(
+                      net >= 0 ? 'kcal surplus' : 'kcal deficit',
+                      style: const TextStyle(color: _kSecond, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _RingLegend(color: _kOrange, label: 'Eaten', value: '${eaten.round()} kcal'),
+              _RingLegend(color: _kGreen, label: 'Burned', value: '${burned.round()} kcal'),
+              _RingLegend(color: _kBlue, label: 'Goal', value: '${goal.round()} kcal'),
+            ],
+          ),
+        ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(inDef ? Icons.trending_down_rounded : Icons.trending_up_rounded, color: color, size: 18),
+    );
+  }
+}
+
+class _RingLegend extends StatelessWidget {
+  final Color color;
+  final String label, value;
+  const _RingLegend({required this.color, required this.label, required this.value});
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 10, height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
+      ]),
+      const SizedBox(height: 2),
+      Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+    ]);
+  }
+}
+
+class _CalorieRingPainter extends CustomPainter {
+  final double eaten, burned, goal;
+  const _CalorieRingPainter({required this.eaten, required this.burned, required this.goal});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final outerRadius = size.width / 2 - 8;
+    final innerRadius = outerRadius - 22;
+
+    final bgPaint = Paint()
+      ..color = const Color(0xFF2C2C2E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 22
+      ..strokeCap = StrokeCap.round;
+
+    final eatenPaint = Paint()
+      ..color = _kOrange
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 22
+      ..strokeCap = StrokeCap.round;
+
+    final burnedPaint = Paint()
+      ..color = _kGreen
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14
+      ..strokeCap = StrokeCap.round;
+
+    const startAngle = -90 * (3.14159 / 180);
+    const fullCircle = 2 * 3.14159;
+
+    canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
+        startAngle, fullCircle, false, bgPaint);
+    canvas.drawArc(Rect.fromCircle(center: center, radius: innerRadius),
+        startAngle, fullCircle, false, bgPaint..color = const Color(0xFF2C2C2E));
+
+    final eatenSweep = (eaten / goal * fullCircle).clamp(0.0, fullCircle);
+    if (eatenSweep > 0) {
+      canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
+          startAngle, eatenSweep, false, eatenPaint);
+    }
+
+    final burnedMax = goal * 1.2;
+    final burnedSweep = (burned / burnedMax * fullCircle).clamp(0.0, fullCircle);
+    if (burnedSweep > 0) {
+      canvas.drawArc(Rect.fromCircle(center: center, radius: innerRadius),
+          startAngle, burnedSweep, false, burnedPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CalorieRingPainter old) =>
+      old.eaten != eaten || old.burned != burned || old.goal != goal;
+}
+
+// ─── Macro Row ─────────────────────────────────────────────────────────────────
+class _MacroRow extends StatelessWidget {
+  const _MacroRow();
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    final protein = p.todayProteinTotal;
+    final proteinGoal = FitnessProvider.kProteinGoal;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          Expanded(child: _MacroChip(
+            label: 'Protein',
+            value: '${protein.round()}g',
+            goal: '/ ${proteinGoal}g',
+            color: _kBlue,
+            progress: (protein / proteinGoal).clamp(0.0, 1.0),
+          )),
           const SizedBox(width: 8),
-          Text(inDef ? 'In Deficit 🎯' : 'In Surplus', style: TextStyle(
-            color: color, fontSize: 13, fontWeight: FontWeight.w600,
+          Expanded(child: _MacroChip(
+            label: 'Calories in',
+            value: '${p.todayCaloriesTotal.round()}',
+            goal: '/ ${FitnessProvider.kCalorieGoal} kcal',
+            color: _kOrange,
+            progress: p.calorieProgress,
           )),
-          const Spacer(),
-          Text('${inDef ? '-' : '+'}${deficit.abs()} kcal', style: TextStyle(
-            color: color, fontSize: 22, fontWeight: FontWeight.w700,
+          const SizedBox(width: 8),
+          Expanded(child: _MacroChip(
+            label: 'Net',
+            value: '${(p.todayCaloriesTotal - p.totalCaloriesBurned).round()}',
+            goal: 'kcal net',
+            color: _kGreen,
+            progress: 1.0,
           )),
-        ]),
-        const SizedBox(height: 12),
-        ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(
-          value: (p.netCaloriesDouble / FitnessProvider.kCalorieGoal).clamp(0.0, 1.0),
-          backgroundColor: Colors.white.withOpacity(0.08),
-          valueColor: AlwaysStoppedAnimation<Color>(p.netCaloriesDouble > FitnessProvider.kCalorieGoal ? _kRed : _kGreen),
-          minHeight: 8,
-        )),
-        const SizedBox(height: 10),
-        Row(children: [
-          _BalStat('Eaten', '${p.todayCalories.round()}', _kOrange),
-          const Text(' − ', style: TextStyle(color: _kSecond, fontSize: 12)),
-          _BalStat('Burned', '${p.totalCaloriesBurned.round()}', _kRed),
-          const Text(' = ', style: TextStyle(color: _kSecond, fontSize: 12)),
-          _BalStat('Net', '${p.netCaloriesDouble.round()}', inDef ? _kGreen : _kRed),
-          const Spacer(),
-          Text('Goal: ${FitnessProvider.kCalorieGoal}', style: const TextStyle(color: _kSecond, fontSize: 11)),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          _BalStat('Rest', '${p.restingCaloriesBurned.round()}', _kSecond),
-          const Text(' + ', style: TextStyle(color: _kSecond, fontSize: 11)),
-          _BalStat('Walk', '${p.walkingCaloriesBurned.round()}', _kBlue),
-          const Text(' + ', style: TextStyle(color: _kSecond, fontSize: 11)),
-          _BalStat('Workout', '${p.todayCaloriesBurned}', _kRed),
-        ]),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroChip extends StatelessWidget {
+  final String label, value, goal;
+  final Color color;
+  final double progress;
+  const _MacroChip({required this.label, required this.value, required this.goal, required this.color, required this.progress});
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
+      const SizedBox(height: 4),
+      Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
+      Text(goal, style: const TextStyle(color: _kSecond, fontSize: 10)),
+      const SizedBox(height: 6),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: progress,
+          backgroundColor: const Color(0xFF2C2C2E),
+          valueColor: AlwaysStoppedAnimation(color),
+          minHeight: 4,
+        ),
+      ),
+    ]);
+  }
+}
+
+// ─── Burn Breakdown Tile ───────────────────────────────────────────────────────
+class _BurnBreakdownTile extends StatelessWidget {
+  const _BurnBreakdownTile();
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Calories Burned Today',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: _BurnChip(icon: '😴', label: 'Resting',
+                value: p.restingCaloriesBurned.round(), color: const Color(0xFF5E5CE6))),
+            const SizedBox(width: 8),
+            Expanded(child: _BurnChip(icon: '👟', label: 'Walking',
+                value: p.walkingCaloriesBurned.round(), color: _kBlue)),
+            const SizedBox(width: 8),
+            Expanded(child: _BurnChip(icon: '💪', label: 'Workout',
+                value: p.todayCaloriesBurned, color: _kGreen)),
+          ]),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2C2C2E),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Total Burned', style: TextStyle(fontSize: 13, color: _kSecond)),
+                Text('${p.totalCaloriesBurned.round()} kcal',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kGreen)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BurnChip extends StatelessWidget {
+  final String icon, label;
+  final int value;
+  final Color color;
+  const _BurnChip({required this.icon, required this.label, required this.value, required this.color});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(children: [
+        Text(icon, style: const TextStyle(fontSize: 20)),
+        const SizedBox(height: 4),
+        Text('$value kcal',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+        Text(label,
+            style: const TextStyle(fontSize: 10, color: _kSecond)),
       ]),
     );
   }
 }
 
-class _BalStat extends StatelessWidget {
-  final String l, v;
-  final Color c;
-  const _BalStat(this.l, this.v, this.c);
+// ─── Steps + Water Row ────────────────────────────────────────────────────────
+class _StepsWaterRow extends StatelessWidget {
+  const _StepsWaterRow();
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(v, style: TextStyle(color: c, fontSize: 15, fontWeight: FontWeight.bold)),
-    Text(l, style: const TextStyle(color: _kSecond, fontSize: 10)),
-  ]);
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    return Row(children: [
+      Expanded(child: _MiniRingCard(
+        icon: '👟',
+        label: p.hasPedometerData ? 'Steps 📱' : 'Steps',
+        current: p.todaySteps.toDouble(),
+        goal: FitnessProvider.kStepGoal.toDouble(),
+        valueText: _fmtInt(p.todaySteps),
+        goalText: '/ ${_fmtInt(FitnessProvider.kStepGoal)}',
+        color: _kBlue,
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: _MiniRingCard(
+        icon: '💧',
+        label: 'Water',
+        current: p.todayWaterMl.toDouble(),
+        goal: FitnessProvider.kWaterGoalMl.toDouble(),
+        valueText: '${p.todayWaterMl} ml',
+        goalText: '/ ${FitnessProvider.kWaterGoalMl} ml',
+        color: const Color(0xFF0A84FF),
+      )),
+    ]);
+  }
+}
+
+class _MiniRingCard extends StatelessWidget {
+  final String icon, label, valueText, goalText;
+  final double current, goal;
+  final Color color;
+  const _MiniRingCard({required this.icon, required this.label, required this.current,
+      required this.goal, required this.valueText, required this.goalText, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = (current / goal).clamp(0.0, 1.0);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text(icon, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        ]),
+        const SizedBox(height: 10),
+        Text(valueText, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+        Text(goalText, style: const TextStyle(color: _kSecond, fontSize: 11)),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            backgroundColor: const Color(0xFF2C2C2E),
+            valueColor: AlwaysStoppedAnimation(color),
+            minHeight: 6,
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Body Stats Tile ───────────────────────────────────────────────────────────
+class _BodyStatsTile extends StatelessWidget {
+  const _BodyStatsTile();
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    final scale = p.latestScaleEntry;
+    final bmi = p.bmi;
+    if (scale == null && bmi == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Text('Body Stats', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          const Spacer(),
+          if (scale != null)
+            Text(
+              '${scale.date.day}/${scale.date.month}',
+              style: const TextStyle(color: _kSecond, fontSize: 12),
+            ),
+        ]),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (p.latestWeightKg != null)
+              _StatChip('⚖️', 'Weight', '${p.latestWeightKg!.toStringAsFixed(1)} kg', Colors.white),
+            if (bmi != null)
+              _StatChip('📊', 'BMI', bmi.toStringAsFixed(1), p.bmiColor(context)),
+            if (scale != null) ...[
+              _StatChip('🔥', 'Body Fat', '${scale.bodyFatPercent.toStringAsFixed(1)}%', _kOrange),
+              _StatChip('💪', 'Muscle', '${scale.muscleMassKg.toStringAsFixed(1)} kg', _kGreen),
+              _StatChip('💧', 'Water', '${scale.bodyWaterPercent.toStringAsFixed(1)}%', _kBlue),
+              _StatChip('🧬', 'Bio Age', '${scale.biologicalAge} yr', const Color(0xFF5E5CE6)),
+            ],
+          ],
+        ),
+      ]),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final String emoji, label, value;
+  final Color color;
+  const _StatChip(this.emoji, this.label, this.value, this.color);
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C2C2E),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(emoji, style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 5),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
+          Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600)),
+        ]),
+      ]),
+    );
+  }
 }
 
 // ─── Weight Prediction Card ────────────────────────────────────────────────────
@@ -424,9 +733,8 @@ class _WeightPredictionCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Header
         Row(children: [
-          Text('🤖', style: const TextStyle(fontSize: 18)),
+          const Text('🤖', style: TextStyle(fontSize: 18)),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('AI Weight Forecast', style: TextStyle(
@@ -451,8 +759,6 @@ class _WeightPredictionCard extends StatelessWidget {
             ),
         ]),
         const SizedBox(height: 14),
-
-        // Prediction chart
         SizedBox(
           height: 120,
           child: CustomPaint(
@@ -465,8 +771,6 @@ class _WeightPredictionCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-
-        // Stats row
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           _PredStat('Now', '${current.toStringAsFixed(1)} kg', Colors.white),
           _PredStat('In 30 days', predicted30 != null
@@ -475,7 +779,6 @@ class _WeightPredictionCard extends StatelessWidget {
           _PredStat('ETA', goalDate != null
               ? DateFormat('d MMM').format(goalDate) : '—', _kBlue),
         ]),
-
         if (goalDate != null) ...[
           const SizedBox(height: 10),
           Container(
@@ -523,7 +826,6 @@ class _PredictionPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (history.isEmpty && forecast.isEmpty) return;
 
-    // Build all points for scale
     final allWeights = [
       ...history.map((e) => e.weightKg),
       ...forecast.map((f) => f.$2),
@@ -533,7 +835,6 @@ class _PredictionPainter extends CustomPainter {
     final maxW = allWeights.reduce(math.max) + 1.0;
     final range = (maxW - minW).clamp(0.5, double.infinity);
 
-    // Time range: history start to forecast end
     final allDates = [
       if (history.isNotEmpty) history.first.date,
       if (forecast.isNotEmpty) forecast.last.$1,
@@ -549,22 +850,14 @@ class _PredictionPainter extends CustomPainter {
       return Offset(x.clamp(0, size.width), y.clamp(0, size.height));
     }
 
-    // Draw goal weight line
     if (goalWeight >= minW && goalWeight <= maxW) {
       final goalY = size.height - ((goalWeight - minW) / range) * size.height;
-      canvas.drawLine(
-        Offset(0, goalY), Offset(size.width, goalY),
-        Paint()..color = _kOrange.withOpacity(0.4)..strokeWidth = 1
-          ..style = PaintingStyle.stroke,
-      );
-      // Draw dashed line manually
       final dashPaint = Paint()..color = _kOrange.withOpacity(0.5)..strokeWidth = 1.5;
       for (double x = 0; x < size.width; x += 10) {
         canvas.drawLine(Offset(x, goalY), Offset((x + 6).clamp(0, size.width), goalY), dashPaint);
       }
     }
 
-    // Draw history (solid green)
     if (history.length >= 2) {
       final histPath = Path();
       final histPts = history.map((e) => toOff(e.date, e.weightKg)).toList();
@@ -572,28 +865,19 @@ class _PredictionPainter extends CustomPainter {
       for (final pt in histPts.skip(1)) histPath.lineTo(pt.dx, pt.dy);
       canvas.drawPath(histPath, Paint()
         ..color = _kGreen..strokeWidth = 2.5..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
-
-      // Dots
       for (final pt in histPts) {
         canvas.drawCircle(pt, 3, Paint()..color = _kGreen);
       }
     }
 
-    // Draw forecast (dashed blue)
     if (forecast.isNotEmpty && history.isNotEmpty) {
       final startPt = toOff(history.last.date, history.last.weightKg);
       final forecastPts = [startPt, ...forecast.map((f) => toOff(f.$1, f.$2))];
-
-      // Dashed forecast line
       final dashPaint = Paint()
         ..color = _kBlue..strokeWidth = 2..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
       for (int i = 0; i < forecastPts.length - 1; i++) {
-        if (i % 3 == 0) { // Draw every 3rd segment for dashed effect
-          canvas.drawLine(forecastPts[i], forecastPts[i + 1], dashPaint);
-        }
+        if (i % 3 == 0) canvas.drawLine(forecastPts[i], forecastPts[i + 1], dashPaint);
       }
-
-      // Shade forecast area
       final shadePath = Path()
         ..moveTo(startPt.dx, size.height)
         ..lineTo(startPt.dx, startPt.dy);
@@ -602,120 +886,12 @@ class _PredictionPainter extends CustomPainter {
       shadePath.close();
       canvas.drawPath(shadePath, Paint()
         ..color = _kBlue.withOpacity(0.07)..style = PaintingStyle.fill);
-
-      // End dot
-      canvas.drawCircle(forecastPts.last, 5,
-        Paint()..color = _kBlue.withOpacity(0.3)..style = PaintingStyle.fill);
-      canvas.drawCircle(forecastPts.last, 4,
-        Paint()..color = _kBlue..style = PaintingStyle.fill);
+      canvas.drawCircle(forecastPts.last, 4, Paint()..color = _kBlue..style = PaintingStyle.fill);
     }
   }
 
   @override
   bool shouldRepaint(_) => true;
-}
-
-// ─── Metric Tile ───────────────────────────────────────────────────────────────
-class _MetricTile extends StatelessWidget {
-  final String label, value, goal;
-  final IconData icon;
-  final Color color;
-  final double progress;
-  const _MetricTile({
-    required this.label, required this.value, required this.goal,
-    required this.icon, required this.color, required this.progress,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Icon(icon, color: color, size: 16), const SizedBox(width: 6),
-        Text(label, style: const TextStyle(color: _kSecond, fontSize: 11))]),
-      const SizedBox(height: 8),
-      Text(value, style: const TextStyle(color: Colors.white, fontSize: 22,
-          fontWeight: FontWeight.w700, height: 1.0)),
-      Text(goal, style: const TextStyle(color: _kSecond, fontSize: 11)),
-      if (progress >= 0) ...[
-        const SizedBox(height: 8),
-        ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(
-          value: progress, backgroundColor: color.withOpacity(0.15),
-          valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 4,
-        )),
-      ],
-    ]),
-  );
-}
-
-// ─── Nutrition Card ────────────────────────────────────────────────────────────
-class _NutritionCard extends StatelessWidget {
-  final FitnessProvider provider;
-  const _NutritionCard({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = provider;
-    final rem = p.caloriesRemaining;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
-      child: Column(children: [
-        Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${p.todayCalories.round()}', style: const TextStyle(
-              color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700, height: 1.0)),
-            const Text('kcal eaten', style: TextStyle(color: _kSecond, fontSize: 12)),
-          ])),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('${rem.abs()}', style: TextStyle(
-              color: rem >= 0 ? Colors.white : _kRed, fontSize: 20, fontWeight: FontWeight.bold)),
-            Text(rem >= 0 ? 'remaining' : 'over goal',
-              style: TextStyle(color: rem >= 0 ? _kSecond : _kRed, fontSize: 11)),
-          ]),
-        ]),
-        const SizedBox(height: 10),
-        ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(
-          value: p.calorieProgress,
-          backgroundColor: _kOrange.withOpacity(0.15),
-          valueColor: AlwaysStoppedAnimation<Color>(p.calorieProgress >= 1 ? _kRed : _kOrange),
-          minHeight: 6,
-        )),
-        const SizedBox(height: 12),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          _NutrChip('Protein', '${p.todayProtein.round()}g',
-              '/${FitnessProvider.kProteinGoal}g', _kGreen, p.proteinProgress),
-          _NutrChip('Breakfast', '${p.breakfastEntries.fold(0.0, (s, e) => s + e.calories).round()}',
-              'kcal', _kBlue, -1),
-          _NutrChip('Items', '${p.todayFood.length}', 'logged', _kSecond, -1),
-        ]),
-      ]),
-    );
-  }
-}
-
-class _NutrChip extends StatelessWidget {
-  final String label, value, sub;
-  final Color color;
-  final double progress;
-  const _NutrChip(this.label, this.value, this.sub, this.color, this.progress);
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-    child: Column(children: [
-      Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
-      Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
-      if (progress >= 0) ...[
-        const SizedBox(height: 3),
-        SizedBox(width: 55, child: ClipRRect(borderRadius: BorderRadius.circular(2),
-          child: LinearProgressIndicator(value: progress,
-            backgroundColor: color.withOpacity(0.15),
-            valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 3))),
-      ],
-    ]),
-  );
 }
 
 // ─── Workout Card ──────────────────────────────────────────────────────────────
@@ -802,31 +978,6 @@ class _SupplementsCard extends StatelessWidget {
   }
 }
 
-// ─── Weight Change Badge ───────────────────────────────────────────────────────
-class _WeightChangeBadge extends StatelessWidget {
-  final double change;
-  const _WeightChangeBadge({required this.change});
-
-  @override
-  Widget build(BuildContext context) {
-    final loss = change < 0;
-    final color = loss ? _kGreen : _kRed;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(loss ? Icons.trending_down_rounded : Icons.trending_up_rounded, color: color, size: 14),
-        const SizedBox(width: 6),
-        Text('${loss ? '' : '+'}${change.toStringAsFixed(1)} kg this month',
-          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
-      ]),
-    );
-  }
-}
-
 // ─── Weekly Snapshot Card ──────────────────────────────────────────────────────
 class _WeeklySnapshotCard extends StatelessWidget {
   final FitnessProvider provider;
@@ -905,16 +1056,16 @@ class _SmartTip extends StatelessWidget {
   const _SmartTip({required this.provider});
 
   String _tip(FitnessProvider p) {
-    final deficit = p.calorieDeficit;
-    final weekly = p.weeklyWeightChange;
-    if (p.todayCalories == 0)
+    if (p.todayCaloriesTotal == 0)
       return '🌅 Start logging meals to track your 1700 kcal goal. Consistency is everything!';
-    if (p.todayProtein < 60)
-      return '💪 Protein is low (${p.todayProtein.round()}g). Add chicken, paneer, eggs or whey to protect muscle.';
+    if (p.todayProteinTotal < 60)
+      return '💪 Protein is low (${p.todayProteinTotal.round()}g). Add chicken, paneer, eggs or whey to protect muscle.';
+    final weekly = p.weeklyWeightChange;
     if (weekly != null && weekly < -0.8)
       return '⚠️ Losing ${weekly.abs().toStringAsFixed(2)} kg/week — that\'s too fast. Add 200–300 kcal to preserve muscle.';
     if (weekly != null && weekly > 0.2)
       return '📈 Trend shows weight gain. Reduce dinner portion or skip evening snacks.';
+    final deficit = p.calorieDeficit;
     if (deficit > 300)
       return '🎯 $deficit kcal deficit today — great fat-loss progress! Keep it consistent.';
     if (deficit < -200)

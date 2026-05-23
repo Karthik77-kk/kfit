@@ -773,3 +773,70 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Casein Protein (1 scoop)', calories: 120, protein: 24, category: 'Supplement', emoji: '💪', serving: '1 scoop (34g)'),
 ];
 
+
+// ─── SmartScaleEntry ──────────────────────────────────────────────────────────
+
+class SmartScaleEntry {
+  final String id;
+  final DateTime date;
+  final double weightKg;
+  final double bodyFatPercent;    // %
+  final double bodyFatKg;         // kg
+  final double muscleMassKg;      // kg
+  final double muscleMassPercent; // %
+  final double leanBodyMassKg;    // kg
+  final int biologicalAge;        // years
+  final int visceralFatIndex;     // 1-59 index
+  final double bmr;               // kcal (from scale)
+  final double bodyWaterPercent;  // %
+  final double boneMassKg;        // kg
+  final double proteinPercent;    // %
+  final double skeletalMuscleMassKg; // kg
+
+  SmartScaleEntry({
+    required this.id,
+    required this.date,
+    required this.weightKg,
+    required this.bodyFatPercent,
+    required this.bodyFatKg,
+    required this.muscleMassKg,
+    required this.muscleMassPercent,
+    required this.leanBodyMassKg,
+    required this.biologicalAge,
+    required this.visceralFatIndex,
+    required this.bmr,
+    required this.bodyWaterPercent,
+    required this.boneMassKg,
+    required this.proteinPercent,
+    required this.skeletalMuscleMassKg,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id, 'date': date.toIso8601String(),
+    'weightKg': weightKg, 'bodyFatPercent': bodyFatPercent,
+    'bodyFatKg': bodyFatKg, 'muscleMassKg': muscleMassKg,
+    'muscleMassPercent': muscleMassPercent, 'leanBodyMassKg': leanBodyMassKg,
+    'biologicalAge': biologicalAge, 'visceralFatIndex': visceralFatIndex,
+    'bmr': bmr, 'bodyWaterPercent': bodyWaterPercent,
+    'boneMassKg': boneMassKg, 'proteinPercent': proteinPercent,
+    'skeletalMuscleMassKg': skeletalMuscleMassKg,
+  };
+
+  factory SmartScaleEntry.fromJson(Map<String, dynamic> j) => SmartScaleEntry(
+    id: j['id'] ?? '',
+    date: DateTime.parse(j['date']),
+    weightKg: (j['weightKg'] ?? 0).toDouble(),
+    bodyFatPercent: (j['bodyFatPercent'] ?? 0).toDouble(),
+    bodyFatKg: (j['bodyFatKg'] ?? 0).toDouble(),
+    muscleMassKg: (j['muscleMassKg'] ?? 0).toDouble(),
+    muscleMassPercent: (j['muscleMassPercent'] ?? 0).toDouble(),
+    leanBodyMassKg: (j['leanBodyMassKg'] ?? 0).toDouble(),
+    biologicalAge: (j['biologicalAge'] ?? 0).toInt(),
+    visceralFatIndex: (j['visceralFatIndex'] ?? 0).toInt(),
+    bmr: (j['bmr'] ?? 0).toDouble(),
+    bodyWaterPercent: (j['bodyWaterPercent'] ?? 0).toDouble(),
+    boneMassKg: (j['boneMassKg'] ?? 0).toDouble(),
+    proteinPercent: (j['proteinPercent'] ?? 0).toDouble(),
+    skeletalMuscleMassKg: (j['skeletalMuscleMassKg'] ?? 0).toDouble(),
+  );
+}
