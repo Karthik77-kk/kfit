@@ -52,6 +52,26 @@ jobs:
 
       - name: Inject Android permissions and widget configuration
         run: |
+          # ── 0. Enable core library desugaring (required by flutter_local_notifications) ─
+          python3 - << 'PYEOF'
+          path = 'android/app/build.gradle'
+          txt = open(path).read()
+
+          # Add coreLibraryDesugaringEnabled inside compileOptions block
+          if 'coreLibraryDesugaringEnabled' not in txt:
+              txt = txt.replace(
+                  'sourceCompatibility = JavaVersion.VERSION_11',
+                  'sourceCompatibility = JavaVersion.VERSION_11\n        coreLibraryDesugaringEnabled true'
+              )
+
+          # Append coreLibraryDesugaring dependency after the flutter block
+          if 'desugar_jdk_libs' not in txt:
+              txt = txt.rstrip() + '\n\ndependencies {\n    coreLibraryDesugaring \'com.android.tools:desugar_jdk_libs:2.1.4\'\n}\n'
+
+          open(path, 'w').write(txt)
+          print('build.gradle patched for core library desugaring')
+          PYEOF
+
           # ── 1. Patch AndroidManifest.xml (permission + widget receivers) ───────
           python3 - << 'PYEOF'
           import re, sys
