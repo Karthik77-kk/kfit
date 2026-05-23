@@ -17,6 +17,8 @@ class NotificationService {
   static const int _creatineId = 2;
   // Water reminders: IDs 10–23
   static const int _eveningChecklistId = 30;
+  // Walk reminders: IDs 40–55
+  static const int _testNotificationId = 99;
 
   // ── Motivational quotes ───────────────────────────────────────────────────
   static const List<String> _quotes = [
@@ -49,6 +51,30 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
       return granted ?? true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── Test notification (fires immediately) ─────────────────────────────────
+
+  Future<bool> sendTestNotification() async {
+    try {
+      await _plugin.show(
+        _testNotificationId,
+        '🔔 Notifications are working!',
+        'Great — you\'ll receive water reminders, workout alerts and your 10 PM check-in.',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'test_channel',
+            'Test Notifications',
+            channelDescription: 'Test that notifications are working',
+            importance: Importance.max,
+            priority: Priority.max,
+          ),
+        ),
+      );
+      return true;
     } catch (_) {
       return false;
     }
@@ -210,7 +236,7 @@ class NotificationService {
         if (scheduled.isBefore(now)) scheduled = scheduled.add(const Duration(days: 1));
         await _plugin.zonedSchedule(
           id++,
-          'Karthik Fitness 💧',
+          'K Fitness 💧',
           messages[msgIdx % messages.length],
           scheduled,
           const NotificationDetails(android: androidDetails),
@@ -221,6 +247,59 @@ class NotificationService {
         );
         msgIdx++;
         if (id > 23) break;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── Walk / Inactivity Reminders ───────────────────────────────────────────
+
+  /// Schedule reminders to get up and walk during daytime hours
+  /// intervalHours = how often (e.g. every 2 hours)
+  Future<bool> scheduleWalkReminders({int intervalHours = 2}) async {
+    try {
+      // Cancel existing walk reminders (IDs 40–55)
+      for (int i = 40; i <= 55; i++) {
+        await _plugin.cancel(i);
+      }
+
+      const androidDetails = AndroidNotificationDetails(
+        'walk_channel',
+        'Walk Reminders',
+        channelDescription: 'Reminds you to get up and walk if inactive',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      );
+
+      final messages = [
+        '🚶 Time to get up and take a quick walk!',
+        '🦵 Your legs need a stretch. Walk for 5 minutes!',
+        '🏃 Activity reminder — get up and move!',
+        '⏰ Break time! A short walk boosts energy and burns calories.',
+        '🌿 Step outside for a few minutes. Your body will thank you!',
+      ];
+
+      final now = tz.TZDateTime.now(tz.local);
+      int id = 40;
+      int msgIdx = 0;
+      for (int hour = 9; hour <= 20; hour += intervalHours) {
+        var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour);
+        if (scheduled.isBefore(now)) scheduled = scheduled.add(const Duration(days: 1));
+        await _plugin.zonedSchedule(
+          id++,
+          'K Fitness — Move! 🚶',
+          messages[msgIdx % messages.length],
+          scheduled,
+          const NotificationDetails(android: androidDetails),
+          androidScheduleMode: AndroidScheduleMode.inexact,
+          matchDateTimeComponents: DateTimeComponents.time,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+        msgIdx++;
+        if (id > 55) break;
       }
       return true;
     } catch (_) {

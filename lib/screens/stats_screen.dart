@@ -281,7 +281,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     ),
                     _StatCard(
                       label: 'Net Cal Today',
-                      value: p.todayCalories > 0
+                      value: p.todayCaloriesTotal > 0
                           ? '${p.netCalories} kcal'
                           : '—',
                       sub: p.inDeficit ? '🎯 In deficit' : 'Over goal',
@@ -290,8 +290,8 @@ class _StatsScreenState extends State<StatsScreen> {
                     ),
                     _StatCard(
                       label: 'Protein Today',
-                      value: p.todayProtein > 0
-                          ? '${p.todayProtein.round()}g'
+                      value: p.todayProteinTotal > 0
+                          ? '${p.todayProteinTotal.round()}g'
                           : '—',
                       sub: '/ ${FitnessProvider.kProteinGoal}g goal',
                       color: _kGreen,
@@ -367,8 +367,13 @@ class _StatsScreenState extends State<StatsScreen> {
                   _AiPredictionsCard(provider: p),
                   const SizedBox(height: 24),
 
-                  // ── 1RM Calculator ─────────────────────────────────────
-                  const _SectionLabel('1RM ESTIMATOR (EPLEY FORMULA)'),
+                  // ── 1RM Estimator from history ─────────────────────────
+                  const _SectionLabel('1RM ESTIMATOR (FROM YOUR LOGS)'),
+                  const _OneRMSection(),
+                  const SizedBox(height: 16),
+
+                  // ── 1RM Calculator (manual) ────────────────────────────
+                  const _SectionLabel('1RM CALCULATOR (MANUAL ENTRY)'),
                   _OrmCalc(
                     weight: _ormWeight,
                     reps: _ormReps,
@@ -721,7 +726,6 @@ class _GoalCard extends StatelessWidget {
     final weeks    = p.weeksToGoal;
 
     // Progress 0–1: how close to goal
-    final startEstimate = current + (isLosing ? 10.0 : -10.0);
     double progress = 0;
     if (isLosing) {
       progress = 1 - (current - goal).clamp(0.0, 10.0) / 10.0;
@@ -774,6 +778,127 @@ class _GoalCard extends StatelessWidget {
               style: const TextStyle(color: _kSecond, fontSize: 12),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── 1RM Section (from logged history) ────────────────────────────────────────
+class _OneRMSection extends StatelessWidget {
+  const _OneRMSection();
+
+  double _epley(double weight, int reps) {
+    if (reps == 1) return weight;
+    return weight * (1 + reps / 30.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    final bigLifts = ['Deadlift', 'Squats', 'Bench Press', 'Overhead Press',
+        'Barbell Rows', 'Pull-ups', 'Romanian Deadlift'];
+
+    final Map<String, ({double weight, int reps, double oneRM})> liftData = {};
+    for (final lift in bigLifts) {
+      double bestOneRM = 0;
+      double bestWeight = 0;
+      int bestReps = 0;
+      for (final w in p.workoutHistory) {
+        for (final ex in w.exercises) {
+          if (ex.name == lift) {
+            for (final s in ex.sets) {
+              final estimated = _epley(s.weight, s.reps);
+              if (estimated > bestOneRM) {
+                bestOneRM = estimated;
+                bestWeight = s.weight;
+                bestReps = s.reps;
+              }
+            }
+          }
+        }
+      }
+      if (bestOneRM > 0) {
+        liftData[lift] = (weight: bestWeight, reps: bestReps, oneRM: bestOneRM);
+      }
+    }
+
+    if (liftData.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: _kCard,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Column(children: [
+          Text('1RM Estimator', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          SizedBox(height: 12),
+          Text('Log compound lifts (Deadlift, Squats, Bench Press, etc.) in the Workout tab to see your estimated 1-rep maxes here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _kSecond, fontSize: 13)),
+        ]),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Text('1RM Estimator',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                  color: _kOrange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8)),
+              child: const Text('Epley Formula',
+                  style: TextStyle(color: _kOrange, fontSize: 10)),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          const Text('Estimated from your best logged sets',
+              style: TextStyle(color: _kSecond, fontSize: 12)),
+          const SizedBox(height: 14),
+          ...liftData.entries.map((e) {
+            final name = e.key;
+            final d = e.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    Text('Best: ${d.weight.toStringAsFixed(1)} kg × ${d.reps} reps',
+                        style: const TextStyle(color: _kSecond, fontSize: 11)),
+                  ]),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _kGreen.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _kGreen.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '${d.oneRM.toStringAsFixed(1)} kg',
+                    style: const TextStyle(
+                        color: _kGreen,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14),
+                  ),
+                ),
+              ]),
+            );
+          }),
         ],
       ),
     );

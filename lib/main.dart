@@ -31,6 +31,7 @@ void main() async {
       await ns.scheduleSupplementReminders();
       await ns.scheduleWaterReminders(intervalHours: 1);
       await ns.scheduleEveningChecklist();
+      await ns.scheduleWalkReminders(intervalHours: 2);
     }
   } catch (_) {}
   runApp(
@@ -47,7 +48,7 @@ class KarthikFitnessApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Karthik Fitness',
+      title: 'K Fitness',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -140,6 +141,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     SmartScaleScreen(),
     StatsScreen(),
     SupplementsScreen(),
+    HistoryScreen(),
   ];
 
   @override
@@ -193,6 +195,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               icon: Icon(Icons.medication_liquid_outlined, size: 24),
               activeIcon: Icon(Icons.medication_liquid_rounded, size: 24),
               label: 'Supps',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.history_outlined, size: 24),
+              activeIcon: Icon(Icons.history_rounded, size: 24),
+              label: 'History',
             ),
           ],
         ),

@@ -27,6 +27,16 @@ class FitnessProvider extends ChangeNotifier {
   double _goalWeightKg = 70.0;
   double get goalWeightKg => _goalWeightKg;
 
+  String _userName = 'Karthik';
+  String get userName => _userName;
+
+  Future<void> saveUserName(String name) async {
+    _userName = name.trim().isEmpty ? 'Karthik' : name.trim();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', _userName);
+    notifyListeners();
+  }
+
   // ── State ──────────────────────────────────────────────────────────────────
   List<FoodEntry> _todayFood = [];
   int _todayWaterMl = 0;
@@ -55,6 +65,17 @@ class FitnessProvider extends ChangeNotifier {
     _waterReminderIntervalHours = hours.clamp(1, 6);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('water_reminder_interval', _waterReminderIntervalHours);
+    notifyListeners();
+  }
+
+  // ── Walk reminder interval ─────────────────────────────────────────────────
+  int _walkReminderIntervalHours = 2;
+  int get walkReminderIntervalHours => _walkReminderIntervalHours;
+
+  Future<void> setWalkReminderInterval(int hours) async {
+    _walkReminderIntervalHours = hours.clamp(1, 4);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('walk_reminder_interval', _walkReminderIntervalHours);
     notifyListeners();
   }
 
@@ -407,9 +428,11 @@ class FitnessProvider extends ChangeNotifier {
     _heightCm = prefs.getDouble('height_cm') ?? 160.0;
     _age = prefs.getInt('age') ?? 24;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
+    _userName = prefs.getString('user_name') ?? 'Karthik';
 
-    // Water reminder interval
+    // Reminder intervals
     _waterReminderIntervalHours = prefs.getInt('water_reminder_interval') ?? 1;
+    _walkReminderIntervalHours = prefs.getInt('walk_reminder_interval') ?? 2;
 
     // Food
     final foodJson = prefs.getString('food_$_todayKey');
@@ -661,12 +684,12 @@ class FitnessProvider extends ChangeNotifier {
       final val = prefs.get(key);
       data[key] = val;
     }
+    // Write to app documents directory
     final dir = await getApplicationDocumentsDirectory();
-    final timestamp = DateTime.now()
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .substring(0, 19);
-    final file = File('${dir.path}/karthik_fitness_backup_$timestamp.json');
+    final timestamp = DateTime.now().toIso8601String()
+        .replaceAll(':', '-').replaceAll('.', '-').substring(0, 19);
+    final fileName = 'kfitness_backup_$timestamp.json';
+    final file = File('${dir.path}/$fileName');
     await file.writeAsString(jsonEncode(data));
     return file.path;
   }

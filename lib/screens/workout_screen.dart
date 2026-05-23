@@ -194,17 +194,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       id: const Uuid().v4(),
       date: DateTime.now(),
       name: _workoutName,
-      exercises: _exercises,
+      exercises: List.from(_exercises),
     );
     await provider.logWorkout(workout);
     HapticFeedback.heavyImpact();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Workout saved! ~${provider.calculateWorkoutCalories(workout)} kcal burned'),
-          backgroundColor: const Color(0xFF30D158).withOpacity(0.9),
-        ),
-      );
+      final cals = provider.calculateWorkoutCalories(workout);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('✅ Workout saved! ~$cals kcal burned'),
+        backgroundColor: const Color(0xFF30D158),
+      ));
       setState(() {
         _exercises.clear();
         _workoutName = _defaultWorkoutName();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23,19 +24,30 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  late Timer _refreshTimer;
+
   @override
   void initState() {
     super.initState();
     NotificationService().scheduleMorningSummary();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer.cancel();
+    super.dispose();
   }
 
   String _greeting() {
     final h = DateTime.now().hour;
-    if (h < 6)  return 'Rise and grind';
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    if (h < 21) return 'Good evening';
-    return 'Good night';
+    if (h < 6)  return 'morning';
+    if (h < 12) return 'morning';
+    if (h < 17) return 'afternoon';
+    if (h < 21) return 'evening';
+    return 'evening';
   }
 
   @override
@@ -66,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(today, style: const TextStyle(color: _kSecond, fontSize: 11, fontWeight: FontWeight.w400)),
-                    Text('${_greeting()}, Karthik 👋', style: const TextStyle(
+                    Text('Good ${_greeting()}, ${context.watch<FitnessProvider>().userName}! 👋', style: const TextStyle(
                       color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700, letterSpacing: -0.5,
                     )),
                   ],
@@ -1074,7 +1086,7 @@ class _SmartTip extends StatelessWidget {
       return '💧 Only ${p.todayWaterMl}ml water so far. Hydration speeds up metabolism and reduces hunger.';
     if (p.todayWorkout == null && DateTime.now().hour > 10)
       return '🏋️ No workout yet. Even 30 min burns ~${estimateCaloriesBurned(p.latestWeightKg ?? 70, 30)} kcal.';
-    return '✅ You\'re on track, Karthik! Consistency over 90 days = transformation. 💪';
+    return '✅ You\'re on track! Consistency over 90 days = transformation. 💪';
   }
 
   @override
