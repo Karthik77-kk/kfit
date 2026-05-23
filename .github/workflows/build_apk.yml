@@ -68,23 +68,23 @@ jobs:
           path = 'android/app/build.gradle'
           txt = open(path).read()
 
-          props_block = """
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('key.properties')
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-"""
-          signing_config = """
-    signingConfigs {
-        release {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            storePassword keystoreProperties['storePassword']
-        }
-    }
-"""
+          props_block = (
+              "\ndef keystoreProperties = new Properties()\n"
+              "def keystorePropertiesFile = rootProject.file('key.properties')\n"
+              "if (keystorePropertiesFile.exists()) {\n"
+              "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
+              "}\n"
+          )
+          signing_config = (
+              "\n    signingConfigs {\n"
+              "        release {\n"
+              "            keyAlias keystoreProperties['keyAlias']\n"
+              "            keyPassword keystoreProperties['keyPassword']\n"
+              "            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null\n"
+              "            storePassword keystoreProperties['storePassword']\n"
+              "        }\n"
+              "    }\n"
+          )
           txt = txt.replace('\nandroid {', props_block + '\nandroid {', 1)
           txt = txt.replace('\n    buildTypes {', signing_config + '\n    buildTypes {', 1)
           # Remove debug fallback and use release signing
