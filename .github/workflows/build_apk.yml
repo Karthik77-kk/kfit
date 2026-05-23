@@ -50,221 +50,27 @@ jobs:
           echo "=== gradle-wrapper.properties after patch ==="
           cat android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Inject Android permissions and widget configuration
+      - name: Enable core library desugaring (required by flutter_local_notifications)
         run: |
-          # ── 0. Enable core library desugaring (required by flutter_local_notifications) ─
           # Insert coreLibraryDesugaringEnabled right after "compileOptions {" line
           sed -i '/compileOptions {/a\\        coreLibraryDesugaringEnabled true' android/app/build.gradle
           # Append the coreLibraryDesugaring dependency block
           printf '\ndependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n}\n' >> android/app/build.gradle
-          echo "=== app/build.gradle after desugaring patch ==="
-          cat android/app/build.gradle
-
-          # ── 1. Patch AndroidManifest.xml (permission + widget receivers) ───────
+          # Patch ACTIVITY_RECOGNITION permission into AndroidManifest
           python3 - << 'PYEOF'
-          import re, sys
           path = 'android/app/src/main/AndroidManifest.xml'
           txt  = open(path).read()
-
-          # Add ACTIVITY_RECOGNITION permission after <manifest ...>
           if 'ACTIVITY_RECOGNITION' not in txt:
               txt = txt.replace(
                   '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
                   '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
                   '    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>'
               )
-
-          # Add widget receivers before </application>
-          receivers = (
-              '\n        <receiver android:name=".WaterWidget" android:exported="true">'
-              '\n            <intent-filter>'
-              '\n                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>'
-              '\n            </intent-filter>'
-              '\n            <meta-data android:name="android.appwidget.provider"'
-              '\n                android:resource="@xml/water_widget_info"/>'
-              '\n        </receiver>'
-              '\n        <receiver android:name=".StepsWidget" android:exported="true">'
-              '\n            <intent-filter>'
-              '\n                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>'
-              '\n            </intent-filter>'
-              '\n            <meta-data android:name="android.appwidget.provider"'
-              '\n                android:resource="@xml/steps_widget_info"/>'
-              '\n        </receiver>'
-          )
-          if 'WaterWidget' not in txt:
-              txt = txt.replace('</application>', receivers + '\n    </application>')
-
           open(path, 'w').write(txt)
           print('AndroidManifest.xml patched OK')
           PYEOF
-
-          # ── 2. Create res directories ─────────────────────────────────────────
-          mkdir -p android/app/src/main/res/layout
-          mkdir -p android/app/src/main/res/xml
-
-          # ── 3. Water widget layout ────────────────────────────────────────────
-          cat > android/app/src/main/res/layout/water_widget.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:background="#1C1C1E"
-              android:orientation="vertical"
-              android:gravity="center"
-              android:padding="12dp">
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="💧"
-                  android:textSize="26sp"/>
-              <TextView
-                  android:id="@+id/water_amount"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="0 ml"
-                  android:textColor="#40C8E0"
-                  android:textSize="20sp"
-                  android:textStyle="bold"/>
-              <TextView
-                  android:id="@+id/water_goal"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="/ 2500 ml"
-                  android:textColor="#8E8E93"
-                  android:textSize="11sp"/>
-          </LinearLayout>
-          XMLEOF
-
-          # ── 4. Steps widget layout ────────────────────────────────────────────
-          cat > android/app/src/main/res/layout/steps_widget.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:background="#1C1C1E"
-              android:orientation="vertical"
-              android:gravity="center"
-              android:padding="12dp">
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="👟"
-                  android:textSize="26sp"/>
-              <TextView
-                  android:id="@+id/steps_count"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="0"
-                  android:textColor="#30D158"
-                  android:textSize="22sp"
-                  android:textStyle="bold"/>
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="steps today"
-                  android:textColor="#8E8E93"
-                  android:textSize="11sp"/>
-          </LinearLayout>
-          XMLEOF
-
-          # ── 5. Widget info XMLs ───────────────────────────────────────────────
-          cat > android/app/src/main/res/xml/water_widget_info.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-              android:minWidth="110dp"
-              android:minHeight="110dp"
-              android:updatePeriodMillis="1800000"
-              android:initialLayout="@layout/water_widget"
-              android:resizeMode="horizontal|vertical"
-              android:widgetCategory="home_screen"/>
-          XMLEOF
-
-          cat > android/app/src/main/res/xml/steps_widget_info.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-              android:minWidth="110dp"
-              android:minHeight="110dp"
-              android:updatePeriodMillis="1800000"
-              android:initialLayout="@layout/steps_widget"
-              android:resizeMode="horizontal|vertical"
-              android:widgetCategory="home_screen"/>
-          XMLEOF
-
-          # ── 6. Kotlin AppWidgetProvider classes (no home_widget dep) ────────────
-          PKG_DIR="android/app/src/main/kotlin/com/example/karthik_fitness"
-          mkdir -p "$PKG_DIR"
-
-          cat > "$PKG_DIR/WaterWidget.kt" << 'KTEOF'
-          package com.example.karthik_fitness
-          import android.appwidget.AppWidgetManager
-          import android.appwidget.AppWidgetProvider
-          import android.content.Context
-          import android.widget.RemoteViews
-          class WaterWidget : AppWidgetProvider() {
-              override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-                  val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                  for (id in appWidgetIds) {
-                      val views = RemoteViews(context.packageName, R.layout.water_widget)
-                      val ml = prefs.getInt("flutter.water_ml", 0)
-                      views.setTextViewText(R.id.water_amount, ml.toString() + " ml")
-                      views.setTextViewText(R.id.water_goal, "/ 2500 ml goal")
-                      appWidgetManager.updateAppWidget(id, views)
-                  }
-              }
-          }
-          KTEOF
-
-          cat > "$PKG_DIR/StepsWidget.kt" << 'KTEOF'
-          package com.example.karthik_fitness
-          import android.appwidget.AppWidgetManager
-          import android.appwidget.AppWidgetProvider
-          import android.content.Context
-          import android.widget.RemoteViews
-          class StepsWidget : AppWidgetProvider() {
-              override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-                  val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                  for (id in appWidgetIds) {
-                      val views = RemoteViews(context.packageName, R.layout.steps_widget)
-                      val steps = prefs.getInt("flutter.steps_today", 0)
-                      views.setTextViewText(R.id.steps_count, steps.toString())
-                      appWidgetManager.updateAppWidget(id, views)
-                  }
-              }
-          }
-          KTEOF
-
-          # ── 7. MainActivity with MethodChannel for widget refresh ─────────────
-          cat > "$PKG_DIR/MainActivity.kt" << 'KTEOF'
-          package com.example.karthik_fitness
-          import android.appwidget.AppWidgetManager
-          import android.content.ComponentName
-          import android.content.Intent
-          import io.flutter.embedding.android.FlutterActivity
-          import io.flutter.embedding.engine.FlutterEngine
-          import io.flutter.plugin.common.MethodChannel
-          class MainActivity : FlutterActivity() {
-              private val CHANNEL = "com.example.karthik_fitness/widgets"
-              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-                  super.configureFlutterEngine(flutterEngine)
-                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-                      .setMethodCallHandler { call, result ->
-                          if (call.method == "updateWidgets") {
-                              try {
-                                  sendBroadcast(Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-                                      component = ComponentName(this@MainActivity, WaterWidget::class.java)
-                                  })
-                                  sendBroadcast(Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-                                      component = ComponentName(this@MainActivity, StepsWidget::class.java)
-                                  })
-                                  result.success(null)
-                              } catch (e: Exception) { result.error("FAIL", e.message, null) }
-                          } else { result.notImplemented() }
-                      }
-              }
-          }
-          KTEOF
-
-          echo "Android widget configuration injected successfully"
+          echo "=== app/build.gradle after desugaring patch ==="
+          cat android/app/build.gradle
 
       - name: Generate app icon (grey background, black K)
         run: |

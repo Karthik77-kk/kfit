@@ -26,6 +26,8 @@ void main() async {
     final granted = await ns.requestPermission();
     if (granted) {
       await ns.scheduleMorningSummary();
+      await ns.scheduleSupplementReminders();
+      await ns.scheduleWaterReminders();
     }
   } catch (_) {}
   runApp(

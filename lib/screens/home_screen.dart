@@ -110,10 +110,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     )),
                     const SizedBox(width: 12),
                     Expanded(child: _MetricTile(
-                      label: 'Cal Burned', value: '${p.todayCaloriesBurned}',
-                      goal: 'kcal',
+                      label: 'Total Burned', value: '${p.totalCaloriesBurned.round()}',
+                      goal: 'kcal  •  workout ${p.todayCaloriesBurned}',
                       icon: Icons.local_fire_department_rounded, color: _kRed,
-                      progress: (p.todayCaloriesBurned / 400).clamp(0.0, 1.0),
+                      progress: (p.totalCaloriesBurned / 600).clamp(0.0, 1.0),
                     )),
                   ]),
                   const SizedBox(height: 20),
@@ -339,7 +339,8 @@ class _CalorieBalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = provider;
-    final deficit = p.calorieDeficit;
+    // Use total burn (resting + walking + workout) for deficit
+    final deficit = (FitnessProvider.kCalorieGoal - p.netCaloriesDouble).round();
     final inDef = deficit > 0;
     final color = inDef ? _kGreen : _kRed;
 
@@ -363,20 +364,28 @@ class _CalorieBalanceCard extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(
-          value: (p.netCalories / FitnessProvider.kCalorieGoal).clamp(0.0, 1.0),
+          value: (p.netCaloriesDouble / FitnessProvider.kCalorieGoal).clamp(0.0, 1.0),
           backgroundColor: Colors.white.withOpacity(0.08),
-          valueColor: AlwaysStoppedAnimation<Color>(p.netCalories > FitnessProvider.kCalorieGoal ? _kRed : _kGreen),
+          valueColor: AlwaysStoppedAnimation<Color>(p.netCaloriesDouble > FitnessProvider.kCalorieGoal ? _kRed : _kGreen),
           minHeight: 8,
         )),
         const SizedBox(height: 10),
         Row(children: [
           _BalStat('Eaten', '${p.todayCalories.round()}', _kOrange),
           const Text(' − ', style: TextStyle(color: _kSecond, fontSize: 12)),
-          _BalStat('Burned', '${p.todayCaloriesBurned}', _kRed),
+          _BalStat('Burned', '${p.totalCaloriesBurned.round()}', _kRed),
           const Text(' = ', style: TextStyle(color: _kSecond, fontSize: 12)),
-          _BalStat('Net', '${p.netCalories}', inDef ? _kGreen : _kRed),
+          _BalStat('Net', '${p.netCaloriesDouble.round()}', inDef ? _kGreen : _kRed),
           const Spacer(),
           Text('Goal: ${FitnessProvider.kCalorieGoal}', style: const TextStyle(color: _kSecond, fontSize: 11)),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
+          _BalStat('Rest', '${p.restingCaloriesBurned.round()}', _kSecond),
+          const Text(' + ', style: TextStyle(color: _kSecond, fontSize: 11)),
+          _BalStat('Walk', '${p.walkingCaloriesBurned.round()}', _kBlue),
+          const Text(' + ', style: TextStyle(color: _kSecond, fontSize: 11)),
+          _BalStat('Workout', '${p.todayCaloriesBurned}', _kRed),
         ]),
       ]),
     );
@@ -733,18 +742,17 @@ class _WorkoutCard extends StatelessWidget {
         ]),
       );
     }
-    final color = workout!.workoutType == WorkoutType.a ? _kGreen : _kBlue;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3))),
+        border: Border.all(color: _kGreen.withOpacity(0.3))),
       child: Row(children: [
-        Icon(Icons.check_circle_rounded, color: color, size: 26),
+        const Icon(Icons.check_circle_rounded, color: _kGreen, size: 26),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Workout ${workout!.workoutType.name.toUpperCase()} done!',
-            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
-          Text('${workout!.durationMinutes} min · ${workout!.exercises.length} exercises · ${workout!.caloriesBurned} kcal',
+          Text(workout!.name,
+            style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold, fontSize: 14)),
+          Text('${workout!.exercises.length} exercises logged today',
             style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
         ])),
       ]),

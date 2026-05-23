@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:uuid/uuid.dart';
 import 'package:pedometer/pedometer.dart';
-import 'package:flutter/services.dart';
+
 import '../models/models.dart';
 
 class FitnessProvider extends ChangeNotifier {
@@ -244,13 +244,59 @@ class FitnessProvider extends ChangeNotifier {
     return streak;
   }
 
-  int get todayCaloriesBurned => todayWorkout?.caloriesBurned ?? 0;
+  /// MET values for exercises (metabolic equivalent of task)
+  static const Map<String, double> _exerciseMet = {
+    'Running': 9.8, 'Cycling': 8.0, 'Jump Rope': 12.3, 'Swimming': 8.0,
+    'HIIT': 10.0, 'Burpees': 8.0, 'Walking': 3.5, 'Jumping Jacks': 8.0,
+    'Default': 5.0, // strength training
+  };
+
+  int calculateWorkoutCalories(WorkoutLog w) {
+    final weight = latestWeightKg ?? 70.0;
+    int total = 0;
+    for (final ex in w.exercises) {
+      final met = _exerciseMet[ex.name] ?? _exerciseMet['Default']!;
+      final sets = ex.sets.length;
+      final durationMin = sets > 0 ? (sets * 2.25) : 2.0;
+      total += (met * weight * durationMin / 60).round();
+    }
+    return total;
+  }
+
+  int get todayCaloriesBurned {
+    final w = todayWorkout;
+    if (w == null) return 0;
+    return calculateWorkoutCalories(w);
+  }
+
+  /// Calories burned from resting (BMR prorated to time of day)
+  double get restingCaloriesBurned {
+    final b = bmr;
+    if (b == null) return 0;
+    final now = DateTime.now();
+    final minutesElapsed = now.hour * 60 + now.minute;
+    return b * (minutesElapsed / 1440.0);
+  }
+
+  /// Calories burned from steps (walking)
+  /// Formula: steps × 0.04 × (weight/70) — scales with body weight
+  double get walkingCaloriesBurned {
+    final w = latestWeightKg ?? 70.0;
+    return todaySteps * 0.04 * (w / 70.0);
+  }
+
+  /// Total calories burned today = resting + walking + workout
+  double get totalCaloriesBurned =>
+      restingCaloriesBurned + walkingCaloriesBurned + todayCaloriesBurned;
+
+  /// Net calories = eaten - total burned
+  double get netCaloriesDouble => todayCalories - totalCaloriesBurned;
 
   int get weeklyCaloriesBurned {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     return _workoutHistory
         .where((w) => w.date.isAfter(cutoff))
-        .fold(0, (sum, w) => sum + w.caloriesBurned);
+        .fold(0, (sum, w) => sum + calculateWorkoutCalories(w));
   }
 
   /// Number of distinct days with a workout in the last 7 days
@@ -432,14 +478,12 @@ class FitnessProvider extends ChangeNotifier {
     _todayWaterMl += ml;
     await _saveWater();
     notifyListeners();
-    _updateWidgets();
   }
 
   Future<void> removeWater(int ml) async {
     _todayWaterMl = (_todayWaterMl - ml).clamp(0, 99999);
     await _saveWater();
     notifyListeners();
-    _updateWidgets();
   }
 
   Future<void> _saveWater() async {
@@ -658,6 +702,14 @@ class FitnessProvider extends ChangeNotifier {
     try {
       _stepSubscription = Pedometer.stepCountStream.listen(
         (StepCount event) async {
+          // Sanity check: pedometer gives cumulative steps since boot.
+          // If it jumps by more than 1000 in one event, it's likely a sensor glitch.
+          if (_livePedometerTotal > 0 && event.steps > _livePedometerTotal + 1000) {
+            // Treat as sensor restart — reset baseline
+            _pedometerDayBaseline = event.steps - (_livePedometerTotal - _pedometerDayBaseline);
+            final p = await SharedPreferences.getInstance();
+            await p.setInt('pedometer_baseline', _pedometerDayBaseline);
+          }
           _livePedometerTotal = event.steps;
 
           // Record baseline at first reading of today
@@ -670,7 +722,6 @@ class FitnessProvider extends ChangeNotifier {
           }
 
           notifyListeners();
-          _updateWidgets();
         },
         onError: (_) {/* sensor not available or permission denied */},
         cancelOnError: false,
@@ -682,24 +733,6 @@ class FitnessProvider extends ChangeNotifier {
   void dispose() {
     _stepSubscription?.cancel();
     super.dispose();
-  }
-
-  // ── Home-screen widget data sync ───────────────────────────────────────────
-  void _updateWidgets() {
-    _doUpdateWidgets().catchError((_) {});
-  }
-
-  Future<void> _doUpdateWidgets() async {
-    try {
-      // Write data directly to FlutterSharedPreferences (with flutter. prefix)
-      // The Kotlin AppWidgetProvider reads these keys directly.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('water_ml', _todayWaterMl);
-      await prefs.setInt('steps_today', todaySteps);
-      // Trigger widget redraw via MethodChannel (fails gracefully on non-Android)
-      const _channel = MethodChannel('com.example.karthik_fitness/widgets');
-      await _channel.invokeMethod('updateWidgets');
-    } catch (_) {/* not on Android or widget not installed — non-fatal */}
   }
 
   // Helper

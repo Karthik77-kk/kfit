@@ -107,6 +107,7 @@ class WorkoutLog {
   final String id;
   final DateTime date;
   final WorkoutType workoutType;
+  final String name; // human-readable workout name
   final List<ExerciseLog> exercises;
   final int durationMinutes;
   final int caloriesBurned;
@@ -114,16 +115,25 @@ class WorkoutLog {
   WorkoutLog({
     required this.id,
     required this.date,
-    required this.workoutType,
+    WorkoutType? workoutType,
+    String? name,
     required this.exercises,
-    required this.durationMinutes,
+    this.durationMinutes = 0,
     this.caloriesBurned = 0,
-  });
+  })  : workoutType = workoutType ?? WorkoutType.custom,
+        name = name ?? _nameForType(workoutType);
+
+  static String _nameForType(WorkoutType? t) {
+    if (t == WorkoutType.a) return 'Workout A — Push';
+    if (t == WorkoutType.b) return 'Workout B — Pull';
+    return 'Custom Workout';
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'date': date.toIso8601String(),
         'workoutType': workoutType.index,
+        'name': name,
         'exercises': exercises.map((e) => e.toJson()).toList(),
         'durationMinutes': durationMinutes,
         'caloriesBurned': caloriesBurned,
@@ -132,7 +142,8 @@ class WorkoutLog {
   factory WorkoutLog.fromJson(Map<String, dynamic> j) => WorkoutLog(
         id: j['id'],
         date: DateTime.parse(j['date']),
-        workoutType: WorkoutType.values[j['workoutType']],
+        workoutType: WorkoutType.values[j['workoutType'] ?? 2],
+        name: j['name'] as String?,
         exercises:
             (j['exercises'] as List).map((e) => ExerciseLog.fromJson(e)).toList(),
         durationMinutes: j['durationMinutes'] ?? 0,
@@ -196,6 +207,98 @@ class SupplementStatus {
         creatine: j['creatine'] ?? false,
         multivitamin: j['multivitamin'] ?? false,
       );
+}
+
+// ── Exercise Database ──────────────────────────────────────────────────────
+class ExerciseDatabase {
+  static const Map<String, List<String>> categories = {
+    'Chest': [
+      'Push-ups', 'Bench Press', 'Incline Bench Press', 'Decline Bench Press',
+      'Dumbbell Flyes', 'Incline Dumbbell Flyes', 'Cable Crossover',
+      'Chest Dips', 'Pec Deck', 'Close-Grip Push-ups', 'Wide Push-ups',
+      'Diamond Push-ups', 'Pike Push-ups', 'Chest Press Machine',
+    ],
+    'Back': [
+      'Pull-ups', 'Chin-ups', 'Barbell Rows', 'Dumbbell Rows',
+      'Lat Pulldown', 'Seated Cable Row', 'T-Bar Row', 'Face Pulls',
+      'Single-Arm Dumbbell Row', 'Chest-Supported Row', 'Pendlay Row',
+      'Rack Pulls', 'Good Mornings', 'Hyperextensions',
+    ],
+    'Shoulders': [
+      'Overhead Press', 'Dumbbell Shoulder Press', 'Arnold Press',
+      'Lateral Raises', 'Front Raises', 'Rear Delt Flyes',
+      'Upright Rows', 'Shrugs', 'Cable Lateral Raises',
+      'Face Pulls', 'Machine Shoulder Press', 'Bradford Press',
+    ],
+    'Biceps': [
+      'Barbell Curls', 'Dumbbell Curls', 'Hammer Curls',
+      'Cable Curls', 'Preacher Curls', 'Concentration Curls',
+      'Incline Dumbbell Curls', 'Cross-Body Hammer Curls',
+      'Reverse Curls', 'Zottman Curls', 'Machine Curls',
+    ],
+    'Triceps': [
+      'Tricep Pushdowns', 'Skull Crushers', 'Overhead Tricep Extension',
+      'Close-Grip Bench Press', 'Tricep Dips', 'Diamond Push-ups',
+      'Kickbacks', 'Cable Overhead Extension', 'Machine Tricep Press',
+    ],
+    'Legs': [
+      'Squats', 'Front Squats', 'Goblet Squats', 'Leg Press',
+      'Leg Extensions', 'Leg Curls', 'Romanian Deadlift',
+      'Stiff-Leg Deadlift', 'Hack Squats', 'Bulgarian Split Squats',
+      'Walking Lunges', 'Reverse Lunges', 'Step-ups',
+      'Calf Raises', 'Seated Calf Raises', 'Hip Thrusts',
+      'Glute Bridges', 'Sumo Squats', 'Box Squats',
+      'Wall Sit', 'Sissy Squats',
+    ],
+    'Core': [
+      'Plank', 'Side Plank', 'Crunches', 'Bicycle Crunches',
+      'Russian Twists', 'Leg Raises', 'Hanging Leg Raises',
+      'Cable Crunches', 'Ab Wheel Rollout', 'Mountain Climbers',
+      'Flutter Kicks', 'Sit-ups', 'Dead Bug', 'Hollow Body Hold',
+      'V-ups', 'Dragon Flags',
+    ],
+    'Full Body / Compound': [
+      'Deadlift', 'Power Clean', 'Kettlebell Swings', 'Box Jumps',
+      'Battle Ropes', "Farmer's Walk", 'Clean and Press',
+      'Thrusters', 'Turkish Get-up', 'Sled Push', 'Bear Crawl',
+    ],
+    'Cardio': [
+      'Running', 'Walking', 'Cycling', 'Jump Rope',
+      'Swimming', 'HIIT', 'Burpees', 'Jumping Jacks',
+      'Stair Climbing', 'Rowing Machine', 'Elliptical',
+      'Sprints', 'High Knees', 'Jump Squats',
+    ],
+    'Forearms / Grip': [
+      'Wrist Curls', 'Reverse Wrist Curls', "Farmer's Walk",
+      'Dead Hangs', 'Plate Pinches', 'Towel Pull-ups',
+    ],
+  };
+
+  static List<String> get allExercises =>
+      categories.values.expand((e) => e).toList()..sort();
+
+  static String? categoryOf(String exercise) {
+    for (final entry in categories.entries) {
+      if (entry.value.contains(exercise)) return entry.key;
+    }
+    return null;
+  }
+
+  /// Suggest next session weight/reps based on completed performance.
+  /// Returns a string like "+2.5 kg next session" or "Add 1 more rep"
+  static String progressiveOverloadTip(
+      String exercise, int setsCompleted, int repsCompleted, double weight, int targetReps) {
+    if (repsCompleted >= targetReps) {
+      final isBodyweight = weight == 0;
+      if (isBodyweight) return 'Add 1 more rep or try weighted variant next session';
+      final increment = weight >= 20 ? 2.5 : 1.0;
+      return 'Great! Try ${weight + increment} kg next session 💪';
+    } else if (repsCompleted >= targetReps - 2) {
+      return 'Close! Stick with ${weight > 0 ? '${weight.toStringAsFixed(1)} kg' : 'same difficulty'} and aim for $targetReps reps';
+    } else {
+      return 'Focus on form. Same weight next session.';
+    }
+  }
 }
 
 // ─── Food database (Indian + common foods) ───────────────────────────────────
@@ -575,6 +678,91 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Energy Drink (can)', calories: 110, protein: 1, category: 'Drinks', emoji: '⚡', serving: '250ml can'),
   FoodItem(name: 'Cold Coffee', calories: 150, protein: 5, category: 'Drinks', emoji: '☕', serving: '250ml'),
   FoodItem(name: 'Thandai', calories: 190, protein: 5, category: 'Drinks', emoji: '🥛', serving: '1 glass'),
+
+  // ── Millets & Ancient Grains ──────────────────────────────────────────────
+  FoodItem(name: 'Ragi Malt (Finger Millet Porridge)', calories: 80, protein: 2.0, category: 'Breakfast', emoji: '🌾', serving: '200ml cup'),
+  FoodItem(name: 'Ragi Roti', calories: 107, protein: 3.5, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti (~40g)'),
+  FoodItem(name: 'Foxtail Millet (Thinai) cooked', calories: 97, protein: 3.5, category: 'Breakfast', emoji: '🌾', serving: '100g'),
+  FoodItem(name: 'Barnyard Millet cooked', calories: 76, protein: 2.5, category: 'Breakfast', emoji: '🌾', serving: '100g'),
+  FoodItem(name: 'Kodo Millet cooked', calories: 94, protein: 2.8, category: 'Breakfast', emoji: '🌾', serving: '100g'),
+  FoodItem(name: 'Little Millet (Kutki) cooked', calories: 78, protein: 2.1, category: 'Breakfast', emoji: '🌾', serving: '100g'),
+  FoodItem(name: 'Pearl Millet / Bajra Roti', calories: 110, protein: 4.0, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti (~40g)'),
+  FoodItem(name: 'Jowar Roti', calories: 105, protein: 3.5, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti (~40g)'),
+  FoodItem(name: 'Jowar Porridge', calories: 72, protein: 2.3, category: 'Breakfast', emoji: '🌾', serving: '200ml'),
+  FoodItem(name: 'Amaranth (Rajgira) Porridge', calories: 105, protein: 4.0, category: 'Breakfast', emoji: '🌾', serving: '100g'),
+  FoodItem(name: 'Buckwheat (Kuttu) Roti', calories: 98, protein: 3.8, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti (~40g)'),
+  FoodItem(name: 'Quinoa cooked', calories: 120, protein: 4.4, category: 'Breakfast', emoji: '🌾', serving: '100g'),
+  FoodItem(name: 'Mixed Millet Porridge (Malt)', calories: 85, protein: 2.5, category: 'Breakfast', emoji: '🌾', serving: '200ml'),
+
+  // ── More South Indian ─────────────────────────────────────────────────────
+  FoodItem(name: 'Pesarattu (Green Moong Dosa)', calories: 105, protein: 5.0, category: 'South Indian', emoji: '🫓', serving: '1 piece (80g)'),
+  FoodItem(name: 'Puttu', calories: 170, protein: 3.0, category: 'South Indian', emoji: '🌀', serving: '1 piece (80g)'),
+  FoodItem(name: 'Thoran (Coconut Veg Stir-fry)', calories: 90, protein: 2.0, category: 'South Indian', emoji: '🥗', serving: '100g'),
+  FoodItem(name: 'Kozhukatta', calories: 140, protein: 2.5, category: 'South Indian', emoji: '🌀', serving: '2 pieces (80g)'),
+  FoodItem(name: 'Kadala Curry (Black Chickpea)', calories: 160, protein: 7.0, category: 'South Indian', emoji: '🫘', serving: '150g'),
+  FoodItem(name: 'Sambhar (full bowl)', calories: 80, protein: 4.0, category: 'South Indian', emoji: '🍲', serving: '200ml'),
+  FoodItem(name: 'Medu Vada (2 pcs)', calories: 180, protein: 5.0, category: 'South Indian', emoji: '🍩', serving: '2 pieces (80g)'),
+  FoodItem(name: 'Rava Upma', calories: 180, protein: 4.0, category: 'South Indian', emoji: '🥣', serving: '150g'),
+  FoodItem(name: 'Kichdi', calories: 180, protein: 6.0, category: 'South Indian', emoji: '🥣', serving: '150g'),
+  FoodItem(name: 'Bisibelebath', calories: 200, protein: 7.0, category: 'South Indian', emoji: '🍲', serving: '200g'),
+
+  // ── More North Indian ─────────────────────────────────────────────────────
+  FoodItem(name: 'Makki ki Roti', calories: 115, protein: 2.5, category: 'North Indian', emoji: '🫓', serving: '1 roti (~40g)'),
+  FoodItem(name: 'Sarson ka Saag', calories: 120, protein: 4.0, category: 'North Indian', emoji: '🥬', serving: '150g'),
+  FoodItem(name: 'Besan Chilla', calories: 130, protein: 8.0, category: 'North Indian', emoji: '🥞', serving: '1 piece (80g)'),
+  FoodItem(name: 'Moong Dal Chilla', calories: 120, protein: 8.0, category: 'North Indian', emoji: '🥞', serving: '1 piece (80g)'),
+  FoodItem(name: 'Biryani (Chicken) 200g', calories: 320, protein: 16.0, category: 'Rice & Biryani', emoji: '🍛', serving: '200g'),
+  FoodItem(name: 'Biryani (Veg) 200g', calories: 260, protein: 6.0, category: 'Rice & Biryani', emoji: '🍛', serving: '200g'),
+  FoodItem(name: 'Matar Paneer', calories: 220, protein: 10.0, category: 'North Indian', emoji: '🧀', serving: '150g'),
+  FoodItem(name: 'Shahi Paneer', calories: 280, protein: 11.0, category: 'North Indian', emoji: '🧀', serving: '150g'),
+  FoodItem(name: 'Palak Paneer', calories: 200, protein: 10.0, category: 'North Indian', emoji: '🥬', serving: '150g'),
+  FoodItem(name: 'Butter Chicken 150g', calories: 250, protein: 18.0, category: 'North Indian', emoji: '🍗', serving: '150g'),
+  FoodItem(name: 'Poha', calories: 165, protein: 3.5, category: 'Breakfast', emoji: '🥣', serving: '150g'),
+
+  // ── Snacks ────────────────────────────────────────────────────────────────
+  FoodItem(name: 'Murmura (Puffed Rice)', calories: 84, protein: 2.0, category: 'Snacks', emoji: '🌾', serving: '30g'),
+  FoodItem(name: 'Roasted Makhana (Fox Nuts)', calories: 90, protein: 4.0, category: 'Snacks', emoji: '⚪', serving: '30g'),
+  FoodItem(name: 'Chivda (Low Oil)', calories: 140, protein: 5.0, category: 'Snacks', emoji: '🌾', serving: '40g'),
+  FoodItem(name: 'Dhokla (2 pcs)', calories: 160, protein: 5.0, category: 'Snacks', emoji: '🟡', serving: '2 pieces (80g)'),
+
+  // ── More Dairy & Protein ──────────────────────────────────────────────────
+  FoodItem(name: 'Chhena (Fresh Paneer Solids)', calories: 200, protein: 14.0, category: 'Dairy', emoji: '🧀', serving: '100g'),
+  FoodItem(name: 'Lassi (Sweet) 250ml', calories: 150, protein: 5.0, category: 'Drinks', emoji: '🥛', serving: '250ml'),
+  FoodItem(name: 'Lassi (Salted) 250ml', calories: 80, protein: 4.0, category: 'Drinks', emoji: '🥛', serving: '250ml'),
+  FoodItem(name: 'Chaas (Buttermilk)', calories: 40, protein: 2.0, category: 'Drinks', emoji: '🥛', serving: '200ml'),
+  FoodItem(name: 'Dahi Full Fat', calories: 120, protein: 6.0, category: 'Dairy', emoji: '🥛', serving: '150g'),
+  FoodItem(name: 'Mishti Doi', calories: 180, protein: 6.0, category: 'Sweets & Desserts', emoji: '🍮', serving: '150g'),
+  FoodItem(name: 'Mozzarella Cheese', calories: 280, protein: 20.0, category: 'Dairy', emoji: '🧀', serving: '30g'),
+
+  // ── More Fruits ───────────────────────────────────────────────────────────
+  FoodItem(name: 'Chikoo (Sapodilla)', calories: 83, protein: 0.5, category: 'Fruits', emoji: '🍈', serving: '100g'),
+  FoodItem(name: 'Custard Apple (Sitaphal)', calories: 101, protein: 1.7, category: 'Fruits', emoji: '🍈', serving: '100g'),
+  FoodItem(name: 'Jamun (Java Plum)', calories: 62, protein: 0.7, category: 'Fruits', emoji: '🍇', serving: '100g'),
+  FoodItem(name: 'Amla (Indian Gooseberry)', calories: 44, protein: 0.9, category: 'Fruits', emoji: '🍈', serving: '50g'),
+  FoodItem(name: 'Kokum', calories: 25, protein: 0.5, category: 'Fruits', emoji: '🍈', serving: '50g'),
+  FoodItem(name: 'Tamarind', calories: 239, protein: 2.8, category: 'Fruits', emoji: '🍈', serving: '50g'),
+
+  // ── More Drinks ───────────────────────────────────────────────────────────
+  FoodItem(name: 'Turmeric Milk (Haldi Doodh)', calories: 120, protein: 5.0, category: 'Drinks', emoji: '🥛', serving: '200ml'),
+  FoodItem(name: 'Masala Chai with Milk', calories: 60, protein: 2.0, category: 'Drinks', emoji: '🍵', serving: '150ml'),
+  FoodItem(name: 'Filter Coffee with Milk', calories: 55, protein: 2.0, category: 'Drinks', emoji: '☕', serving: '150ml'),
+  FoodItem(name: 'Sugarcane Juice', calories: 115, protein: 0.2, category: 'Drinks', emoji: '🍹', serving: '240ml'),
+  FoodItem(name: 'Jaljeera', calories: 30, protein: 0.5, category: 'Drinks', emoji: '🥤', serving: '200ml'),
+  FoodItem(name: 'Rose Milk 200ml', calories: 150, protein: 4.0, category: 'Drinks', emoji: '🥛', serving: '200ml'),
+
+  // ── More Sweets ───────────────────────────────────────────────────────────
+  FoodItem(name: 'Pongal (Sweet)', calories: 220, protein: 4.0, category: 'Sweets & Desserts', emoji: '🍮', serving: '150g'),
+  FoodItem(name: 'Payasam / Kheer', calories: 200, protein: 5.0, category: 'Sweets & Desserts', emoji: '🥣', serving: '150ml'),
+  FoodItem(name: 'Sooji Halwa', calories: 250, protein: 4.0, category: 'Sweets & Desserts', emoji: '🍮', serving: '100g'),
+  FoodItem(name: 'Ladoo (Besan)', calories: 180, protein: 4.0, category: 'Sweets & Desserts', emoji: '🟡', serving: '1 piece (40g)'),
+  FoodItem(name: 'Ladoo (Boondi)', calories: 160, protein: 3.0, category: 'Sweets & Desserts', emoji: '🟡', serving: '1 piece (40g)'),
+  FoodItem(name: 'Jalebi (2 pcs)', calories: 149, protein: 2.0, category: 'Sweets & Desserts', emoji: '🍩', serving: '2 pieces (50g)'),
+  FoodItem(name: 'Rasgulla (2 pcs)', calories: 106, protein: 3.0, category: 'Sweets & Desserts', emoji: '⚪', serving: '2 pieces (70g)'),
+  FoodItem(name: 'Gulab Jamun (2 pcs)', calories: 175, protein: 3.0, category: 'Sweets & Desserts', emoji: '🍮', serving: '2 pieces (60g)'),
+  FoodItem(name: 'Mysore Pak (40g)', calories: 200, protein: 4.0, category: 'Sweets & Desserts', emoji: '🍬', serving: '40g'),
+  FoodItem(name: 'Barfi (Milk)', calories: 160, protein: 4.0, category: 'Sweets & Desserts', emoji: '🍬', serving: '40g'),
+  FoodItem(name: 'Chole Bhature (1 plate)', calories: 450, protein: 12.0, category: 'North Indian', emoji: '🍛', serving: '1 plate'),
+  FoodItem(name: 'Pav Bhaji (1 plate)', calories: 350, protein: 8.0, category: 'North Indian', emoji: '🥖', serving: '2 pav + bhaji'),
 
   // ── Supplement ────────────────────────────────────────────────────────────
   FoodItem(name: 'Whey Protein (1 scoop)', calories: 130, protein: 25, category: 'Supplement', emoji: '💪', serving: '1 scoop (33g)'),

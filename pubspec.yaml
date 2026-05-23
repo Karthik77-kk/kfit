@@ -1,7 +1,7 @@
 name: karthik_fitness
 description: Personal fitness tracker - fat loss & muscle retention
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -18,14 +18,11 @@ dependencies:
   timezone: ^0.9.4
   cupertino_icons: ^1.0.8
   pedometer: ^4.1.1
-  # home_widget removed: all versions 0.5.0+ include Jetpack Glance (incompatible
-  # with AGP <9.1 / compileSdk <37), and 0.4.x is broken on Flutter 3.27.0.
-  # Widget data is now written via SharedPreferences and triggered via MethodChannel.
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.1
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
