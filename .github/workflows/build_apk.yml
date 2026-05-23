@@ -207,92 +207,73 @@ jobs:
           mkdir -p "$PKG_DIR"
 
           cat > "$PKG_DIR/WaterWidget.kt" << 'KTEOF'
-package com.example.karthik_fitness
-
-import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
-import android.content.Context
-import android.widget.RemoteViews
-
-class WaterWidget : AppWidgetProvider() {
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-    ) {
-        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        for (id in appWidgetIds) {
-            val views = RemoteViews(context.packageName, R.layout.water_widget)
-            val ml = prefs.getInt("flutter.water_ml", 0)
-            views.setTextViewText(R.id.water_amount, "$ml ml")
-            views.setTextViewText(R.id.water_goal, "/ 2500 ml goal")
-            appWidgetManager.updateAppWidget(id, views)
-        }
-    }
-}
+          package com.example.karthik_fitness
+          import android.appwidget.AppWidgetManager
+          import android.appwidget.AppWidgetProvider
+          import android.content.Context
+          import android.widget.RemoteViews
+          class WaterWidget : AppWidgetProvider() {
+              override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+                  val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                  for (id in appWidgetIds) {
+                      val views = RemoteViews(context.packageName, R.layout.water_widget)
+                      val ml = prefs.getInt("flutter.water_ml", 0)
+                      views.setTextViewText(R.id.water_amount, ml.toString() + " ml")
+                      views.setTextViewText(R.id.water_goal, "/ 2500 ml goal")
+                      appWidgetManager.updateAppWidget(id, views)
+                  }
+              }
+          }
           KTEOF
 
           cat > "$PKG_DIR/StepsWidget.kt" << 'KTEOF'
-package com.example.karthik_fitness
-
-import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
-import android.content.Context
-import android.widget.RemoteViews
-
-class StepsWidget : AppWidgetProvider() {
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-    ) {
-        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        for (id in appWidgetIds) {
-            val views = RemoteViews(context.packageName, R.layout.steps_widget)
-            val steps = prefs.getInt("flutter.steps_today", 0)
-            views.setTextViewText(R.id.steps_count, "$steps")
-            appWidgetManager.updateAppWidget(id, views)
-        }
-    }
-}
+          package com.example.karthik_fitness
+          import android.appwidget.AppWidgetManager
+          import android.appwidget.AppWidgetProvider
+          import android.content.Context
+          import android.widget.RemoteViews
+          class StepsWidget : AppWidgetProvider() {
+              override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+                  val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                  for (id in appWidgetIds) {
+                      val views = RemoteViews(context.packageName, R.layout.steps_widget)
+                      val steps = prefs.getInt("flutter.steps_today", 0)
+                      views.setTextViewText(R.id.steps_count, steps.toString())
+                      appWidgetManager.updateAppWidget(id, views)
+                  }
+              }
+          }
           KTEOF
 
           # ── 7. MainActivity with MethodChannel for widget refresh ─────────────
           cat > "$PKG_DIR/MainActivity.kt" << 'KTEOF'
-package com.example.karthik_fitness
-
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
-import android.content.Intent
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-
-class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.karthik_fitness/widgets"
-
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
-                if (call.method == "updateWidgets") {
-                    try {
-                        sendBroadcast(Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-                            component = ComponentName(this@MainActivity, WaterWidget::class.java)
-                        })
-                        sendBroadcast(Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-                            component = ComponentName(this@MainActivity, StepsWidget::class.java)
-                        })
-                        result.success(null)
-                    } catch (e: Exception) {
-                        result.error("UPDATE_FAILED", e.message, null)
-                    }
-                } else {
-                    result.notImplemented()
-                }
-            }
-    }
-}
+          package com.example.karthik_fitness
+          import android.appwidget.AppWidgetManager
+          import android.content.ComponentName
+          import android.content.Intent
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+          class MainActivity : FlutterActivity() {
+              private val CHANNEL = "com.example.karthik_fitness/widgets"
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+                      .setMethodCallHandler { call, result ->
+                          if (call.method == "updateWidgets") {
+                              try {
+                                  sendBroadcast(Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+                                      component = ComponentName(this@MainActivity, WaterWidget::class.java)
+                                  })
+                                  sendBroadcast(Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+                                      component = ComponentName(this@MainActivity, StepsWidget::class.java)
+                                  })
+                                  result.success(null)
+                              } catch (e: Exception) { result.error("FAIL", e.message, null) }
+                          } else { result.notImplemented() }
+                      }
+              }
+          }
           KTEOF
 
           echo "Android widget configuration injected successfully"
