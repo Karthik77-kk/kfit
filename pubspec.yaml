@@ -18,7 +18,7 @@ dependencies:
   timezone: ^0.9.4
   cupertino_icons: ^1.0.8
   pedometer: ^4.1.1
-  home_widget: ^0.9.1
+  home_widget: ">=0.4.0 <0.9.0"
 
 dev_dependencies:
   flutter_test:
