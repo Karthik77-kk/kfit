@@ -130,10 +130,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _fixNotifications() async {
     setState(() => _fixingNotif = true);
     try {
+      final p = context.read<FitnessProvider>();
       final ns = NotificationService();
       await ns.initialize();
       await ns.requestIgnoreBatteryOptimizations();
-      await ns.rescheduleAll();
+      await ns.rescheduleAll(
+        waterInterval: p.waterReminderIntervalHours,
+        walkInterval: p.walkReminderIntervalHours,
+      );
       await _checkBatteryStatus();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
