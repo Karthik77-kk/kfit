@@ -415,15 +415,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               border: Border.all(color: const Color(0xFFFF9F0A).withOpacity(0.3)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('📱 Samsung / Xiaomi / Realme users',
+              const Text('📱 Samsung / Xiaomi / OnePlus / Realme users',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 6),
               const Text(
-                'These phones aggressively kill background apps. After tapping '
-                '"Fix Notifications", also go to:\n\n'
-                'Settings → Apps → K Fitness → Battery → Unrestricted\n\n'
-                'This ensures reminders arrive even when the screen is off.',
-                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12, height: 1.5),
+                'These phones aggressively kill background apps. Do all 3 steps:\n\n'
+                '1. Tap "Fix Notifications" above\n'
+                '2. Settings → Apps → K Fitness → Battery → Unrestricted\n'
+                '3. Allow "Exact alarms" if prompted (Android 12+)\n\n'
+                'After a phone reboot, open K Fitness once to restore reminders.',
+                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12, height: 1.6),
               ),
               const SizedBox(height: 8),
               GestureDetector(

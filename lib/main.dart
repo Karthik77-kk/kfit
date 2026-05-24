@@ -134,8 +134,10 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen>
+    with WidgetsBindingObserver {
   int _index = 0;
+  DateTime? _lastReschedule;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -145,6 +147,40 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     StatsScreen(),
     HistoryScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Re-schedule notifications whenever the app comes to the foreground.
+  /// Throttled to once every 4 hours to avoid hammering on every resume.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      if (_lastReschedule == null ||
+          now.difference(_lastReschedule!).inHours >= 4) {
+        _lastReschedule = now;
+        final prefs_future = SharedPreferences.getInstance();
+        prefs_future.then((prefs) {
+          final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
+          final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
+          NotificationService().rescheduleAll(
+            waterInterval: waterInterval,
+            walkInterval: walkInterval,
+          );
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
