@@ -346,8 +346,6 @@ class FitnessProvider extends ChangeNotifier {
   int get calorieStreak {
     int streak = 0;
     final today = DateTime.now();
-    final todayKey =
-        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     for (int i = 1; i <= 60; i++) {
       final d = today.subtract(Duration(days: i));
       final key =
