@@ -169,8 +169,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       if (_lastReschedule == null ||
           now.difference(_lastReschedule!).inHours >= 4) {
         _lastReschedule = now;
-        final prefs_future = SharedPreferences.getInstance();
-        prefs_future.then((prefs) {
+        SharedPreferences.getInstance().then((prefs) {
           final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
           final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
           NotificationService().rescheduleAll(
