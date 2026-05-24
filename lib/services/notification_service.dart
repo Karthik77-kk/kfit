@@ -131,7 +131,7 @@ class NotificationService {
             color: const Color(0xFF30D158),
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.inexact,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -170,7 +170,7 @@ class NotificationService {
         'Take your MuscleBlaze Multivitamin after breakfast!',
         mv,
         const NotificationDetails(android: androidDetails),
-        androidScheduleMode: AndroidScheduleMode.inexact,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -186,7 +186,7 @@ class NotificationService {
         'Don\'t forget 3–5g Creatine today — mix with water or whey!',
         cr,
         const NotificationDetails(android: androidDetails),
-        androidScheduleMode: AndroidScheduleMode.inexact,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -240,7 +240,7 @@ class NotificationService {
           messages[msgIdx % messages.length],
           scheduled,
           const NotificationDetails(android: androidDetails),
-          androidScheduleMode: AndroidScheduleMode.inexact,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           matchDateTimeComponents: DateTimeComponents.time,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
@@ -293,7 +293,7 @@ class NotificationService {
           messages[msgIdx % messages.length],
           scheduled,
           const NotificationDetails(android: androidDetails),
-          androidScheduleMode: AndroidScheduleMode.inexact,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           matchDateTimeComponents: DateTimeComponents.time,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
@@ -334,7 +334,7 @@ class NotificationService {
             color: const Color(0xFFFF9F0A),
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.inexact,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,

@@ -5,7 +5,8 @@ import '../providers/fitness_provider.dart';
 import '../services/notification_service.dart';
 
 class WaterScreen extends StatefulWidget {
-  const WaterScreen({super.key});
+  final bool embedded;
+  const WaterScreen({super.key, this.embedded = false});
 
   @override
   State<WaterScreen> createState() => _WaterScreenState();
@@ -47,27 +48,8 @@ class _WaterScreenState extends State<WaterScreen>
     final remaining = (FitnessProvider.kWaterGoalMl - p.todayWaterMl).clamp(0, 99999);
     final goalMet = p.todayWaterMl >= FitnessProvider.kWaterGoalMl;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Water Tracker 💧'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            tooltip: 'Set water reminders',
-            onPressed: () async {
-              await NotificationService().scheduleWaterReminders();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('💧 Water reminders set (9am–6pm)'),
-                  backgroundColor: Color(0xFF40C8E0),
-                ));
-              }
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
+    final body = Column(
+      children: [
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -244,7 +226,30 @@ class _WaterScreenState extends State<WaterScreen>
             ),
           ),
         ],
+    );
+
+    if (widget.embedded) return body;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Water Tracker 💧'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            tooltip: 'Set water reminders',
+            onPressed: () async {
+              await NotificationService().scheduleWaterReminders();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('💧 Water reminders scheduled'),
+                  backgroundColor: Color(0xFF40C8E0),
+                ));
+              }
+            },
+          ),
+        ],
       ),
+      body: body,
     );
   }
 }

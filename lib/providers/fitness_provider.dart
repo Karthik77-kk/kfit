@@ -57,6 +57,10 @@ class FitnessProvider extends ChangeNotifier {
   int _pedometerDayBaseline = -1; // sensor total at start of today
   String _pedometerBaselineDate = '';
 
+  // ── Day-reset detection ────────────────────────────────────────────────────
+  String _loadedForDate = '';
+  Timer? _dayResetTimer;
+
   // ── Water reminder interval ────────────────────────────────────────────────
   int _waterReminderIntervalHours = 1;
   int get waterReminderIntervalHours => _waterReminderIntervalHours;
@@ -434,6 +438,11 @@ class FitnessProvider extends ChangeNotifier {
     _waterReminderIntervalHours = prefs.getInt('water_reminder_interval') ?? 1;
     _walkReminderIntervalHours = prefs.getInt('walk_reminder_interval') ?? 2;
 
+    // Always reset today's data first (handles midnight day-change case)
+    _todayFood = [];
+    _todayWaterMl = 0;
+    _supplements = SupplementStatus();
+
     // Food
     final foodJson = prefs.getString('food_$_todayKey');
     if (foodJson != null) {
@@ -448,8 +457,6 @@ class FitnessProvider extends ChangeNotifier {
     final suppJson = prefs.getString('supp_$_todayKey');
     if (suppJson != null) {
       _supplements = SupplementStatus.fromJson(jsonDecode(suppJson));
-    } else {
-      _supplements = SupplementStatus();
     }
 
     // Workouts
@@ -505,10 +512,14 @@ class FitnessProvider extends ChangeNotifier {
     }
 
     _isLoaded = true;
+    _loadedForDate = _todayKey;
     notifyListeners();
 
     // Start pedometer after data is loaded (non-blocking)
     startPedometer();
+
+    // Start day-reset watcher (detects midnight crossover while app is open)
+    _startDayResetTimer();
   }
 
   // ── Food actions ───────────────────────────────────────────────────────────
@@ -800,6 +811,19 @@ class FitnessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Day-reset timer ────────────────────────────────────────────────────────
+  /// Fires every minute. If the calendar date has changed since last load,
+  /// calls loadData() to wipe yesterday's in-memory food/water/supplements
+  /// and reload fresh data for today.
+  void _startDayResetTimer() {
+    _dayResetTimer?.cancel();
+    _dayResetTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (_loadedForDate.isNotEmpty && _loadedForDate != _todayKey) {
+        loadData(); // new day detected
+      }
+    });
+  }
+
   // ── Pedometer ──────────────────────────────────────────────────────────────
   Future<void> startPedometer() async {
     final prefs = await SharedPreferences.getInstance();
@@ -840,6 +864,7 @@ class FitnessProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _dayResetTimer?.cancel();
     _stepSubscription?.cancel();
     super.dispose();
   }

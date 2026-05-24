@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/fitness_provider.dart';
 import 'screens/home_screen.dart';
-import 'screens/food_screen.dart';
-import 'screens/water_screen.dart';
+import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
-import 'screens/supplements_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/smart_scale_screen.dart';
@@ -27,11 +26,16 @@ void main() async {
     await ns.initialize();
     final granted = await ns.requestPermission();
     if (granted) {
+      // Load saved reminder intervals (fall back to sensible defaults)
+      final prefs = await SharedPreferences.getInstance();
+      final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
+      final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
+
       await ns.scheduleMorningSummary();
       await ns.scheduleSupplementReminders();
-      await ns.scheduleWaterReminders(intervalHours: 1);
+      await ns.scheduleWaterReminders(intervalHours: waterInterval);
       await ns.scheduleEveningChecklist();
-      await ns.scheduleWalkReminders(intervalHours: 2);
+      await ns.scheduleWalkReminders(intervalHours: walkInterval);
     }
   } catch (_) {}
   runApp(
@@ -135,12 +139,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
-    FoodScreen(),
-    WaterScreen(),
+    NutritionScreen(),
     WorkoutScreen(),
     SmartScaleScreen(),
     StatsScreen(),
-    SupplementsScreen(),
     HistoryScreen(),
   ];
 
@@ -169,12 +171,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.restaurant_menu_outlined, size: 24),
               activeIcon: Icon(Icons.restaurant_menu_rounded, size: 24),
-              label: 'Food',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.water_drop_outlined, size: 24),
-              activeIcon: Icon(Icons.water_drop_rounded, size: 24),
-              label: 'Water',
+              label: 'Nutrition',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.fitness_center_outlined, size: 24),
@@ -190,11 +187,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               icon: Icon(Icons.bar_chart_outlined, size: 24),
               activeIcon: Icon(Icons.bar_chart_rounded, size: 24),
               label: 'Stats',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.medication_liquid_outlined, size: 24),
-              activeIcon: Icon(Icons.medication_liquid_rounded, size: 24),
-              label: 'Supps',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history_outlined, size: 24),

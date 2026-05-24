@@ -4,12 +4,42 @@ import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 
+/// Call this from any context (standalone or embedded) to open the Add Food sheet.
+void showAddFoodSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF1C1C1E),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => const _AddFoodSheet(),
+  );
+}
+
 class FoodScreen extends StatelessWidget {
-  const FoodScreen({super.key});
+  final bool embedded;
+  const FoodScreen({super.key, this.embedded = false});
+
+  Widget _buildBody(FitnessProvider p) {
+    if (p.todayFood.isEmpty) return const _EmptyState();
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 100, top: 8),
+      children: [
+        _MealSection(title: '☀️ Breakfast', entries: p.breakfastEntries, provider: p),
+        _MealSection(title: '🌤️ Lunch', entries: p.lunchEntries, provider: p),
+        _MealSection(title: '🌙 Dinner', entries: p.dinnerEntries, provider: p),
+        _MealSection(title: '🍎 Snacks', entries: p.snackEntries, provider: p),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
+
+    // When embedded inside NutritionScreen, just return the body
+    if (embedded) return _buildBody(p);
 
     return Scaffold(
       appBar: AppBar(
@@ -42,34 +72,12 @@ class FoodScreen extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddFoodSheet(context),
+        onPressed: () => showAddFoodSheet(context),
         backgroundColor: const Color(0xFF30D158),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Add Food', style: TextStyle(color: Colors.white)),
       ),
-      body: p.todayFood.isEmpty
-          ? const _EmptyState()
-          : ListView(
-              padding: const EdgeInsets.only(bottom: 100, top: 8),
-              children: [
-                _MealSection(title: '☀️ Breakfast', entries: p.breakfastEntries, provider: p),
-                _MealSection(title: '🌤️ Lunch', entries: p.lunchEntries, provider: p),
-                _MealSection(title: '🌙 Dinner', entries: p.dinnerEntries, provider: p),
-                _MealSection(title: '🍎 Snacks', entries: p.snackEntries, provider: p),
-              ],
-            ),
-    );
-  }
-
-  void _showAddFoodSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => const _AddFoodSheet(),
+      body: _buildBody(p),
     );
   }
 }

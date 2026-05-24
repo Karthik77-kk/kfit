@@ -5,34 +5,16 @@ import '../providers/fitness_provider.dart';
 import '../services/notification_service.dart';
 
 class SupplementsScreen extends StatelessWidget {
-  const SupplementsScreen({super.key});
+  final bool embedded;
+  const SupplementsScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Supplements 💊'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.alarm_add_outlined),
-            tooltip: 'Set supplement reminders',
-            onPressed: () async {
-              await NotificationService().scheduleSupplementReminders();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('⏰ Supplement reminders set!'),
-                  backgroundColor: Color(0xFF40C8E0),
-                ));
-              }
-            },
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+    final body = ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
           // ── Progress summary ──────────────────────────────────────────────
           _ProgressHeader(taken: p.supplements.takenCount),
           const SizedBox(height: 20),
@@ -103,7 +85,30 @@ class SupplementsScreen extends StatelessWidget {
           // ── Avoid section ─────────────────────────────────────────────────
           _AvoidSection(),
         ],
+    );
+
+    if (embedded) return body;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Supplements 💊'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.alarm_add_outlined),
+            tooltip: 'Set supplement reminders',
+            onPressed: () async {
+              await NotificationService().scheduleSupplementReminders();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('⏰ Supplement reminders set!'),
+                  backgroundColor: Color(0xFF40C8E0),
+                ));
+              }
+            },
+          ),
+        ],
       ),
+      body: body,
     );
   }
 }
@@ -333,7 +338,7 @@ class _ReminderTip extends StatelessWidget {
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 Text(
-                  'Tap the 🔔 icon above to get reminded for multivitamin (8:30am) and creatine (10am) daily.',
+                  'Daily reminders fire at 8:30 AM (multivitamin) and 10 AM (creatine) automatically.',
                   style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.4),
                 ),
               ],
