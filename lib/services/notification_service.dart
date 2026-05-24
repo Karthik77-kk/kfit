@@ -146,14 +146,11 @@ class NotificationService {
     }
   }
 
-  /// Requests exact alarm permission (Android 12+).
-  /// Opens the system settings dialog if not already granted.
+  /// Opens the exact alarm settings page (Android 12+).
+  /// Routes through the native battery method channel.
   Future<void> openExactAlarmSettings() async {
     try {
-      final androidPlugin = _plugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      await androidPlugin?.requestScheduleExactAlarmsPermission();
+      await _batteryChannel.invokeMethod('openExactAlarmSettings');
     } catch (_) {}
   }
 
