@@ -813,13 +813,22 @@ class FitnessProvider extends ChangeNotifier {
 
   // ── Day-reset timer ────────────────────────────────────────────────────────
   /// Fires every minute. If the calendar date has changed since last load,
-  /// calls loadData() to wipe yesterday's in-memory food/water/supplements
-  /// and reload fresh data for today.
+  /// saves the current live step count as the new day's baseline (so steps
+  /// walked before midnight are preserved), then calls loadData().
   void _startDayResetTimer() {
     _dayResetTimer?.cancel();
-    _dayResetTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _dayResetTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
       if (_loadedForDate.isNotEmpty && _loadedForDate != _todayKey) {
-        loadData(); // new day detected
+        // Before reloading, anchor the step baseline at the midnight crossover.
+        // This ensures steps walked before first app-open of the new day are kept.
+        if (_livePedometerTotal > 0) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('pedometer_baseline', _livePedometerTotal);
+          await prefs.setString('pedometer_date', _todayKey);
+          _pedometerDayBaseline = _livePedometerTotal;
+          _pedometerBaselineDate = _todayKey;
+        }
+        await loadData(); // new day detected
       }
     });
   }

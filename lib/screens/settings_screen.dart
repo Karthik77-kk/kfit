@@ -15,6 +15,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _exporting = false;
   bool _importing = false;
   bool _testingNotif = false;
+  bool _fixingNotif = false;
+  bool? _batteryOptIgnored;
 
   Future<void> _export() async {
     setState(() => _exporting = true);
@@ -112,6 +114,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBatteryStatus();
+  }
+
+  Future<void> _checkBatteryStatus() async {
+    final ignored = await NotificationService().isIgnoringBatteryOptimizations();
+    if (mounted) setState(() => _batteryOptIgnored = ignored);
+  }
+
+  Future<void> _fixNotifications() async {
+    setState(() => _fixingNotif = true);
+    try {
+      final ns = NotificationService();
+      await ns.initialize();
+      await ns.requestIgnoreBatteryOptimizations();
+      await ns.rescheduleAll();
+      await _checkBatteryStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Notifications rescheduled! Battery exemption requested.'),
+          backgroundColor: Color(0xFF30D158),
+          duration: Duration(seconds: 4),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: const Color(0xFFFF453A),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _fixingNotif = false);
+    }
   }
 
   @override
@@ -220,6 +260,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.check_circle, color: Color(0xFF30D158), size: 18),
             onTap: null,
           ),
+          // Fix Notifications button
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+                color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
+            child: ListTile(
+              leading: Icon(
+                _batteryOptIgnored == true
+                    ? Icons.battery_saver_rounded
+                    : Icons.battery_alert_rounded,
+                color: _batteryOptIgnored == true
+                    ? const Color(0xFF30D158)
+                    : const Color(0xFFFF9F0A),
+              ),
+              title: const Text('Fix Notifications', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              subtitle: Text(
+                _batteryOptIgnored == true
+                    ? 'Battery optimization excluded ✓ — Notifications should work'
+                    : 'Tap to request battery exemption & reschedule all reminders',
+                style: TextStyle(
+                  color: _batteryOptIgnored == true
+                      ? const Color(0xFF30D158)
+                      : const Color(0xFF8E8E93),
+                  fontSize: 12,
+                ),
+              ),
+              trailing: _fixingNotif
+                  ? const SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(
+                      _batteryOptIgnored == true
+                          ? Icons.check_circle_outline
+                          : Icons.build_outlined,
+                      color: _batteryOptIgnored == true
+                          ? const Color(0xFF30D158)
+                          : const Color(0xFFFF9F0A),
+                      size: 20,
+                    ),
+              onTap: _fixingNotif ? null : _fixNotifications,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+          // OEM phone instructions
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFFF9F0A).withOpacity(0.3)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('📱 Samsung / Xiaomi / Realme users',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 6),
+              const Text(
+                'These phones aggressively kill background apps. After tapping '
+                '"Fix Notifications", also go to:\n\n'
+                'Settings → Apps → K Fitness → Battery → Unrestricted\n\n'
+                'This ensures reminders arrive even when the screen is off.',
+                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12, height: 1.5),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => NotificationService().openNotificationSettings(),
+                child: const Text(
+                  'Open App Notification Settings →',
+                  style: TextStyle(color: Color(0xFF30D158), fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ]),
+          ),
           const SizedBox(height: 20),
 
           // ── GOALS ─────────────────────────────────────────────────
@@ -300,7 +412,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'Version 1.3.2 — Personal fitness tracker',
+            subtitle: 'Version 1.3.3 (Build 32) — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),

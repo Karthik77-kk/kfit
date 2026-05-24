@@ -121,6 +121,7 @@ class _NutritionHistory extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
     final history = p.foodHistory;
+    final suppHistory = p.supplementHistory;
     final sortedDays = history.keys.toList()..sort((a, b) => b.compareTo(a));
     if (sortedDays.isEmpty) {
       return const Center(child: Text('No food logged yet',
@@ -132,8 +133,19 @@ class _NutritionHistory extends StatelessWidget {
       itemBuilder: (ctx, i) {
         final day = sortedDays[i];
         final entries = history[day] ?? [];
-        final totalCal = entries.fold(0.0, (s, e) => s + e.calories);
-        final totalProt = entries.fold(0.0, (s, e) => s + e.protein);
+        final supp = suppHistory[day];
+
+        // Include whey protein calories & protein if checked that day
+        final suppCal  = (supp?.whey == true) ? 120.0 : 0.0;
+        final suppProt = (supp?.whey == true) ?  25.0 : 0.0;
+
+        final totalCal  = entries.fold(0.0, (s, e) => s + e.calories)  + suppCal;
+        final totalProt = entries.fold(0.0, (s, e) => s + e.protein) + suppProt;
+
+        final suppLabel = supp != null
+            ? ' · 💊 ${supp.takenCount}/3 supps'
+            : '';
+
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),
@@ -142,8 +154,10 @@ class _NutritionHistory extends StatelessWidget {
           child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(day, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              Text('${entries.length} items',
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+              Text(
+                '${entries.length} food items$suppLabel',
+                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+              ),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text('${totalCal.round()} kcal',

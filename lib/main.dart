@@ -20,23 +20,23 @@ void main() async {
     systemNavigationBarColor: Color(0xFF000000),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
-  // Initialize notifications and request permission (Android 13+)
+  // Initialize notifications — always schedule, request permission separately.
+  // Android silently drops notifications if permission is denied, so we always
+  // schedule so they activate immediately if the user later grants permission.
   try {
     final ns = NotificationService();
     await ns.initialize();
-    final granted = await ns.requestPermission();
-    if (granted) {
-      // Load saved reminder intervals (fall back to sensible defaults)
-      final prefs = await SharedPreferences.getInstance();
-      final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
-      final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
+    await ns.requestPermission(); // Request but don't gate scheduling on it
 
-      await ns.scheduleMorningSummary();
-      await ns.scheduleSupplementReminders();
-      await ns.scheduleWaterReminders(intervalHours: waterInterval);
-      await ns.scheduleEveningChecklist();
-      await ns.scheduleWalkReminders(intervalHours: walkInterval);
-    }
+    final prefs = await SharedPreferences.getInstance();
+    final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
+    final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
+
+    await ns.scheduleMorningSummary();
+    await ns.scheduleSupplementReminders();
+    await ns.scheduleWaterReminders(intervalHours: waterInterval);
+    await ns.scheduleEveningChecklist();
+    await ns.scheduleWalkReminders(intervalHours: walkInterval);
   } catch (_) {}
   runApp(
     ChangeNotifierProvider(

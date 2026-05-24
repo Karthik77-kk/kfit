@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -37,12 +39,11 @@ jobs:
 
       - name: Bump Kotlin, AGP, and Gradle versions
         run: |
-          # home_widget <0.9.0 compiled with Kotlin ~2.0.x; bump compiler to match
+          # Bump Kotlin to 2.0.21 (required by newer plugins)
           sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*" apply false/id "org.jetbrains.kotlin.android" version "2.0.21" apply false/' android/settings.gradle
-          # work-runtime-ktx 2.11.x (from flutter_local_notifications) requires AGP 8.6.0+
-          # Flutter 3.27.0 scaffold generates AGP 8.1.0; bump to 8.6.0
+          # AGP 8.6.0 required by flutter_local_notifications work-runtime-ktx 2.11.x
           sed -i 's/id "com.android.application" version "[^"]*" apply false/id "com.android.application" version "8.6.0" apply false/' android/settings.gradle
-          # AGP 8.6.0 requires Gradle 8.7; Flutter 3.27.0 scaffold generates Gradle 8.3
+          # AGP 8.6.0 requires Gradle 8.7
           sed -i 's|gradle-[0-9.]*-all\.zip|gradle-8.7-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i 's|gradle-[0-9.]*-bin\.zip|gradle-8.7-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
           echo "=== settings.gradle after patches ==="
@@ -57,11 +58,11 @@ jobs:
 
           # Create key.properties
           cat > android/key.properties << 'EOF'
-          storePassword=kfitness2024
-          keyPassword=kfitness2024
-          keyAlias=kfitness
-          storeFile=kfitness.jks
-          EOF
+storePassword=kfitness2024
+keyPassword=kfitness2024
+keyAlias=kfitness
+storeFile=kfitness.jks
+EOF
 
           # Patch build.gradle to use signing config
           python3 - << 'PYEOF'
@@ -101,25 +102,99 @@ jobs:
           # Patch app label to "K"
           sed -i 's/android:label="[^"]*"/android:label="K"/' android/app/src/main/AndroidManifest.xml
 
-          # Ensure ACTIVITY_RECOGNITION and POST_NOTIFICATIONS permissions
+          # Patch AndroidManifest with all required permissions
           python3 - << 'PYEOF'
           path = 'android/app/src/main/AndroidManifest.xml'
           txt = open(path).read()
-          if 'ACTIVITY_RECOGNITION' not in txt:
-              txt = txt.replace(
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>'
-              )
-          elif 'POST_NOTIFICATIONS' not in txt:
-              txt = txt.replace(
-                  '<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>',
-                  '<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>'
-              )
+          needed = [
+              'android.permission.ACTIVITY_RECOGNITION',
+              'android.permission.POST_NOTIFICATIONS',
+              'android.permission.RECEIVE_BOOT_COMPLETED',
+              'android.permission.VIBRATE',
+              'android.permission.WAKE_LOCK',
+              'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+          ]
+          anchor = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+          perms = anchor
+          for p in needed:
+              if p not in txt:
+                  perms += f'\n    <uses-permission android:name="{p}"/>'
+          txt = txt.replace(anchor, perms, 1)
           open(path, 'w').write(txt)
-          print('Manifest patched')
+          print('Manifest patched with all permissions')
           PYEOF
 
           echo "=== Signing + label + permissions configured ==="
+
+      - name: Patch MainActivity for battery optimization method channel
+        run: |
+          # Find and replace the generated MainActivity.kt with one that exposes
+          # battery optimization and notification settings via method channel
+          python3 - << 'PYEOF'
+          import os, glob
+          # Find MainActivity.kt
+          matches = glob.glob('android/app/src/main/kotlin/**/*.kt', recursive=True)
+          main_activity = next((f for f in matches if 'MainActivity' in f), None)
+          if not main_activity:
+              print('MainActivity.kt not found, skipping')
+          else:
+              pkg_line = open(main_activity).readline().strip()  # package com.example.xxx
+              pkg = pkg_line.replace('package ', '').strip()
+              content = f'''{pkg_line}
+
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity: FlutterActivity() {{
+    private val CHANNEL = "com.kfitness/battery"
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {{
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .setMethodCallHandler {{ call, result ->
+                when (call.method) {{
+                    "requestIgnoreBatteryOptimizations" -> {{
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {{
+                            val pm = getSystemService(POWER_SERVICE) as PowerManager
+                            if (!pm.isIgnoringBatteryOptimizations(packageName)) {{
+                                val intent = Intent(
+                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                                )
+                                intent.data = Uri.parse("package:$packageName")
+                                startActivity(intent)
+                            }}
+                        }}
+                        result.success(true)
+                    }}
+                    "isIgnoringBatteryOptimizations" -> {{
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {{
+                            val pm = getSystemService(POWER_SERVICE) as PowerManager
+                            result.success(pm.isIgnoringBatteryOptimizations(packageName))
+                        }} else {{
+                            result.success(true)
+                        }}
+                    }}
+                    "openNotificationSettings" -> {{
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                        startActivity(intent)
+                        result.success(true)
+                    }}
+                    else -> result.notImplemented()
+                }}
+            }}
+    }}
+}}
+'''
+              open(main_activity, 'w').write(content)
+              print(f'Patched {main_activity}')
+          PYEOF
 
       - name: Enable core library desugaring (required by flutter_local_notifications)
         run: |

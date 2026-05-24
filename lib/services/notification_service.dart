@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' show Color;
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -10,6 +11,9 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+
+  // ── Battery optimization method channel ──────────────────────────────────
+  static const _batteryChannel = MethodChannel('com.kfitness/battery');
 
   // ── IDs ───────────────────────────────────────────────────────────────────
   static const int _morningId = 0;
@@ -41,6 +45,62 @@ class NotificationService {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const settings = InitializationSettings(android: android);
     await _plugin.initialize(settings);
+
+    // Pre-create all notification channels so they exist before scheduling.
+    // Android ignores duplicate channel creation — this is idempotent.
+    await _createAllChannels();
+  }
+
+  Future<void> _createAllChannels() async {
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
+
+    const channels = [
+      AndroidNotificationChannel(
+        'morning_summary', 'Morning Summary',
+        description: 'Daily 8 AM fitness briefing',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
+      ),
+      AndroidNotificationChannel(
+        'supp_channel', 'Supplement Reminders',
+        description: 'Daily supplement reminders',
+        importance: Importance.defaultImportance,
+        enableVibration: true,
+      ),
+      AndroidNotificationChannel(
+        'water_channel', 'Water Reminders',
+        description: 'Reminds you to drink water throughout the day',
+        importance: Importance.defaultImportance,
+        enableVibration: false,
+      ),
+      AndroidNotificationChannel(
+        'walk_channel', 'Walk Reminders',
+        description: 'Reminds you to get up and walk if inactive',
+        importance: Importance.defaultImportance,
+        enableVibration: false,
+      ),
+      AndroidNotificationChannel(
+        'evening_checklist', 'Evening Checklist',
+        description: 'Daily 10 PM reminder to complete your fitness log',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
+      ),
+      AndroidNotificationChannel(
+        'test_channel', 'Test Notifications',
+        description: 'Test that notifications are working',
+        importance: Importance.max,
+        enableVibration: true,
+      ),
+    ];
+
+    for (final channel in channels) {
+      await androidPlugin.createNotificationChannel(channel);
+    }
   }
 
   /// Request Android 13+ notification permission.
@@ -52,8 +112,48 @@ class NotificationService {
           ?.requestNotificationsPermission();
       return granted ?? true;
     } catch (_) {
+      return true; // Assume granted on older Android (< 13)
+    }
+  }
+
+  /// Check if notifications are enabled for this app.
+  Future<bool> areNotificationsEnabled() async {
+    try {
+      final enabled = await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.areNotificationsEnabled();
+      return enabled ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  // ── Battery optimization (via native method channel) ──────────────────────
+
+  /// Returns true if this app is already ignoring battery optimizations.
+  Future<bool> isIgnoringBatteryOptimizations() async {
+    try {
+      final result = await _batteryChannel
+          .invokeMethod<bool>('isIgnoringBatteryOptimizations');
+      return result ?? false;
+    } catch (_) {
       return false;
     }
+  }
+
+  /// Opens the system dialog to request battery optimization exclusion.
+  Future<void> requestIgnoreBatteryOptimizations() async {
+    try {
+      await _batteryChannel.invokeMethod('requestIgnoreBatteryOptimizations');
+    } catch (_) {}
+  }
+
+  /// Opens this app's notification settings page.
+  Future<void> openNotificationSettings() async {
+    try {
+      await _batteryChannel.invokeMethod('openNotificationSettings');
+    } catch (_) {}
   }
 
   // ── Test notification (fires immediately) ─────────────────────────────────
@@ -200,7 +300,6 @@ class NotificationService {
 
   // ── Water Reminders (configurable interval) ───────────────────────────────
 
-  /// Schedule water reminders every [intervalHours] hours from 8 AM to 9 PM
   Future<bool> scheduleWaterReminders({int intervalHours = 1}) async {
     try {
       // Cancel existing water reminders (IDs 10–23)
@@ -256,8 +355,6 @@ class NotificationService {
 
   // ── Walk / Inactivity Reminders ───────────────────────────────────────────
 
-  /// Schedule reminders to get up and walk during daytime hours
-  /// intervalHours = how often (e.g. every 2 hours)
   Future<bool> scheduleWalkReminders({int intervalHours = 2}) async {
     try {
       // Cancel existing walk reminders (IDs 40–55)
@@ -340,6 +437,15 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (_) {}
+  }
+
+  /// Re-schedule all notifications (call on every app open to ensure they're active).
+  Future<void> rescheduleAll({int waterInterval = 1, int walkInterval = 2}) async {
+    await scheduleMorningSummary();
+    await scheduleSupplementReminders();
+    await scheduleWaterReminders(intervalHours: waterInterval);
+    await scheduleWalkReminders(intervalHours: walkInterval);
+    await scheduleEveningChecklist();
   }
 
   // ── Cancel all ────────────────────────────────────────────────────────────
