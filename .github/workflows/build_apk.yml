@@ -134,59 +134,60 @@ jobs:
               print('MainActivity.kt not found, skipping')
           else:
               pkg_line = open(main_activity).readline().strip()  # package com.example.xxx
-              pkg = pkg_line.replace('package ', '').strip()
-              content = f'''{pkg_line}
-
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.os.PowerManager
-import android.provider.Settings
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-
-class MainActivity: FlutterActivity() {{
-    private val CHANNEL = "com.kfitness/battery"
-
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {{
-        super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler {{ call, result ->
-                when (call.method) {{
-                    "requestIgnoreBatteryOptimizations" -> {{
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {{
-                            val pm = getSystemService(POWER_SERVICE) as PowerManager
-                            if (!pm.isIgnoringBatteryOptimizations(packageName)) {{
-                                val intent = Intent(
-                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                                )
-                                intent.data = Uri.parse("package:$packageName")
-                                startActivity(intent)
-                            }}
-                        }}
-                        result.success(true)
-                    }}
-                    "isIgnoringBatteryOptimizations" -> {{
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {{
-                            val pm = getSystemService(POWER_SERVICE) as PowerManager
-                            result.success(pm.isIgnoringBatteryOptimizations(packageName))
-                        }} else {{
-                            result.success(true)
-                        }}
-                    }}
-                    "openNotificationSettings" -> {{
-                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                        startActivity(intent)
-                        result.success(true)
-                    }}
-                    else -> result.notImplemented()
-                }}
-            }}
-    }}
-}}
-'''
+              lines = [
+                  pkg_line,
+                  '',
+                  'import android.content.Intent',
+                  'import android.net.Uri',
+                  'import android.os.Build',
+                  'import android.os.PowerManager',
+                  'import android.provider.Settings',
+                  'import io.flutter.embedding.android.FlutterActivity',
+                  'import io.flutter.embedding.engine.FlutterEngine',
+                  'import io.flutter.plugin.common.MethodChannel',
+                  '',
+                  'class MainActivity: FlutterActivity() {',
+                  '    private val CHANNEL = "com.kfitness/battery"',
+                  '',
+                  '    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {',
+                  '        super.configureFlutterEngine(flutterEngine)',
+                  '        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)',
+                  '            .setMethodCallHandler { call, result ->',
+                  '                when (call.method) {',
+                  '                    "requestIgnoreBatteryOptimizations" -> {',
+                  '                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
+                  '                            val pm = getSystemService(POWER_SERVICE) as PowerManager',
+                  '                            if (!pm.isIgnoringBatteryOptimizations(packageName)) {',
+                  '                                val intent = Intent(',
+                  '                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+                  '                                )',
+                  '                                intent.data = Uri.parse("package:$packageName")',
+                  '                                startActivity(intent)',
+                  '                            }',
+                  '                        }',
+                  '                        result.success(true)',
+                  '                    }',
+                  '                    "isIgnoringBatteryOptimizations" -> {',
+                  '                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
+                  '                            val pm = getSystemService(POWER_SERVICE) as PowerManager',
+                  '                            result.success(pm.isIgnoringBatteryOptimizations(packageName))',
+                  '                        } else {',
+                  '                            result.success(true)',
+                  '                        }',
+                  '                    }',
+                  '                    "openNotificationSettings" -> {',
+                  '                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)',
+                  '                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)',
+                  '                        startActivity(intent)',
+                  '                        result.success(true)',
+                  '                    }',
+                  '                    else -> result.notImplemented()',
+                  '                }',
+                  '            }',
+                  '    }',
+                  '}',
+              ]
+              content = '\n'.join(lines) + '\n'
               open(main_activity, 'w').write(content)
               print(f'Patched {main_activity}')
           PYEOF
