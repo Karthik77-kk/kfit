@@ -44,9 +44,9 @@ class _WaterScreenState extends State<WaterScreen>
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
-    final pct = (p.todayWaterMl / FitnessProvider.kWaterGoalMl).clamp(0.0, 1.0);
-    final remaining = (FitnessProvider.kWaterGoalMl - p.todayWaterMl).clamp(0, 99999);
-    final goalMet = p.todayWaterMl >= FitnessProvider.kWaterGoalMl;
+    final pct = (p.todayWaterMl / p.waterGoalMl).clamp(0.0, 1.0);
+    final remaining = (p.waterGoalMl - p.todayWaterMl).clamp(0, 99999);
+    final goalMet = p.todayWaterMl >= p.waterGoalMl;
 
     final body = Column(
       children: [
@@ -118,7 +118,7 @@ class _WaterScreenState extends State<WaterScreen>
                         ),
                       )
                     : Text(
-                        '${remaining}ml left to reach 2.5L',
+                        '${remaining}ml left to reach goal',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.6),
                           fontSize: 16,
@@ -126,7 +126,7 @@ class _WaterScreenState extends State<WaterScreen>
                       ),
                 const SizedBox(height: 6),
                 Text(
-                  'Goal: ${FitnessProvider.kWaterGoalMl}ml · ${(pct * 100).toInt()}% done',
+                  'Goal: ${p.waterGoalMl}ml · ${(pct * 100).toInt()}% done',
                   style: TextStyle(
                       color: Colors.white.withOpacity(0.35), fontSize: 13),
                 ),

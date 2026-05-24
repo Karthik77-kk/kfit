@@ -129,6 +129,34 @@ class NotificationService {
     }
   }
 
+  // ── Exact alarm permission (Android 12+) ─────────────────────────────────
+
+  /// Returns true if the app can schedule exact alarms.
+  /// On Android < 12, always returns true (not required).
+  Future<bool> canScheduleExactAlarms() async {
+    try {
+      final androidPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin == null) return true;
+      final result = await androidPlugin.canScheduleExactNotifications();
+      return result ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Requests exact alarm permission (Android 12+).
+  /// Opens the system settings dialog if not already granted.
+  Future<void> openExactAlarmSettings() async {
+    try {
+      final androidPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestScheduleExactAlarmsPermission();
+    } catch (_) {}
+  }
+
   // ── Battery optimization (via native method channel) ──────────────────────
 
   /// Returns true if this app is already ignoring battery optimizations.
@@ -212,6 +240,12 @@ class NotificationService {
       final workout = _getTodayWorkoutHint();
       final body = '$workout\n\n$quote';
 
+      // Use exact alarm if available (Android 12+), fall back to inexact
+      final exactOk = await canScheduleExactAlarms();
+      final scheduleMode = exactOk
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
       await _plugin.zonedSchedule(
         _morningId,
         '🌅 Good morning, Karthik!',
@@ -231,7 +265,7 @@ class NotificationService {
             color: const Color(0xFF30D158),
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -413,6 +447,11 @@ class NotificationService {
       var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, 22, 0);
       if (scheduled.isBefore(now)) scheduled = scheduled.add(const Duration(days: 1));
 
+      final exactOk = await canScheduleExactAlarms();
+      final scheduleMode = exactOk
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
       await _plugin.zonedSchedule(
         _eveningChecklistId,
         '📋 Daily Log Check — 10 PM',
@@ -431,7 +470,7 @@ class NotificationService {
             color: const Color(0xFFFF9F0A),
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,

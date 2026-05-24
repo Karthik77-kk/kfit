@@ -48,9 +48,9 @@ class _NutritionScreenState extends State<NutritionScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${p.todayCaloriesTotal.toInt()} / ${FitnessProvider.kCalorieGoal} kcal',
+                    '${p.todayCaloriesTotal.toInt()} / ${p.calorieGoal} kcal',
                     style: TextStyle(
-                      color: p.todayCaloriesTotal > FitnessProvider.kCalorieGoal
+                      color: p.todayCaloriesTotal > p.calorieGoal
                           ? Colors.redAccent
                           : const Color(0xFF30D158),
                       fontSize: 12,
@@ -74,9 +74,9 @@ class _NutritionScreenState extends State<NutritionScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${p.todayWaterMl} / ${FitnessProvider.kWaterGoalMl} ml',
+                    '${p.todayWaterMl} / ${p.waterGoalMl} ml',
                     style: TextStyle(
-                      color: p.todayWaterMl >= FitnessProvider.kWaterGoalMl
+                      color: p.todayWaterMl >= p.waterGoalMl
                           ? const Color(0xFF30D158)
                           : const Color(0xFF40C8E0),
                       fontSize: 12,

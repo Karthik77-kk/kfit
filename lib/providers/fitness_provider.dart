@@ -11,11 +11,56 @@ import 'package:pedometer/pedometer.dart';
 import '../models/models.dart';
 
 class FitnessProvider extends ChangeNotifier {
-  // ── Daily targets ──────────────────────────────────────────────────────────
-  static const int kCalorieGoal = 1700;
-  static const int kProteinGoal = 100;
-  static const int kWaterGoalMl = 2500;
-  static const int kStepGoal = 8000;
+  // ── Daily targets (defaults — overridden by user settings) ────────────────
+  static const int kDefaultCalorieGoal = 1700;
+  static const int kDefaultProteinGoal = 100;
+  static const int kDefaultWaterGoalMl = 2500;
+  static const int kDefaultStepGoal = 8000;
+
+  // Mutable goals (loaded from prefs, fallback to defaults)
+  int _calorieGoal = kDefaultCalorieGoal;
+  int _proteinGoal = kDefaultProteinGoal;
+  int _waterGoalMl = kDefaultWaterGoalMl;
+  int _stepGoal = kDefaultStepGoal;
+
+  int get calorieGoal => _calorieGoal;
+  int get proteinGoal => _proteinGoal;
+  int get waterGoalMl => _waterGoalMl;
+  int get stepGoal => _stepGoal;
+
+  // Keep static consts as aliases so old static references compile
+  static const int kCalorieGoal = kDefaultCalorieGoal;
+  static const int kProteinGoal = kDefaultProteinGoal;
+  static const int kWaterGoalMl = kDefaultWaterGoalMl;
+  static const int kStepGoal = kDefaultStepGoal;
+
+  Future<void> saveCalorieGoal(int kcal) async {
+    _calorieGoal = kcal.clamp(800, 5000);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('calorie_goal', _calorieGoal);
+    notifyListeners();
+  }
+
+  Future<void> saveProteinGoal(int g) async {
+    _proteinGoal = g.clamp(20, 300);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('protein_goal', _proteinGoal);
+    notifyListeners();
+  }
+
+  Future<void> saveWaterGoal(int ml) async {
+    _waterGoalMl = ml.clamp(500, 8000);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('water_goal_ml', _waterGoalMl);
+    notifyListeners();
+  }
+
+  Future<void> saveStepGoal(int steps) async {
+    _stepGoal = steps.clamp(1000, 30000);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('step_goal', _stepGoal);
+    notifyListeners();
+  }
 
   // ── User profile ───────────────────────────────────────────────────────────
   double _heightCm = 160.0;
@@ -127,24 +172,24 @@ class FitnessProvider extends ChangeNotifier {
   double get todayProteinTotal => todayProtein + supplementProtein;
 
   double get calorieProgress =>
-      (todayCaloriesTotal / kCalorieGoal).clamp(0.0, 1.0);
+      (todayCaloriesTotal / calorieGoal).clamp(0.0, 1.0);
   double get proteinProgress =>
-      (todayProteinTotal / kProteinGoal).clamp(0.0, 1.0);
+      (todayProteinTotal / proteinGoal).clamp(0.0, 1.0);
   double get waterProgress =>
-      (_todayWaterMl / kWaterGoalMl).clamp(0.0, 1.0);
+      (_todayWaterMl / waterGoalMl).clamp(0.0, 1.0);
 
   // ── Net calories & deficit ─────────────────────────────────────────────────
   /// Calories eaten minus calories burned from workout
   int get netCalories => (todayCaloriesTotal - todayCaloriesBurned).round();
 
   /// Positive = deficit (good for fat loss), Negative = surplus
-  int get calorieDeficit => kCalorieGoal - netCalories;
+  int get calorieDeficit => calorieGoal - netCalories;
 
   /// True if currently in a calorie deficit
-  bool get inDeficit => netCalories < kCalorieGoal;
+  bool get inDeficit => netCalories < calorieGoal;
 
   /// Remaining calories left to eat (vs goal). Can be negative if over.
-  int get caloriesRemaining => kCalorieGoal - todayCaloriesTotal.round();
+  int get caloriesRemaining => calorieGoal - todayCaloriesTotal.round();
 
   // ── Body / weight ──────────────────────────────────────────────────────────
   BodyEntry? get latestBodyEntry =>
@@ -230,7 +275,7 @@ class FitnessProvider extends ChangeNotifier {
     return latestBodyEntry?.steps ?? 0;
   }
 
-  double get stepProgress => (todaySteps / kStepGoal).clamp(0.0, 1.0);
+  double get stepProgress => (todaySteps / stepGoal).clamp(0.0, 1.0);
 
   List<BodyEntry> getRecentBodyEntries({int days = 30}) {
     final cutoff = DateTime.now().subtract(Duration(days: days));
@@ -290,6 +335,29 @@ class FitnessProvider extends ChangeNotifier {
         check = check.subtract(const Duration(days: 1));
       } else if (i == 0) {
         check = check.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  /// Consecutive days where calories were logged AND within 200 kcal of goal
+  int get calorieStreak {
+    int streak = 0;
+    final today = DateTime.now();
+    final todayKey =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    for (int i = 1; i <= 60; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final foods = _foodHistory[key];
+      if (foods == null || foods.isEmpty) break;
+      final dayCalories = foods.fold(0.0, (s, e) => s + e.calories);
+      // Count if within 200 kcal of goal (1500–1900)
+      if ((dayCalories - calorieGoal).abs() <= 200) {
+        streak++;
       } else {
         break;
       }
@@ -437,6 +505,12 @@ class FitnessProvider extends ChangeNotifier {
     // Reminder intervals
     _waterReminderIntervalHours = prefs.getInt('water_reminder_interval') ?? 1;
     _walkReminderIntervalHours = prefs.getInt('walk_reminder_interval') ?? 2;
+
+    // User-defined goals
+    _calorieGoal = prefs.getInt('calorie_goal') ?? kDefaultCalorieGoal;
+    _proteinGoal = prefs.getInt('protein_goal') ?? kDefaultProteinGoal;
+    _waterGoalMl = prefs.getInt('water_goal_ml') ?? kDefaultWaterGoalMl;
+    _stepGoal = prefs.getInt('step_goal') ?? kDefaultStepGoal;
 
     // Always reset today's data first (handles midnight day-change case)
     _todayFood = [];

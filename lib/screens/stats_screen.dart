@@ -246,8 +246,8 @@ class _StatsScreenState extends State<StatsScreen> {
                       label: 'Today\'s Steps',
                       value: p.todaySteps > 0 ? _fmtNum(p.todaySteps) : '—',
                       sub: p.todaySteps > 0
-                          ? '${(p.stepProgress * 100).round()}% of 8k'
-                          : '8,000 goal',
+                          ? '${(p.stepProgress * 100).round()}% of ${(p.stepGoal / 1000).round()}k'
+                          : '${p.stepGoal} goal',
                       color: _kBlue,
                       icon: Icons.directions_walk_outlined,
                     ),
@@ -257,6 +257,13 @@ class _StatsScreenState extends State<StatsScreen> {
                       sub: p.workoutStreak > 0 ? 'Keep going! 🔥' : 'Start today',
                       color: _kOrange,
                       icon: Icons.local_fire_department_outlined,
+                    ),
+                    _StatCard(
+                      label: 'Diet Streak',
+                      value: '${p.calorieStreak}d',
+                      sub: p.calorieStreak > 0 ? 'On target! 🥗' : 'Log meals daily',
+                      color: _kBlue,
+                      icon: Icons.restaurant_menu_outlined,
                     ),
                   ]),
                   const SizedBox(height: 12),
@@ -293,7 +300,7 @@ class _StatsScreenState extends State<StatsScreen> {
                       value: p.todayProteinTotal > 0
                           ? '${p.todayProteinTotal.round()}g'
                           : '—',
-                      sub: '/ ${FitnessProvider.kProteinGoal}g goal',
+                      sub: '/ ${p.proteinGoal}g goal',
                       color: _kGreen,
                       icon: Icons.egg_alt_outlined,
                     ),
@@ -536,7 +543,7 @@ class _AiPredictionsCard extends StatelessWidget {
             const SizedBox(width: 8),
             _MetaChip2('Fat Loss Target', '${target.round()} kcal', _kGreen),
             const SizedBox(width: 8),
-            _MetaChip2('Current Goal', '${FitnessProvider.kCalorieGoal} kcal', _kBlue),
+            _MetaChip2('Current Goal', '${p.calorieGoal} kcal', _kBlue),
           ]),
         ],
       ]),
@@ -659,7 +666,7 @@ class _BmrTdeeCard extends StatelessWidget {
                   child: Text(
                     target != null
                         ? 'Your fat-loss target is ~${target.round()} kcal/day. '
-                          'Your current goal is set to ${FitnessProvider.kCalorieGoal} kcal.'
+                          'Your current goal is set to ${p.calorieGoal} kcal.'
                         : 'Enter weight, height and age to compute your targets.',
                     style: const TextStyle(
                         color: Colors.white70, fontSize: 12, height: 1.4),

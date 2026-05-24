@@ -17,6 +17,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _testingNotif = false;
   bool _fixingNotif = false;
   bool? _batteryOptIgnored;
+  bool? _exactAlarmGranted;
 
   Future<void> _export() async {
     setState(() => _exporting = true);
@@ -123,8 +124,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _checkBatteryStatus() async {
-    final ignored = await NotificationService().isIgnoringBatteryOptimizations();
-    if (mounted) setState(() => _batteryOptIgnored = ignored);
+    final ns = NotificationService();
+    final ignored = await ns.isIgnoringBatteryOptimizations();
+    final exactOk = await ns.canScheduleExactAlarms();
+    if (mounted) {
+      setState(() {
+        _batteryOptIgnored = ignored;
+        _exactAlarmGranted = exactOk;
+      });
+    }
   }
 
   Future<void> _fixNotifications() async {
@@ -133,7 +141,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final p = context.read<FitnessProvider>();
       final ns = NotificationService();
       await ns.initialize();
+      // Request battery exemption
       await ns.requestIgnoreBatteryOptimizations();
+      // Request exact alarm permission (Android 12+)
+      await ns.openExactAlarmSettings();
       await ns.rescheduleAll(
         waterInterval: p.waterReminderIntervalHours,
         walkInterval: p.walkReminderIntervalHours,
@@ -141,7 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _checkBatteryStatus();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Notifications rescheduled! Battery exemption requested.'),
+          content: Text('✅ Notifications rescheduled! Check prompts if shown.'),
           backgroundColor: Color(0xFF30D158),
           duration: Duration(seconds: 4),
         ));
@@ -156,6 +167,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _fixingNotif = false);
     }
+  }
+
+  void _editGoal({
+    required String label,
+    required int current,
+    required int min,
+    required int max,
+    required int step,
+    required Future<void> Function(int) onSave,
+  }) {
+    final ctrl = TextEditingController(text: current.toString());
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: Text(label, style: const TextStyle(fontSize: 15)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              hintText: 'Between $min – $max',
+              helperText: 'Range: $min – $max  (step: $step)',
+              helperStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF30D158), foregroundColor: Colors.black),
+            onPressed: () async {
+              final val = int.tryParse(ctrl.text.trim());
+              if (val != null) {
+                await onSave(val);
+              }
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -306,6 +365,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),
+          // Exact alarm permission status (Android 12+)
+          if (_exactAlarmGranted != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
+              child: ListTile(
+                leading: Icon(
+                  _exactAlarmGranted == true
+                      ? Icons.alarm_on_rounded
+                      : Icons.alarm_off_rounded,
+                  color: _exactAlarmGranted == true
+                      ? const Color(0xFF30D158)
+                      : const Color(0xFFFF453A),
+                ),
+                title: const Text('Exact Alarm Permission',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                subtitle: Text(
+                  _exactAlarmGranted == true
+                      ? 'Granted — morning & evening reminders will fire on time ✓'
+                      : 'Not granted — tap "Fix Notifications" to allow exact alarms (Android 12+)',
+                  style: TextStyle(
+                    color: _exactAlarmGranted == true
+                        ? const Color(0xFF30D158)
+                        : const Color(0xFFFF453A),
+                    fontSize: 12,
+                  ),
+                ),
+                trailing: Icon(
+                  _exactAlarmGranted == true
+                      ? Icons.check_circle_outline
+                      : Icons.warning_amber_rounded,
+                  color: _exactAlarmGranted == true
+                      ? const Color(0xFF30D158)
+                      : const Color(0xFFFF453A),
+                  size: 20,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
           // OEM phone instructions
           Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -343,26 +442,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.flag_outlined,
             title: 'Daily Calorie Goal',
-            subtitle: '1700 kcal (fat loss target)',
-            onTap: null,
+            subtitle: '${p.calorieGoal} kcal — tap to change',
+            onTap: () => _editGoal(
+              label: 'Daily Calorie Goal (kcal)',
+              current: p.calorieGoal,
+              min: 800, max: 5000, step: 50,
+              onSave: (v) => p.saveCalorieGoal(v),
+            ),
           ),
           _Tile(
             icon: Icons.fitness_center_outlined,
             title: 'Daily Protein Goal',
-            subtitle: '100g protein',
-            onTap: null,
+            subtitle: '${p.proteinGoal}g protein — tap to change',
+            onTap: () => _editGoal(
+              label: 'Daily Protein Goal (g)',
+              current: p.proteinGoal,
+              min: 20, max: 300, step: 5,
+              onSave: (v) => p.saveProteinGoal(v),
+            ),
           ),
           _Tile(
             icon: Icons.directions_walk_outlined,
             title: 'Daily Step Goal',
-            subtitle: '8,000 steps',
-            onTap: null,
+            subtitle: '${p.stepGoal.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} steps — tap to change',
+            onTap: () => _editGoal(
+              label: 'Daily Step Goal',
+              current: p.stepGoal,
+              min: 1000, max: 30000, step: 500,
+              onSave: (v) => p.saveStepGoal(v),
+            ),
           ),
           _Tile(
             icon: Icons.water_drop_outlined,
             title: 'Daily Water Goal',
-            subtitle: '2,500 ml',
-            onTap: null,
+            subtitle: '${p.waterGoalMl} ml — tap to change',
+            onTap: () => _editGoal(
+              label: 'Daily Water Goal (ml)',
+              current: p.waterGoalMl,
+              min: 500, max: 8000, step: 100,
+              onSave: (v) => p.saveWaterGoal(v),
+            ),
           ),
           const SizedBox(height: 20),
 
@@ -416,7 +535,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'Version 1.3.3 (Build 32) — Personal fitness tracker',
+            subtitle: 'Version 1.3.3 (Build 33) — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),

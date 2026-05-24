@@ -234,15 +234,15 @@ class _ActivityRingsCard extends StatelessWidget {
         const SizedBox(width: 18),
         Expanded(child: Column(children: [
           _RingRow(color: _kRed, label: 'Calories',
-            value: '${p.todayCaloriesTotal.round()} / ${FitnessProvider.kCalorieGoal} kcal',
+            value: '${p.todayCaloriesTotal.round()} / ${p.calorieGoal} kcal',
             progress: p.calorieProgress),
           const SizedBox(height: 10),
           _RingRow(color: _kGreen, label: 'Protein',
-            value: '${p.todayProteinTotal.round()} / ${FitnessProvider.kProteinGoal}g',
+            value: '${p.todayProteinTotal.round()} / ${p.proteinGoal}g',
             progress: p.proteinProgress),
           const SizedBox(height: 10),
           _RingRow(color: _kBlue, label: 'Water',
-            value: '${p.todayWaterMl} / ${FitnessProvider.kWaterGoalMl} ml',
+            value: '${p.todayWaterMl} / ${p.waterGoalMl} ml',
             progress: p.waterProgress),
         ])),
       ]),
@@ -319,7 +319,7 @@ class _CalorieRingTile extends StatelessWidget {
     final p = context.watch<FitnessProvider>();
     final eaten = p.todayCaloriesTotal;
     final burned = p.totalCaloriesBurned;
-    final goal = FitnessProvider.kCalorieGoal.toDouble();
+    final goal = p.calorieGoal.toDouble();
     final net = eaten - burned;
 
     return Container(
@@ -454,7 +454,7 @@ class _MacroRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
     final protein = p.todayProteinTotal;
-    final proteinGoal = FitnessProvider.kProteinGoal;
+    final proteinGoal = p.proteinGoal;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
@@ -471,7 +471,7 @@ class _MacroRow extends StatelessWidget {
           Expanded(child: _MacroChip(
             label: 'Calories in',
             value: '${p.todayCaloriesTotal.round()}',
-            goal: '/ ${FitnessProvider.kCalorieGoal} kcal',
+            goal: '/ ${p.calorieGoal} kcal',
             color: _kOrange,
             progress: p.calorieProgress,
           )),
@@ -599,9 +599,9 @@ class _StepsWaterRow extends StatelessWidget {
         icon: '👟',
         label: p.hasPedometerData ? 'Steps 📱' : 'Steps',
         current: p.todaySteps.toDouble(),
-        goal: FitnessProvider.kStepGoal.toDouble(),
+        goal: p.stepGoal.toDouble(),
         valueText: _fmtInt(p.todaySteps),
-        goalText: '/ ${_fmtInt(FitnessProvider.kStepGoal)}',
+        goalText: '/ ${_fmtInt(p.stepGoal)}',
         color: _kBlue,
       )),
       const SizedBox(width: 10),
@@ -609,9 +609,9 @@ class _StepsWaterRow extends StatelessWidget {
         icon: '💧',
         label: 'Water',
         current: p.todayWaterMl.toDouble(),
-        goal: FitnessProvider.kWaterGoalMl.toDouble(),
+        goal: p.waterGoalMl.toDouble(),
         valueText: '${p.todayWaterMl} ml',
-        goalText: '/ ${FitnessProvider.kWaterGoalMl} ml',
+        goalText: '/ ${p.waterGoalMl} ml',
         color: const Color(0xFF0A84FF),
       )),
     ]);
@@ -1034,10 +1034,12 @@ class _WeeklySnapshotCard extends StatelessWidget {
         const SizedBox(height: 12),
         Row(children: [
           _WeekStat('Workouts', '${p.weeklyWorkoutDays}/7', _kGreen, Icons.fitness_center_rounded),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           _WeekStat('Kcal Burned', '${p.weeklyCaloriesBurned}', _kRed, Icons.local_fire_department_rounded),
-          const SizedBox(width: 12),
-          _WeekStat('Streak', '${p.workoutStreak} 🔥', _kOrange, null),
+          const SizedBox(width: 8),
+          _WeekStat('Workout 🔥', '${p.workoutStreak}d', _kOrange, null),
+          const SizedBox(width: 8),
+          _WeekStat('Diet 🥗', '${p.calorieStreak}d', const Color(0xFF40C8E0), null),
         ]),
       ]),
     );
@@ -1069,7 +1071,7 @@ class _SmartTip extends StatelessWidget {
 
   String _tip(FitnessProvider p) {
     if (p.todayCaloriesTotal == 0)
-      return '🌅 Start logging meals to track your 1700 kcal goal. Consistency is everything!';
+      return '🌅 Start logging meals to track your ${p.calorieGoal} kcal goal. Consistency is everything!';
     if (p.todayProteinTotal < 60)
       return '💪 Protein is low (${p.todayProteinTotal.round()}g). Add chicken, paneer, eggs or whey to protect muscle.';
     final weekly = p.weeklyWeightChange;

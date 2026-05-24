@@ -52,9 +52,9 @@ class FoodScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${p.todayCalories.toInt()} / ${FitnessProvider.kCalorieGoal} kcal',
+                  '${p.todayCalories.toInt()} / ${p.calorieGoal} kcal',
                   style: TextStyle(
-                    color: p.todayCalories > FitnessProvider.kCalorieGoal
+                    color: p.todayCalories > p.calorieGoal
                         ? Colors.redAccent
                         : const Color(0xFF30D158),
                     fontSize: 12,
