@@ -238,7 +238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.height,
             title: 'Height',
-            subtitle: '${p.heightCm.round()} cm  (5.3 ft — constant)',
+            subtitle: '${p.heightCm.round()} cm (${(p.heightCm / 30.48).toStringAsFixed(1)} ft) — edit in Stats tab',
             onTap: null,
           ),
           const SizedBox(height: 20),
@@ -536,7 +536,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'Version 1.3.5 (Build 36) — Personal fitness tracker',
+            subtitle: 'Version 1.3.6 (Build 37) — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),

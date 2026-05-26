@@ -317,7 +317,9 @@ class _StatsScreenState extends State<StatsScreen> {
                   const SizedBox(height: 24),
 
                   // ── BMR / TDEE ─────────────────────────────────────────
-                  const _SectionLabel('METABOLISM (MIFFLIN–ST JEOR)'),
+                  _SectionLabel(p.latestScaleEntry?.bmr != null
+                      ? 'METABOLISM (SMART SCALE)'
+                      : 'METABOLISM (MIFFLIN–ST JEOR)'),
                   _BmrTdeeCard(provider: p),
                   const SizedBox(height: 24),
 

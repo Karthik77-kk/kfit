@@ -483,9 +483,9 @@ class _MacroRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: _MacroChip(
             label: 'Net',
-            value: '${(p.todayCaloriesTotal - p.totalCaloriesBurned).round()}',
-            goal: 'kcal net',
-            color: _kGreen,
+            value: '${p.netCalories}',
+            goal: p.netCalories <= p.calorieGoal ? 'under goal ✓' : 'over goal',
+            color: p.netCalories <= p.calorieGoal ? _kGreen : _kRed,
             progress: 1.0,
           )),
         ],

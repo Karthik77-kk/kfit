@@ -232,11 +232,15 @@ class FitnessProvider extends ChangeNotifier {
     return 10 * w + 6.25 * _heightCm - 5 * _age + 5;
   }
 
-  /// TDEE = BMR × activity multiplier
+  /// TDEE = BMR × activity multiplier (standard Harris-Benedict activity factors)
   double? get tdee {
     final b = bmr;
     if (b == null) return null;
-    final multiplier = weeklyWorkoutDays >= 4 ? 1.55 : 1.375;
+    final days = weeklyWorkoutDays;
+    final multiplier = days >= 6 ? 1.725   // very active
+        : days >= 4 ? 1.55                 // moderately active
+        : days >= 2 ? 1.375                // lightly active
+        : 1.2;                             // sedentary
     return b * multiplier;
   }
 
@@ -351,8 +355,8 @@ class FitnessProvider extends ChangeNotifier {
     int streak = 0;
     final today = DateTime.now();
 
-    // Check today first
-    final todayCals = _todayFood.fold(0.0, (s, e) => s + e.calories);
+    // Check today first (include supplement calories in threshold)
+    final todayCals = _todayFood.fold(0.0, (s, e) => s + e.calories) + supplementCalories;
     if (todayCals >= 500) streak++;
 
     // Walk backwards through history
