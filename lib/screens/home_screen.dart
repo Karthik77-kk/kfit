@@ -143,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // ── Workout ───────────────────────────────────────────────
                   const _SectionHdr('WORKOUT'),
                   const SizedBox(height: 10),
-                  _WorkoutCard(workout: p.todayWorkout),
+                  _WorkoutCard(workouts: p.todayWorkouts),
                   const SizedBox(height: 20),
 
                   // ── Supplements ───────────────────────────────────────────
@@ -913,12 +913,12 @@ class _PredictionPainter extends CustomPainter {
 
 // ─── Workout Card ──────────────────────────────────────────────────────────────
 class _WorkoutCard extends StatelessWidget {
-  final WorkoutLog? workout;
-  const _WorkoutCard({required this.workout});
+  final List<WorkoutLog> workouts;
+  const _WorkoutCard({required this.workouts});
 
   @override
   Widget build(BuildContext context) {
-    if (workout == null) {
+    if (workouts.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
@@ -935,6 +935,13 @@ class _WorkoutCard extends StatelessWidget {
         ]),
       );
     }
+    final totalExercises = workouts.fold(0, (s, w) => s + w.exercises.length);
+    final displayName = workouts.length == 1
+        ? workouts.first.name
+        : '${workouts.length} sessions done';
+    final sessionLabel = workouts.length == 1
+        ? '$totalExercises exercises logged today'
+        : '$totalExercises exercises across ${workouts.length} sessions';
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16),
@@ -943,9 +950,9 @@ class _WorkoutCard extends StatelessWidget {
         const Icon(Icons.check_circle_rounded, color: _kGreen, size: 26),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(workout!.name,
+          Text(displayName,
             style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold, fontSize: 14)),
-          Text('${workout!.exercises.length} exercises logged today',
+          Text(sessionLabel,
             style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
         ])),
       ]),

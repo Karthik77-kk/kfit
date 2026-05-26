@@ -376,6 +376,10 @@ class FitnessProvider extends ChangeNotifier {
   static const Map<String, double> _exerciseMet = {
     'Running': 9.8, 'Cycling': 8.0, 'Jump Rope': 12.3, 'Swimming': 8.0,
     'HIIT': 10.0, 'Burpees': 8.0, 'Walking': 3.5, 'Jumping Jacks': 8.0,
+    'Sprinting': 13.5, 'Stair Climbing': 8.0, 'Elliptical': 5.5,
+    'Rowing': 7.0, 'Boxing': 9.8, 'Kickboxing': 9.0,
+    'Yoga': 3.0, 'Pilates': 3.5, 'Stretching': 2.5,
+    'Rock Climbing': 8.0, 'Hiking': 6.0, 'Dancing': 5.0,
     'Default': 5.0, // strength training
   };
 
