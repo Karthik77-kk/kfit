@@ -217,7 +217,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<FitnessProvider>();
-    final todayWorkout = provider.todayWorkout;
     final categories = ExerciseDatabase.categories.keys.toList();
 
     return Scaffold(
@@ -235,10 +234,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          // Today's logged workout (if exists)
-          if (todayWorkout != null) ...[
+          // Today's logged workouts (may be multiple sessions)
+          if (provider.todayWorkouts.isNotEmpty) ...[
             SliverToBoxAdapter(
-              child: _TodayWorkoutCard(workout: todayWorkout, provider: provider),
+              child: _TodayWorkoutSummary(workouts: provider.todayWorkouts, provider: provider),
             ),
           ],
 
@@ -409,18 +408,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              Text(ExerciseDatabase.emojiFor(name),
+                                  style: const TextStyle(fontSize: 16, height: 1.1)),
+                              const SizedBox(height: 3),
                               Text(
                                 name,
                                 textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                   color: alreadyAdded ? const Color(0xFF30D158) : Colors.white,
                                 ),
                               ),
                               if (alreadyAdded) ...[
-                                const SizedBox(height: 2),
-                                const Icon(Icons.check, size: 12, color: Color(0xFF30D158)),
+                                const SizedBox(height: 1),
+                                const Icon(Icons.check, size: 11, color: Color(0xFF30D158)),
                               ],
                             ],
                           ),
@@ -433,7 +437,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     crossAxisCount: 3,
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
-                    childAspectRatio: 1.8,
+                    childAspectRatio: 1.2,
                   ),
                 );
               },
@@ -445,14 +449,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 }
 
-class _TodayWorkoutCard extends StatelessWidget {
-  final WorkoutLog workout;
+/// Shows ALL workout sessions saved today, with a combined calorie total.
+class _TodayWorkoutSummary extends StatelessWidget {
+  final List<WorkoutLog> workouts;
   final FitnessProvider provider;
-  const _TodayWorkoutCard({required this.workout, required this.provider});
+  const _TodayWorkoutSummary({required this.workouts, required this.provider});
 
   @override
   Widget build(BuildContext context) {
-    final cals = provider.calculateWorkoutCalories(workout);
+    final totalCals = workouts.fold(0, (s, w) => s + provider.calculateWorkoutCalories(w));
+    final totalExercises = workouts.fold(0, (s, w) => s + w.exercises.length);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(16),
@@ -464,32 +471,41 @@ class _TodayWorkoutCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header: today's summary
           Row(children: [
             const Icon(Icons.check_circle, color: Color(0xFF30D158), size: 18),
             const SizedBox(width: 6),
-            Text(workout.name,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            Text(
+              workouts.length == 1 ? workouts.first.name : "Today's Workout",
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
             const Spacer(),
-            Text('~$cals kcal',
-                style: const TextStyle(color: Color(0xFF30D158), fontSize: 13)),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('~$totalCals kcal',
+                  style: const TextStyle(color: Color(0xFF30D158), fontSize: 13, fontWeight: FontWeight.w600)),
+              if (workouts.length > 1)
+                Text('${workouts.length} sessions · $totalExercises exercises',
+                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 10)),
+            ]),
           ]),
           const SizedBox(height: 8),
-          ...workout.exercises.map((ex) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(children: [
-                  const SizedBox(width: 8),
-                  const Icon(Icons.fiber_manual_record, size: 6, color: Color(0xFF8E8E93)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(ex.name, style: const TextStyle(fontSize: 13))),
-                  Text(
-                    ex.sets.isNotEmpty
-                        ? '${ex.sets.length} × ${ex.sets.first.reps} reps'
-                            '${ex.sets.first.weight > 0 ? ' @ ${ex.sets.first.weight.toStringAsFixed(1)}kg' : ''}'
-                        : '',
-                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-                  ),
-                ]),
-              )),
+          // List exercises from all sessions
+          ...workouts.expand((w) => w.exercises).map((ex) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(children: [
+              Text(ExerciseDatabase.emojiFor(ex.name),
+                  style: const TextStyle(fontSize: 13)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(ex.name, style: const TextStyle(fontSize: 13))),
+              Text(
+                ex.sets.isNotEmpty
+                    ? '${ex.sets.length}×${ex.sets.first.reps}'
+                        '${ex.sets.first.weight > 0 ? ' @${ex.sets.first.weight.toStringAsFixed(1)}kg' : ''}'
+                    : '',
+                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+              ),
+            ]),
+          )),
         ],
       ),
     );

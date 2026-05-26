@@ -302,16 +302,19 @@ class FitnessProvider extends ChangeNotifier {
       _todayFood.where((e) => e.mealType == MealType.snack).toList();
 
   // ── Workout ────────────────────────────────────────────────────────────────
-  WorkoutLog? get todayWorkout {
+  /// All WorkoutLog entries saved today (may be multiple if user saved in batches).
+  List<WorkoutLog> get todayWorkouts {
     final now = DateTime.now();
-    try {
-      return _workoutHistory.lastWhere((w) =>
-          w.date.year == now.year &&
-          w.date.month == now.month &&
-          w.date.day == now.day);
-    } catch (_) {
-      return null;
-    }
+    return _workoutHistory.where((w) =>
+        w.date.year == now.year &&
+        w.date.month == now.month &&
+        w.date.day == now.day).toList();
+  }
+
+  /// Last workout logged today — kept for backward compatibility with home screen.
+  WorkoutLog? get todayWorkout {
+    final list = todayWorkouts;
+    return list.isEmpty ? null : list.last;
   }
 
   List<WorkoutLog> getRecentWorkouts({int days = 14}) {
@@ -342,10 +345,17 @@ class FitnessProvider extends ChangeNotifier {
     return streak;
   }
 
-  /// Consecutive days where calories were logged AND within 200 kcal of goal
+  /// Consecutive days (including today) where ≥500 kcal was logged.
+  /// Simple threshold — rewards logging, not perfection.
   int get calorieStreak {
     int streak = 0;
     final today = DateTime.now();
+
+    // Check today first
+    final todayCals = _todayFood.fold(0.0, (s, e) => s + e.calories);
+    if (todayCals >= 500) streak++;
+
+    // Walk backwards through history
     for (int i = 1; i <= 60; i++) {
       final d = today.subtract(Duration(days: i));
       final key =
@@ -353,8 +363,7 @@ class FitnessProvider extends ChangeNotifier {
       final foods = _foodHistory[key];
       if (foods == null || foods.isEmpty) break;
       final dayCalories = foods.fold(0.0, (s, e) => s + e.calories);
-      // Count if within 200 kcal of goal (1500–1900)
-      if ((dayCalories - calorieGoal).abs() <= 200) {
+      if (dayCalories >= 500) {
         streak++;
       } else {
         break;
@@ -382,10 +391,9 @@ class FitnessProvider extends ChangeNotifier {
     return total;
   }
 
+  /// Sum of calories burned across ALL workouts logged today.
   int get todayCaloriesBurned {
-    final w = todayWorkout;
-    if (w == null) return 0;
-    return calculateWorkoutCalories(w);
+    return todayWorkouts.fold(0, (sum, w) => sum + calculateWorkoutCalories(w));
   }
 
   /// Calories burned from resting (BMR prorated to time of day)

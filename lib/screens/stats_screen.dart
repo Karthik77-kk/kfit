@@ -265,6 +265,15 @@ class _StatsScreenState extends State<StatsScreen> {
                       color: _kBlue,
                       icon: Icons.restaurant_menu_outlined,
                     ),
+                    _StatCard(
+                      label: 'Water Today',
+                      value: p.todayWaterMl >= 1000
+                          ? '${(p.todayWaterMl / 1000).toStringAsFixed(1)}L'
+                          : '${p.todayWaterMl}ml',
+                      sub: '/ ${(p.waterGoalMl / 1000).toStringAsFixed(1)}L goal',
+                      color: _kBlue,
+                      icon: Icons.water_drop_outlined,
+                    ),
                   ]),
                   const SizedBox(height: 12),
                   _Grid2x2(children: [

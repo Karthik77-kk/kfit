@@ -277,6 +277,66 @@ class ExerciseDatabase {
   static List<String> get allExercises =>
       categories.values.expand((e) => e).toList()..sort();
 
+  /// Returns an emoji for the exercise, falling back to 🏋️ for unknown exercises.
+  static String emojiFor(String exercise) {
+    const map = <String, String>{
+      // Chest
+      'Push-ups': '💪', 'Bench Press': '🏋️', 'Incline Bench Press': '📐',
+      'Decline Bench Press': '📉', 'Dumbbell Flyes': '🦋', 'Incline Dumbbell Flyes': '🦋',
+      'Cable Crossover': '🔗', 'Chest Dips': '⬇️', 'Pec Deck': '🦅',
+      'Close-Grip Push-ups': '🤜', 'Wide Push-ups': '🤲', 'Diamond Push-ups': '💎',
+      'Pike Push-ups': '🔺', 'Chest Press Machine': '🖥️',
+      // Back
+      'Pull-ups': '🧗', 'Chin-ups': '🙌', 'Barbell Rows': '🔄',
+      'Dumbbell Rows': '↔️', 'Lat Pulldown': '⬇️', 'Seated Cable Row': '🚣',
+      'T-Bar Row': '🔀', 'Face Pulls': '😤', 'Single-Arm Dumbbell Row': '💪',
+      'Chest-Supported Row': '🪑', 'Pendlay Row': '🏋️', 'Rack Pulls': '🔧',
+      'Good Mornings': '☀️', 'Hyperextensions': '🌉',
+      // Shoulders
+      'Overhead Press': '🏋️', 'Dumbbell Shoulder Press': '💪', 'Arnold Press': '💪',
+      'Lateral Raises': '↔️', 'Front Raises': '⬆️', 'Rear Delt Flyes': '🦅',
+      'Upright Rows': '↑', 'Shrugs': '🤷', 'Cable Lateral Raises': '🔗',
+      'Bradford Press': '🔄', 'Machine Shoulder Press': '🖥️',
+      // Biceps
+      'Barbell Curls': '💪', 'Dumbbell Curls': '💪', 'Hammer Curls': '🔨',
+      'Cable Curls': '🔗', 'Preacher Curls': '🙏', 'Concentration Curls': '🧠',
+      'Incline Dumbbell Curls': '📐', 'Cross-Body Hammer Curls': '✖️',
+      'Reverse Curls': '🔃', 'Zottman Curls': '🔄', 'Machine Curls': '🖥️',
+      // Triceps
+      'Tricep Pushdowns': '⬇️', 'Skull Crushers': '💀', 'Overhead Tricep Extension': '⬆️',
+      'Close-Grip Bench Press': '🤜', 'Tricep Dips': '⬇️', 'Kickbacks': '🦵',
+      'Cable Overhead Extension': '🔗', 'Machine Tricep Press': '🖥️',
+      // Legs
+      'Squats': '🦵', 'Front Squats': '🦵', 'Goblet Squats': '🍷',
+      'Leg Press': '🦵', 'Leg Extensions': '🦵', 'Leg Curls': '🦵',
+      'Romanian Deadlift': '🏋️', 'Stiff-Leg Deadlift': '🏋️', 'Hack Squats': '🦵',
+      'Bulgarian Split Squats': '🦵', 'Walking Lunges': '🚶', 'Reverse Lunges': '🔃',
+      'Step-ups': '⬆️', 'Calf Raises': '🦶', 'Seated Calf Raises': '🪑',
+      'Hip Thrusts': '🍑', 'Glute Bridges': '🌉', 'Sumo Squats': '🦵',
+      'Box Squats': '📦', 'Wall Sit': '🧱', 'Sissy Squats': '🦵',
+      // Core
+      'Plank': '🧘', 'Side Plank': '🧘', 'Crunches': '💪',
+      'Bicycle Crunches': '🚴', 'Russian Twists': '🔄', 'Leg Raises': '🦵',
+      'Hanging Leg Raises': '🧗', 'Cable Crunches': '🔗', 'Ab Wheel Rollout': '⚙️',
+      'Mountain Climbers': '🏔️', 'Flutter Kicks': '🦵', 'Sit-ups': '💪',
+      'Dead Bug': '🐛', 'Hollow Body Hold': '🌙', 'V-ups': 'V', 'Dragon Flags': '🐉',
+      // Full Body / Compound
+      'Deadlift': '💀', 'Power Clean': '⚡', 'Kettlebell Swings': '🔔',
+      'Box Jumps': '📦', 'Battle Ropes': '🌊', "Farmer's Walk": '🌾',
+      'Clean and Press': '🏋️', 'Thrusters': '🚀', 'Turkish Get-up': '🧘',
+      'Sled Push': '🛷', 'Bear Crawl': '🐻',
+      // Cardio
+      'Running': '🏃', 'Walking': '🚶', 'Cycling': '🚴', 'Jump Rope': '🪢',
+      'Swimming': '🏊', 'HIIT': '🔥', 'Burpees': '💥', 'Jumping Jacks': '⭐',
+      'Stair Climbing': '🪜', 'Rowing Machine': '🚣', 'Elliptical': '🌀',
+      'Sprints': '⚡', 'High Knees': '🦵', 'Jump Squats': '🦵',
+      // Forearms
+      'Wrist Curls': '💪', 'Reverse Wrist Curls': '🔃', 'Dead Hangs': '🧗',
+      'Plate Pinches': '🤏', 'Towel Pull-ups': '🧗',
+    };
+    return map[exercise] ?? '🏋️';
+  }
+
   static String? categoryOf(String exercise) {
     for (final entry in categories.entries) {
       if (entry.value.contains(exercise)) return entry.key;
@@ -869,6 +929,34 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Hara Bhara Kebab (2 pcs)', calories: 140, protein: 5, category: 'Fried & Grilled', emoji: '🍢', serving: '2 pieces'),
   FoodItem(name: 'Masala Papad', calories: 80, protein: 3, category: 'Fried & Grilled', emoji: '🌾', serving: '1 piece'),
   FoodItem(name: 'Fried Papad', calories: 130, protein: 4, category: 'Fried & Grilled', emoji: '🌾', serving: '1 piece'),
+
+  // ── Middle Eastern / Shawarma ─────────────────────────────────────────────
+  FoodItem(name: 'Chicken Shawarma (Wrap)', calories: 450, protein: 30, category: 'Fast Food', emoji: '🌯', serving: '1 wrap (~250g)'),
+  FoodItem(name: 'Mutton Shawarma (Wrap)', calories: 520, protein: 28, category: 'Fast Food', emoji: '🌯', serving: '1 wrap (~250g)'),
+  FoodItem(name: 'Veg Shawarma (Wrap)', calories: 350, protein: 10, category: 'Fast Food', emoji: '🌯', serving: '1 wrap (~200g)'),
+  FoodItem(name: 'Shawarma Plate (Chicken)', calories: 580, protein: 38, category: 'Fast Food', emoji: '🍽️', serving: '1 plate with rice'),
+  FoodItem(name: 'Falafel Wrap', calories: 380, protein: 12, category: 'Fast Food', emoji: '🌯', serving: '1 wrap'),
+  FoodItem(name: 'Hummus with Pita', calories: 280, protein: 9, category: 'Fast Food', emoji: '🫓', serving: '3 tbsp hummus + 1 pita'),
+  FoodItem(name: 'Kebab Roll', calories: 420, protein: 28, category: 'Fast Food', emoji: '🌯', serving: '1 roll'),
+
+  // ── More Andhra & Telangana ───────────────────────────────────────────────
+  FoodItem(name: 'Vankaya Iguru (Andhra Brinjal Fry)', calories: 160, protein: 3, category: 'Andhra & Telangana', emoji: '🍆', serving: '150g'),
+  FoodItem(name: 'Bendakaya Fry (Okra/Bhindi Fry)', calories: 130, protein: 3, category: 'Andhra & Telangana', emoji: '🌿', serving: '150g'),
+  FoodItem(name: 'Aloo Iguru (Andhra Potato Fry)', calories: 180, protein: 3, category: 'Andhra & Telangana', emoji: '🥔', serving: '150g'),
+  FoodItem(name: 'Tomato Pappu (Tomato Dal)', calories: 135, protein: 8, category: 'Andhra & Telangana', emoji: '🍅', serving: '1 katori (150g)'),
+  FoodItem(name: 'Spinach Pappu (Palakura Pappu)', calories: 130, protein: 9, category: 'Andhra & Telangana', emoji: '🥬', serving: '1 katori (150g)'),
+  FoodItem(name: 'Mamidikaya Pappu (Raw Mango Dal)', calories: 140, protein: 8, category: 'Andhra & Telangana', emoji: '🥭', serving: '1 katori (150g)'),
+  FoodItem(name: 'Charu (Andhra Rasam)', calories: 40, protein: 2, category: 'Andhra & Telangana', emoji: '🍲', serving: '1 cup (200ml)'),
+  FoodItem(name: 'Kodi Vepudu (Andhra Chicken Fry)', calories: 290, protein: 30, category: 'Andhra & Telangana', emoji: '🍗', serving: '200g'),
+  FoodItem(name: 'Ragi Sangati', calories: 180, protein: 4, category: 'Andhra & Telangana', emoji: '🌾', serving: '200g ball'),
+  FoodItem(name: 'Gongura Pachadi (Sorrel Chutney)', calories: 50, protein: 1, category: 'Andhra & Telangana', emoji: '🌿', serving: '2 tbsp (40g)'),
+  FoodItem(name: 'Avakaya (Raw Mango Pickle)', calories: 35, protein: 0.5, category: 'Andhra & Telangana', emoji: '🥭', serving: '1 tbsp (20g)'),
+  FoodItem(name: 'Pesarapappu Payasam', calories: 210, protein: 7, category: 'Andhra & Telangana', emoji: '🍮', serving: '1 bowl (150ml)'),
+  FoodItem(name: 'Andhra Meals Thali (Veg)', calories: 780, protein: 22, category: 'Andhra & Telangana', emoji: '🍽️', serving: '1 full thali'),
+  FoodItem(name: 'Andhra Meals Thali (Non-Veg)', calories: 950, protein: 45, category: 'Andhra & Telangana', emoji: '🍽️', serving: '1 full thali'),
+  FoodItem(name: 'Bamboo Chicken (Gudala Kodi)', calories: 320, protein: 35, category: 'Andhra & Telangana', emoji: '🎋', serving: '200g'),
+  FoodItem(name: 'Natukodi Pulusu (Country Chicken Stew)', calories: 270, protein: 30, category: 'Andhra & Telangana', emoji: '🍗', serving: '200g'),
+  FoodItem(name: 'Mutton Pulusu', calories: 310, protein: 28, category: 'Andhra & Telangana', emoji: '🍖', serving: '200g'),
 
   // ── Supplement ────────────────────────────────────────────────────────────
   FoodItem(name: 'Whey Protein (1 scoop)', calories: 130, protein: 25, category: 'Supplement', emoji: '💪', serving: '1 scoop (33g)'),
