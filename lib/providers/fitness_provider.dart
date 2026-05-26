@@ -359,15 +359,17 @@ class FitnessProvider extends ChangeNotifier {
     final todayCals = _todayFood.fold(0.0, (s, e) => s + e.calories) + supplementCalories;
     if (todayCals >= 500) streak++;
 
-    // Walk backwards through history
+    // Walk backwards through history (include supplement calories for past days too)
     for (int i = 1; i <= 60; i++) {
       final d = today.subtract(Duration(days: i));
       final key =
           '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
       final foods = _foodHistory[key];
-      if (foods == null || foods.isEmpty) break;
-      final dayCalories = foods.fold(0.0, (s, e) => s + e.calories);
-      if (dayCalories >= 500) {
+      final supp = _supplementHistory[key];
+      final dayFoodCals = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
+      final daySuppCals = (supp?.whey ?? false) ? 120.0 : 0.0;
+      final dayCals = dayFoodCals + daySuppCals;
+      if (dayCals >= 500) {
         streak++;
       } else {
         break;
@@ -380,8 +382,8 @@ class FitnessProvider extends ChangeNotifier {
   static const Map<String, double> _exerciseMet = {
     'Running': 9.8, 'Cycling': 8.0, 'Jump Rope': 12.3, 'Swimming': 8.0,
     'HIIT': 10.0, 'Burpees': 8.0, 'Walking': 3.5, 'Jumping Jacks': 8.0,
-    'Sprinting': 13.5, 'Stair Climbing': 8.0, 'Elliptical': 5.5,
-    'Rowing': 7.0, 'Boxing': 9.8, 'Kickboxing': 9.0,
+    'Sprinting': 13.5, 'Sprints': 13.5, 'Stair Climbing': 8.0, 'Elliptical': 5.5,
+    'Rowing': 7.0, 'Rowing Machine': 7.0, 'Boxing': 9.8, 'Kickboxing': 9.0,
     'Yoga': 3.0, 'Pilates': 3.5, 'Stretching': 2.5,
     'Rock Climbing': 8.0, 'Hiking': 6.0, 'Dancing': 5.0,
     'Default': 5.0, // strength training
@@ -570,11 +572,12 @@ class FitnessProvider extends ChangeNotifier {
       _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
     }
 
-    // Historical food, water, supplement for last 30 days
+    // Historical food, water, supplement for last 60 days
+    // (60 matches the calorieStreak look-back window)
     _foodHistory = {};
     _waterHistory = {};
     _supplementHistory = {};
-    for (int i = 1; i <= 30; i++) {
+    for (int i = 1; i <= 60; i++) {
       final date = DateTime.now().subtract(Duration(days: i));
       final key =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
