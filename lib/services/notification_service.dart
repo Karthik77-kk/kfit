@@ -183,8 +183,18 @@ class NotificationService {
 
   // ── Test notification (fires immediately) ─────────────────────────────────
 
-  Future<bool> sendTestNotification() async {
+  /// Returns:
+  ///   'ok'               — notification was sent
+  ///   'permission_denied'— POST_NOTIFICATIONS not granted (user must enable in Settings)
+  ///   'error:<msg>'      — unexpected exception
+  Future<String> sendTestNotification() async {
     try {
+      // Hard-check the runtime permission BEFORE calling show().
+      // _plugin.show() silently drops the notification when permission is denied —
+      // it does NOT throw — so without this check the caller would wrongly think it worked.
+      final enabled = await areNotificationsEnabled();
+      if (!enabled) return 'permission_denied';
+
       await _plugin.show(
         _testNotificationId,
         '🔔 Notifications are working!',
@@ -199,9 +209,9 @@ class NotificationService {
           ),
         ),
       );
-      return true;
-    } catch (_) {
-      return false;
+      return 'ok';
+    } catch (e) {
+      return 'error:$e';
     }
   }
 

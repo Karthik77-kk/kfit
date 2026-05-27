@@ -18,6 +18,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _fixingNotif = false;
   bool? _batteryOptIgnored;
   bool? _exactAlarmGranted;
+  bool? _notifPermGranted; // POST_NOTIFICATIONS runtime permission (Android 13+)
 
   Future<void> _export() async {
     setState(() => _exporting = true);
@@ -72,15 +73,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _testNotification() async {
     setState(() => _testingNotif = true);
-    final ok = await NotificationService().sendTestNotification();
+    final result = await NotificationService().sendTestNotification();
+    // Refresh permission status in parallel
+    await _checkBatteryStatus();
     if (mounted) {
       setState(() => _testingNotif = false);
+
+      String msg;
+      Color bg;
+      if (result == 'ok') {
+        msg = '✅ Test notification sent! Check your status bar.';
+        bg = const Color(0xFF30D158);
+      } else if (result == 'permission_denied') {
+        msg = '🚫 Notification permission denied — tap "Fix Notifications" or go to phone Settings → Apps → K Fitness → Notifications → Allow';
+        bg = const Color(0xFFFF453A);
+      } else {
+        msg = '❌ Error: $result';
+        bg = const Color(0xFFFF453A);
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(ok
-            ? '✅ Test notification sent! Check your status bar.'
-            : '❌ Failed — check notification permissions in Settings'),
-        backgroundColor: ok ? const Color(0xFF30D158) : const Color(0xFFFF453A),
-        duration: const Duration(seconds: 4),
+        content: Text(msg),
+        backgroundColor: bg,
+        duration: const Duration(seconds: 6),
       ));
     }
   }
@@ -127,10 +142,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final ns = NotificationService();
     final ignored = await ns.isIgnoringBatteryOptimizations();
     final exactOk = await ns.canScheduleExactAlarms();
+    final notifOk = await ns.areNotificationsEnabled();
     if (mounted) {
       setState(() {
         _batteryOptIgnored = ignored;
         _exactAlarmGranted = exactOk;
+        _notifPermGranted = notifOk;
       });
     }
   }
@@ -141,10 +158,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final p = context.read<FitnessProvider>();
       final ns = NotificationService();
       await ns.initialize();
-      // Request battery exemption
+      // Step 1: Request POST_NOTIFICATIONS runtime permission (Android 13+)
+      await ns.requestPermission();
+      // Step 2: Request battery optimization exclusion
       await ns.requestIgnoreBatteryOptimizations();
-      // Request exact alarm permission (Android 12+)
+      // Step 3: Open exact alarm settings (Android 12+) — user must grant manually
       await ns.openExactAlarmSettings();
+      // Step 4: Reschedule everything now that permissions may be granted
       await ns.rescheduleAll(
         waterInterval: p.waterReminderIntervalHours,
         walkInterval: p.walkReminderIntervalHours,
@@ -152,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _checkBatteryStatus();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Notifications rescheduled! Check prompts if shown.'),
+          content: Text('✅ Permissions requested & notifications rescheduled!'),
           backgroundColor: Color(0xFF30D158),
           duration: Duration(seconds: 4),
         ));
@@ -245,6 +265,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // ── NOTIFICATIONS ─────────────────────────────────────────
           _Header('Notifications'),
+          // Notification permission status banner (Android 13+)
+          if (_notifPermGranted != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1C1C1E),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _notifPermGranted == true
+                      ? const Color(0xFF30D158).withOpacity(0.4)
+                      : const Color(0xFFFF453A).withOpacity(0.5),
+                  width: 1.2,
+                ),
+              ),
+              child: ListTile(
+                leading: Icon(
+                  _notifPermGranted == true
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_off_rounded,
+                  color: _notifPermGranted == true
+                      ? const Color(0xFF30D158)
+                      : const Color(0xFFFF453A),
+                ),
+                title: Text(
+                  _notifPermGranted == true
+                      ? 'Notification Permission ✓'
+                      : '⚠️ Notification Permission Denied',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _notifPermGranted == true
+                        ? const Color(0xFF30D158)
+                        : const Color(0xFFFF453A),
+                  ),
+                ),
+                subtitle: Text(
+                  _notifPermGranted == true
+                      ? 'App is allowed to send notifications'
+                      : 'Tap "Fix Notifications" below, or go to phone Settings → Apps → K Fitness → Notifications → Allow all',
+                  style: TextStyle(
+                    color: _notifPermGranted == true
+                        ? const Color(0xFF30D158).withOpacity(0.8)
+                        : const Color(0xFFFF8C00),
+                    fontSize: 12,
+                  ),
+                ),
+                trailing: _notifPermGranted == true
+                    ? const Icon(Icons.check_circle, color: Color(0xFF30D158), size: 20)
+                    : const Icon(Icons.open_in_new, color: Color(0xFFFF453A), size: 20),
+                onTap: _notifPermGranted == true
+                    ? null
+                    : () => NotificationService().openNotificationSettings(),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
           _Tile(
             icon: Icons.notifications_outlined,
             title: 'Test Notification',
@@ -412,21 +487,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF1C1C1E),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFFF9F0A).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFFFF9F0A).withOpacity(0.4)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('📱 Samsung / Xiaomi / OnePlus / Realme users',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(height: 6),
+              const Text('📱 iQOO / Vivo / Samsung / Xiaomi / OnePlus users',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFFFF9F0A))),
+              const SizedBox(height: 8),
               const Text(
-                'These phones aggressively kill background apps. Do all 3 steps:\n\n'
+                '🔴  iQOO / Vivo — do ALL 5 steps:\n'
+                '1. Tap "Fix Notifications" above (grants permission)\n'
+                '2. Settings → Apps → K Fitness → Battery → Background activity → Allow\n'
+                '3. Settings → Apps → K Fitness → Battery → Battery usage → No restriction\n'
+                '4. Settings → Battery → App battery optimization → K Fitness → No restriction\n'
+                '5. Enable Auto-start: Settings → Apps → K Fitness → Auto-start → ON\n\n'
+                'Optional but recommended:\n'
+                '• Open Recent Apps → long-press K Fitness → tap 🔒 Lock (prevents OS kill)\n\n'
+                '🟡  Samsung / Xiaomi / OnePlus / Realme:\n'
                 '1. Tap "Fix Notifications" above\n'
                 '2. Settings → Apps → K Fitness → Battery → Unrestricted\n'
                 '3. Allow "Exact alarms" if prompted (Android 12+)\n\n'
-                'After a phone reboot, open K Fitness once to restore reminders.',
-                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12, height: 1.6),
+                'After a reboot, open K Fitness once to restore all reminders.',
+                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12, height: 1.65),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               GestureDetector(
                 onTap: () => NotificationService().openNotificationSettings(),
                 child: const Text(
@@ -536,7 +619,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'Version 1.3.7 (Build 38) — Personal fitness tracker',
+            subtitle: 'Version 1.3.8 (Build 39) — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),
