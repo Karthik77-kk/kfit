@@ -59,8 +59,8 @@ jobs:
           # Create key.properties
           printf 'storePassword=kfitness2024\nkeyPassword=kfitness2024\nkeyAlias=kfitness\nstoreFile=kfitness.jks\n' > android/key.properties
 
-          # Write complete known-good build.gradle (Groovy) — no fragile patching.
-          # Deletes .kts variant if Flutter generated Kotlin DSL instead of Groovy.
+          # Write complete known-good build.gradle using a list of lines (no triple-quote
+          # block that would violate YAML indentation rules for run: | blocks).
           python3 - << 'PYEOF'
           import os
           kts = 'android/app/build.gradle.kts'
@@ -68,68 +68,69 @@ jobs:
           if os.path.exists(kts):
               os.remove(kts)
               print('Removed build.gradle.kts')
-          content = r"""plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id "dev.flutter.flutter-gradle-plugin"
-}
-
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('key.properties')
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-
-android {
-    namespace "com.example.karthik_fitness"
-    compileSdk flutter.compileSdkVersion
-    ndkVersion flutter.ndkVersion
-
-    compileOptions {
-        coreLibraryDesugaringEnabled true
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
-    }
-
-    defaultConfig {
-        applicationId "com.example.karthik_fitness"
-        minSdk flutter.minSdkVersion
-        targetSdk flutter.targetSdkVersion
-        versionCode flutter.versionCode
-        versionName flutter.versionName
-    }
-
-    signingConfigs {
-        release {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            storePassword keystoreProperties['storePassword']
-        }
-    }
-
-    buildTypes {
-        release {
-            signingConfig signingConfigs.release
-            minifyEnabled false
-            shrinkResources false
-        }
-    }
-}
-
-flutter {
-    source "../.."
-}
-
-dependencies {
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"
-}
-"""
-          open(groovy, 'w').write(content)
+          lines = [
+              'plugins {',
+              '    id "com.android.application"',
+              '    id "kotlin-android"',
+              '    id "dev.flutter.flutter-gradle-plugin"',
+              '}',
+              '',
+              'def keystoreProperties = new Properties()',
+              "def keystorePropertiesFile = rootProject.file('key.properties')",
+              'if (keystorePropertiesFile.exists()) {',
+              '    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))',
+              '}',
+              '',
+              'android {',
+              '    namespace "com.example.karthik_fitness"',
+              '    compileSdk flutter.compileSdkVersion',
+              '    ndkVersion flutter.ndkVersion',
+              '',
+              '    compileOptions {',
+              '        coreLibraryDesugaringEnabled true',
+              '        sourceCompatibility JavaVersion.VERSION_11',
+              '        targetCompatibility JavaVersion.VERSION_11',
+              '    }',
+              '',
+              '    kotlinOptions {',
+              '        jvmTarget = "11"',
+              '    }',
+              '',
+              '    defaultConfig {',
+              '        applicationId "com.example.karthik_fitness"',
+              '        minSdk flutter.minSdkVersion',
+              '        targetSdk flutter.targetSdkVersion',
+              '        versionCode flutter.versionCode',
+              '        versionName flutter.versionName',
+              '    }',
+              '',
+              '    signingConfigs {',
+              '        release {',
+              "            keyAlias keystoreProperties['keyAlias']",
+              "            keyPassword keystoreProperties['keyPassword']",
+              "            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null",
+              "            storePassword keystoreProperties['storePassword']",
+              '        }',
+              '    }',
+              '',
+              '    buildTypes {',
+              '        release {',
+              '            signingConfig signingConfigs.release',
+              '            minifyEnabled false',
+              '            shrinkResources false',
+              '        }',
+              '    }',
+              '}',
+              '',
+              'flutter {',
+              '    source "../.."',
+              '}',
+              '',
+              'dependencies {',
+              '    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"',
+              '}',
+          ]
+          open(groovy, 'w').write('\n'.join(lines) + '\n')
           print('build.gradle written with release signing + desugaring')
           PYEOF
 
