@@ -420,7 +420,7 @@ class _WeightHistory extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 28,
-                      interval: (entries.length / 4).ceilToDouble().clamp(1, 20),
+                      interval: (entries.length / 4).ceilToDouble().clamp(1.0, 20.0),
                       getTitlesWidget: (v, _) {
                         final idx = v.toInt();
                         if (idx < 0 || idx >= entries.length) {

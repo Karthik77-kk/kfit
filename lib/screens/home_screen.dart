@@ -1390,7 +1390,6 @@ class _MacroLegendRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = total > 0 ? (grams / total * 4 / (total * 4 / total)).clamp(0.0, 1.0) : 0.0;
     return Row(
       children: [
         Container(
