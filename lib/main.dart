@@ -152,6 +152,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Cold-start reschedule: ensure notifications are active when the app launches
+    // from the icon (not just resumed from background).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _rescheduleNotifications());
   }
 
   @override
@@ -160,24 +163,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     super.dispose();
   }
 
+  Future<void> _rescheduleNotifications() async {
+    final now = DateTime.now();
+    if (_lastReschedule != null &&
+        now.difference(_lastReschedule!).inMinutes < 30) return;
+    _lastReschedule = now;
+    final prefs = await SharedPreferences.getInstance();
+    final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
+    final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
+    await NotificationService().rescheduleAll(
+      waterInterval: waterInterval,
+      walkInterval: walkInterval,
+    );
+  }
+
   /// Re-schedule notifications whenever the app comes to the foreground.
-  /// Throttled to once every 4 hours to avoid hammering on every resume.
+  /// Throttled to once every 30 minutes (was 4 hours — too slow for iQOO
+  /// which cancels AlarmManager alarms aggressively after deep sleep).
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      final now = DateTime.now();
-      if (_lastReschedule == null ||
-          now.difference(_lastReschedule!).inHours >= 4) {
-        _lastReschedule = now;
-        SharedPreferences.getInstance().then((prefs) {
-          final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
-          final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
-          NotificationService().rescheduleAll(
-            waterInterval: waterInterval,
-            walkInterval: walkInterval,
-          );
-        });
-      }
+      _rescheduleNotifications();
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../providers/fitness_provider.dart';
+import '../models/models.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -57,63 +58,210 @@ class _HistoryScreenState extends State<HistoryScreen>
   }
 }
 
-class _WorkoutHistory extends StatelessWidget {
+// ── Workout History — grouped by date ────────────────────────────────────────
+
+class _WorkoutHistory extends StatefulWidget {
   const _WorkoutHistory();
+  @override
+  State<_WorkoutHistory> createState() => _WorkoutHistoryState();
+}
+
+class _WorkoutHistoryState extends State<_WorkoutHistory> {
+  final Set<String> _expanded = {};
+
+  String _dateKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String _displayDate(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date  = DateTime(d.year, d.month, d.day);
+    final diff  = today.difference(date).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    const months = ['Jan','Feb','Mar','Apr','May','Jun',
+                    'Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${d.day} ${months[d.month - 1]}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
-    final workouts = p.getRecentWorkouts(days: 30);
+    final workouts = p.getRecentWorkouts(days: 60);
     if (workouts.isEmpty) {
-      return const Center(child: Text('No workouts logged yet',
-          style: TextStyle(color: Color(0xFF8E8E93))));
+      return const Center(
+        child: Text('No workouts logged yet',
+            style: TextStyle(color: Color(0xFF8E8E93))));
     }
+
+    // Group by date key
+    final Map<String, List<WorkoutLog>> grouped = {};
+    for (final w in workouts) {
+      final key = _dateKey(w.date);
+      grouped.putIfAbsent(key, () => []).add(w);
+    }
+    final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: workouts.length,
+      itemCount: sortedKeys.length,
       itemBuilder: (ctx, i) {
-        final w = workouts[i];
-        final cals = p.calculateWorkoutCalories(w);
+        final key = sortedKeys[i];
+        final sessions = grouped[key]!;
+        final totalCal = sessions.fold(0, (s, w) => s + p.calculateWorkoutCalories(w));
+        final totalEx  = sessions.fold(0, (s, w) => s + w.exercises.length);
+        final isOpen   = _expanded.contains(key);
+        final date     = sessions.first.date;
+
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text(w.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
-              Text('~$cals kcal',
-                  style: const TextStyle(color: Color(0xFF30D158), fontSize: 13)),
-            ]),
-            const SizedBox(height: 4),
-            Text(
-              '${w.date.day}/${w.date.month}/${w.date.year}  •  ${w.exercises.length} exercise${w.exercises.length == 1 ? '' : 's'}',
-              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-            ),
-            if (w.exercises.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ...w.exercises.map((ex) => Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Row(children: [
-                  const Icon(Icons.fiber_manual_record, size: 6, color: Color(0xFF8E8E93)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(ex.name, style: const TextStyle(fontSize: 13))),
-                  Text(
-                    ex.sets.isNotEmpty
-                        ? '${ex.sets.length}×${ex.sets.first.reps}'
-                            '${ex.sets.first.weight > 0 ? ' @ ${ex.sets.first.weight.toStringAsFixed(1)}kg' : ''}'
-                        : '',
-                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+            color: const Color(0xFF1C1C1E),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              // ── Day summary header ──────────────────────────────────────
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => setState(() {
+                  if (isOpen) _expanded.remove(key); else _expanded.add(key);
+                }),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF30D158).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.fitness_center_rounded,
+                            color: Color(0xFF30D158), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_displayDate(date),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 15)),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${sessions.length} session${sessions.length > 1 ? 's' : ''}'
+                              '  ·  $totalEx exercise${totalEx != 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                  color: Color(0xFF8E8E93), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('~$totalCal kcal',
+                              style: const TextStyle(
+                                  color: Color(0xFF30D158),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14)),
+                          const SizedBox(height: 2),
+                          Icon(
+                            isOpen
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            color: const Color(0xFF8E8E93), size: 20),
+                        ],
+                      ),
+                    ],
                   ),
-                ]),
-              )),
+                ),
+              ),
+
+              // ── Expandable session details ──────────────────────────────
+              if (isOpen) ...[
+                const Divider(color: Color(0xFF38383A), height: 1, indent: 14, endIndent: 14),
+                ...sessions.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final w   = entry.value;
+                  final cal = p.calculateWorkoutCalories(w);
+                  return _SessionTile(
+                    workout: w,
+                    calories: cal,
+                    sessionLabel: sessions.length > 1
+                        ? 'Session ${idx + 1} of ${sessions.length}'
+                        : null,
+                  );
+                }),
+              ],
             ],
-          ]),
+          ),
         );
       },
     );
   }
 }
+
+class _SessionTile extends StatelessWidget {
+  final WorkoutLog workout;
+  final int calories;
+  final String? sessionLabel;
+  const _SessionTile({required this.workout, required this.calories, this.sessionLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  sessionLabel != null ? '${workout.name}  ($sessionLabel)' : workout.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+              ),
+              Text('$calories kcal',
+                  style: const TextStyle(
+                      color: Color(0xFFFF9F0A), fontSize: 12,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...workout.exercises.map((ex) => Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 3),
+                  child: Icon(Icons.circle, size: 5, color: Color(0xFF8E8E93)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(ex.name,
+                      style: const TextStyle(fontSize: 13, color: Colors.white70)),
+                ),
+                if (ex.sets.isNotEmpty)
+                  Text(
+                    '${ex.sets.length} set${ex.sets.length > 1 ? 's' : ''}'
+                    '${ex.sets.first.reps > 0 ? '  ×${ex.sets.first.reps}' : ''}'
+                    '${ex.sets.first.weight > 0 ? '  @${ex.sets.first.weight.toStringAsFixed(1)}kg' : ''}',
+                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                  ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Nutrition History ─────────────────────────────────────────────────────────
 
 class _NutritionHistory extends StatelessWidget {
   const _NutritionHistory();
@@ -134,18 +282,11 @@ class _NutritionHistory extends StatelessWidget {
         final day = sortedDays[i];
         final entries = history[day] ?? [];
         final supp = suppHistory[day];
-
-        // Include whey protein calories & protein if checked that day
         final suppCal  = (supp?.whey == true) ? 120.0 : 0.0;
         final suppProt = (supp?.whey == true) ?  25.0 : 0.0;
-
         final totalCal  = entries.fold(0.0, (s, e) => s + e.calories)  + suppCal;
         final totalProt = entries.fold(0.0, (s, e) => s + e.protein) + suppProt;
-
-        final suppLabel = supp != null
-            ? ' · 💊 ${supp.takenCount}/3 supps'
-            : '';
-
+        final suppLabel = supp != null ? ' · 💊 ${supp.takenCount}/3' : '';
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),
@@ -155,7 +296,7 @@ class _NutritionHistory extends StatelessWidget {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(day, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               Text(
-                '${entries.length} food items$suppLabel',
+                '${entries.length} item${entries.length != 1 ? 's' : ''}$suppLabel',
                 style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
               ),
             ])),
@@ -172,61 +313,255 @@ class _NutritionHistory extends StatelessWidget {
   }
 }
 
+// ── Weight History — improved chart ──────────────────────────────────────────
+
 class _WeightHistory extends StatelessWidget {
   const _WeightHistory();
+
+  String _shortDate(DateTime d) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun',
+                    'Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${d.day} ${months[d.month - 1]}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
-    final entries = p.getRecentBodyEntries(days: 30);
+    final entries = p.getRecentBodyEntries(days: 60);
     if (entries.length < 2) {
-      return const Center(child: Text('Log at least 2 weight entries to see a chart',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFF8E8E93))));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('Log at least 2 weight entries\nto see your progress chart',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF8E8E93), height: 1.6)),
+        ),
+      );
     }
-    final spots = entries.asMap().entries.map((e) =>
-        FlSpot(e.key.toDouble(), e.value.weightKg)).toList();
-    return Padding(
+
+    final spots = entries.asMap().entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value.weightKg))
+        .toList();
+
+    final weights = entries.map((e) => e.weightKg).toList();
+    final minW = weights.reduce((a, b) => a < b ? a : b);
+    final maxW = weights.reduce((a, b) => a > b ? a : b);
+    final padding = (maxW - minW) < 1.0 ? 1.0 : (maxW - minW) * 0.2;
+    final yMin = (minW - padding).floorToDouble();
+    final yMax = (maxW + padding).ceilToDouble();
+
+    final change = entries.last.weightKg - entries.first.weightKg;
+    final isLoss = change <= 0;
+
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(children: [
-        SizedBox(
-          height: 200,
-          child: LineChart(LineChartData(
-            gridData: const FlGridData(show: false),
-            titlesData: const FlTitlesData(show: false),
-            borderData: FlBorderData(show: false),
-            lineBarsData: [
-              LineChartBarData(
-                spots: spots,
-                isCurved: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Stats row ──────────────────────────────────────────────────
+          Row(
+            children: [
+              _StatBadge(
+                label: 'Current',
+                value: '${entries.last.weightKg.toStringAsFixed(1)} kg',
                 color: const Color(0xFF30D158),
-                barWidth: 2.5,
-                dotData: const FlDotData(show: false),
-                belowBarData: BarAreaData(
-                  show: true,
-                  color: const Color(0xFF30D158).withOpacity(0.1),
-                ),
+              ),
+              const SizedBox(width: 10),
+              _StatBadge(
+                label: '${entries.length}d change',
+                value: '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)} kg',
+                color: isLoss ? const Color(0xFF30D158) : const Color(0xFFFF9F0A),
+              ),
+              const SizedBox(width: 10),
+              _StatBadge(
+                label: 'Goal',
+                value: '${p.goalWeightKg.toStringAsFixed(1)} kg',
+                color: const Color(0xFF40C8E0),
               ),
             ],
-          )),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: ListView.builder(
-            itemCount: entries.length,
-            itemBuilder: (ctx, i) {
-              final e = entries[entries.length - 1 - i];
-              return ListTile(
-                title: Text('${e.date.day}/${e.date.month}/${e.date.year}'),
-                trailing: Text('${e.weightKg.toStringAsFixed(1)} kg',
-                    style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF30D158))),
-              );
-            },
           ),
-        ),
-      ]),
+          const SizedBox(height: 20),
+
+          // ── Chart ──────────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            height: 220,
+            child: LineChart(
+              LineChartData(
+                minY: yMin,
+                maxY: yMax,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: padding.clamp(0.5, 2.0),
+                  getDrawingHorizontalLine: (_) => FlLine(
+                    color: const Color(0xFF38383A),
+                    strokeWidth: 0.8,
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 42,
+                      interval: padding.clamp(0.5, 2.0),
+                      getTitlesWidget: (v, _) => Text(
+                        v.toStringAsFixed(1),
+                        style: const TextStyle(
+                            color: Color(0xFF8E8E93), fontSize: 10),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      interval: (entries.length / 4).ceilToDouble().clamp(1, 20),
+                      getTitlesWidget: (v, _) {
+                        final idx = v.toInt();
+                        if (idx < 0 || idx >= entries.length) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            _shortDate(entries[idx].date),
+                            style: const TextStyle(
+                                color: Color(0xFF8E8E93), fontSize: 10),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  // Goal line (dashed)
+                  if (p.goalWeightKg >= yMin && p.goalWeightKg <= yMax)
+                    LineChartBarData(
+                      spots: [
+                        FlSpot(0, p.goalWeightKg),
+                        FlSpot((entries.length - 1).toDouble(), p.goalWeightKg),
+                      ],
+                      color: const Color(0xFF40C8E0).withOpacity(0.5),
+                      barWidth: 1.5,
+                      dotData: const FlDotData(show: false),
+                      dashArray: [6, 4],
+                    ),
+                  // Weight trend line
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    curveSmoothness: 0.3,
+                    color: const Color(0xFF30D158),
+                    barWidth: 2.5,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, _, __, ___) =>
+                          FlDotCirclePainter(
+                            radius: 3,
+                            color: const Color(0xFF30D158),
+                            strokeColor: Colors.black,
+                            strokeWidth: 1.5,
+                          ),
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF30D158).withOpacity(0.25),
+                          const Color(0xFF30D158).withOpacity(0.0),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Row(children: [
+              Container(width: 16, height: 2,
+                  color: const Color(0xFF40C8E0).withOpacity(0.5)),
+              const SizedBox(width: 6),
+              const Text('Goal weight',
+                  style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
+            ]),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Log list ───────────────────────────────────────────────────
+          ...entries.reversed.take(10).map((e) => Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Text(_shortDate(e.date),
+                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13)),
+                const Spacer(),
+                Text('${e.weightKg.toStringAsFixed(1)} kg',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF30D158),
+                        fontSize: 14)),
+              ],
+            ),
+          )),
+        ],
+      ),
     );
   }
 }
+
+class _StatBadge extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _StatBadge({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.25), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: TextStyle(color: color.withOpacity(0.8), fontSize: 10)),
+            const SizedBox(height: 2),
+            Text(value,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.w700, fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Water History ─────────────────────────────────────────────────────────────
 
 class _WaterHistory extends StatelessWidget {
   const _WaterHistory();
@@ -245,7 +580,8 @@ class _WaterHistory extends StatelessWidget {
       itemBuilder: (ctx, i) {
         final day = sortedDays[i];
         final ml = history[day] ?? 0;
-        final progress = (ml / 2500).clamp(0.0, 1.0);
+        final goal = p.waterGoalMl;
+        final progress = (ml / goal).clamp(0.0, 1.0);
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),
@@ -257,7 +593,7 @@ class _WaterHistory extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
               Text('$ml ml',
                   style: TextStyle(
-                    color: ml >= 2500 ? const Color(0xFF30D158) : const Color(0xFF40C8E0),
+                    color: ml >= goal ? const Color(0xFF30D158) : const Color(0xFF40C8E0),
                     fontWeight: FontWeight.w600,
                   )),
             ]),
@@ -268,7 +604,7 @@ class _WaterHistory extends StatelessWidget {
                 value: progress,
                 backgroundColor: const Color(0xFF2C2C2E),
                 valueColor: AlwaysStoppedAnimation(
-                    ml >= 2500 ? const Color(0xFF30D158) : const Color(0xFF40C8E0)),
+                    ml >= goal ? const Color(0xFF30D158) : const Color(0xFF40C8E0)),
                 minHeight: 5,
               ),
             ),

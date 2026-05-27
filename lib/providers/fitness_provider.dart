@@ -171,6 +171,48 @@ class FitnessProvider extends ChangeNotifier {
   /// Total protein including supplements
   double get todayProteinTotal => todayProtein + supplementProtein;
 
+  /// Estimated carbs today (Indian diet approximation):
+  /// protein_cal = protein*4, fat_cal = remaining*35%, carb_cal = remaining*65%
+  double get todayCarbsEstimate {
+    final proteinCal = todayProteinTotal * 4.0;
+    final remaining = (todayCaloriesTotal - proteinCal).clamp(0.0, double.infinity);
+    return (remaining * 0.65) / 4.0; // convert kcal → grams
+  }
+
+  /// Estimated fat today (Indian diet approximation)
+  double get todayFatEstimate {
+    final proteinCal = todayProteinTotal * 4.0;
+    final remaining = (todayCaloriesTotal - proteinCal).clamp(0.0, double.infinity);
+    return (remaining * 0.35) / 9.0; // convert kcal → grams
+  }
+
+  /// Last 7 days of calorie data for bar chart.
+  /// Returns list of [dayLabel, calories] pairs, oldest→newest.
+  List<Map<String, dynamic>> get weeklyCalorieData {
+    final result = <Map<String, dynamic>>[];
+    final today = DateTime.now();
+    for (int i = 6; i >= 0; i--) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      double cal;
+      if (i == 0) {
+        cal = todayCaloriesTotal;
+      } else {
+        final foods = _foodHistory[key];
+        final supp = _supplementHistory[key];
+        final foodCal = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
+        final suppCal = (supp?.whey ?? false) ? 120.0 : 0.0;
+        cal = foodCal + suppCal;
+      }
+      final label = i == 0
+          ? 'Today'
+          : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday - 1];
+      result.add({'label': label, 'calories': cal, 'date': key});
+    }
+    return result;
+  }
+
   double get calorieProgress =>
       (todayCaloriesTotal / calorieGoal).clamp(0.0, 1.0);
   double get proteinProgress =>

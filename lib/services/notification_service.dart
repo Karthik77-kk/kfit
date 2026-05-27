@@ -299,6 +299,12 @@ class NotificationService {
         priority: Priority.defaultPriority,
       );
 
+      // Use exact alarms when available
+      final exactOk = await canScheduleExactAlarms();
+      final scheduleMode = exactOk
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
       final now = tz.TZDateTime.now(tz.local);
 
       // Multivitamin — 8:30 AM
@@ -311,7 +317,7 @@ class NotificationService {
         'Take your MuscleBlaze Multivitamin after breakfast!',
         mv,
         const NotificationDetails(android: androidDetails),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -327,7 +333,7 @@ class NotificationService {
         'Don\'t forget 3–5g Creatine today — mix with water or whey!',
         cr,
         const NotificationDetails(android: androidDetails),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -343,7 +349,6 @@ class NotificationService {
 
   Future<bool> scheduleWaterReminders({int intervalHours = 1}) async {
     try {
-      // Cancel existing water reminders (IDs 10–23)
       for (int i = 10; i <= 23; i++) {
         await _plugin.cancel(i);
       }
@@ -360,6 +365,13 @@ class NotificationService {
         '💧 Evening water check.',
         '💧 Last reminder for today. Finish strong! 🎯',
       ];
+
+      // Use exact alarms when available (critical for OEM phones like iQOO/Vivo
+      // that batch and delay inexact alarms by hours or drop them entirely)
+      final exactOk = await canScheduleExactAlarms();
+      final scheduleMode = exactOk
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
 
       const androidDetails = AndroidNotificationDetails(
         'water_channel', 'Water Reminders',
@@ -380,7 +392,7 @@ class NotificationService {
           messages[msgIdx % messages.length],
           scheduled,
           const NotificationDetails(android: androidDetails),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: scheduleMode,
           matchDateTimeComponents: DateTimeComponents.time,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
@@ -419,6 +431,12 @@ class NotificationService {
         '🌿 Step outside for a few minutes. Your body will thank you!',
       ];
 
+      // Use exact alarms when available (critical for iQOO/Vivo that drop inexact alarms)
+      final exactOk = await canScheduleExactAlarms();
+      final scheduleMode = exactOk
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
       final now = tz.TZDateTime.now(tz.local);
       int id = 40;
       int msgIdx = 0;
@@ -431,7 +449,7 @@ class NotificationService {
           messages[msgIdx % messages.length],
           scheduled,
           const NotificationDetails(android: androidDetails),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: scheduleMode,
           matchDateTimeComponents: DateTimeComponents.time,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,

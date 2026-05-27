@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/notification_service.dart';
@@ -114,6 +115,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   const _CalorieRingTile(),
                   const SizedBox(height: 10),
                   const _MacroRow(),
+                  const SizedBox(height: 20),
+
+                  // ── Weekly calorie bar chart ──────────────────────────────
+                  const _SectionHdr('7-DAY CALORIES'),
+                  const SizedBox(height: 10),
+                  _WeeklyCalorieChart(provider: p),
+                  const SizedBox(height: 20),
+
+                  // ── Macro donut ───────────────────────────────────────────
+                  const _SectionHdr('TODAY\'S MACROS'),
+                  const SizedBox(height: 10),
+                  _MacroDonutCard(provider: p),
                   const SizedBox(height: 20),
 
                   // ── Burn breakdown ────────────────────────────────────────
@@ -1118,4 +1131,282 @@ class _SmartTip extends StatelessWidget {
         style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5))),
     ]),
   );
+}
+
+// ─── Weekly Calorie Bar Chart ──────────────────────────────────────────────────
+class _WeeklyCalorieChart extends StatelessWidget {
+  final FitnessProvider provider;
+  const _WeeklyCalorieChart({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = provider.weeklyCalorieData;
+    final goal = provider.calorieGoal.toDouble();
+    final maxCal = data.fold(goal, (m, d) => math.max(m, (d['calories'] as double)));
+    final yMax = (maxCal * 1.15).ceilToDouble();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      height: 190,
+      child: BarChart(
+        BarChartData(
+          maxY: yMax,
+          alignment: BarChartAlignment.spaceAround,
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipColor: (_) => const Color(0xFF2C2C2E),
+              getTooltipItem: (group, _, rod, __) {
+                final cal = rod.toY.round();
+                return BarTooltipItem(
+                  '$cal kcal',
+                  const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                );
+              },
+            ),
+          ),
+          titlesData: FlTitlesData(
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 26,
+                getTitlesWidget: (v, _) {
+                  final idx = v.toInt();
+                  if (idx < 0 || idx >= data.length) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      data[idx]['label'] as String,
+                      style: TextStyle(
+                        color: idx == data.length - 1 ? _kGreen : _kSecond,
+                        fontSize: 10,
+                        fontWeight: idx == data.length - 1 ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: goal,
+            getDrawingHorizontalLine: (v) {
+              final isGoal = (v - goal).abs() < 1;
+              return FlLine(
+                color: isGoal
+                    ? _kOrange.withOpacity(0.6)
+                    : const Color(0xFF38383A),
+                strokeWidth: isGoal ? 1.5 : 0.5,
+                dashArray: isGoal ? [6, 4] : null,
+              );
+            },
+          ),
+          borderData: FlBorderData(show: false),
+          barGroups: data.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final cal = (entry.value['calories'] as double);
+            final isToday = idx == data.length - 1;
+            final atGoal = cal >= goal;
+            Color barColor;
+            if (isToday) {
+              barColor = atGoal ? _kGreen : _kBlue;
+            } else {
+              barColor = atGoal
+                  ? _kGreen.withOpacity(0.55)
+                  : _kBlue.withOpacity(0.35);
+            }
+            return BarChartGroupData(
+              x: idx,
+              barRods: [
+                BarChartRodData(
+                  toY: cal,
+                  color: barColor,
+                  width: 22,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                ),
+              ],
+            );
+          }).toList(),
+          extraLinesData: ExtraLinesData(horizontalLines: [
+            HorizontalLine(
+              y: goal,
+              color: _kOrange.withOpacity(0.7),
+              strokeWidth: 1.5,
+              dashArray: [6, 4],
+              label: HorizontalLineLabel(
+                show: true,
+                alignment: Alignment.topRight,
+                labelResolver: (_) => '  goal',
+                style: TextStyle(
+                  color: _kOrange.withOpacity(0.8),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Macro Donut Card ─────────────────────────────────────────────────────────
+class _MacroDonutCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _MacroDonutCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final protein = provider.todayProteinTotal;
+    final carbs   = provider.todayCarbsEstimate;
+    final fat     = provider.todayFatEstimate;
+    final total   = protein + carbs + fat;
+
+    if (total < 1) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+        child: const Center(
+          child: Text('Log food to see macro breakdown',
+              style: TextStyle(color: _kSecond, fontSize: 13)),
+        ),
+      );
+    }
+
+    final sections = [
+      PieChartSectionData(
+        value: protein,
+        color: _kBlue,
+        radius: 30,
+        showTitle: false,
+      ),
+      PieChartSectionData(
+        value: carbs,
+        color: _kOrange,
+        radius: 30,
+        showTitle: false,
+      ),
+      PieChartSectionData(
+        value: fat,
+        color: _kRed.withOpacity(0.85),
+        radius: 30,
+        showTitle: false,
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 110,
+            height: 110,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                PieChart(
+                  PieChartData(
+                    sections: sections,
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 32,
+                    startDegreeOffset: -90,
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${provider.todayCaloriesTotal.round()}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16)),
+                    const Text('kcal',
+                        style: TextStyle(color: _kSecond, fontSize: 10)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _MacroLegendRow(
+                  color: _kBlue,
+                  label: 'Protein',
+                  grams: protein.round(),
+                  total: total,
+                ),
+                const SizedBox(height: 10),
+                _MacroLegendRow(
+                  color: _kOrange,
+                  label: 'Carbs',
+                  grams: carbs.round(),
+                  total: total,
+                  estimated: true,
+                ),
+                const SizedBox(height: 10),
+                _MacroLegendRow(
+                  color: _kRed.withOpacity(0.85),
+                  label: 'Fat',
+                  grams: fat.round(),
+                  total: total,
+                  estimated: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroLegendRow extends StatelessWidget {
+  final Color color;
+  final String label;
+  final int grams;
+  final double total;
+  final bool estimated;
+  const _MacroLegendRow({
+    required this.color,
+    required this.label,
+    required this.grams,
+    required this.total,
+    this.estimated = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total > 0 ? (grams / total * 4 / (total * 4 / total)).clamp(0.0, 1.0) : 0.0;
+    return Row(
+      children: [
+        Container(
+            width: 10, height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            estimated ? '$label*' : label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ),
+        Text('${grams}g',
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
+    );
+  }
 }
