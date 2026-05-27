@@ -59,39 +59,78 @@ jobs:
           # Create key.properties
           printf 'storePassword=kfitness2024\nkeyPassword=kfitness2024\nkeyAlias=kfitness\nstoreFile=kfitness.jks\n' > android/key.properties
 
-          # Patch build.gradle to use signing config
+          # Write complete known-good build.gradle (Groovy) — no fragile patching.
+          # Deletes .kts variant if Flutter generated Kotlin DSL instead of Groovy.
           python3 - << 'PYEOF'
-          path = 'android/app/build.gradle'
-          txt = open(path).read()
+          import os
+          kts = 'android/app/build.gradle.kts'
+          groovy = 'android/app/build.gradle'
+          if os.path.exists(kts):
+              os.remove(kts)
+              print('Removed build.gradle.kts')
+          content = r"""plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
 
-          props_block = (
-              "\ndef keystoreProperties = new Properties()\n"
-              "def keystorePropertiesFile = rootProject.file('key.properties')\n"
-              "if (keystorePropertiesFile.exists()) {\n"
-              "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
-              "}\n"
-          )
-          signing_config = (
-              "\n    signingConfigs {\n"
-              "        release {\n"
-              "            keyAlias keystoreProperties['keyAlias']\n"
-              "            keyPassword keystoreProperties['keyPassword']\n"
-              "            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null\n"
-              "            storePassword keystoreProperties['storePassword']\n"
-              "        }\n"
-              "    }\n"
-          )
-          txt = txt.replace('\nandroid {', props_block + '\nandroid {', 1)
-          txt = txt.replace('\n    buildTypes {', signing_config + '\n    buildTypes {', 1)
-          # Remove debug fallback and use release signing
-          import re
-          txt = re.sub(
-              r'release \{[^}]*signingConfig signingConfigs\.debug',
-              'release {\n            signingConfig signingConfigs.release',
-              txt
-          )
-          open(path, 'w').write(txt)
-          print('Signing configured')
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace "com.example.karthik_fitness"
+    compileSdk flutter.compileSdkVersion
+    ndkVersion flutter.ndkVersion
+
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+
+    defaultConfig {
+        applicationId "com.example.karthik_fitness"
+        minSdk flutter.minSdkVersion
+        targetSdk flutter.targetSdkVersion
+        versionCode flutter.versionCode
+        versionName flutter.versionName
+    }
+
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+}
+
+flutter {
+    source "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"
+}
+"""
+          open(groovy, 'w').write(content)
+          print('build.gradle written with release signing + desugaring')
           PYEOF
 
           # Patch app label to "K"
@@ -202,14 +241,11 @@ jobs:
               print(f'Patched {main_activity}')
           PYEOF
 
-      - name: Enable core library desugaring (required by flutter_local_notifications)
+      - name: Verify build.gradle signing config
         run: |
-          # Insert coreLibraryDesugaringEnabled right after "compileOptions {" line
-          sed -i '/compileOptions {/a\        coreLibraryDesugaringEnabled true' android/app/build.gradle
-          # Append the coreLibraryDesugaring dependency block
-          printf '\ndependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n}\n' >> android/app/build.gradle
-          echo "=== app/build.gradle after desugaring patch ==="
+          echo "=== app/build.gradle (must contain release signingConfig) ==="
           cat android/app/build.gradle
+          grep -q "signingConfigs.release" android/app/build.gradle && echo "✅ Release signing confirmed" || (echo "❌ Release signing MISSING — build will use debug key!" && exit 1)
 
       - name: Generate app icon (grey background, black K)
         run: |
