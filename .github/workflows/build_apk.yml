@@ -29,7 +29,7 @@ jobs:
 
       - name: Generate Android scaffold (preserving committed android/)
         run: |
-          # Back up our committed android/ (has correct manifest + BootReceiver)
+          # Back up our committed android/ (has correct manifest, BootReceiver, and build config)
           cp -r android android_committed
           cp pubspec.yaml pubspec_backup.yaml
           cp -r lib lib_backup
@@ -38,24 +38,18 @@ jobs:
           rm -rf lib
           cp -r lib_backup lib
           rm -rf lib_backup pubspec_backup.yaml
-          # Restore our committed AndroidManifest + BootReceiver (flutter create overwrites them)
+          # Restore committed files that flutter create overwrites
           cp android_committed/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           cp android_committed/app/src/main/kotlin/com/karthik/karthik_fitness/BootReceiver.kt \
              android/app/src/main/kotlin/$(ls android/app/src/main/kotlin/)/BootReceiver.kt 2>/dev/null || true
+          # Restore committed Gradle/Kotlin/AGP versions (already at 9.1, 9.0.1, 2.3.20)
+          cp android_committed/settings.gradle.kts android/settings.gradle.kts
+          cp android_committed/build.gradle.kts android/build.gradle.kts
+          cp android_committed/gradle/wrapper/gradle-wrapper.properties android/gradle/wrapper/gradle-wrapper.properties
           rm -rf android_committed
-
-      - name: Bump Kotlin, AGP, and Gradle versions
-        run: |
-          # Bump Kotlin to 2.0.21 (required by newer plugins)
-          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*" apply false/id "org.jetbrains.kotlin.android" version "2.0.21" apply false/' android/settings.gradle
-          # AGP 8.6.0 required by flutter_local_notifications work-runtime-ktx 2.11.x
-          sed -i 's/id "com.android.application" version "[^"]*" apply false/id "com.android.application" version "8.6.0" apply false/' android/settings.gradle
-          # AGP 8.6.0 requires Gradle 8.7
-          sed -i 's|gradle-[0-9.]*-all\.zip|gradle-8.7-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
-          sed -i 's|gradle-[0-9.]*-bin\.zip|gradle-8.7-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
-          echo "=== settings.gradle after patches ==="
-          cat android/settings.gradle
-          echo "=== gradle-wrapper.properties after patch ==="
+          echo "=== settings.gradle.kts ==="
+          cat android/settings.gradle.kts
+          echo "=== gradle-wrapper.properties ==="
           cat android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Configure app signing + patch app name
