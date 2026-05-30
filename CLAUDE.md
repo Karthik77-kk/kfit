@@ -53,13 +53,17 @@ Keep branches focused. If adding 3 features, use 3 branches.
 Every merge to `master` that ships a new APK must bump `pubspec.yaml` version:
 - `versionName` (e.g. `1.0.0`) — bump for significant releases
 - `versionCode` (`+N`) — bump on EVERY merge
-Current build: **42**. Next build: **43**.
+- **New features** → increment build integer: `45` → `46`
+- **Fixes/patches to an existing build** → add sub-version: `45` → `45.1`, `45.1` → `45.2`
+Current build: **45**. Next feature build: **46**. Next patch build: **45.1**.
 
 ### Rule 5 — Commit message format
 ```
 Build N: short imperative summary of what changed
 ```
-Example: `Build 43: add configurable step goal in settings`
+Examples:
+- `Build 46: add weekly progress chart`  ← new feature
+- `Build 45.1: fix CI settings.gradle.kts path`  ← patch/fix to build 45
 
 ### Rule 6 — Pre-merge checklist (Claude must do ALL before merging)
 1. `flutter analyze` — zero errors, zero warnings
