@@ -68,11 +68,16 @@ Examples:
 ### Rule 6 — Pre-merge checklist (Claude must do ALL before merging)
 1. `flutter analyze` — zero errors, zero warnings
 2. `flutter test` — all tests pass
-3. Code review — correctness, no regressions, follows conventions
-4. Diff review — confirm only intended files changed
-5. Bump `pubspec.yaml` version code
-6. **`git push origin <branch-name>` — MANDATORY. Branch MUST exist on remote before merging.**
-7. Merge to `master` → CI auto-triggers → APK built
+3. **`flutter build apk --release` — MANDATORY for ANY change touching Gradle/Android files.**
+   - Required when changed: `build.gradle.kts`, `settings.gradle.kts`, `pubspec.yaml` deps, `AndroidManifest.xml`, any `android/` file
+   - Not required for pure Dart-only changes (provider, screens, models, tests)
+   - Build must complete with `✓ Built build/app/outputs/flutter-apk/app-release.apk`
+   - If it fails locally it WILL fail in CI — fix it before pushing
+4. Code review — correctness, no regressions, follows conventions
+5. Diff review — confirm only intended files changed
+6. Bump `pubspec.yaml` version code
+7. **`git push origin <branch-name>` — MANDATORY. Branch MUST exist on remote before merging.**
+8. Merge to `master` → CI auto-triggers → APK built
 
 ### Rule 8 — MANDATORY: Push branch to remote before merging
 **This rule cannot be skipped under any circumstances.**
