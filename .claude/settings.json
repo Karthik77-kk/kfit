@@ -1,0 +1,53 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(*)",
+      "PowerShell(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "WebFetch(*)",
+      "WebSearch(*)"
+    ],
+    "deny": []
+  },
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "& 'c:\\tmp\\karthik-fitness\\.claude\\scripts\\check-branch.ps1'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "statusMessage": "Analyzing Dart...",
+            "command": "try { $f = ($input | ConvertFrom-Json).tool_input.file_path; if ($f -match '\\.dart$') { Set-Location 'c:\\tmp\\karthik-fitness'; flutter analyze --no-pub 2>&1 | Select-Object -Last 8 | Out-Host } } catch {}"
+          },
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "statusMessage": "Running flutter pub get...",
+            "command": "try { $f = ($input | ConvertFrom-Json).tool_input.file_path; if ($f -match 'pubspec\\.yaml$') { Set-Location 'c:\\tmp\\karthik-fitness'; flutter pub get 2>&1 | Out-Host } } catch {}"
+          }
+        ]
+      }
+    ]
+  }
+}
