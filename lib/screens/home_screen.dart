@@ -752,7 +752,7 @@ class _WeightPredictionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = provider;
     final forecast = p.weightForecast(days: 30);
-    final current = p.latestWeightKg!;
+    final current = p.latestWeightKg ?? 0.0;
     final weekly = p.weeklyWeightChange;
     final goalDate = p.estimatedGoalDate;
     final predicted30 = forecast.isNotEmpty ? forecast.last.$2 : null;

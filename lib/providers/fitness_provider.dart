@@ -647,6 +647,11 @@ class FitnessProvider extends ChangeNotifier {
 
     _isLoaded = true;
     _loadedForDate = _todayKey;
+
+    // Purge food/water/supp keys older than 60 days from SharedPreferences.
+    // These keys accumulate indefinitely otherwise, bloating storage and exports.
+    _purgeStaleDailyKeys(prefs);
+
     notifyListeners();
 
     // Start pedometer after data is loaded (non-blocking)
@@ -654,6 +659,22 @@ class FitnessProvider extends ChangeNotifier {
 
     // Start day-reset watcher (detects midnight crossover while app is open)
     _startDayResetTimer();
+  }
+
+  void _purgeStaleDailyKeys(SharedPreferences prefs) {
+    final cutoff = DateTime.now().subtract(const Duration(days: 61));
+    final cutoffKey =
+        '${cutoff.year}-${cutoff.month.toString().padLeft(2, '0')}-${cutoff.day.toString().padLeft(2, '0')}';
+    final toRemove = prefs.getKeys().where((k) {
+      if (!k.startsWith('food_') &&
+          !k.startsWith('water_') &&
+          !k.startsWith('supp_')) return false;
+      final datePart = k.substring(k.indexOf('_') + 1);
+      return datePart.compareTo(cutoffKey) < 0;
+    }).toList();
+    for (final k in toRemove) {
+      prefs.remove(k);
+    }
   }
 
   // ── Food actions ───────────────────────────────────────────────────────────
