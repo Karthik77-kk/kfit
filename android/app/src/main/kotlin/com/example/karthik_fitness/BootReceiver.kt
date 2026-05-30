@@ -1,4 +1,4 @@
-package com.karthik.karthik_fitness
+package com.example.karthik_fitness
 
 import android.content.BroadcastReceiver
 import android.content.Context

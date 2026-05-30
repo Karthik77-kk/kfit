@@ -1,4 +1,4 @@
-package com.karthik.karthik_fitness
+package com.example.karthik_fitness
 
 import io.flutter.embedding.android.FlutterActivity
 
