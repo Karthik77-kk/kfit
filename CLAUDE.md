@@ -71,10 +71,26 @@ Examples:
 3. Code review — correctness, no regressions, follows conventions
 4. Diff review — confirm only intended files changed
 5. Bump `pubspec.yaml` version code
-6. Merge to `master` → CI auto-triggers → APK built
+6. **`git push origin <branch-name>` — MANDATORY. Branch MUST exist on remote before merging.**
+7. Merge to `master` → CI auto-triggers → APK built
+
+### Rule 8 — MANDATORY: Push branch to remote before merging
+**This rule cannot be skipped under any circumstances.**
+- The branch MUST be pushed to GitHub (`git push origin <branch-name>`) before `git merge` is run.
+- A branch that only exists locally provides no audit trail and cannot be reviewed.
+- Even for a one-line hotfix, the remote push is non-negotiable.
+- Correct sequence — no exceptions:
+```
+git push origin fix/build-N-description    # ← CANNOT SKIP THIS
+git checkout master
+git merge --no-ff fix/build-N-description
+git push origin master
+git branch -d fix/build-N-description
+git push origin --delete fix/build-N-description
+```
 
 ### Rule 7 — After merge
-- Delete the feature branch
+- Delete the local AND remote feature branch
 - Verify GitHub Actions run succeeds
 - APK artifact appears under Actions → latest run
 
@@ -95,14 +111,15 @@ flutter test                         # must pass before merge
 # Release
 flutter build apk --release
 
-# Merge workflow
-git add -p                           # stage only intended changes
+# Merge workflow (ALL steps mandatory — Rule 8)
+git add -p                                      # stage only intended changes
 git commit -m "Build N: description"
-git push origin feature/build-N-description
+git push origin feature/build-N-description     # MANDATORY — remote push before merge
 git checkout master
 git merge --no-ff feature/build-N-description
-git push origin master               # triggers CI
+git push origin master                           # triggers CI
 git branch -d feature/build-N-description
+git push origin --delete feature/build-N-description  # delete remote branch too
 
 # Device
 adb devices
