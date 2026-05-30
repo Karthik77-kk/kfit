@@ -818,8 +818,14 @@ class FitnessProvider extends ChangeNotifier {
       'scale_history',
       jsonEncode(_scaleHistory.map((e) => e.toJson()).toList()),
     );
-    // Also update bodyHistory weight to match scale
-    await logBodyEntry(weightKg: entry.weightKg);
+    // Preserve today's manually-logged steps — logBodyEntry defaults steps to 0
+    // which would wipe any steps the user entered before logging the scale.
+    final todayBody = _bodyHistory.where((e) =>
+        e.date.year == now.year &&
+        e.date.month == now.month &&
+        e.date.day == now.day).toList();
+    final existingSteps = todayBody.isNotEmpty ? todayBody.first.steps : 0;
+    await logBodyEntry(weightKg: entry.weightKg, steps: existingSteps);
     notifyListeners();
   }
 
