@@ -166,13 +166,19 @@ void main() {
 
     test('BMI calculates correctly after logging weight', () async {
       await p.logBodyEntry(weightKg: 78.0);
-      // BMI = 78 / (1.60^2) ≈ 30.47 (height default is 160cm in Build 42)
-      expect(p.bmi, closeTo(78.0 / (1.60 * 1.60), 0.1));
+      // BMI = 78 / (1.70^2) ≈ 26.99 (height default is 170cm)
+      expect(p.bmi, closeTo(78.0 / (1.70 * 1.70), 0.1));
+    });
+
+    test('bmiCategory Overweight for 78kg at 170cm', () async {
+      await p.logBodyEntry(weightKg: 78.0);
+      // 78 / 1.70^2 ≈ 27.0 → Overweight
+      expect(p.bmiCategory, 'Overweight');
     });
 
     test('bmiCategory Normal for healthy weight', () async {
-      await p.logBodyEntry(weightKg: 60.0);
-      // 60 / (1.60^2) = 23.4
+      await p.logBodyEntry(weightKg: 68.0);
+      // 68 / 1.70^2 ≈ 23.5 → Normal
       expect(p.bmiCategory, 'Normal');
     });
   });
@@ -221,10 +227,18 @@ void main() {
       expect(p.todayCaloriesBurned, greaterThan(0));
     });
 
-    test('inDeficit true when netCalories < calorieGoal', () async {
-      // No food, some burn — definitely in deficit
+    test('inDeficit true when (eaten - totalBurned) < calorieGoal', () async {
+      // No food logged, totalCaloriesBurned includes resting burn
+      // so eaten(0) - burned(>0) < 1700 → always in deficit
       await p.logBodyEntry(weightKg: 75.0);
       expect(p.inDeficit, isTrue);
+    });
+
+    test('calorieDeficit uses totalCaloriesBurned not just workout', () async {
+      await p.logBodyEntry(weightKg: 70.0);
+      // With some resting calories burned, deficit should be > calorieGoal
+      // (since eaten=0, deficit = goal - (0 - totalBurned) = goal + totalBurned)
+      expect(p.calorieDeficit, greaterThan(p.calorieGoal));
     });
   });
 

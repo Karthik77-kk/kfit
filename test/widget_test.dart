@@ -25,37 +25,49 @@ void main() {
     expect(find.byType(MaterialApp), findsOneWidget);
   });
 
-  testWidgets('Bottom nav has 7 tabs', (tester) async {
+  testWidgets('Bottom nav has 6 tabs', (tester) async {
     await tester.pumpWidget(_appWithProvider());
     await tester.pump();
     expect(find.byType(BottomNavigationBar), findsOneWidget);
 
-    final nav = tester.widget<BottomNavigationBar>(find.byType(BottomNavigationBar));
-    expect(nav.items.length, 7);
+    final nav = tester.widget<BottomNavigationBar>(
+        find.byType(BottomNavigationBar));
+    expect(nav.items.length, 6);
   });
 
   testWidgets('Bottom nav labels are correct', (tester) async {
     await tester.pumpWidget(_appWithProvider());
     await tester.pump();
 
+    // 6-tab nav: Summary | Nutrition | Workout | Scale | Stats | History
     expect(find.text('Summary'), findsWidgets);
-    expect(find.text('Food'), findsWidgets);
-    expect(find.text('Water'), findsWidgets);
+    expect(find.text('Nutrition'), findsWidgets);
     expect(find.text('Workout'), findsWidgets);
+    expect(find.text('Scale'), findsWidgets);
     expect(find.text('Stats'), findsWidgets);
-    expect(find.text('Supps'), findsWidgets);
     expect(find.text('History'), findsWidgets);
   });
 
-  testWidgets('Tapping Food tab navigates to food screen', (tester) async {
+  testWidgets('Tapping Nutrition tab navigates to nutrition screen',
+      (tester) async {
     await tester.pumpWidget(_appWithProvider());
     await tester.pump();
 
-    await tester.tap(find.text('Food').last);
+    await tester.tap(find.text('Nutrition').last);
     await tester.pumpAndSettle();
 
-    // Food screen should be visible
-    expect(find.text('Food'), findsWidgets);
+    expect(find.text('Nutrition'), findsWidgets);
+  });
+
+  testWidgets('Tapping Workout tab navigates to workout screen',
+      (tester) async {
+    await tester.pumpWidget(_appWithProvider());
+    await tester.pump();
+
+    await tester.tap(find.text('Workout').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Workout'), findsWidgets);
   });
 
   testWidgets('App uses dark theme', (tester) async {

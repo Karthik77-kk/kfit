@@ -9,7 +9,6 @@ import 'screens/workout_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/smart_scale_screen.dart';
-import 'screens/settings_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {

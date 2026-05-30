@@ -63,7 +63,7 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   // ── User profile ───────────────────────────────────────────────────────────
-  double _heightCm = 160.0;
+  double _heightCm = 170.0;
   double get heightCm => _heightCm;
 
   int _age = 24; // Karthik's age
@@ -224,11 +224,12 @@ class FitnessProvider extends ChangeNotifier {
   /// Calories eaten minus calories burned from workout
   int get netCalories => (todayCaloriesTotal - todayCaloriesBurned).round();
 
-  /// Positive = deficit (good for fat loss), Negative = surplus
-  int get calorieDeficit => calorieGoal - netCalories;
+  /// Positive = deficit (good for fat loss), Negative = surplus.
+  /// Uses totalCaloriesBurned (resting + walking + workout) for accuracy.
+  int get calorieDeficit => calorieGoal - (todayCaloriesTotal - totalCaloriesBurned).round();
 
   /// True if currently in a calorie deficit
-  bool get inDeficit => netCalories < calorieGoal;
+  bool get inDeficit => (todayCaloriesTotal - totalCaloriesBurned) < calorieGoal;
 
   /// Remaining calories left to eat (vs goal). Can be negative if over.
   int get caloriesRemaining => calorieGoal - todayCaloriesTotal.round();
@@ -555,7 +556,7 @@ class FitnessProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
 
     // User profile
-    _heightCm = prefs.getDouble('height_cm') ?? 160.0;
+    _heightCm = prefs.getDouble('height_cm') ?? 170.0;
     _age = prefs.getInt('age') ?? 24;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
     _userName = prefs.getString('user_name') ?? 'Karthik';
@@ -706,6 +707,9 @@ class FitnessProvider extends ChangeNotifier {
       case 'multivitamin':
         _supplements.multivitamin = value;
         break;
+      default:
+        assert(false, 'updateSupplement: unknown key "$key"');
+        return;
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -820,11 +824,15 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   // ── Export / Import ────────────────────────────────────────────────────────
+  // Keys that are device-specific and must not be exported/imported.
+  static const _exportExcludeKeys = {'pedometer_baseline', 'pedometer_date'};
+
   Future<String> exportAllData() async {
     final prefs = await SharedPreferences.getInstance();
     final allKeys = prefs.getKeys();
     final Map<String, dynamic> data = {};
     for (final key in allKeys) {
+      if (_exportExcludeKeys.contains(key)) continue;
       final val = prefs.get(key);
       data[key] = val;
     }
@@ -981,7 +989,7 @@ class FitnessProvider extends ChangeNotifier {
     try {
       _stepSubscription = Pedometer.stepCountStream.listen(
         (StepCount event) async {
-          if (_livePedometerTotal > 0 && event.steps > _livePedometerTotal + 1000) {
+          if (_livePedometerTotal > 0 && event.steps > _livePedometerTotal + 50000) {
             _pedometerDayBaseline = event.steps - (_livePedometerTotal - _pedometerDayBaseline);
             final p = await SharedPreferences.getInstance();
             await p.setInt('pedometer_baseline', _pedometerDayBaseline);
