@@ -23,12 +23,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.27.0"
+          flutter-version: "3.44.0"
           channel: stable
           cache: true
 
-      - name: Generate Android scaffold
+      - name: Generate Android scaffold (preserving committed android/)
         run: |
+          # Back up our committed android/ (has correct manifest + BootReceiver)
+          cp -r android android_committed
           cp pubspec.yaml pubspec_backup.yaml
           cp -r lib lib_backup
           flutter create --project-name karthik_fitness --no-pub .
@@ -36,6 +38,11 @@ jobs:
           rm -rf lib
           cp -r lib_backup lib
           rm -rf lib_backup pubspec_backup.yaml
+          # Restore our committed AndroidManifest + BootReceiver (flutter create overwrites them)
+          cp android_committed/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          cp android_committed/app/src/main/kotlin/com/karthik/karthik_fitness/BootReceiver.kt \
+             android/app/src/main/kotlin/$(ls android/app/src/main/kotlin/)/BootReceiver.kt 2>/dev/null || true
+          rm -rf android_committed
 
       - name: Bump Kotlin, AGP, and Gradle versions
         run: |

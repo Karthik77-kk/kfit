@@ -7,6 +7,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/notification_service.dart';
+import '../services/smart_tip_engine.dart';
 import 'settings_screen.dart';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
@@ -103,6 +104,10 @@ class _HomeScreenState extends State<HomeScreen> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
 
+                  // ── Smart tip (top) ───────────────────────────────────────
+                  _SmartTip(provider: p),
+                  const SizedBox(height: 16),
+
                   // ── Activity rings ────────────────────────────────────────
                   const _SectionHdr('TODAY\'S ACTIVITY'),
                   const SizedBox(height: 10),
@@ -169,10 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   const _SectionHdr('THIS WEEK'),
                   const SizedBox(height: 10),
                   _WeeklySnapshotCard(provider: p),
-                  const SizedBox(height: 20),
-
-                  // ── Smart tip ─────────────────────────────────────────────
-                  _SmartTip(provider: p),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -1090,47 +1091,49 @@ class _WeekStat extends StatelessWidget {
 }
 
 // ─── Smart Tip ─────────────────────────────────────────────────────────────────
+// Selection logic lives in lib/services/smart_tip_engine.dart (pure + unit-tested).
+
 class _SmartTip extends StatelessWidget {
   final FitnessProvider provider;
   const _SmartTip({required this.provider});
 
-  String _tip(FitnessProvider p) {
-    if (p.todayCaloriesTotal == 0)
-      return '🌅 Start logging meals to track your ${p.calorieGoal} kcal goal. Consistency is everything!';
-    if (p.todayProteinTotal < 60)
-      return '💪 Protein is low (${p.todayProteinTotal.round()}g). Add chicken, paneer, eggs or whey to protect muscle.';
-    final weekly = p.weeklyWeightChange;
-    if (weekly != null && weekly < -0.8)
-      return '⚠️ Losing ${weekly.abs().toStringAsFixed(2)} kg/week — that\'s too fast. Add 200–300 kcal to preserve muscle.';
-    if (weekly != null && weekly > 0.2)
-      return '📈 Trend shows weight gain. Reduce dinner portion or skip evening snacks.';
-    final deficit = p.calorieDeficit;
-    if (deficit > 300)
-      return '🎯 $deficit kcal deficit today — great fat-loss progress! Keep it consistent.';
-    if (deficit < -200)
-      return '⚠️ ${deficit.abs()} kcal over goal. A 30-min walk burns ~${(p.latestWeightKg ?? 70) ~/ 10 * 30} kcal.';
-    if (p.todayWaterMl < 1000)
-      return '💧 Only ${p.todayWaterMl}ml water so far. Hydration speeds up metabolism and reduces hunger.';
-    if (p.todayWorkout == null && DateTime.now().hour > 10)
-      return '🏋️ No workout yet. Even 30 min burns ~${estimateCaloriesBurned(p.latestWeightKg ?? 70, 30)} kcal.';
-    return '✅ You\'re on track! Consistency over 90 days = transformation. 💪';
-  }
-
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: _kGreen.withOpacity(0.08),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: _kGreen.withOpacity(0.2)),
-    ),
-    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('💡', style: TextStyle(fontSize: 18)),
-      const SizedBox(width: 10),
-      Expanded(child: Text(_tip(provider),
-        style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5))),
-    ]),
-  );
+  Widget build(BuildContext context) {
+    final tip = selectSmartTip(provider, DateTime.now());
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tip.accent.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tip.accent.withOpacity(0.25), width: 1),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: tip.accent.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(tip.emoji, style: const TextStyle(fontSize: 18)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tip.title, style: TextStyle(
+              color: tip.accent,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            )),
+            const SizedBox(height: 3),
+            Text(tip.body, style: const TextStyle(
+              color: Colors.white70, fontSize: 12, height: 1.5,
+            )),
+          ],
+        )),
+      ]),
+    );
+  }
 }
 
 // ─── Weekly Calorie Bar Chart ──────────────────────────────────────────────────
