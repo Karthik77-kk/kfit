@@ -40,8 +40,12 @@ jobs:
           rm -rf lib_backup pubspec_backup.yaml
           # Restore committed files that flutter create overwrites
           cp android_committed/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-          cp android_committed/app/src/main/kotlin/com/karthik/karthik_fitness/BootReceiver.kt \
-             android/app/src/main/kotlin/$(ls android/app/src/main/kotlin/)/BootReceiver.kt 2>/dev/null || true
+          # Replace flutter-create kotlin sources entirely to avoid duplicate BootReceiver.kt.
+          # flutter create does not delete non-template files, so BootReceiver.kt survives
+          # at its committed path while the bash one-liner also placed a copy at the wrong
+          # path (com/BootReceiver.kt) — causing a Kotlin Redeclaration error at compile time.
+          rm -rf android/app/src/main/kotlin/
+          cp -r android_committed/app/src/main/kotlin/ android/app/src/main/kotlin/
           # Restore committed Gradle/Kotlin/AGP versions (already at 9.1, 9.0.1, 2.3.20)
           cp android_committed/settings.gradle.kts android/settings.gradle.kts
           cp android_committed/build.gradle.kts android/build.gradle.kts
