@@ -208,20 +208,6 @@ void main() {
       await p.addFoodEntry(_food('f1', 800, 30));
       expect(p.calorieProgress, closeTo(1.0, 0.01));
     });
-
-    test('reminder intervals persist', () async {
-      await p.setWaterReminderInterval(3);
-      await p.setWalkReminderInterval(2);
-      final p2 = FitnessProvider();
-      await p2.loadData();
-      expect(p2.waterReminderIntervalHours, 3);
-      expect(p2.walkReminderIntervalHours, 2);
-    });
-
-    test('setWaterReminderInterval clamps [1, 6]', () async {
-      await p.setWaterReminderInterval(0); expect(p.waterReminderIntervalHours, 1);
-      await p.setWaterReminderInterval(10); expect(p.waterReminderIntervalHours, 6);
-    });
   });
 
   // ── Weekly summary getters ────────────────────────────────────────────────

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'providers/fitness_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
@@ -10,8 +8,6 @@ import 'screens/workout_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/smart_scale_screen.dart';
-import 'services/notification_service.dart';
-import 'services/foreground_reminder_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,33 +17,6 @@ void main() async {
     systemNavigationBarColor: Color(0xFF000000),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
-  // Initialize notifications — always schedule, request permission separately.
-  // Android silently drops notifications if permission is denied, so we always
-  // schedule so they activate immediately if the user later grants permission.
-  try {
-    final ns = NotificationService();
-    await ns.initialize();
-    await ns.requestPermission(); // Request but don't gate scheduling on it
-
-    final prefs = await SharedPreferences.getInstance();
-    final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
-    final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
-
-    await ns.scheduleMorningSummary();
-    await ns.scheduleSupplementReminders();
-    await ns.scheduleWaterReminders(intervalHours: waterInterval);
-    await ns.scheduleEveningChecklist();
-    await ns.scheduleWalkReminders(intervalHours: walkInterval);
-    await ns.scheduleWeeklyLogReminder();
-  } catch (_) {}
-
-  // Foreground reminder service — the reliable path on OEM ROMs that kill
-  // AlarmManager alarms. Restart it if the user had it enabled.
-  try {
-    FlutterForegroundTask.initCommunicationPort();
-    ForegroundReminderService.init();
-    await ForegroundReminderService.restoreIfEnabled();
-  } catch (_) {}
 
   runApp(
     ChangeNotifierProvider(
@@ -148,7 +117,6 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen>
     with WidgetsBindingObserver {
   int _index = 0;
-  DateTime? _lastReschedule;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -163,9 +131,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Cold-start reschedule: ensure notifications are active when the app launches
-    // from the icon (not just resumed from background).
-    WidgetsBinding.instance.addPostFrameCallback((_) => _rescheduleNotifications());
   }
 
   @override
@@ -174,27 +139,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     super.dispose();
   }
 
-  Future<void> _rescheduleNotifications() async {
-    final now = DateTime.now();
-    if (_lastReschedule != null &&
-        now.difference(_lastReschedule!).inMinutes < 30) return;
-    _lastReschedule = now;
-    final prefs = await SharedPreferences.getInstance();
-    final waterInterval = prefs.getInt('water_reminder_interval') ?? 1;
-    final walkInterval  = prefs.getInt('walk_reminder_interval') ?? 2;
-    await NotificationService().rescheduleAll(
-      waterInterval: waterInterval,
-      walkInterval: walkInterval,
-    );
-  }
-
-  /// Re-schedule notifications whenever the app comes to the foreground.
-  /// Throttled to once every 30 minutes (was 4 hours — too slow for iQOO
-  /// which cancels AlarmManager alarms aggressively after deep sleep).
+  /// Refresh all data whenever the app returns to the foreground so the
+  /// summary (and every screen) is always current — same as pull-to-refresh.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _rescheduleNotifications();
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<FitnessProvider>().loadData();
     }
   }
 
