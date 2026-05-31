@@ -57,6 +57,13 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>();
     if (androidPlugin == null) return;
 
+    // Delete old low-importance channels so Android recreates them at HIGH.
+    // Android locks channel importance after first creation — deletion forces
+    // the new Importance.high setting to take effect on reinstall/update.
+    for (final id in ['supp_channel', 'water_channel', 'walk_channel']) {
+      try { await androidPlugin.deleteNotificationChannel(id); } catch (_) {}
+    }
+
     const channels = [
       AndroidNotificationChannel(
         'morning_summary', 'Morning Summary',
@@ -68,20 +75,23 @@ class NotificationService {
       AndroidNotificationChannel(
         'supp_channel', 'Supplement Reminders',
         description: 'Daily supplement reminders',
-        importance: Importance.defaultImportance,
+        importance: Importance.high,
         enableVibration: true,
+        playSound: true,
       ),
       AndroidNotificationChannel(
         'water_channel', 'Water Reminders',
-        description: 'Reminds you to drink water throughout the day',
-        importance: Importance.defaultImportance,
-        enableVibration: false,
+        description: 'Drink water reminders throughout the day',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
       ),
       AndroidNotificationChannel(
         'walk_channel', 'Walk Reminders',
-        description: 'Reminds you to get up and walk if inactive',
-        importance: Importance.defaultImportance,
-        enableVibration: false,
+        description: 'Get up and move reminders',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
       ),
       AndroidNotificationChannel(
         'evening_checklist', 'Evening Checklist',
@@ -208,6 +218,41 @@ class NotificationService {
             priority: Priority.max,
           ),
         ),
+      );
+      return 'ok';
+    } catch (e) {
+      return 'error:$e';
+    }
+  }
+
+  /// Schedules a notification 60 seconds from now using the same exact-alarm
+  /// mechanism as all real notifications. If this fires → scheduling works.
+  /// If it doesn't fire → iQOO Auto-start or background activity is still blocked.
+  Future<String> sendScheduledTestIn60s() async {
+    try {
+      final enabled = await areNotificationsEnabled();
+      if (!enabled) return 'permission_denied';
+      await _plugin.cancel(98);
+      final scheduled = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 60));
+      final exactOk = await canScheduleExactAlarms();
+      await _plugin.zonedSchedule(
+        98,
+        '⏰ Scheduled test worked!',
+        'Background alarms are firing correctly — all your reminders will work.',
+        scheduled,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'test_channel', 'Test Notifications',
+            channelDescription: 'Test that notifications are working',
+            importance: Importance.max,
+            priority: Priority.max,
+          ),
+        ),
+        androidScheduleMode: exactOk
+            ? AndroidScheduleMode.exactAllowWhileIdle
+            : AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
       );
       return 'ok';
     } catch (e) {
