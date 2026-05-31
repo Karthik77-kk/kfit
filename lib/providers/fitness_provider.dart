@@ -1001,19 +1001,54 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   // ── In-app notification center ──────────────────────────────────────────────
-  List<AppNotification> _appNotifications = [];
-  int _unreadNotifications = 0;
-  List<AppNotification> get appNotifications => _appNotifications;
-  int get unreadNotifications => _unreadNotifications;
+  // The feed is two parts:
+  //  • LIVE insights — recomputed from current state, so an item like "steps not
+  //    yet hit" auto-disappears the moment the target is met (never persisted).
+  //  • MILESTONES — achievements that persist (streaks, goal reached, recomp wins).
+  List<AppNotification> _milestones = [];
+  Set<String> _seenInsightTitles = {};
+
+  /// Live AI Coach insights as feed items (deduped by category, top 6).
+  List<AppNotification> get liveInsightFeed {
+    final insights = topInsights(this, DateTime.now(), count: 6);
+    return insights
+        .map((ins) => AppNotification(
+              id: 'insight_${ins.category.name}',
+              emoji: ins.emoji,
+              title: ins.title,
+              body: ins.body,
+              accent: ins.accent.value,
+              category: 'insight',
+              timestamp: DateTime.now(),
+              read: _seenInsightTitles.contains(ins.title),
+            ))
+        .toList();
+  }
+
+  /// Persisted milestone achievements (newest first).
+  List<AppNotification> get milestoneFeed => _milestones;
+
+  /// Badge count: unseen live insights + unread milestones.
+  int get unreadNotifications {
+    final unseenInsights =
+        liveInsightFeed.where((n) => !n.read).length;
+    final unreadMilestones = _milestones.where((n) => !n.read).length;
+    return unseenInsights + unreadMilestones;
+  }
 
   Future<void> _refreshNotifications() async {
-    _appNotifications = await NotificationCenter.all();
-    _unreadNotifications = _appNotifications.where((n) => !n.read).length;
+    _milestones = await NotificationCenter.all();
     notifyListeners();
   }
 
   Future<void> markNotificationsRead() async {
+    // Mark milestones read and remember the insight titles currently shown so
+    // they stop contributing to the badge until a NEW scenario appears.
     await NotificationCenter.markAllRead();
+    final titles = liveInsightFeed.map((n) => n.title).toSet();
+    _seenInsightTitles = {..._seenInsightTitles, ...titles};
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('seen_insight_titles', _seenInsightTitles.toList());
     await _refreshNotifications();
   }
 
@@ -1024,19 +1059,15 @@ class FitnessProvider extends ChangeNotifier {
 
   Future<void> _populateNotifications() async {
     try {
-      // Snapshot today's top AI Coach insights (deduped by title/day in the store).
-      final insights = topInsights(this, DateTime.now(), count: 3);
-      for (final ins in insights) {
-        await NotificationCenter.add(AppNotification(
-          id: const Uuid().v4(),
-          emoji: ins.emoji,
-          title: ins.title,
-          body: ins.body,
-          accent: ins.accent.value,
-          category: 'insight',
-          timestamp: DateTime.now(),
-        ));
-      }
+      final prefs = await SharedPreferences.getInstance();
+      _seenInsightTitles =
+          (prefs.getStringList('seen_insight_titles') ?? const []).toSet();
+      // Prune seen titles that are no longer active insights (so a recurring
+      // scenario re-badges next time it appears).
+      final active = liveInsightFeed.map((n) => n.title).toSet();
+      _seenInsightTitles = _seenInsightTitles.intersection(active);
+      await prefs.setStringList('seen_insight_titles', _seenInsightTitles.toList());
+
       await _detectMilestones();
       await _refreshNotifications();
     } catch (_) {}

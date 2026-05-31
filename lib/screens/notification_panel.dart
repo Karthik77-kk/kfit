@@ -5,148 +5,103 @@ import '../models/models.dart';
 
 const _kCard = Color(0xFF1C1C1E);
 const _kSecond = Color(0xFF8E8E93);
-const _kGreen = Color(0xFF30D158);
 
-/// Opens the notification center as a slide-down panel from the top.
-void showNotificationPanel(BuildContext context) {
-  // Mark everything read as soon as the user opens the panel.
+/// Opens the in-app notification center as a full page.
+void openNotifications(BuildContext context) {
   context.read<FitnessProvider>().markNotificationsRead();
-  showGeneralDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Notifications',
-    barrierColor: Colors.black54,
-    transitionDuration: const Duration(milliseconds: 260),
-    pageBuilder: (_, __, ___) => const SizedBox.shrink(),
-    transitionBuilder: (ctx, anim, _, __) {
-      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-      return Align(
-        alignment: Alignment.topCenter,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, -1), end: Offset.zero,
-          ).animate(curved),
-          child: const _NotificationPanel(),
-        ),
-      );
-    },
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const NotificationsScreen()),
   );
 }
 
-class _NotificationPanel extends StatelessWidget {
-  const _NotificationPanel();
+class NotificationsScreen extends StatelessWidget {
+  const NotificationsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
-    final items = context.watch<FitnessProvider>().appNotifications;
+    final p = context.watch<FitnessProvider>();
+    final insights = p.liveInsightFeed;
+    final milestones = p.milestoneFeed;
+    final isEmpty = insights.isEmpty && milestones.isEmpty;
 
-    final today = <AppNotification>[];
-    final earlier = <AppNotification>[];
-    final now = DateTime.now();
-    for (final n in items) {
-      final sameDay = n.timestamp.year == now.year &&
-          n.timestamp.month == now.month &&
-          n.timestamp.day == now.day;
-      (sameDay ? today : earlier).add(n);
-    }
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        margin: EdgeInsets.fromLTRB(8, top + 6, 8, 0),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFF161618),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.5),
-              blurRadius: 24, offset: const Offset(0, 8),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Notifications'),
+        actions: [
+          if (milestones.isNotEmpty)
+            TextButton(
+              onPressed: () => context.read<FitnessProvider>().clearNotifications(),
+              child: const Text('Clear', style: TextStyle(color: _kSecond)),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 12, 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.notifications_rounded, color: _kGreen, size: 20),
-                  const SizedBox(width: 8),
-                  const Text('Notifications',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  if (items.isNotEmpty)
-                    TextButton(
-                      onPressed: () =>
-                          context.read<FitnessProvider>().clearNotifications(),
-                      child: const Text('Clear',
-                          style: TextStyle(color: _kSecond, fontSize: 13)),
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: _kSecond, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFF2C2C2E)),
-
-            // Body
-            if (items.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-                child: Column(children: [
-                  Text('🔕', style: TextStyle(fontSize: 40)),
-                  SizedBox(height: 12),
-                  Text('No notifications yet',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                  SizedBox(height: 4),
-                  Text('Insights, milestones and reminders will appear here.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: _kSecond, fontSize: 12, height: 1.4)),
-                ]),
-              )
-            else
-              Flexible(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-                  shrinkWrap: true,
-                  children: [
-                    if (today.isNotEmpty) ...[
-                      _groupLabel('Today'),
-                      ...today.map((n) => _NotificationTile(n)),
-                    ],
-                    if (earlier.isNotEmpty) ...[
-                      _groupLabel('Earlier'),
-                      ...earlier.map((n) => _NotificationTile(n)),
-                    ],
-                  ],
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
+      body: isEmpty
+          ? const _EmptyState()
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              children: [
+                if (insights.isNotEmpty) ...[
+                  _SectionLabel('RIGHT NOW', subtitle: 'Live — updates as your day changes'),
+                  ...insights.map((n) => _NotificationTile(n, showTime: false)),
+                  const SizedBox(height: 18),
+                ],
+                if (milestones.isNotEmpty) ...[
+                  const _SectionLabel('ACHIEVEMENTS'),
+                  ...milestones.map((n) => _NotificationTile(n, showTime: true)),
+                ],
+              ],
+            ),
     );
   }
+}
 
-  Widget _groupLabel(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-        child: Text(text.toUpperCase(),
-            style: const TextStyle(
-                color: _kSecond, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6)),
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+  @override
+  Widget build(BuildContext context) => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('🔔', style: TextStyle(fontSize: 52)),
+            SizedBox(height: 16),
+            Text('Nothing right now',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+            SizedBox(height: 6),
+            Text('Live coaching tips and your milestones will appear here as you log.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _kSecond, fontSize: 13, height: 1.5)),
+          ]),
+        ),
+      );
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  final String? subtitle;
+  const _SectionLabel(this.text, {this.subtitle});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10, top: 2),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(text,
+              style: const TextStyle(
+                  color: _kSecond, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+          if (subtitle != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(subtitle!,
+                  style: TextStyle(color: _kSecond.withOpacity(0.7), fontSize: 11)),
+            ),
+        ]),
       );
 }
 
 class _NotificationTile extends StatelessWidget {
   final AppNotification n;
-  const _NotificationTile(this.n);
+  final bool showTime;
+  const _NotificationTile(this.n, {required this.showTime});
 
   String _relative(DateTime t) {
     final diff = DateTime.now().difference(t);
@@ -160,37 +115,39 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = Color(n.accent);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _kCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withOpacity(0.18)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withOpacity(0.2)),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
-          padding: const EdgeInsets.all(7),
+          padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
             color: accent.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(n.emoji, style: const TextStyle(fontSize: 16)),
+          child: Text(n.emoji, style: const TextStyle(fontSize: 18)),
         ),
-        const SizedBox(width: 11),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(
                 child: Text(n.title,
-                    style: TextStyle(color: accent, fontSize: 13, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: accent, fontSize: 14, fontWeight: FontWeight.w700)),
               ),
-              const SizedBox(width: 6),
-              Text(_relative(n.timestamp),
-                  style: const TextStyle(color: _kSecond, fontSize: 10)),
+              if (showTime) ...[
+                const SizedBox(width: 6),
+                Text(_relative(n.timestamp),
+                    style: const TextStyle(color: _kSecond, fontSize: 10)),
+              ],
             ]),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(n.body,
-                style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.45)),
+                style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.45)),
           ]),
         ),
       ]),
