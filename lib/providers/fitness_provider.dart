@@ -10,7 +10,6 @@ import 'package:pedometer/pedometer.dart';
 import 'package:home_widget/home_widget.dart';
 
 import '../models/models.dart';
-import '../widgets/home_widget_view.dart';
 import '../services/smart_insight_engine.dart' show topInsight, topInsights;
 import '../services/notification_center.dart';
 
@@ -1534,32 +1533,25 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   // ── Home widget ────────────────────────────────────────────────────────────
+  // The Android side (KFitnessWidgetProvider.kt) draws the concentric rings to a
+  // Bitmap natively from these values — no Flutter engine / renderFlutterWidget
+  // (that crashed at cold start) and no file URIs.
   Future<void> _updateWidget() async {
     try {
-      // Numeric fallbacks (kept for resilience / first render).
       await HomeWidget.saveWidgetData<int>('calories', todayCaloriesTotal.round());
       await HomeWidget.saveWidgetData<int>('calorieGoal', calorieGoal);
       await HomeWidget.saveWidgetData<int>('protein', todayProteinTotal.round());
       await HomeWidget.saveWidgetData<int>('proteinGoal', proteinGoal);
       await HomeWidget.saveWidgetData<int>('water', todayWaterMl);
       await HomeWidget.saveWidgetData<int>('waterGoal', waterGoalMl);
+      // Progress as 0–100 ints so the native side doesn't recompute.
+      await HomeWidget.saveWidgetData<int>('calPct', (calorieProgress * 100).round());
+      await HomeWidget.saveWidgetData<int>('protPct', (proteinProgress * 100).round());
+      await HomeWidget.saveWidgetData<int>('waterPct', (waterProgress * 100).round());
 
-      // Render the concentric-ring + insight card to a PNG the Android widget shows.
       final insight = topInsight(this, DateTime.now());
-      await HomeWidget.renderFlutterWidget(
-        HomeWidgetView(
-          calProgress: calorieProgress,
-          proteinProgress: proteinProgress,
-          waterProgress: waterProgress,
-          calories: todayCaloriesTotal.round(),
-          protein: todayProteinTotal.round(),
-          waterMl: todayWaterMl,
-          insight: insight,
-        ),
-        key: 'widget_img',
-        logicalSize: const Size(360, 170),
-        pixelRatio: 3,
-      );
+      await HomeWidget.saveWidgetData<String>('insightEmoji', insight.emoji);
+      await HomeWidget.saveWidgetData<String>('insightTitle', insight.title);
 
       await HomeWidget.updateWidget(
         name: 'KFitnessWidgetProvider',

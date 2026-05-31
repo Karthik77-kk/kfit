@@ -1,27 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#00000000">
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="12dp">
 
-    <!-- Rendered Flutter image (concentric rings + insight) -->
-    <ImageView
-        android:id="@+id/widget_image"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:adjustViewBounds="true"
-        android:scaleType="fitCenter"
-        android:contentDescription="K Fitness rings"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-    <!-- Fallback text shown before the first render -->
+        <!-- Concentric rings drawn natively as a bitmap -->
+        <ImageView
+            android:id="@+id/widget_rings"
+            android:layout_width="84dp"
+            android:layout_height="84dp"
+            android:contentDescription="Activity rings"/>
+
+        <!-- Legend -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="14dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_cal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FF453A"
+                android:textSize="12sp"
+                android:text="Calories"/>
+            <TextView
+                android:id="@+id/widget_prot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="#30D158"
+                android:textSize="12sp"
+                android:text="Protein"/>
+            <TextView
+                android:id="@+id/widget_water"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="#40C8E0"
+                android:textSize="12sp"
+                android:text="Water"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Insight line -->
     <TextView
-        android:id="@+id/widget_fallback"
-        android:layout_width="wrap_content"
+        android:id="@+id/widget_insight"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Open K Fitness to load"
-        android:textColor="#8E8E93"
-        android:textSize="12sp"/>
+        android:layout_marginTop="8dp"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:text="Open K Fitness"/>
 
-</FrameLayout>
+</LinearLayout>
