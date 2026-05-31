@@ -286,13 +286,34 @@ class FitnessProvider extends ChangeNotifier {
     return w - _goalWeightKg;
   }
 
-  /// Estimated weeks to reach goal at current deficit
+  /// Estimated weeks to reach goal, based on your ACTUAL measured rate of loss.
+  ///
+  /// Prefers the 7-day regression trend (`weeklyWeightChange`); this avoids the
+  /// old bug where today's instantaneous calorie deficit (huge early in the day,
+  /// before you've eaten) produced absurd ETAs like "2 weeks to lose 4 kg".
+  /// Falls back to a sustainable rate (a 500 kcal/day cut ≈ 0.45 kg/week) only
+  /// when there isn't enough weight history yet.
   double? get weeksToGoal {
     final kg = kgToGoal;
-    final deficit = calorieDeficit;
-    if (kg == null || kg <= 0 || deficit <= 0) return null;
-    final daysPerKg = 7700 / deficit;
-    return (kg * daysPerKg / 7).clamp(0, 999);
+    if (kg == null || kg <= 0) return null;
+
+    // 1) Measured trend (most accurate) — needs ≥3 weight logs for a regression.
+    final trend = weeklyWeightChange; // kg/week, negative = losing
+    if (trend != null && trend < -0.05) {
+      return (kg / trend.abs()).clamp(1, 999);
+    }
+
+    // 2) Sustainable projection from a 500 kcal/day deficit (0.45 kg/week).
+    final target = fatLossCalorieTarget;
+    final t = tdee;
+    if (target != null && t != null && t > target) {
+      final dailyDeficit = (t - target).clamp(0, 1000); // capped, realistic
+      if (dailyDeficit <= 0) return null;
+      final kgPerWeek = dailyDeficit * 7 / 7700;
+      if (kgPerWeek <= 0) return null;
+      return (kg / kgPerWeek).clamp(1, 999);
+    }
+    return null;
   }
 
   // ── Body-composition analytics (uses ALL scale + measurement data) ──────────
@@ -779,6 +800,50 @@ class FitnessProvider extends ChangeNotifier {
   double? proteinAvgForWeekday(int weekday) => _avgForWeekday(weekday, proteinForDate);
   double? waterAvgForWeekday(int weekday) =>
       _avgForWeekday(weekday, (d) => waterForDate(d).toDouble());
+  double? caloriesAvgForWeekday(int weekday) => _avgForWeekday(weekday, caloriesForDate);
+
+  /// Fraction of the day's eating window (≈6 AM–9 PM) elapsed — used to project
+  /// where today is heading from the current pace.
+  double get _eatingFraction {
+    final now = DateTime.now();
+    final mins = now.hour * 60 + now.minute;
+    const start = 6 * 60, end = 21 * 60;
+    return ((mins - start) / (end - start)).clamp(0.05, 1.0);
+  }
+
+  /// Predicted end-of-day calories, blending today's pace with the user's own
+  /// historical average for this weekday. Null before ~11 AM or with no intake
+  /// (too early/insufficient signal). Adaptive: improves as history grows.
+  double? get projectedEodCalories {
+    final now = DateTime.now();
+    if (now.hour < 11 || todayCaloriesTotal <= 0) return null;
+    final pace = todayCaloriesTotal / _eatingFraction;
+    final wd = caloriesAvgForWeekday(now.weekday);
+    if (wd != null && wd > 0) return 0.5 * pace + 0.5 * wd;
+    return pace;
+  }
+
+  /// Predicted end-of-day protein, same model as calories.
+  double? get projectedEodProtein {
+    final now = DateTime.now();
+    if (now.hour < 11 || todayProteinTotal <= 0) return null;
+    final pace = todayProteinTotal / _eatingFraction;
+    final wd = proteinAvgForWeekday(now.weekday);
+    if (wd != null && wd > 0) return 0.5 * pace + 0.5 * wd;
+    return pace;
+  }
+
+  /// True when the user historically eats meaningfully more on weekends than weekdays.
+  bool get overeatsOnWeekends {
+    final wkndDays = [DateTime.saturday, DateTime.sunday];
+    final wkdayDays = [1, 2, 3, 4, 5];
+    final wknd = wkndDays.map(caloriesAvgForWeekday).whereType<double>().toList();
+    final wkday = wkdayDays.map(caloriesAvgForWeekday).whereType<double>().toList();
+    if (wknd.isEmpty || wkday.isEmpty) return false;
+    final wkndAvg = wknd.reduce((a, b) => a + b) / wknd.length;
+    final wkdayAvg = wkday.reduce((a, b) => a + b) / wkday.length;
+    return wkndAvg > wkdayAvg + 250;
+  }
 
   double? _avgForWeekday(int weekday, double Function(DateTime) value) {
     final now = DateTime.now();

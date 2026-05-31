@@ -420,18 +420,18 @@ void main() {
       expect(p.weeksToGoal, isNull);
     });
 
-    test('weeksToGoal null when no deficit', () async {
+    test('weeksToGoal uses sustainable pace, not today\'s instantaneous deficit', () async {
       await p.logBodyEntry(weightKg: 78.0);
-      // calorieDeficit > 0 (burn includes resting) so might not be null
-      // but if we add enough food to create surplus:
+      // A one-off feast today must NOT change the estimate — it's trend/sustainable based.
       await p.addFoodEntry(FoodEntry(
         id: 'f1', name: 'Feast', calories: 5000, protein: 10,
         mealType: MealType.dinner, timestamp: DateTime.now(),
       ));
-      // Now calorieDeficit < 0 (surplus), weeksToGoal should be null
-      if (p.calorieDeficit <= 0) {
-        expect(p.weeksToGoal, isNull);
-      }
+      final wk = p.weeksToGoal;
+      // 8 kg to go at ~0.45 kg/wk sustainable ≈ ~18 weeks — a realistic number,
+      // never the absurd 2 the old instantaneous-deficit formula produced.
+      expect(wk, isNotNull);
+      expect(wk!, greaterThan(8));
     });
 
     test('weeksToGoal null when no weight logged', () {

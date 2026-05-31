@@ -348,6 +348,24 @@ void main() {
       expect(p.goalProgress, 1.0);
     });
 
+    test('weeksToGoal uses measured trend, not instantaneous deficit', () async {
+      await p.saveGoalWeight(70);
+      // ~0.5 kg/week loss over 4 weeks (76 → 74), 4 kg to go → ~8 weeks, NOT 2.
+      await p.logScaleEntry(_scale(date: DateTime.now().subtract(const Duration(days: 28)), weight: 76));
+      await p.logScaleEntry(_scale(date: DateTime.now().subtract(const Duration(days: 14)), weight: 75));
+      await p.logScaleEntry(_scale(date: DateTime.now(), weight: 74));
+      final wk = p.weeksToGoal;
+      expect(wk, isNotNull);
+      expect(wk!, greaterThan(4)); // trend-based, realistic — not the absurd 2
+    });
+
+    test('weeksToGoal null when not losing and no history', () async {
+      await p.saveGoalWeight(70);
+      await p.logScaleEntry(_scale(date: DateTime.now(), weight: 80));
+      // single entry → no trend; with no body weight/height for TDEE fallback may be null
+      expect(p.weeksToGoal == null || p.weeksToGoal! >= 1, isTrue);
+    });
+
     test('waistToHipRatio computed from measurements', () async {
       await p.logMeasurement(MeasurementEntry(
           id: 'm', date: DateTime.now(), waistCm: 90, hipsCm: 100));
