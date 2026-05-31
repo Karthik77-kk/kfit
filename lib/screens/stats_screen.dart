@@ -329,6 +329,11 @@ class _StatsScreenState extends State<StatsScreen> {
                   _BmrTdeeCard(provider: p),
                   const SizedBox(height: 24),
 
+                  // ── Body Composition ───────────────────────────────────
+                  const _SectionLabel('BODY COMPOSITION'),
+                  _BodyCompositionCard(provider: p),
+                  const SizedBox(height: 24),
+
                   // ── Goal Progress ──────────────────────────────────────
                   if (p.latestWeightKg != null && p.kgToGoal != null) ...[
                     const _SectionLabel('GOAL PROGRESS'),
@@ -698,6 +703,130 @@ class _BmrTdeeCard extends StatelessWidget {
   }
 }
 
+// ─── Body Composition Card ─────────────────────────────────────────────────────
+class _BodyCompositionCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _BodyCompositionCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = provider;
+    final status = p.bodyCompositionStatus;
+    final whr = p.waistToHipRatio;
+    final whtr = p.waistToHeightRatio;
+    final ffmi = p.ffmi;
+    final fat = p.fatMassKg;
+    final lean = p.leanMassKg;
+    final traj = p.bodyCompTrajectory;
+    final bioDelta = p.bioAgeDelta;
+    final hydration = p.hydrationStatus;
+
+    final hasAny = whr != null || whtr != null || ffmi != null ||
+        fat != null || traj != null || bioDelta != null;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Headline status
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: status.color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(status.label,
+                  style: TextStyle(color: status.color, fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Text(status.detail,
+              style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4)),
+
+          if (!hasAny) ...[
+            const SizedBox(height: 10),
+            const Text('Log waist + hips in Measurements and a smart-scale reading to unlock '
+                'WHR, waist-to-height, FFMI and your fat-vs-muscle trajectory.',
+                style: TextStyle(color: _kSecond, fontSize: 12, height: 1.4)),
+          ] else ...[
+            const SizedBox(height: 14),
+            // Metric grid
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              if (whr != null)
+                _BcChip('Waist:Hip', whr.toStringAsFixed(2),
+                    p.whrRisk?.label ?? '', p.whrRisk?.color ?? _kSecond),
+              if (whtr != null)
+                _BcChip('Waist:Height', whtr.toStringAsFixed(2),
+                    p.whtrStatus.label, p.whtrStatus.color),
+              if (ffmi != null)
+                _BcChip('FFMI', ffmi.toStringAsFixed(1),
+                    p.ffmiStatus.label, p.ffmiStatus.color),
+              if (fat != null)
+                _BcChip('Fat mass', '${fat.toStringAsFixed(1)} kg', 'body fat', _kOrange),
+              if (lean != null)
+                _BcChip('Lean mass', '${lean.toStringAsFixed(1)} kg', 'fat-free', _kGreen),
+              if (hydration != null)
+                _BcChip('Body water', hydration.label, 'hydration', hydration.color),
+              if (bioDelta != null)
+                _BcChip('Body age',
+                    bioDelta == 0 ? 'On par' : bioDelta < 0 ? '${bioDelta.abs()}y younger' : '$bioDelta y older',
+                    'vs real age', bioDelta <= 0 ? _kGreen : _kOrange),
+            ]),
+            // Trajectory banner
+            if (traj != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: traj.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: traj.color.withOpacity(0.3)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.swap_vert_rounded, color: traj.color, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(traj.verdict,
+                        style: TextStyle(color: traj.color, fontSize: 13, fontWeight: FontWeight.w700)),
+                    Text('Fat ${traj.fatChange >= 0 ? '+' : ''}${traj.fatChange.toStringAsFixed(1)} kg · '
+                        'Muscle ${traj.leanChange >= 0 ? '+' : ''}${traj.leanChange.toStringAsFixed(1)} kg since first scan',
+                        style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  ])),
+                ]),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BcChip extends StatelessWidget {
+  final String label, value, sub;
+  final Color color;
+  const _BcChip(this.label, this.value, this.sub, this.color);
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 104,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C2C2E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w700)),
+        Text(sub, style: TextStyle(color: color.withOpacity(0.8), fontSize: 9)),
+      ]),
+    );
+  }
+}
+
 class _MetaChip extends StatelessWidget {
   final String label;
   final String value;
@@ -749,13 +878,9 @@ class _GoalCard extends StatelessWidget {
     final color    = isLosing ? _kOrange : _kGreen;
     final weeks    = p.weeksToGoal;
 
-    // Progress 0–1: how close to goal
-    double progress = 0;
-    if (isLosing) {
-      progress = 1 - (current - goal).clamp(0.0, 10.0) / 10.0;
-    } else {
-      progress = 1.0; // Already at or below goal
-    }
+    // Real progress along the start→goal journey (start = earliest logged weight).
+    final progress = p.goalProgress;
+    final start    = p.startWeightKg;
 
     return _Card(
       child: Column(
@@ -774,15 +899,8 @@ class _GoalCard extends StatelessWidget {
                     color: color, fontSize: 15, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('${current.toStringAsFixed(1)} kg',
-                      style: const TextStyle(color: Colors.white, fontSize: 13)),
-                  Text('→ ${goal.toStringAsFixed(1)} kg',
-                      style: const TextStyle(color: _kSecond, fontSize: 11)),
-                ],
-              ),
+              Text('${(progress * 100).round()}%',
+                  style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 10),
@@ -794,6 +912,18 @@ class _GoalCard extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation<Color>(color),
               minHeight: 6,
             ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(start != null ? 'Start ${start.toStringAsFixed(1)}' : 'Start —',
+                  style: const TextStyle(color: _kSecond, fontSize: 11)),
+              Text('Now ${current.toStringAsFixed(1)} kg',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text('Goal ${goal.toStringAsFixed(1)}',
+                  style: const TextStyle(color: _kSecond, fontSize: 11)),
+            ],
           ),
           if (weeks != null && weeks > 0) ...[
             const SizedBox(height: 8),

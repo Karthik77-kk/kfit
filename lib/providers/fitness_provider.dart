@@ -317,6 +317,178 @@ class FitnessProvider extends ChangeNotifier {
     return (kg * daysPerKg / 7).clamp(0, 999);
   }
 
+  // ── Body-composition analytics (uses ALL scale + measurement data) ──────────
+  static const _bcGreen = Color(0xFF30D158);
+  static const _bcOrange = Color(0xFFFF9F0A);
+  static const _bcRed = Color(0xFFFF453A);
+  static const _bcBlue = Color(0xFF40C8E0);
+  static const _bcMuted = Color(0xFF8E8E93);
+
+  /// Earliest logged weight across body + scale history — the baseline for goal progress.
+  double? get startWeightKg {
+    DateTime? earliest;
+    double? weight;
+    void consider(DateTime d, double w) {
+      if (w <= 0) return;
+      if (earliest == null || d.isBefore(earliest!)) {
+        earliest = d;
+        weight = w;
+      }
+    }
+    if (_bodyHistory.isNotEmpty) consider(_bodyHistory.first.date, _bodyHistory.first.weightKg);
+    if (_scaleHistory.isNotEmpty) consider(_scaleHistory.first.date, _scaleHistory.first.weightKg);
+    return weight;
+  }
+
+  /// Fraction (0–1) of the start→goal journey completed. Handles loss and gain goals.
+  double get goalProgress {
+    final start = startWeightKg;
+    final current = latestWeightKg;
+    if (start == null || current == null) return 0;
+    final span = start - _goalWeightKg;
+    if (span.abs() < 0.05) return 1; // already at goal / no meaningful span
+    return ((start - current) / span).clamp(0.0, 1.0);
+  }
+
+  /// Waist-to-hip ratio (fat-distribution / health-risk indicator).
+  double? get waistToHipRatio {
+    final m = latestMeasurements;
+    final waist = m?.waistCm;
+    final hips = m?.hipsCm;
+    if (waist == null || hips == null || hips <= 0) return null;
+    return waist / hips;
+  }
+
+  ({String label, Color color})? get whrRisk {
+    final r = waistToHipRatio;
+    if (r == null) return null;
+    if (r < 0.90) return (label: 'Low risk', color: _bcGreen);
+    if (r < 1.00) return (label: 'Moderate risk', color: _bcOrange);
+    return (label: 'High risk', color: _bcRed);
+  }
+
+  /// Waist-to-height ratio — a stronger central-obesity signal than BMI.
+  double? get waistToHeightRatio {
+    final waist = latestMeasurements?.waistCm;
+    if (waist == null || _heightCm <= 0) return null;
+    return waist / _heightCm;
+  }
+
+  ({String label, Color color}) get whtrStatus {
+    final r = waistToHeightRatio;
+    if (r == null) return (label: '—', color: _bcMuted);
+    if (r < 0.5) return (label: 'Healthy', color: _bcGreen);
+    if (r < 0.6) return (label: 'Raised', color: _bcOrange);
+    return (label: 'High', color: _bcRed);
+  }
+
+  /// Normalized Fat-Free Mass Index — your actual muscle-development score.
+  double? get ffmi {
+    final lean = latestScaleEntry?.leanBodyMassKg;
+    if (lean == null || lean <= 0 || _heightCm <= 0) return null;
+    final h = _heightCm / 100.0;
+    return lean / (h * h) + 6.1 * (1.8 - h);
+  }
+
+  ({String label, Color color}) get ffmiStatus {
+    final f = ffmi;
+    if (f == null) return (label: '—', color: _bcMuted);
+    if (f < 18) return (label: 'Below average', color: _bcOrange);
+    if (f < 20) return (label: 'Average', color: _bcBlue);
+    if (f < 22) return (label: 'Athletic', color: _bcGreen);
+    if (f < 25) return (label: 'Excellent', color: _bcGreen);
+    return (label: 'Very high', color: _bcBlue);
+  }
+
+  double? get fatMassKg {
+    final v = latestScaleEntry?.bodyFatKg;
+    return (v != null && v > 0) ? v : null;
+  }
+
+  double? get leanMassKg {
+    final v = latestScaleEntry?.leanBodyMassKg;
+    return (v != null && v > 0) ? v : null;
+  }
+
+  /// Fat / lean change from the earliest to latest scale reading — the real recomp story.
+  ({double fatChange, double leanChange, String verdict, Color color})? get bodyCompTrajectory {
+    if (_scaleHistory.length < 2) return null;
+    final first = _scaleHistory.first;
+    final last = _scaleHistory.last;
+    if (first.bodyFatKg <= 0 || last.bodyFatKg <= 0) return null;
+    final fatChange = last.bodyFatKg - first.bodyFatKg;
+    final leanChange = last.leanBodyMassKg - first.leanBodyMassKg;
+    String verdict;
+    Color color;
+    if (fatChange < -0.3 && leanChange > 0.3) {
+      verdict = 'Recomp — fat down, muscle up';
+      color = _bcGreen;
+    } else if (fatChange < -0.3 && leanChange >= -0.3) {
+      verdict = 'Losing fat, holding muscle';
+      color = _bcGreen;
+    } else if (fatChange < -0.3 && leanChange < -0.3) {
+      verdict = 'Losing fat and some muscle';
+      color = _bcOrange;
+    } else if (fatChange > 0.3 && leanChange > 0.3) {
+      verdict = 'Gaining both fat and muscle';
+      color = _bcOrange;
+    } else if (fatChange > 0.3) {
+      verdict = 'Fat trending up';
+      color = _bcRed;
+    } else {
+      verdict = 'Holding steady';
+      color = _bcMuted;
+    }
+    return (fatChange: fatChange, leanChange: leanChange, verdict: verdict, color: color);
+  }
+
+  /// Smart-scale biological age minus real age (negative = younger than your years).
+  int? get bioAgeDelta {
+    final b = latestScaleEntry?.biologicalAge;
+    if (b == null || b <= 0) return null;
+    return b - _age;
+  }
+
+  ({String label, Color color})? get hydrationStatus {
+    final w = latestScaleEntry?.bodyWaterPercent;
+    if (w == null || w <= 0) return null;
+    if (w < 50) return (label: 'Low', color: _bcOrange);
+    if (w <= 65) return (label: 'Healthy', color: _bcGreen);
+    return (label: 'High', color: _bcBlue);
+  }
+
+  /// Headline body-composition classification from BMI + body-fat% + FFMI.
+  ({String label, Color color, String detail}) get bodyCompositionStatus {
+    final bf = latestScaleEntry?.bodyFatPercent;
+    final f = ffmi;
+    final b = bmi;
+    if (bf == null && b == null) {
+      return (label: 'Log data', color: _bcMuted, detail: 'Log weight (and scale) to assess.');
+    }
+    if (bf != null && bf > 0) {
+      if (bf >= 25) {
+        return (label: 'Overfat', color: _bcRed,
+            detail: 'Body fat ${bf.toStringAsFixed(0)}% is high — prioritise the deficit + protein.');
+      }
+      if (bf < 15 && (f == null || f >= 20)) {
+        return (label: 'Athletic', color: _bcGreen,
+            detail: 'Lean and muscular — maintain protein and training.');
+      }
+      if (bf < 20 && (f == null || f >= 19)) {
+        return (label: 'Lean', color: _bcGreen,
+            detail: 'Good composition — keep protein high to hold muscle.');
+      }
+      if (f != null && f < 18) {
+        return (label: 'Recomp needed', color: _bcOrange,
+            detail: 'Lowish muscle (FFMI ${f.toStringAsFixed(1)}) — lift heavy while holding the deficit.');
+      }
+      return (label: 'Average', color: _bcBlue,
+          detail: 'Solid base — small deficit + strength work moves you toward lean.');
+    }
+    // Fall back to BMI category when no body-fat reading.
+    return (label: bmiCategory, color: _bcBlue, detail: 'Log smart-scale data for a full composition read.');
+  }
+
   /// True when pedometer is actively delivering data
   bool get hasPedometerData =>
       _pedometerDayBaseline >= 0 && _livePedometerTotal >= _pedometerDayBaseline;
