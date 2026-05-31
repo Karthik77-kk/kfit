@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/fitness_provider.dart';
 import '../services/notification_service.dart';
+import '../services/foreground_reminder_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,6 +18,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _testingNotif = false;
   bool _testingScheduled = false;
   bool _fixingNotif = false;
+  bool _fgEnabled = false;
+  bool _fgBusy = false;
   bool? _batteryOptIgnored;
   bool? _exactAlarmGranted;
   bool? _notifPermGranted; // POST_NOTIFICATIONS runtime permission (Android 13+)
@@ -162,6 +165,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _checkBatteryStatus();
+    _loadFgState();
+  }
+
+  Future<void> _loadFgState() async {
+    final running = await ForegroundReminderService.isRunning;
+    if (mounted) setState(() => _fgEnabled = running);
+  }
+
+  Future<void> _toggleForegroundService(bool value) async {
+    setState(() => _fgBusy = true);
+    final ok = value
+        ? await ForegroundReminderService.start()
+        : await ForegroundReminderService.stop();
+    if (mounted) {
+      setState(() {
+        _fgBusy = false;
+        if (ok) _fgEnabled = value;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(value
+            ? (ok
+                ? '✅ Background reminders ON — they will now fire reliably even when the app is closed.'
+                : '❌ Could not start service. Grant notification permission and try again.')
+            : '🔕 Background reminders turned off.'),
+        backgroundColor: ok ? const Color(0xFF30D158) : const Color(0xFFFF453A),
+        duration: const Duration(seconds: 5),
+      ));
+    }
   }
 
   Future<void> _checkBatteryStatus() async {
@@ -291,6 +322,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // ── NOTIFICATIONS ─────────────────────────────────────────
           _Header('Notifications'),
+          // Background reminder service toggle — the reliable path on iQOO/Vivo
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _fgEnabled
+                    ? const Color(0xFF30D158).withOpacity(0.5)
+                    : const Color(0xFFFF9F0A).withOpacity(0.4),
+                width: 1.2,
+              ),
+            ),
+            child: SwitchListTile(
+              value: _fgEnabled,
+              onChanged: _fgBusy ? null : _toggleForegroundService,
+              activeColor: const Color(0xFF30D158),
+              secondary: Icon(
+                _fgEnabled ? Icons.shield_rounded : Icons.shield_outlined,
+                color: _fgEnabled
+                    ? const Color(0xFF30D158)
+                    : const Color(0xFFFF9F0A),
+              ),
+              title: const Text('Reliable Reminders (recommended)',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              subtitle: Text(
+                _fgEnabled
+                    ? 'ON — reminders fire on time even if iQOO kills background apps. Shows a small persistent notification.'
+                    : 'Turn ON if reminders don\'t arrive. Runs a tiny always-on service so iQOO/Vivo can\'t block your alarms.',
+                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
           // Notification permission status banner (Android 13+)
           if (_notifPermGranted != null)
             Container(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'providers/fitness_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
@@ -10,6 +11,7 @@ import 'screens/stats_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/smart_scale_screen.dart';
 import 'services/notification_service.dart';
+import 'services/foreground_reminder_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +39,15 @@ void main() async {
     await ns.scheduleEveningChecklist();
     await ns.scheduleWalkReminders(intervalHours: walkInterval);
   } catch (_) {}
+
+  // Foreground reminder service — the reliable path on OEM ROMs that kill
+  // AlarmManager alarms. Restart it if the user had it enabled.
+  try {
+    FlutterForegroundTask.initCommunicationPort();
+    ForegroundReminderService.init();
+    await ForegroundReminderService.restoreIfEnabled();
+  } catch (_) {}
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => FitnessProvider()..loadData(),
