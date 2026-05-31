@@ -210,6 +210,29 @@ void main() {
     });
   });
 
+  // ── In-app notification feed (live + milestones) ──────────────────────────
+
+  group('Notification feed', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('liveInsightFeed is always non-empty (fallback insight)', () {
+      expect(p.liveInsightFeed, isNotEmpty);
+    });
+
+    test('milestoneFeed starts empty', () {
+      expect(p.milestoneFeed, isEmpty);
+    });
+
+    test('markNotificationsRead marks current live insights seen (badge drops)', () async {
+      final before = p.unreadNotifications;
+      expect(before, greaterThan(0));
+      await p.markNotificationsRead();
+      // Same state → the same insight titles are now "seen" → no longer unread.
+      expect(p.unreadNotifications, 0);
+    });
+  });
+
   // ── Weekly summary getters ────────────────────────────────────────────────
 
   group('Weekly summary getters', () {

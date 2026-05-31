@@ -219,7 +219,7 @@ class _NotificationBell extends StatelessWidget {
       children: [
         IconButton(
           icon: const Icon(Icons.notifications_none_rounded, size: 23),
-          onPressed: () => showNotificationPanel(context),
+          onPressed: () => openNotifications(context),
         ),
         if (unread > 0)
           Positioned(
