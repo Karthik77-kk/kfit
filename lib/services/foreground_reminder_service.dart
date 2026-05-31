@@ -90,6 +90,12 @@ class _ReminderTaskHandler extends TaskHandler {
           'Did you log everything? 🍽️ Food  💧 Water  💪 Workout  💊 Supplements',
           'evening_checklist');
     }
+    // Weekly check-in — Sunday 19:00
+    if (now.weekday == DateTime.sunday && at(19, 0)) {
+      _fire('weekly', 31, '⚖️ Weekly Check-in — update your numbers',
+          'It\'s Sunday! Log this week\'s smart-scale reading and body measurements '
+          'so your trends stay accurate.', 'weekly_channel');
+    }
   }
 
   Future<void> _fire(

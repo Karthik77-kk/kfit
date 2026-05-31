@@ -21,6 +21,7 @@ class NotificationService {
   static const int _creatineId = 2;
   // Water reminders: IDs 10–23
   static const int _eveningChecklistId = 30;
+  static const int _weeklyReminderId = 31;
   // Walk reminders: IDs 40–55
   static const int _testNotificationId = 99;
 
@@ -89,6 +90,13 @@ class NotificationService {
       AndroidNotificationChannel(
         'walk_channel', 'Walk Reminders',
         description: 'Get up and move reminders',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
+      ),
+      AndroidNotificationChannel(
+        'weekly_channel', 'Weekly Check-in',
+        description: 'Sunday reminder to update scale & body measurements',
         importance: Importance.high,
         enableVibration: true,
         playSound: true,
@@ -548,6 +556,49 @@ class NotificationService {
     } catch (_) {}
   }
 
+  // ── Weekly Check-in (Sunday 7 PM) — update scale & measurements ───────────
+
+  Future<void> scheduleWeeklyLogReminder() async {
+    try {
+      await _plugin.cancel(_weeklyReminderId);
+      final now = tz.TZDateTime.now(tz.local);
+      // Next Sunday (weekday 7) at 19:00.
+      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, 19, 0);
+      while (scheduled.weekday != DateTime.sunday || scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+
+      final exactOk = await canScheduleExactAlarms();
+      final scheduleMode = exactOk
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
+      await _plugin.zonedSchedule(
+        _weeklyReminderId,
+        '⚖️ Weekly Check-in — update your numbers',
+        'It\'s Sunday! Log this week\'s smart-scale reading and body measurements so your trends stay accurate.',
+        scheduled,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'weekly_channel', 'Weekly Check-in',
+            channelDescription: 'Sunday reminder to update scale & body measurements',
+            importance: Importance.high,
+            priority: Priority.high,
+            styleInformation: BigTextStyleInformation(
+              '📊 Step on the smart scale and take your tape measurements (waist, hips, chest, arm, thigh).\n\nWeekly data keeps your AI Coach, body-composition trends and predictions sharp.',
+              summaryText: 'Weekly Check-in',
+            ),
+            color: const Color(0xFF40C8E0),
+          ),
+        ),
+        androidScheduleMode: scheduleMode,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {}
+  }
+
   /// Re-schedule all notifications (call on every app open to ensure they're active).
   Future<void> rescheduleAll({int waterInterval = 1, int walkInterval = 2}) async {
     await scheduleMorningSummary();
@@ -555,6 +606,7 @@ class NotificationService {
     await scheduleWaterReminders(intervalHours: waterInterval);
     await scheduleWalkReminders(intervalHours: walkInterval);
     await scheduleEveningChecklist();
+    await scheduleWeeklyLogReminder();
   }
 
   // ── Cancel all ────────────────────────────────────────────────────────────

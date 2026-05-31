@@ -11,7 +11,8 @@ import 'package:home_widget/home_widget.dart';
 
 import '../models/models.dart';
 import '../widgets/home_widget_view.dart';
-import '../services/smart_insight_engine.dart' show topInsight;
+import '../services/smart_insight_engine.dart' show topInsight, topInsights;
+import '../services/notification_center.dart';
 
 class FitnessProvider extends ChangeNotifier {
   // ── Daily targets (defaults — overridden by user settings) ────────────────
@@ -1016,11 +1017,110 @@ class FitnessProvider extends ChangeNotifier {
     notifyListeners();
     _updateWidget();
 
+    // Populate the in-app notification center (insights snapshot + milestones).
+    _populateNotifications();
+
     // Start pedometer after data is loaded (non-blocking)
     startPedometer();
 
     // Start day-reset watcher (detects midnight crossover while app is open)
     _startDayResetTimer();
+  }
+
+  // ── In-app notification center ──────────────────────────────────────────────
+  List<AppNotification> _appNotifications = [];
+  int _unreadNotifications = 0;
+  List<AppNotification> get appNotifications => _appNotifications;
+  int get unreadNotifications => _unreadNotifications;
+
+  Future<void> _refreshNotifications() async {
+    _appNotifications = await NotificationCenter.all();
+    _unreadNotifications = _appNotifications.where((n) => !n.read).length;
+    notifyListeners();
+  }
+
+  Future<void> markNotificationsRead() async {
+    await NotificationCenter.markAllRead();
+    await _refreshNotifications();
+  }
+
+  Future<void> clearNotifications() async {
+    await NotificationCenter.clear();
+    await _refreshNotifications();
+  }
+
+  Future<void> _populateNotifications() async {
+    try {
+      // Snapshot today's top AI Coach insights (deduped by title/day in the store).
+      final insights = topInsights(this, DateTime.now(), count: 3);
+      for (final ins in insights) {
+        await NotificationCenter.add(AppNotification(
+          id: const Uuid().v4(),
+          emoji: ins.emoji,
+          title: ins.title,
+          body: ins.body,
+          accent: ins.accent.value,
+          category: 'insight',
+          timestamp: DateTime.now(),
+        ));
+      }
+      await _detectMilestones();
+      await _refreshNotifications();
+    } catch (_) {}
+  }
+
+  Future<void> _detectMilestones() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Workout-streak milestones (fire once per threshold crossing).
+    final ws = workoutStreak;
+    final lastWs = prefs.getInt('ms_workout_streak') ?? 0;
+    for (final m in [7, 14, 30, 60, 100]) {
+      if (ws >= m && lastWs < m) {
+        await NotificationCenter.add(AppNotification(
+          id: const Uuid().v4(), emoji: '🏋️',
+          title: '$m-day workout streak!',
+          body: '$m days in a row — elite consistency. Keep the chain unbroken.',
+          accent: 0xFFFF9F0A, category: 'milestone', timestamp: DateTime.now(),
+        ));
+      }
+    }
+    await prefs.setInt('ms_workout_streak', ws);
+
+    // Diet-streak milestones.
+    final cs = calorieStreak;
+    final lastCs = prefs.getInt('ms_calorie_streak') ?? 0;
+    for (final m in [7, 30]) {
+      if (cs >= m && lastCs < m) {
+        await NotificationCenter.add(AppNotification(
+          id: const Uuid().v4(), emoji: '🥗',
+          title: '$m-day diet logging streak!',
+          body: 'Logged your food $m days straight. Awareness is half the battle.',
+          accent: 0xFF40C8E0, category: 'milestone', timestamp: DateTime.now(),
+        ));
+      }
+    }
+    await prefs.setInt('ms_calorie_streak', cs);
+
+    // Goal reached.
+    final reached = startWeightKg != null && goalProgress >= 1.0;
+    final wasReached = prefs.getBool('ms_goal_reached') ?? false;
+    if (reached && !wasReached) {
+      await NotificationCenter.add(AppNotification(
+        id: const Uuid().v4(), emoji: '🎯',
+        title: 'Goal weight reached! 🎉',
+        body: 'You hit ${_goalWeightKg.toStringAsFixed(1)} kg. Time to set a new '
+            'target or shift to maintenance.',
+        accent: 0xFF30D158, category: 'milestone', timestamp: DateTime.now(),
+      ));
+    }
+    await prefs.setBool('ms_goal_reached', reached);
+  }
+
+  /// Adds a notification to the in-app center (used by reminders/foreground service).
+  Future<void> pushNotification(AppNotification n) async {
+    await NotificationCenter.add(n);
+    await _refreshNotifications();
   }
 
   void _purgeStaleDailyKeys(SharedPreferences prefs) {

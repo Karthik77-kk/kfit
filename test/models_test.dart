@@ -404,4 +404,32 @@ void main() {
       expect(MeasurementEntry(id: 'x', date: DateTime.now(), waistCm: 80.0).isEmpty, isFalse);
     });
   });
+
+  // ─── AppNotification ─────────────────────────────────────────────────────────
+  group('AppNotification', () {
+    test('serialises and deserialises all fields', () {
+      final n = AppNotification(
+        id: 'n1', emoji: '🎯', title: 'Goal hit', body: 'Nice work',
+        accent: 0xFF30D158, category: 'milestone',
+        timestamp: DateTime(2026, 5, 31, 12), read: true,
+      );
+      final r = AppNotification.fromJson(n.toJson());
+      expect(r.id, 'n1');
+      expect(r.emoji, '🎯');
+      expect(r.title, 'Goal hit');
+      expect(r.accent, 0xFF30D158);
+      expect(r.category, 'milestone');
+      expect(r.read, isTrue);
+    });
+
+    test('defaults read to false and accent fallback', () {
+      final r = AppNotification.fromJson({
+        'id': 'x', 'title': 't', 'body': 'b',
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+      expect(r.read, isFalse);
+      expect(r.emoji, '🔔');
+      expect(r.accent, 0xFF30D158);
+    });
+  });
 }
