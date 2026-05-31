@@ -207,6 +207,48 @@ void main() {
     });
   });
 
+  // ── Weekly summary getters ────────────────────────────────────────────────
+
+  group('Weekly summary getters', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('weeklyAvgCalories includes todays food', () async {
+      await p.addFoodEntry(_food('f1', 700, 30));
+      expect(p.weeklyAvgCalories, closeTo(700.0 / 7, 1));
+    });
+
+    test('weeklyAvgCalories includes supplement calories', () async {
+      await p.updateSupplement('whey', true); // +120 kcal
+      expect(p.weeklyAvgCalories, closeTo(120.0 / 7, 1));
+    });
+
+    test('weeklyAvgProtein includes today protein', () async {
+      await p.addFoodEntry(_food('f1', 400, 50));
+      expect(p.weeklyAvgProtein, closeTo(50.0 / 7, 0.5));
+    });
+
+    test('weeklyWaterGoalHitDays 0 when no water logged', () {
+      expect(p.weeklyWaterGoalHitDays, 0);
+    });
+
+    test('weeklyWaterGoalHitDays 1 when today meets goal', () async {
+      await p.saveWaterGoal(500);
+      await p.addWater(500);
+      expect(p.weeklyWaterGoalHitDays, 1);
+    });
+
+    test('weeklyProteinGoalHitDays 0 with no food', () {
+      expect(p.weeklyProteinGoalHitDays, 0);
+    });
+
+    test('weeklyProteinGoalHitDays 1 when today meets goal', () async {
+      await p.saveProteinGoal(50);
+      await p.addFoodEntry(_food('f1', 200, 50));
+      expect(p.weeklyProteinGoalHitDays, 1);
+    });
+  });
+
   // ── Food ──────────────────────────────────────────────────────────────────
 
   group('Food logging', () {

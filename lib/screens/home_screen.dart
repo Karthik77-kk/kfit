@@ -170,10 +170,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   _SupplementsCard(supp: p.supplements),
                   const SizedBox(height: 20),
 
-                  // ── Weekly snapshot ───────────────────────────────────────
-                  const _SectionHdr('THIS WEEK'),
+                  // ── Weekly report ─────────────────────────────────────────
+                  const _SectionHdr('LAST 7 DAYS'),
                   const SizedBox(height: 10),
-                  _WeeklySnapshotCard(provider: p),
+                  _WeeklyReportCard(provider: p),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -1016,10 +1016,10 @@ class _SupplementsCard extends StatelessWidget {
   }
 }
 
-// ─── Weekly Snapshot Card ──────────────────────────────────────────────────────
-class _WeeklySnapshotCard extends StatelessWidget {
+// ─── Weekly Report Card ────────────────────────────────────────────────────────
+class _WeeklyReportCard extends StatelessWidget {
   final FitnessProvider provider;
-  const _WeeklySnapshotCard({required this.provider});
+  const _WeeklyReportCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -1027,11 +1027,15 @@ class _WeeklySnapshotCard extends StatelessWidget {
     final map = p.weeklyWorkoutMap;
     final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     final today = DateTime.now().weekday - 1;
+    final weekly = p.weeklyWeightChange;
+    final avgCal = p.weeklyAvgCalories;
+    final avgCalColor = avgCal <= p.calorieGoal ? _kGreen : _kRed;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
       child: Column(children: [
+        // ── 7-day workout grid ──────────────────────────────────────────
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(7, (i) {
             final done = i < map.length ? map[i] : false;
@@ -1058,6 +1062,8 @@ class _WeeklySnapshotCard extends StatelessWidget {
         const SizedBox(height: 12),
         const Divider(color: Color(0xFF38383A), thickness: 0.5, height: 1),
         const SizedBox(height: 12),
+
+        // ── Row 1: workouts / burned / streaks ──────────────────────────
         Row(children: [
           _WeekStat('Workouts', '${p.weeklyWorkoutDays}/7', _kGreen, Icons.fitness_center_rounded),
           const SizedBox(width: 8),
@@ -1067,6 +1073,46 @@ class _WeeklySnapshotCard extends StatelessWidget {
           const SizedBox(width: 8),
           _WeekStat('Diet 🥗', '${p.calorieStreak}d', const Color(0xFF40C8E0), null),
         ]),
+        const SizedBox(height: 8),
+
+        // ── Row 2: nutrition averages ───────────────────────────────────
+        Row(children: [
+          _WeekStat('Avg Cal', '${avgCal.round()}', avgCalColor, null),
+          const SizedBox(width: 8),
+          _WeekStat('Avg Protein', '${p.weeklyAvgProtein.round()}g', _kBlue, null),
+          const SizedBox(width: 8),
+          _WeekStat('Water Goal', '${p.weeklyWaterGoalHitDays}/7d', _kBlue, null),
+          const SizedBox(width: 8),
+          _WeekStat('Prot Goal', '${p.weeklyProteinGoalHitDays}/7d', _kGreen, null),
+        ]),
+
+        // ── Weight change line ──────────────────────────────────────────
+        if (weekly != null) ...[
+          const SizedBox(height: 10),
+          const Divider(color: Color(0xFF38383A), thickness: 0.5, height: 1),
+          const SizedBox(height: 8),
+          Row(children: [
+            Icon(
+              weekly < 0 ? Icons.trending_down_rounded
+                  : weekly > 0 ? Icons.trending_up_rounded
+                  : Icons.trending_flat_rounded,
+              color: weekly < 0 ? _kGreen : weekly > 0 ? _kRed : _kSecond,
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              weekly < 0
+                  ? '${weekly.abs().toStringAsFixed(2)} kg lost this week'
+                  : weekly > 0
+                      ? '${weekly.toStringAsFixed(2)} kg gained this week'
+                      : 'Weight stable this week',
+              style: TextStyle(
+                color: weekly < 0 ? _kGreen : weekly > 0 ? _kRed : _kSecond,
+                fontSize: 12,
+              ),
+            ),
+          ]),
+        ],
       ]),
     );
   }
