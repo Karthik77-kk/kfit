@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:uuid/uuid.dart';
 import 'package:pedometer/pedometer.dart';
+import 'package:home_widget/home_widget.dart';
 
 import '../models/models.dart';
 
@@ -739,6 +740,7 @@ class FitnessProvider extends ChangeNotifier {
     _purgeStaleDailyKeys(prefs);
 
     notifyListeners();
+    _updateWidget();
 
     // Start pedometer after data is loaded (non-blocking)
     startPedometer();
@@ -768,12 +770,14 @@ class FitnessProvider extends ChangeNotifier {
     _todayFood.add(entry);
     await _saveFoodEntries();
     notifyListeners();
+    _updateWidget();
   }
 
   Future<void> removeFoodEntry(String id) async {
     _todayFood.removeWhere((e) => e.id == id);
     await _saveFoodEntries();
     notifyListeners();
+    _updateWidget();
   }
 
   Future<void> _saveFoodEntries() async {
@@ -789,12 +793,14 @@ class FitnessProvider extends ChangeNotifier {
     _todayWaterMl += ml;
     await _saveWater();
     notifyListeners();
+    _updateWidget();
   }
 
   Future<void> removeWater(int ml) async {
     _todayWaterMl = (_todayWaterMl - ml).clamp(0, 99999);
     await _saveWater();
     notifyListeners();
+    _updateWidget();
   }
 
   Future<void> _saveWater() async {
@@ -822,6 +828,7 @@ class FitnessProvider extends ChangeNotifier {
     await prefs.setString(
         'supp_$_todayKey', jsonEncode(_supplements.toJson()));
     notifyListeners();
+    _updateWidget();
   }
 
   // ── Workout actions ────────────────────────────────────────────────────────
@@ -1150,6 +1157,23 @@ class FitnessProvider extends ChangeNotifier {
     _dayResetTimer?.cancel();
     _stepSubscription?.cancel();
     super.dispose();
+  }
+
+  // ── Home widget ────────────────────────────────────────────────────────────
+  Future<void> _updateWidget() async {
+    try {
+      await HomeWidget.saveWidgetData<int>('calories', todayCaloriesTotal.round());
+      await HomeWidget.saveWidgetData<int>('calorieGoal', calorieGoal);
+      await HomeWidget.saveWidgetData<int>('protein', todayProteinTotal.round());
+      await HomeWidget.saveWidgetData<int>('proteinGoal', proteinGoal);
+      await HomeWidget.saveWidgetData<int>('water', todayWaterMl);
+      await HomeWidget.saveWidgetData<int>('waterGoal', waterGoalMl);
+      await HomeWidget.updateWidget(
+        name: 'KFitnessWidgetProvider',
+        androidName: 'KFitnessWidgetProvider',
+        qualifiedAndroidName: 'com.example.karthik_fitness.KFitnessWidgetProvider',
+      );
+    } catch (_) {}
   }
 
   // Helper
