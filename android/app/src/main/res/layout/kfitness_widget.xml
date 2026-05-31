@@ -1,139 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#CC000000"
-    android:padding="12dp"
-    android:gravity="center">
+    android:background="#00000000">
 
-    <!-- Title row -->
+    <!-- Rendered Flutter image (concentric rings + insight) -->
+    <ImageView
+        android:id="@+id/widget_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:contentDescription="K Fitness rings"/>
+
+    <!-- Fallback text shown before the first render -->
     <TextView
-        android:id="@+id/widget_title"
-        android:layout_width="match_parent"
+        android:id="@+id/widget_fallback"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="K Fitness"
-        android:textColor="#FFFFFF"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:layout_marginBottom="8dp"/>
+        android:layout_gravity="center"
+        android:text="Open K Fitness to load"
+        android:textColor="#8E8E93"
+        android:textSize="12sp"/>
 
-    <!-- Three rings row -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:weightSum="3">
-
-        <!-- Calories ring -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <ProgressBar
-                android:id="@+id/ring_calories"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:progressDrawable="@drawable/ring_progress_red"
-                android:max="100"
-                android:progress="0"/>
-
-            <TextView
-                android:id="@+id/label_calories"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0 kcal"
-                android:textColor="#FF453A"
-                android:textSize="10sp"
-                android:gravity="center"
-                android:layout_marginTop="4dp"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Calories"
-                android:textColor="#8E8E93"
-                android:textSize="9sp"
-                android:gravity="center"/>
-        </LinearLayout>
-
-        <!-- Protein ring -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <ProgressBar
-                android:id="@+id/ring_protein"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:progressDrawable="@drawable/ring_progress_green"
-                android:max="100"
-                android:progress="0"/>
-
-            <TextView
-                android:id="@+id/label_protein"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0g"
-                android:textColor="#30D158"
-                android:textSize="10sp"
-                android:gravity="center"
-                android:layout_marginTop="4dp"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Protein"
-                android:textColor="#8E8E93"
-                android:textSize="9sp"
-                android:gravity="center"/>
-        </LinearLayout>
-
-        <!-- Water ring -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <ProgressBar
-                android:id="@+id/ring_water"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:progressDrawable="@drawable/ring_progress_cyan"
-                android:max="100"
-                android:progress="0"/>
-
-            <TextView
-                android:id="@+id/label_water"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0 ml"
-                android:textColor="#40C8E0"
-                android:textSize="10sp"
-                android:gravity="center"
-                android:layout_marginTop="4dp"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Water"
-                android:textColor="#8E8E93"
-                android:textSize="9sp"
-                android:gravity="center"/>
-        </LinearLayout>
-
-    </LinearLayout>
-</LinearLayout>
+</FrameLayout>

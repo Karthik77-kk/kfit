@@ -10,6 +10,8 @@ import 'package:pedometer/pedometer.dart';
 import 'package:home_widget/home_widget.dart';
 
 import '../models/models.dart';
+import '../widgets/home_widget_view.dart';
+import '../services/smart_insight_engine.dart' show topInsight;
 
 class FitnessProvider extends ChangeNotifier {
   // ── Daily targets (defaults — overridden by user settings) ────────────────
@@ -1262,12 +1264,31 @@ class FitnessProvider extends ChangeNotifier {
   // ── Home widget ────────────────────────────────────────────────────────────
   Future<void> _updateWidget() async {
     try {
+      // Numeric fallbacks (kept for resilience / first render).
       await HomeWidget.saveWidgetData<int>('calories', todayCaloriesTotal.round());
       await HomeWidget.saveWidgetData<int>('calorieGoal', calorieGoal);
       await HomeWidget.saveWidgetData<int>('protein', todayProteinTotal.round());
       await HomeWidget.saveWidgetData<int>('proteinGoal', proteinGoal);
       await HomeWidget.saveWidgetData<int>('water', todayWaterMl);
       await HomeWidget.saveWidgetData<int>('waterGoal', waterGoalMl);
+
+      // Render the concentric-ring + insight card to a PNG the Android widget shows.
+      final insight = topInsight(this, DateTime.now());
+      await HomeWidget.renderFlutterWidget(
+        HomeWidgetView(
+          calProgress: calorieProgress,
+          proteinProgress: proteinProgress,
+          waterProgress: waterProgress,
+          calories: todayCaloriesTotal.round(),
+          protein: todayProteinTotal.round(),
+          waterMl: todayWaterMl,
+          insight: insight,
+        ),
+        key: 'widget_img',
+        logicalSize: const Size(360, 170),
+        pixelRatio: 3,
+      );
+
       await HomeWidget.updateWidget(
         name: 'KFitnessWidgetProvider',
         androidName: 'KFitnessWidgetProvider',
