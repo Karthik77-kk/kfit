@@ -38,6 +38,7 @@ void main() async {
     await ns.scheduleWaterReminders(intervalHours: waterInterval);
     await ns.scheduleEveningChecklist();
     await ns.scheduleWalkReminders(intervalHours: walkInterval);
+    await ns.scheduleWeeklyLogReminder();
   } catch (_) {}
 
   // Foreground reminder service — the reliable path on OEM ROMs that kill

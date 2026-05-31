@@ -9,6 +9,7 @@ import '../models/models.dart';
 import '../services/notification_service.dart';
 import '../services/smart_insight_engine.dart';
 import 'settings_screen.dart';
+import 'notification_panel.dart';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
@@ -91,6 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.only(right: 4, top: 8),
                   child: _StreakBadge(streak: p.workoutStreak),
                 ),
+                _NotificationBell(unread: p.unreadNotifications),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, size: 22),
                   onPressed: () => Navigator.push(context,
@@ -206,6 +208,43 @@ class _SectionHdr extends StatelessWidget {
   Widget build(BuildContext context) => Text(text, style: const TextStyle(
     color: _kSecond, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8,
   ));
+}
+
+// ─── Notification bell ─────────────────────────────────────────────────────────
+class _NotificationBell extends StatelessWidget {
+  final int unread;
+  const _NotificationBell({required this.unread});
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications_none_rounded, size: 23),
+          onPressed: () => showNotificationPanel(context),
+        ),
+        if (unread > 0)
+          Positioned(
+            top: 8, right: 7,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              decoration: BoxDecoration(
+                color: _kRed,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.black, width: 1.5),
+              ),
+              child: Text(
+                unread > 9 ? '9+' : '$unread',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 // ─── Streak badge ──────────────────────────────────────────────────────────────

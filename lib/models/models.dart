@@ -181,6 +181,52 @@ class BodyEntry {
       );
 }
 
+// ─── App Notification (in-app notification center) ────────────────────────────
+
+class AppNotification {
+  final String id;
+  final String emoji;
+  final String title;
+  final String body;
+  final int accent; // ARGB color value
+  final String category;
+  final DateTime timestamp;
+  bool read;
+
+  AppNotification({
+    required this.id,
+    required this.emoji,
+    required this.title,
+    required this.body,
+    required this.accent,
+    required this.category,
+    required this.timestamp,
+    this.read = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'emoji': emoji,
+        'title': title,
+        'body': body,
+        'accent': accent,
+        'category': category,
+        'timestamp': timestamp.toIso8601String(),
+        'read': read,
+      };
+
+  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
+        id: j['id'] ?? '',
+        emoji: j['emoji'] ?? '🔔',
+        title: j['title'] ?? '',
+        body: j['body'] ?? '',
+        accent: j['accent'] ?? 0xFF30D158,
+        category: j['category'] ?? 'general',
+        timestamp: DateTime.parse(j['timestamp']),
+        read: j['read'] ?? false,
+      );
+}
+
 // ─── Measurement Entry ────────────────────────────────────────────────────────
 
 class MeasurementEntry {
