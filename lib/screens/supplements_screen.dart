@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
-import '../services/notification_service.dart';
 
 class SupplementsScreen extends StatelessWidget {
   final bool embedded;
@@ -92,21 +91,6 @@ class SupplementsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Supplements 💊'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.alarm_add_outlined),
-            tooltip: 'Set supplement reminders',
-            onPressed: () async {
-              await NotificationService().scheduleSupplementReminders();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('⏰ Supplement reminders set!'),
-                  backgroundColor: Color(0xFF40C8E0),
-                ));
-              }
-            },
-          ),
-        ],
       ),
       body: body,
     );

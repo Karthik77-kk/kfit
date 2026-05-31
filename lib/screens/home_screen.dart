@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
-import '../services/notification_service.dart';
 import '../services/smart_insight_engine.dart';
 import 'settings_screen.dart';
 import 'notification_panel.dart';
@@ -32,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    NotificationService().scheduleMorningSummary();
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (mounted) setState(() {});
     });

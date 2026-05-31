@@ -142,19 +142,12 @@ jobs:
           # Patch app label to "K"
           sed -i 's/android:label="[^"]*"/android:label="K"/' android/app/src/main/AndroidManifest.xml
 
-          # Patch AndroidManifest with all required permissions
+          # Patch AndroidManifest with required permissions (pedometer only).
           python3 - << 'PYEOF'
           path = 'android/app/src/main/AndroidManifest.xml'
           txt = open(path).read()
           needed = [
               'android.permission.ACTIVITY_RECOGNITION',
-              'android.permission.POST_NOTIFICATIONS',
-              'android.permission.RECEIVE_BOOT_COMPLETED',
-              'android.permission.VIBRATE',
-              'android.permission.WAKE_LOCK',
-              'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
-              'android.permission.USE_EXACT_ALARM',
-              'android.permission.SCHEDULE_EXACT_ALARM',
           ]
           anchor = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
           perms = anchor
@@ -163,7 +156,7 @@ jobs:
                   perms += f'\n    <uses-permission android:name="{p}"/>'
           txt = txt.replace(anchor, perms, 1)
           open(path, 'w').write(txt)
-          print('Manifest patched with all permissions')
+          print('Manifest patched with pedometer permission')
           PYEOF
 
           echo "=== Signing + label + permissions configured ==="

@@ -110,28 +110,6 @@ class FitnessProvider extends ChangeNotifier {
   String _loadedForDate = '';
   Timer? _dayResetTimer;
 
-  // ── Water reminder interval ────────────────────────────────────────────────
-  int _waterReminderIntervalHours = 1;
-  int get waterReminderIntervalHours => _waterReminderIntervalHours;
-
-  Future<void> setWaterReminderInterval(int hours) async {
-    _waterReminderIntervalHours = hours.clamp(1, 6);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('water_reminder_interval', _waterReminderIntervalHours);
-    notifyListeners();
-  }
-
-  // ── Walk reminder interval ─────────────────────────────────────────────────
-  int _walkReminderIntervalHours = 2;
-  int get walkReminderIntervalHours => _walkReminderIntervalHours;
-
-  Future<void> setWalkReminderInterval(int hours) async {
-    _walkReminderIntervalHours = hours.clamp(1, 4);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('walk_reminder_interval', _walkReminderIntervalHours);
-    notifyListeners();
-  }
-
   // ── Getters ────────────────────────────────────────────────────────────────
   List<FoodEntry> get todayFood => _todayFood;
   int get todayWaterMl => _todayWaterMl;
@@ -913,10 +891,6 @@ class FitnessProvider extends ChangeNotifier {
     _age = prefs.getInt('age') ?? 24;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
     _userName = prefs.getString('user_name') ?? 'Karthik';
-
-    // Reminder intervals
-    _waterReminderIntervalHours = prefs.getInt('water_reminder_interval') ?? 1;
-    _walkReminderIntervalHours = prefs.getInt('walk_reminder_interval') ?? 2;
 
     // User-defined goals
     _calorieGoal = prefs.getInt('calorie_goal') ?? kDefaultCalorieGoal;

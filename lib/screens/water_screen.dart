@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
-import '../services/notification_service.dart';
 
 class WaterScreen extends StatefulWidget {
   final bool embedded;
@@ -233,21 +232,6 @@ class _WaterScreenState extends State<WaterScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Water Tracker 💧'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            tooltip: 'Set water reminders',
-            onPressed: () async {
-              await NotificationService().scheduleWaterReminders();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('💧 Water reminders scheduled'),
-                  backgroundColor: Color(0xFF40C8E0),
-                ));
-              }
-            },
-          ),
-        ],
       ),
       body: body,
     );
