@@ -490,6 +490,72 @@ class FitnessProvider extends ChangeNotifier {
         .fold(0, (sum, w) => sum + calculateWorkoutCalories(w));
   }
 
+  /// Average daily calories (incl. supplements) over the last 7 days
+  double get weeklyAvgCalories {
+    final data = weeklyCalorieData; // already computed, 7 entries
+    if (data.isEmpty) return 0;
+    final total = data.fold(0.0, (sum, d) => sum + (d['calories'] as double));
+    return total / data.length;
+  }
+
+  /// Average daily protein (incl. whey) over the last 7 days
+  double get weeklyAvgProtein {
+    double total = 0;
+    final today = DateTime.now();
+    for (int i = 0; i < 7; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      if (i == 0) {
+        total += todayProteinTotal;
+      } else {
+        final foods = _foodHistory[key];
+        final supp = _supplementHistory[key];
+        final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
+        final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+        total += foodProt + suppProt;
+      }
+    }
+    return total / 7;
+  }
+
+  /// Days in the last 7 where water intake met the daily goal
+  int get weeklyWaterGoalHitDays {
+    int count = 0;
+    final today = DateTime.now();
+    for (int i = 0; i < 7; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final ml = i == 0 ? _todayWaterMl : (_waterHistory[key] ?? 0);
+      if (ml >= _waterGoalMl) count++;
+    }
+    return count;
+  }
+
+  /// Days in the last 7 where protein met the daily goal
+  int get weeklyProteinGoalHitDays {
+    int count = 0;
+    final today = DateTime.now();
+    for (int i = 0; i < 7; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      double prot;
+      if (i == 0) {
+        prot = todayProteinTotal;
+      } else {
+        final foods = _foodHistory[key];
+        final supp = _supplementHistory[key];
+        final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
+        final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+        prot = foodProt + suppProt;
+      }
+      if (prot >= _proteinGoal) count++;
+    }
+    return count;
+  }
+
   /// Number of distinct days with a workout in the last 7 days
   int get weeklyWorkoutDays {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
