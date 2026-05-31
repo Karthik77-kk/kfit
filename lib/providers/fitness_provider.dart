@@ -557,6 +557,106 @@ class FitnessProvider extends ChangeNotifier {
     return count;
   }
 
+  // ── Historical aggregates (for the smart insight engine) ────────────────────
+  /// Returns a 'YYYY-MM-DD' key for [d].
+  String _keyFor(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Total calories logged on [d] (incl. whey). Uses live data for today.
+  double caloriesForDate(DateTime d) {
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return todayCaloriesTotal;
+    }
+    final key = _keyFor(d);
+    final foods = _foodHistory[key];
+    final supp = _supplementHistory[key];
+    final foodCal = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
+    final suppCal = (supp?.whey ?? false) ? 120.0 : 0.0;
+    return foodCal + suppCal;
+  }
+
+  /// Total protein logged on [d] (incl. whey). Uses live data for today.
+  double proteinForDate(DateTime d) {
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return todayProteinTotal;
+    }
+    final key = _keyFor(d);
+    final foods = _foodHistory[key];
+    final supp = _supplementHistory[key];
+    final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
+    final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+    return foodProt + suppProt;
+  }
+
+  /// Water (mL) logged on [d]. Uses live data for today.
+  int waterForDate(DateTime d) {
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return _todayWaterMl;
+    }
+    return _waterHistory[_keyFor(d)] ?? 0;
+  }
+
+  /// Mean daily calories over days [startAgo..endAgo] inclusive (0 = today).
+  /// Only counts days that have any logged data, so a partial history isn't diluted by zeros.
+  double avgCaloriesForDays(int startAgo, int endAgo) =>
+      _avgForDays(startAgo, endAgo, caloriesForDate);
+  double avgProteinForDays(int startAgo, int endAgo) =>
+      _avgForDays(startAgo, endAgo, (d) => proteinForDate(d));
+  double avgWaterForDays(int startAgo, int endAgo) =>
+      _avgForDays(startAgo, endAgo, (d) => waterForDate(d).toDouble());
+
+  double _avgForDays(int startAgo, int endAgo, double Function(DateTime) value) {
+    final now = DateTime.now();
+    double total = 0;
+    int counted = 0;
+    for (int i = startAgo; i <= endAgo; i++) {
+      final v = value(now.subtract(Duration(days: i)));
+      if (v > 0) {
+        total += v;
+        counted++;
+      }
+    }
+    return counted == 0 ? 0 : total / counted;
+  }
+
+  /// Mean protein for a given [weekday] (1=Mon..7=Sun) across loaded history (60d).
+  /// Returns null if no data for that weekday.
+  double? proteinAvgForWeekday(int weekday) => _avgForWeekday(weekday, proteinForDate);
+  double? waterAvgForWeekday(int weekday) =>
+      _avgForWeekday(weekday, (d) => waterForDate(d).toDouble());
+
+  double? _avgForWeekday(int weekday, double Function(DateTime) value) {
+    final now = DateTime.now();
+    double total = 0;
+    int counted = 0;
+    for (int i = 0; i <= 60; i++) {
+      final d = now.subtract(Duration(days: i));
+      if (d.weekday != weekday) continue;
+      final v = value(d);
+      if (v > 0) {
+        total += v;
+        counted++;
+      }
+    }
+    return counted == 0 ? null : total / counted;
+  }
+
+  /// Days since the most recent workout (0 = today). Returns 999 if none ever.
+  int get daysSinceLastWorkout {
+    if (_workoutHistory.isEmpty) return 999;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime latest = _workoutHistory.first.date;
+    for (final w in _workoutHistory) {
+      if (w.date.isAfter(latest)) latest = w.date;
+    }
+    final latestDay = DateTime(latest.year, latest.month, latest.day);
+    return today.difference(latestDay).inDays;
+  }
+
   /// Number of distinct days with a workout in the last 7 days
   int get weeklyWorkoutDays {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));

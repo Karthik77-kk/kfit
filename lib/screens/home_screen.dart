@@ -7,7 +7,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/notification_service.dart';
-import '../services/smart_tip_engine.dart';
+import '../services/smart_insight_engine.dart';
 import 'settings_screen.dart';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
@@ -104,9 +104,11 @@ class _HomeScreenState extends State<HomeScreen> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
 
-                  // ── Smart tip (top) ───────────────────────────────────────
-                  _SmartTip(provider: p),
-                  const SizedBox(height: 16),
+                  // ── AI Coach (top) ────────────────────────────────────────
+                  const _SectionHdr('AI COACH'),
+                  const SizedBox(height: 10),
+                  _AiCoachSection(provider: p),
+                  const SizedBox(height: 20),
 
                   // ── Activity rings ────────────────────────────────────────
                   const _SectionHdr('TODAY\'S ACTIVITY'),
@@ -1136,22 +1138,42 @@ class _WeekStat extends StatelessWidget {
   ));
 }
 
-// ─── Smart Tip ─────────────────────────────────────────────────────────────────
-// Selection logic lives in lib/services/smart_tip_engine.dart (pure + unit-tested).
+// ─── AI Coach ──────────────────────────────────────────────────────────────────
+// Insight selection lives in lib/services/smart_insight_engine.dart (pure + unit-tested).
 
-class _SmartTip extends StatelessWidget {
+class _AiCoachSection extends StatelessWidget {
   final FitnessProvider provider;
-  const _SmartTip({required this.provider});
+  const _AiCoachSection({required this.provider});
 
   @override
   Widget build(BuildContext context) {
-    final tip = selectSmartTip(provider, DateTime.now());
+    final insights = topInsights(provider, DateTime.now(), count: 3);
+    return Column(
+      children: [
+        for (int i = 0; i < insights.length; i++) ...[
+          _InsightCard(insight: insights[i], rank: i),
+          if (i < insights.length - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _InsightCard extends StatelessWidget {
+  final Insight insight;
+  final int rank;
+  const _InsightCard({required this.insight, required this.rank});
+
+  @override
+  Widget build(BuildContext context) {
+    final tip = insight;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: tip.accent.withOpacity(0.08),
+        color: tip.accent.withOpacity(rank == 0 ? 0.10 : 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: tip.accent.withOpacity(0.25), width: 1),
+        border: Border.all(
+            color: tip.accent.withOpacity(rank == 0 ? 0.3 : 0.18), width: 1),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
