@@ -331,6 +331,114 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
     ));
   }
 
+  // ── Body composition: recomposition trajectory (high-value, predictive) ───
+  final traj = p.bodyCompTrajectory;
+  if (traj != null) {
+    if (traj.fatChange < -0.3 && traj.leanChange > 0.3) {
+      out.add(Insight(
+        emoji: '🧬',
+        title: 'Recomp in progress — textbook',
+        body: 'Since your first scan you\'ve dropped '
+            '${traj.fatChange.abs().toStringAsFixed(1)} kg fat and gained '
+            '${traj.leanChange.toStringAsFixed(1)} kg muscle. This is the ideal '
+            'outcome — keep protein high and lifting heavy.',
+        accent: _kGreen,
+        category: InsightCategory.bodyComp,
+        score: 75,
+      ));
+    } else if (traj.fatChange < -0.3 && traj.leanChange < -0.5) {
+      out.add(Insight(
+        emoji: '⚠️',
+        title: 'Losing muscle with the fat',
+        body: 'Down ${traj.fatChange.abs().toStringAsFixed(1)} kg fat but also '
+            '${traj.leanChange.abs().toStringAsFixed(1)} kg muscle since your first '
+            'scan. Push protein to ${proteinGoal}g+ and add resistance training.',
+        accent: _kOrange,
+        category: InsightCategory.bodyComp,
+        score: 81,
+      ));
+    }
+  }
+
+  // ── Body composition: waist-to-hip / waist-to-height risk ─────────────────
+  final whr = p.waistToHipRatio;
+  if (whr != null && whr >= 0.95) {
+    out.add(Insight(
+      emoji: '📐',
+      title: 'Waist-to-hip ratio is high (${whr.toStringAsFixed(2)})',
+      body: 'Above 0.95 signals central fat and raised health risk. The good '
+          'news: belly fat responds fastest to a steady deficit + daily steps.',
+      accent: _kRed,
+      category: InsightCategory.bodyComp,
+      score: 74,
+    ));
+  } else {
+    final whtr = p.waistToHeightRatio;
+    if (whtr != null && whtr >= 0.6) {
+      out.add(Insight(
+        emoji: '📏',
+        title: 'Waist is over half your height',
+        body: 'Waist-to-height ${whtr.toStringAsFixed(2)} (healthy <0.5). This '
+            'predicts metabolic risk better than BMI — keep the deficit going.',
+        accent: _kOrange,
+        category: InsightCategory.bodyComp,
+        score: 66,
+      ));
+    }
+  }
+
+  // ── Body composition: FFMI muscle milestone ───────────────────────────────
+  final ffmi = p.ffmi;
+  if (ffmi != null && ffmi >= 22 && ffmi < 25) {
+    out.add(Insight(
+      emoji: '💪',
+      title: 'Strong muscle base (FFMI ${ffmi.toStringAsFixed(1)})',
+      body: 'Your fat-free mass index is in the athletic range. Hold this muscle '
+          'through the cut — it keeps your metabolism high.',
+      accent: _kGreen,
+      category: InsightCategory.bodyComp,
+      score: 38,
+    ));
+  }
+
+  // ── Body age younger/older than real age ──────────────────────────────────
+  final bioDelta = p.bioAgeDelta;
+  if (bioDelta != null && bioDelta <= -3) {
+    out.add(Insight(
+      emoji: '⏳',
+      title: 'Body age ${bioDelta.abs()} years younger',
+      body: 'Your smart-scale metabolic age is well below your real age — a sign '
+          'your training and composition are paying off. Keep it up.',
+      accent: _kGreen,
+      category: InsightCategory.bodyComp,
+      score: 30,
+    ));
+  } else if (bioDelta != null && bioDelta >= 4) {
+    out.add(Insight(
+      emoji: '⏳',
+      title: 'Body age $bioDelta years older',
+      body: 'Your metabolic age reads above your real age. Lowering body fat and '
+          'building muscle is the fastest way to bring it down.',
+      accent: _kOrange,
+      category: InsightCategory.bodyComp,
+      score: 60,
+    ));
+  }
+
+  // ── Hydration from smart scale body-water % ───────────────────────────────
+  final hyd = p.hydrationStatus;
+  if (hyd != null && hyd.label == 'Low' && hour >= 10) {
+    out.add(Insight(
+      emoji: '💧',
+      title: 'Body water is low',
+      body: 'Your last scan showed below-healthy body water. Front-load fluids '
+          'today — aim for 500 ml before each meal.',
+      accent: _kBlue,
+      category: InsightCategory.hydration,
+      score: 51,
+    ));
+  }
+
   // ── Motivation / positive default ─────────────────────────────────────────
   if (p.calorieStreak >= 3 && p.workoutStreak >= 3) {
     out.add(Insight(

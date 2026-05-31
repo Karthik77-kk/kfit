@@ -129,5 +129,33 @@ void main() {
       final all = generateInsights(p, DateTime(2026, 5, 31, 10));
       expect(all.any((i) => i.category == InsightCategory.workout), isTrue);
     });
+
+    test('recomp trajectory insight fires (fat down, muscle up)', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.logScaleEntry(_scaleFL(
+          date: DateTime.now().subtract(const Duration(days: 30)), fatKg: 20, leanKg: 55));
+      await p.logScaleEntry(_scaleFL(date: DateTime.now(), fatKg: 17, leanKg: 57));
+      final all = generateInsights(p, DateTime(2026, 5, 31, 10));
+      expect(all.any((i) => i.title.toLowerCase().contains('recomp')), isTrue);
+    });
+
+    test('high waist-to-hip ratio insight fires', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.logMeasurement(MeasurementEntry(
+          id: 'm', date: DateTime.now(), waistCm: 100, hipsCm: 100)); // WHR 1.0
+      final all = generateInsights(p, DateTime(2026, 5, 31, 10));
+      expect(all.any((i) => i.title.toLowerCase().contains('waist-to-hip')), isTrue);
+    });
   });
 }
+
+SmartScaleEntry _scaleFL({required DateTime date, required double fatKg, required double leanKg}) =>
+    SmartScaleEntry(
+      id: const Uuid().v4(), date: date, weightKg: fatKg + leanKg,
+      bodyFatPercent: fatKg / (fatKg + leanKg) * 100, bodyFatKg: fatKg,
+      muscleMassKg: leanKg * 0.6, muscleMassPercent: 46, leanBodyMassKg: leanKg,
+      biologicalAge: 22, visceralFatIndex: 5, bmr: 1700, bodyWaterPercent: 55,
+      boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
+    );

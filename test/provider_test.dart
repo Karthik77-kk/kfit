@@ -7,14 +7,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-SmartScaleEntry _scale({double weight = 75.0, double bmr = 1800.0}) =>
+SmartScaleEntry _scale({double weight = 75.0, double bmr = 1800.0, DateTime? date}) =>
     SmartScaleEntry(
-      id: 'scale', date: DateTime.now(),
+      id: 'scale', date: date ?? DateTime.now(),
       weightKg: weight, bodyFatPercent: 20, bodyFatKg: weight * 0.2,
       muscleMassKg: 35, muscleMassPercent: 46, leanBodyMassKg: weight * 0.8,
       biologicalAge: 22, visceralFatIndex: 5, bmr: bmr,
       bodyWaterPercent: 55, boneMassKg: 3.2, proteinPercent: 18,
       skeletalMuscleMassKg: 28,
+    );
+
+SmartScaleEntry _scaleLean({required DateTime date, double lean = 60}) =>
+    SmartScaleEntry(
+      id: 'sl', date: date, weightKg: lean / 0.8,
+      bodyFatPercent: 20, bodyFatKg: 15, muscleMassKg: 35, muscleMassPercent: 46,
+      leanBodyMassKg: lean, biologicalAge: 22, visceralFatIndex: 5, bmr: 1700,
+      bodyWaterPercent: 55, boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
+    );
+
+SmartScaleEntry _scaleFatLean({required DateTime date, double fatKg = 18, double leanKg = 56}) =>
+    SmartScaleEntry(
+      id: 'sfl', date: date, weightKg: fatKg + leanKg,
+      bodyFatPercent: fatKg / (fatKg + leanKg) * 100, bodyFatKg: fatKg,
+      muscleMassKg: leanKg * 0.6, muscleMassPercent: 46, leanBodyMassKg: leanKg,
+      biologicalAge: 22, visceralFatIndex: 5, bmr: 1700, bodyWaterPercent: 55,
+      boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
     );
 
 FoodEntry _food(String id, double calories, double protein,
@@ -297,6 +314,65 @@ void main() {
     test('daysSinceLastWorkout 0 after logging today', () async {
       await p.logWorkout(_workout('w1'));
       expect(p.daysSinceLastWorkout, 0);
+    });
+  });
+
+  // ── Body-composition analytics ────────────────────────────────────────────
+
+  group('Body-composition analytics', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('goalProgress reflects real start→goal span (not hardcoded 10kg)', () async {
+      await p.saveGoalWeight(70);
+      // Start far back at 90kg, now at 80kg → 50% of the 20kg journey.
+      await p.logScaleEntry(_scale(date: DateTime.now().subtract(const Duration(days: 40)), weight: 90));
+      await p.logScaleEntry(_scale(date: DateTime.now(), weight: 80));
+      expect(p.startWeightKg, closeTo(90, 0.01));
+      expect(p.goalProgress, closeTo(0.5, 0.02));
+    });
+
+    test('goalProgress 1.0 when goal reached', () async {
+      await p.saveGoalWeight(70);
+      await p.logScaleEntry(_scale(date: DateTime.now().subtract(const Duration(days: 10)), weight: 80));
+      await p.logScaleEntry(_scale(date: DateTime.now(), weight: 69));
+      expect(p.goalProgress, 1.0);
+    });
+
+    test('waistToHipRatio computed from measurements', () async {
+      await p.logMeasurement(MeasurementEntry(
+          id: 'm', date: DateTime.now(), waistCm: 90, hipsCm: 100));
+      expect(p.waistToHipRatio, closeTo(0.90, 0.001));
+      expect(p.whrRisk, isNotNull);
+    });
+
+    test('waistToHeightRatio uses height', () async {
+      await p.saveHeight(180);
+      await p.logMeasurement(MeasurementEntry(id: 'm', date: DateTime.now(), waistCm: 90));
+      expect(p.waistToHeightRatio, closeTo(0.5, 0.001));
+    });
+
+    test('ffmi computed from scale lean mass + height', () async {
+      await p.saveHeight(180);
+      // lean 60kg, h=1.8 → 60/3.24 = 18.52 + 6.1*(1.8-1.8)=0 → ~18.5
+      await p.logScaleEntry(_scaleLean(date: DateTime.now(), lean: 60));
+      expect(p.ffmi, closeTo(18.52, 0.1));
+    });
+
+    test('bodyCompTrajectory classifies recomp (fat down, muscle up)', () async {
+      await p.logScaleEntry(_scaleFatLean(
+          date: DateTime.now().subtract(const Duration(days: 30)), fatKg: 20, leanKg: 55));
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now(), fatKg: 17, leanKg: 57));
+      final t = p.bodyCompTrajectory;
+      expect(t, isNotNull);
+      expect(t!.fatChange, closeTo(-3, 0.01));
+      expect(t.leanChange, closeTo(2, 0.01));
+      expect(t.verdict.toLowerCase(), contains('recomp'));
+    });
+
+    test('bodyCompositionStatus returns a label when scale logged', () async {
+      await p.logScaleEntry(_scale(date: DateTime.now(), weight: 75));
+      expect(p.bodyCompositionStatus.label, isNotEmpty);
     });
   });
 
