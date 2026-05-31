@@ -249,6 +249,57 @@ void main() {
     });
   });
 
+  // ── Historical aggregates (insight engine inputs) ─────────────────────────
+
+  group('Historical aggregates', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('caloriesForDate uses live data for today', () async {
+      await p.addFoodEntry(_food('f1', 650, 30));
+      expect(p.caloriesForDate(DateTime.now()), closeTo(650, 0.01));
+    });
+
+    test('proteinForDate uses live data for today (incl whey)', () async {
+      await p.addFoodEntry(_food('f1', 400, 30));
+      await p.updateSupplement('whey', true); // +25g
+      expect(p.proteinForDate(DateTime.now()), closeTo(55, 0.01));
+    });
+
+    test('avgCaloriesForDays(0,0) equals today when only today logged', () async {
+      await p.addFoodEntry(_food('f1', 800, 20));
+      expect(p.avgCaloriesForDays(0, 0), closeTo(800, 0.01));
+    });
+
+    test('avgCaloriesForDays ignores empty days (no zero dilution)', () async {
+      await p.addFoodEntry(_food('f1', 800, 20));
+      // days 1..6 have no data → averaged only over the one logged day
+      expect(p.avgCaloriesForDays(0, 6), closeTo(800, 0.01));
+    });
+
+    test('proteinAvgForWeekday reflects today when only today logged', () async {
+      await p.addFoodEntry(_food('f1', 400, 40));
+      expect(p.proteinAvgForWeekday(DateTime.now().weekday), closeTo(40, 0.01));
+    });
+
+    test('proteinAvgForWeekday null for a weekday with no data', () async {
+      final otherWeekday = (DateTime.now().weekday % 7) + 1;
+      // ensure it's a different weekday than today with no logs
+      if (otherWeekday != DateTime.now().weekday) {
+        expect(p.proteinAvgForWeekday(otherWeekday), isNull);
+      }
+    });
+
+    test('daysSinceLastWorkout 999 when none', () {
+      expect(p.daysSinceLastWorkout, 999);
+    });
+
+    test('daysSinceLastWorkout 0 after logging today', () async {
+      await p.logWorkout(_workout('w1'));
+      expect(p.daysSinceLastWorkout, 0);
+    });
+  });
+
   // ── Food ──────────────────────────────────────────────────────────────────
 
   group('Food logging', () {
