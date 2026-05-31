@@ -408,7 +408,7 @@ class _CalorieRingTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      net >= 0 ? 'kcal surplus' : 'kcal deficit',
+                      net >= 0 ? 'net surplus so far' : 'net deficit so far',
                       style: const TextStyle(color: _kSecond, fontSize: 12),
                     ),
                   ],
@@ -492,8 +492,9 @@ class _CalorieRingPainter extends CustomPainter {
           startAngle, eatenSweep, false, eatenPaint);
     }
 
-    final burnedMax = goal * 1.2;
-    final burnedSweep = (burned / burnedMax * fullCircle).clamp(0.0, fullCircle);
+    // Both rings share the same scale (goal) so eaten vs burned is directly
+    // comparable at a glance — the gap between the two arcs IS the net balance.
+    final burnedSweep = (burned / goal * fullCircle).clamp(0.0, fullCircle);
     if (burnedSweep > 0) {
       canvas.drawArc(Rect.fromCircle(center: center, radius: innerRadius),
           startAngle, burnedSweep, false, burnedPaint);

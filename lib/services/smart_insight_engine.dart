@@ -66,8 +66,8 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
     out.add(Insight(
       emoji: '⚠️',
       title: 'Losing too fast (${weekly.abs().toStringAsFixed(2)} kg/wk)',
-      body: 'Above the safe 0.7 kg/week limit — you risk muscle loss. Add '
-          '200–300 kcal: 2 extra rotis or a banana + whey shake.',
+      body: 'Above the safe ~0.9 kg/week ceiling — faster than this risks muscle '
+          'loss. Add 200–300 kcal: 2 extra rotis or a banana + whey shake.',
       accent: _kRed,
       category: InsightCategory.weight,
       score: 96,
@@ -436,6 +436,78 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
       accent: _kBlue,
       category: InsightCategory.hydration,
       score: 51,
+    ));
+  }
+
+  // ── Predictive: end-of-day calorie projection ─────────────────────────────
+  final eodCal = p.projectedEodCalories;
+  if (eodCal != null) {
+    if (eodCal > goal + 200) {
+      out.add(Insight(
+        emoji: '🔮',
+        title: 'On track to finish ~${eodCal.round()} kcal',
+        body: 'At your usual ${_weekdayNames[now.weekday - 1]} pace you\'ll end '
+            '~${(eodCal - goal).round()} kcal over your ${goal} goal. Skip the '
+            'evening snack or take a 30-min walk to land on target.',
+        accent: _kOrange,
+        category: InsightCategory.prediction,
+        score: 64,
+      ));
+    } else if (eodCal < goal - 350 && now.hour >= 18) {
+      out.add(Insight(
+        emoji: '🔮',
+        title: 'Heading for only ~${eodCal.round()} kcal',
+        body: 'You\'re projected to finish well under your ${goal} goal — '
+            'under-eating stalls fat loss and costs muscle. A balanced dinner '
+            'with protein keeps the deficit sustainable.',
+        accent: _kBlue,
+        category: InsightCategory.prediction,
+        score: 60,
+      ));
+    }
+  }
+
+  // ── Predictive: end-of-day protein projection ─────────────────────────────
+  final eodProt = p.projectedEodProtein;
+  if (eodProt != null && eodProt < proteinGoal * 0.8 && hour >= 13) {
+    out.add(Insight(
+      emoji: '🎯',
+      title: 'Projected to miss protein (~${eodProt.round()}g)',
+      body: 'At today\'s pace you\'ll finish around ${eodProt.round()}g vs your '
+          '${proteinGoal}g goal. A whey shake (25g) or paneer/eggs now closes the gap.',
+      accent: _kBlue,
+      category: InsightCategory.nutrition,
+      score: 63,
+    ));
+  }
+
+  // ── Behaviour pattern: weekend overeating ─────────────────────────────────
+  if (p.overeatsOnWeekends && (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday)) {
+    out.add(Insight(
+      emoji: '📊',
+      title: 'Weekends are your weak spot',
+      body: 'Your data shows you eat noticeably more on weekends. Plan today\'s '
+          'meals ahead and keep one high-protein, high-volume option ready to '
+          'stay in control.',
+      accent: _kIndigo,
+      category: InsightCategory.nutrition,
+      score: 59,
+    ));
+  }
+
+  // ── Goal-pace coaching (uses the trend-based ETA) ─────────────────────────
+  final eta = p.estimatedGoalDate;
+  final wk = p.weeksToGoal;
+  if (eta != null && wk != null && weekly != null && weekly < -0.1) {
+    out.add(Insight(
+      emoji: '🧭',
+      title: 'On pace — goal in ~${wk.round()} weeks',
+      body: 'At your real measured trend you\'ll reach '
+          '${p.goalWeightKg.toStringAsFixed(1)} kg by ${_fmtDate(eta)}. '
+          'Hold protein and consistency and this stays on track.',
+      accent: _kGreen,
+      category: InsightCategory.prediction,
+      score: 48,
     ));
   }
 

@@ -928,7 +928,9 @@ class _GoalCard extends StatelessWidget {
           if (weeks != null && weeks > 0) ...[
             const SizedBox(height: 8),
             Text(
-              '⏱ At current deficit: ~${weeks.toStringAsFixed(0)} weeks to reach goal',
+              p.weeklyWeightChange != null
+                  ? '⏱ At your current trend: ~${weeks.toStringAsFixed(0)} weeks to reach goal'
+                  : '⏱ At a sustainable pace: ~${weeks.toStringAsFixed(0)} weeks to reach goal',
               style: const TextStyle(color: _kSecond, fontSize: 12),
             ),
           ],
