@@ -181,6 +181,52 @@ class BodyEntry {
       );
 }
 
+// ─── Measurement Entry ────────────────────────────────────────────────────────
+
+class MeasurementEntry {
+  final String id;
+  final DateTime date;
+  final double? chestCm;
+  final double? waistCm;
+  final double? hipsCm;
+  final double? leftArmCm;
+  final double? leftThighCm;
+
+  MeasurementEntry({
+    required this.id,
+    required this.date,
+    this.chestCm,
+    this.waistCm,
+    this.hipsCm,
+    this.leftArmCm,
+    this.leftThighCm,
+  });
+
+  bool get isEmpty =>
+      chestCm == null && waistCm == null && hipsCm == null &&
+      leftArmCm == null && leftThighCm == null;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'date': date.toIso8601String(),
+    if (chestCm != null) 'chestCm': chestCm,
+    if (waistCm != null) 'waistCm': waistCm,
+    if (hipsCm != null) 'hipsCm': hipsCm,
+    if (leftArmCm != null) 'leftArmCm': leftArmCm,
+    if (leftThighCm != null) 'leftThighCm': leftThighCm,
+  };
+
+  factory MeasurementEntry.fromJson(Map<String, dynamic> j) => MeasurementEntry(
+    id: j['id'] ?? '',
+    date: DateTime.parse(j['date']),
+    chestCm: j['chestCm'] != null ? (j['chestCm'] as num).toDouble() : null,
+    waistCm: j['waistCm'] != null ? (j['waistCm'] as num).toDouble() : null,
+    hipsCm: j['hipsCm'] != null ? (j['hipsCm'] as num).toDouble() : null,
+    leftArmCm: j['leftArmCm'] != null ? (j['leftArmCm'] as num).toDouble() : null,
+    leftThighCm: j['leftThighCm'] != null ? (j['leftThighCm'] as num).toDouble() : null,
+  );
+}
+
 // ─── Supplements ─────────────────────────────────────────────────────────────
 
 class SupplementStatus {

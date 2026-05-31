@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 
@@ -221,6 +222,11 @@ class _StatsScreenState extends State<StatsScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 24),
+
+                  // ── Body Measurements ──────────────────────────────────
+                  const _SectionLabel('BODY MEASUREMENTS (cm)'),
+                  _MeasurementsSection(provider: p),
                   const SizedBox(height: 24),
 
                   // ── Overview ───────────────────────────────────────────
@@ -1388,4 +1394,148 @@ class _BmiBar extends StatelessWidget {
       ]);
     }),
   );
+}
+
+// ─── Body Measurements Section ────────────────────────────────────────────────
+class _MeasurementsSection extends StatefulWidget {
+  final FitnessProvider provider;
+  const _MeasurementsSection({required this.provider});
+  @override
+  State<_MeasurementsSection> createState() => _MeasurementsSectionState();
+}
+
+class _MeasurementsSectionState extends State<_MeasurementsSection> {
+  final _chestCtrl  = TextEditingController();
+  final _waistCtrl  = TextEditingController();
+  final _hipsCtrl   = TextEditingController();
+  final _armCtrl    = TextEditingController();
+  final _thighCtrl  = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prefill());
+  }
+
+  void _prefill() {
+    final m = widget.provider.latestMeasurements;
+    if (m == null) return;
+    if (m.chestCm != null)   _chestCtrl.text  = m.chestCm!.toStringAsFixed(1);
+    if (m.waistCm != null)   _waistCtrl.text  = m.waistCm!.toStringAsFixed(1);
+    if (m.hipsCm != null)    _hipsCtrl.text   = m.hipsCm!.toStringAsFixed(1);
+    if (m.leftArmCm != null) _armCtrl.text    = m.leftArmCm!.toStringAsFixed(1);
+    if (m.leftThighCm != null) _thighCtrl.text = m.leftThighCm!.toStringAsFixed(1);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_chestCtrl, _waistCtrl, _hipsCtrl, _armCtrl, _thighCtrl]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    FocusScope.of(context).unfocus();
+    final p = context.read<FitnessProvider>();
+    final entry = MeasurementEntry(
+      id: const Uuid().v4(),
+      date: DateTime.now(),
+      chestCm:   double.tryParse(_chestCtrl.text.trim()),
+      waistCm:   double.tryParse(_waistCtrl.text.trim()),
+      hipsCm:    double.tryParse(_hipsCtrl.text.trim()),
+      leftArmCm: double.tryParse(_armCtrl.text.trim()),
+      leftThighCm: double.tryParse(_thighCtrl.text.trim()),
+    );
+    if (entry.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Enter at least one measurement'),
+        backgroundColor: _kRed,
+      ));
+      return;
+    }
+    await p.logMeasurement(entry);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Measurements saved ✓'),
+        backgroundColor: _kGreen,
+        duration: Duration(seconds: 1),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    final recent = p.getRecentMeasurements(days: 90);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _Card(child: Column(children: [
+        _FieldRow(label: 'Chest',      icon: Icons.straighten_outlined,    iconColor: _kGreen,  unit: 'cm', ctrl: _chestCtrl),
+        _HDivider(),
+        _FieldRow(label: 'Waist',      icon: Icons.straighten_outlined,    iconColor: _kGreen,  unit: 'cm', ctrl: _waistCtrl),
+        _HDivider(),
+        _FieldRow(label: 'Hips',       icon: Icons.straighten_outlined,    iconColor: _kBlue,   unit: 'cm', ctrl: _hipsCtrl),
+        _HDivider(),
+        _FieldRow(label: 'Left Arm',   icon: Icons.fitness_center_outlined, iconColor: _kBlue,  unit: 'cm', ctrl: _armCtrl),
+        _HDivider(),
+        _FieldRow(label: 'Left Thigh', icon: Icons.directions_run_outlined, iconColor: _kOrange, unit: 'cm', ctrl: _thighCtrl, isLast: true),
+        const SizedBox(height: 14),
+        _SaveBtn(onPressed: _save),
+      ])),
+      if (recent.length >= 2) ...[
+        const SizedBox(height: 12),
+        _Card(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Trend (last 5 logs)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
+            _MeasurementTrendRow('Chest',  recent.map((e) => e.chestCm).toList()),
+            _MeasurementTrendRow('Waist',  recent.map((e) => e.waistCm).toList()),
+            _MeasurementTrendRow('Hips',   recent.map((e) => e.hipsCm).toList()),
+            _MeasurementTrendRow('Arm',    recent.map((e) => e.leftArmCm).toList()),
+            _MeasurementTrendRow('Thigh',  recent.map((e) => e.leftThighCm).toList()),
+          ],
+        )),
+      ],
+    ]);
+  }
+}
+
+class _MeasurementTrendRow extends StatelessWidget {
+  final String label;
+  final List<double?> values;
+  const _MeasurementTrendRow(this.label, this.values);
+
+  @override
+  Widget build(BuildContext context) {
+    final nonNull = values.where((v) => v != null).cast<double>().toList();
+    if (nonNull.isEmpty) return const SizedBox.shrink();
+    final latest = nonNull.last;
+    final prev   = nonNull.length >= 2 ? nonNull[nonNull.length - 2] : null;
+    final delta  = prev != null ? latest - prev : null;
+    final deltaStr = delta == null
+        ? ''
+        : delta < 0
+            ? '  ▼ ${delta.abs().toStringAsFixed(1)} cm'
+            : delta > 0
+                ? '  ▲ +${delta.toStringAsFixed(1)} cm'
+                : '  — no change';
+    final deltaColor = delta == null
+        ? _kSecond
+        : label == 'Chest' || label == 'Arm' || label == 'Thigh'
+            ? (delta < 0 ? _kSecond : _kGreen)
+            : (delta < 0 ? _kGreen : _kRed);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        SizedBox(width: 52, child: Text(label, style: const TextStyle(color: _kSecond, fontSize: 12))),
+        Text('${latest.toStringAsFixed(1)} cm',
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+        if (delta != null)
+          Text(deltaStr, style: TextStyle(color: deltaColor, fontSize: 11)),
+      ]),
+    );
+  }
 }
