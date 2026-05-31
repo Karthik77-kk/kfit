@@ -371,4 +371,37 @@ void main() {
       expect(estimateCaloriesBurned(70.0, 0), 0);
     });
   });
+
+  // ─── MeasurementEntry ────────────────────────────────────────────────────────
+  group('MeasurementEntry', () {
+    test('serialises and deserialises all fields', () {
+      final e = MeasurementEntry(
+        id: 'm1', date: DateTime(2026, 5, 30),
+        chestCm: 95.0, waistCm: 82.0, hipsCm: 98.0,
+        leftArmCm: 34.0, leftThighCm: 55.0,
+      );
+      final r = MeasurementEntry.fromJson(e.toJson());
+      expect(r.chestCm, 95.0);
+      expect(r.waistCm, 82.0);
+      expect(r.hipsCm, 98.0);
+      expect(r.leftArmCm, 34.0);
+      expect(r.leftThighCm, 55.0);
+    });
+
+    test('nullable fields round-trip as null', () {
+      final e = MeasurementEntry(id: 'm2', date: DateTime(2026, 5, 30), waistCm: 80.0);
+      final r = MeasurementEntry.fromJson(e.toJson());
+      expect(r.chestCm, isNull);
+      expect(r.waistCm, 80.0);
+      expect(r.hipsCm, isNull);
+    });
+
+    test('isEmpty true when no fields set', () {
+      expect(MeasurementEntry(id: 'x', date: DateTime.now()).isEmpty, isTrue);
+    });
+
+    test('isEmpty false when at least one field set', () {
+      expect(MeasurementEntry(id: 'x', date: DateTime.now(), waistCm: 80.0).isEmpty, isFalse);
+    });
+  });
 }

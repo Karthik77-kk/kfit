@@ -89,6 +89,7 @@ class FitnessProvider extends ChangeNotifier {
   List<WorkoutLog> _workoutHistory = [];
   List<BodyEntry> _bodyHistory = [];
   List<SmartScaleEntry> _scaleHistory = [];
+  List<MeasurementEntry> _measurementHistory = [];
   bool _isLoaded = false;
 
   // ── Historical data (last 30 days, loaded at startup) ──────────────────────
@@ -137,6 +138,9 @@ class FitnessProvider extends ChangeNotifier {
   List<SmartScaleEntry> get scaleHistory => _scaleHistory;
   SmartScaleEntry? get latestScaleEntry =>
       _scaleHistory.isEmpty ? null : _scaleHistory.last;
+  List<MeasurementEntry> get measurementHistory => _measurementHistory;
+  MeasurementEntry? get latestMeasurements =>
+      _measurementHistory.isEmpty ? null : _measurementHistory.last;
   bool get isLoaded => _isLoaded;
 
   /// All food entries keyed by 'YYYY-MM-DD', including today's.
@@ -327,6 +331,14 @@ class FitnessProvider extends ChangeNotifier {
   List<BodyEntry> getRecentBodyEntries({int days = 30}) {
     final cutoff = DateTime.now().subtract(Duration(days: days));
     return _bodyHistory
+        .where((e) => e.date.isAfter(cutoff))
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+  }
+
+  List<MeasurementEntry> getRecentMeasurements({int days = 90}) {
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    return _measurementHistory
         .where((e) => e.date.isAfter(cutoff))
         .toList()
       ..sort((a, b) => a.date.compareTo(b.date));
@@ -615,6 +627,14 @@ class FitnessProvider extends ChangeNotifier {
       _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
     }
 
+    // Body measurements history
+    final measureJson = prefs.getString('measurements_history');
+    if (measureJson != null) {
+      final list = jsonDecode(measureJson) as List;
+      _measurementHistory = list.map((e) => MeasurementEntry.fromJson(e)).toList();
+      _measurementHistory.sort((a, b) => a.date.compareTo(b.date));
+    }
+
     // Historical food, water, supplement for last 60 days
     // (60 matches the calorieStreak look-back window)
     _foodHistory = {};
@@ -847,6 +867,26 @@ class FitnessProvider extends ChangeNotifier {
         e.date.day == now.day).toList();
     final existingSteps = todayBody.isNotEmpty ? todayBody.first.steps : 0;
     await logBodyEntry(weightKg: entry.weightKg, steps: existingSteps);
+    notifyListeners();
+  }
+
+  // ── Measurement actions ────────────────────────────────────────────────────
+  Future<void> logMeasurement(MeasurementEntry entry) async {
+    if (entry.isEmpty) return;
+    final now = DateTime.now();
+    _measurementHistory.removeWhere((e) =>
+        e.date.year == now.year &&
+        e.date.month == now.month &&
+        e.date.day == now.day);
+    _measurementHistory.add(entry);
+    _measurementHistory.sort((a, b) => a.date.compareTo(b.date));
+    final cutoff = now.subtract(const Duration(days: 180));
+    _measurementHistory.removeWhere((e) => e.date.isBefore(cutoff));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'measurements_history',
+      jsonEncode(_measurementHistory.map((e) => e.toJson()).toList()),
+    );
     notifyListeners();
   }
 

@@ -466,6 +466,51 @@ void main() {
     });
   });
 
+  // ── Body Measurements ─────────────────────────────────────────────────────
+
+  group('Body Measurements', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('logMeasurement saves entry', () async {
+      await p.logMeasurement(MeasurementEntry(
+        id: 'm1', date: DateTime.now(), chestCm: 95.0, waistCm: 82.0,
+      ));
+      expect(p.latestMeasurements, isNotNull);
+      expect(p.latestMeasurements!.chestCm, 95.0);
+      expect(p.latestMeasurements!.waistCm, 82.0);
+    });
+
+    test('same-day measurement overwrites', () async {
+      await p.logMeasurement(MeasurementEntry(id: 'm1', date: DateTime.now(), waistCm: 84.0));
+      await p.logMeasurement(MeasurementEntry(id: 'm2', date: DateTime.now(), waistCm: 82.0));
+      expect(p.measurementHistory.length, 1);
+      expect(p.latestMeasurements!.waistCm, 82.0);
+    });
+
+    test('isEmpty entries are rejected', () async {
+      await p.logMeasurement(MeasurementEntry(id: 'empty', date: DateTime.now()));
+      expect(p.measurementHistory.isEmpty, isTrue);
+    });
+
+    test('measurements persist across reload', () async {
+      await p.logMeasurement(MeasurementEntry(
+        id: 'm1', date: DateTime.now(), hipsCm: 98.0, leftArmCm: 34.0,
+      ));
+      final p2 = FitnessProvider();
+      await p2.loadData();
+      expect(p2.measurementHistory.length, 1);
+      expect(p2.latestMeasurements!.hipsCm, 98.0);
+      expect(p2.latestMeasurements!.leftArmCm, 34.0);
+    });
+
+    test('getRecentMeasurements filters by days', () async {
+      await p.logMeasurement(MeasurementEntry(id: 'm1', date: DateTime.now(), waistCm: 82.0));
+      expect(p.getRecentMeasurements(days: 30).length, 1);
+      expect(p.getRecentMeasurements(days: 0).length, 0);
+    });
+  });
+
   // ── Workout logging ───────────────────────────────────────────────────────
 
   group('Workout logging', () {
