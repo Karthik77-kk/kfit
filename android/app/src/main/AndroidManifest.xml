@@ -12,6 +12,10 @@
     <!-- ── Pedometer ─────────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
 
+    <!-- ── Foreground service (keeps reminders alive on iQOO/Vivo/aggressive OEMs) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+
     <application
         android:label="K Fitness"
         android:name="${applicationName}"
@@ -57,6 +61,16 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
+
+        <!-- ── Foreground service — keeps reminder alarms alive on aggressive OEMs -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps daily fitness reminders firing reliably on devices that aggressively kill background alarms."/>
+        </service>
 
         <meta-data
             android:name="flutterEmbedding"
