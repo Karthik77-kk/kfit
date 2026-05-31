@@ -15,6 +15,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _exporting = false;
   bool _importing = false;
   bool _testingNotif = false;
+  bool _testingScheduled = false;
   bool _fixingNotif = false;
   bool? _batteryOptIgnored;
   bool? _exactAlarmGranted;
@@ -96,6 +97,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: Text(msg),
         backgroundColor: bg,
         duration: const Duration(seconds: 6),
+      ));
+    }
+  }
+
+  Future<void> _testScheduledNotification() async {
+    setState(() => _testingScheduled = true);
+    final result = await NotificationService().sendScheduledTestIn60s();
+    if (mounted) {
+      setState(() => _testingScheduled = false);
+      String msg;
+      Color bg;
+      if (result == 'ok') {
+        msg = '⏰ Scheduled in 60s! Lock your screen and wait. If it fires → background alarms work. If not → enable Auto-start in phone Settings → Apps → K Fitness → Auto-start → ON';
+        bg = const Color(0xFF30D158);
+      } else if (result == 'permission_denied') {
+        msg = '🚫 Notification permission denied';
+        bg = const Color(0xFFFF453A);
+      } else {
+        msg = '❌ Error: $result';
+        bg = const Color(0xFFFF453A);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: bg,
+        duration: const Duration(seconds: 10),
       ));
     }
   }
@@ -323,12 +349,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.notifications_outlined,
             title: 'Test Notification',
-            subtitle: 'Tap to fire a test notification right now',
+            subtitle: 'Fires immediately — tests permission only',
             trailing: _testingNotif
                 ? const SizedBox(width: 20, height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.send_outlined, color: Color(0xFF30D158), size: 20),
             onTap: _testingNotif ? null : _testNotification,
+          ),
+          _Tile(
+            icon: Icons.alarm_outlined,
+            title: 'Test Scheduled (60s)',
+            subtitle: 'Lock screen and wait 60s — if it fires, real reminders will work',
+            trailing: _testingScheduled
+                ? const SizedBox(width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.timer_outlined, color: Color(0xFFFF9F0A), size: 20),
+            onTap: _testingScheduled ? null : _testScheduledNotification,
           ),
           // Water reminder interval dropdown
           Container(
