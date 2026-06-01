@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
+import 'services/on_device_ai_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
@@ -19,8 +20,11 @@ void main() async {
   ));
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => FitnessProvider()..loadData(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => FitnessProvider()..loadData()),
+        ChangeNotifierProvider(create: (_) => OnDeviceAiService()..init()),
+      ],
       child: const KarthikFitnessApp(),
     ),
   );

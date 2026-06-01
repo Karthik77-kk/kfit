@@ -2,6 +2,8 @@
 
     <!-- ── Pedometer ─────────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+    <!-- ── AI model download (flutter_gemma) ──────────────────────────────── -->
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
         android:label="K Fitness"
