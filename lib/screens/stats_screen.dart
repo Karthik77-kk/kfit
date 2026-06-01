@@ -479,7 +479,7 @@ class _AiPredictionsCard extends StatelessWidget {
     } else if (weekly < -0.1) {
       calSuggestion =
           'Losing ${weekly.abs().toStringAsFixed(2)} kg/wk — perfect pace! '
-          'Stay at ~${target?.round() ?? 1700} kcal/day.';
+          'Stay at ~${target?.round() ?? p.calorieGoal} kcal/day.';
       calColor = _kGreen;
     } else if (weekly > 0.2) {
       calSuggestion =

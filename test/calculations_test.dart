@@ -480,6 +480,148 @@ void main() {
     test('predictedWeightInDays null with < 3 entries', () {
       expect(p.predictedWeightInDays(30), isNull);
     });
+
+    test('weightForecast empty when only one body entry', () async {
+      await p.logBodyEntry(weightKg: 80.0);
+      expect(p.weightForecast(), isEmpty);
+    });
+
+    test('weeklyWeightChange null when only one distinct-day entry', () async {
+      await p.logBodyEntry(weightKg: 80.0);
+      expect(p.weeklyWeightChange, isNull);
+    });
+
+    test('estimatedGoalDate null when no body entries', () {
+      expect(p.estimatedGoalDate, isNull);
+    });
+
+    test('predictedWeightInDays null when regression unavailable', () {
+      expect(p.predictedWeightInDays(90), isNull);
+    });
+  });
+
+  // ─── netCalories uses totalCaloriesBurned ───────────────────────────────
+
+  group('netCalories formula — totalCaloriesBurned (resting + walking + workout)', () {
+    late FitnessProvider p;
+    setUp(() async {
+      p = FitnessProvider();
+      await p.loadData();
+    });
+
+    test('netCalories equals eaten when no weight and no steps', () async {
+      final entry = FoodEntry(
+        id: 'x', name: 'Food', calories: 1000, protein: 50,
+        mealType: MealType.lunch, timestamp: DateTime.now(),
+      );
+      await p.addFoodEntry(entry);
+      // No weight → resting=0; no steps → walking=0; no workout → workout=0
+      expect(p.netCalories, p.todayCaloriesTotal.round());
+    });
+
+    test('netCalories < todayCaloriesTotal when weight logged (resting burn)', () async {
+      await p.logBodyEntry(weightKg: 75.0); // enables BMR / resting burn
+      final entry = FoodEntry(
+        id: 'y', name: 'Food', calories: 1200, protein: 60,
+        mealType: MealType.lunch, timestamp: DateTime.now(),
+      );
+      await p.addFoodEntry(entry);
+      expect(p.netCalories, lessThan(p.todayCaloriesTotal.round()));
+    });
+
+    test('totalCaloriesBurned = resting + walking + workout', () async {
+      await p.logBodyEntry(weightKg: 75.0, steps: 5000);
+      expect(
+        p.totalCaloriesBurned,
+        closeTo(p.restingCaloriesBurned + p.walkingCaloriesBurned + p.todayCaloriesBurned, 0.01),
+      );
+    });
+
+    test('walkingCaloriesBurned is 0 when steps are 0', () async {
+      await p.logBodyEntry(weightKg: 75.0, steps: 0);
+      expect(p.walkingCaloriesBurned, closeTo(0, 0.01));
+    });
+
+    test('walkingCaloriesBurned positive when steps > 0', () async {
+      await p.logBodyEntry(weightKg: 75.0, steps: 6000);
+      expect(p.walkingCaloriesBurned, greaterThan(0));
+    });
+
+    test('calorieDeficit = calorieGoal - netCalories always', () async {
+      await p.saveCalorieGoal(1700);
+      final entry = FoodEntry(
+        id: 'z', name: 'Food', calories: 1300, protein: 65,
+        mealType: MealType.lunch, timestamp: DateTime.now(),
+      );
+      await p.addFoodEntry(entry);
+      expect(p.calorieDeficit, p.calorieGoal - p.netCalories);
+    });
+
+    test('inDeficit mirrors netCalories < calorieGoal', () async {
+      await p.saveCalorieGoal(1700);
+      final entry = FoodEntry(
+        id: 'a', name: 'Food', calories: 1000, protein: 50,
+        mealType: MealType.lunch, timestamp: DateTime.now(),
+      );
+      await p.addFoodEntry(entry);
+      expect(p.inDeficit, p.netCalories < p.calorieGoal);
+    });
+  });
+
+  // ─── Over-goal raw ratio calculations ───────────────────────────────────
+
+  group('Raw ratio formula (calories / goal — can exceed 1.0)', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('ratio < 1.0 when under goal', () async {
+      await p.saveCalorieGoal(2000);
+      final entry = FoodEntry(
+        id: 'r1', name: 'Food', calories: 1000, protein: 40,
+        mealType: MealType.lunch, timestamp: DateTime.now(),
+      );
+      await p.addFoodEntry(entry);
+      final ratio = p.calorieGoal > 0 ? p.todayCaloriesTotal / p.calorieGoal : 0.0;
+      expect(ratio, lessThan(1.0));
+      expect(ratio, closeTo(0.5, 0.01));
+    });
+
+    test('ratio = 1.0 when exactly at goal', () async {
+      await p.saveCalorieGoal(1500);
+      final entry = FoodEntry(
+        id: 'r2', name: 'Food', calories: 1500, protein: 60,
+        mealType: MealType.lunch, timestamp: DateTime.now(),
+      );
+      await p.addFoodEntry(entry);
+      final ratio = p.calorieGoal > 0 ? p.todayCaloriesTotal / p.calorieGoal : 0.0;
+      expect(ratio, closeTo(1.0, 0.01));
+    });
+
+    test('ratio > 1.0 when over goal — drives ring overflow lap', () async {
+      await p.saveCalorieGoal(1000);
+      final entry = FoodEntry(
+        id: 'r3', name: 'Food', calories: 1400, protein: 70,
+        mealType: MealType.lunch, timestamp: DateTime.now(),
+      );
+      await p.addFoodEntry(entry);
+      final ratio = p.calorieGoal > 0 ? p.todayCaloriesTotal / p.calorieGoal : 0.0;
+      expect(ratio, greaterThan(1.0));
+      expect(ratio, closeTo(1.4, 0.01));
+      // calorieProgress (clamped) stays at 1.0 despite ratio > 1
+      expect(p.calorieProgress, 1.0);
+    });
+
+    test('calPct formula produces >100 int when over goal', () async {
+      await p.saveCalorieGoal(1700);
+      final entry = FoodEntry(
+        id: 'r4', name: 'Food', calories: 2040, protein: 80,
+        mealType: MealType.lunch, timestamp: DateTime.now(),
+      );
+      await p.addFoodEntry(entry);
+      final calPct = p.calorieGoal > 0 ? (p.todayCaloriesTotal / p.calorieGoal * 100).round() : 0;
+      expect(calPct, greaterThan(100));
+      expect(calPct, 120); // 2040/1700*100 = 120
+    });
   });
 }
 

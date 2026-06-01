@@ -149,6 +149,188 @@ void main() {
       expect(all.any((i) => i.title.toLowerCase().contains('waist-to-hip')), isTrue);
     });
   });
+
+  // ── Step / water / calorie insight rules ──────────────────────────────────
+
+  group('smart insight — step, water, calorie rules', () {
+    test('steps insight fires when no steps logged', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 14));
+      final titles = insights.map((i) => i.title.toLowerCase()).toList();
+      // At least one insight should mention steps
+      expect(titles.any((t) => t.contains('step')), isTrue);
+    });
+
+    test('water insight fires when no water logged', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 15));
+      final titles = insights.map((i) => i.title.toLowerCase()).toList();
+      expect(titles.any((t) => t.contains('water') || t.contains('hydrat')), isTrue);
+    });
+
+    test('over-goal calorie insight fires when calories exceed goal', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.saveCalorieGoal(1000);
+      await p.addFoodEntry(_food('f1', 1500, 50));
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 14));
+      final titles = insights.map((i) => i.title.toLowerCase()).toList();
+      expect(titles.any((t) => t.contains('over') || t.contains('above') || t.contains('calor')), isTrue);
+    });
+
+    test('protein-behind-pace insight fires when protein is behind expected pace', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.saveProteinGoal(100);
+      // 0g protein at 2pm (should have ~62% of 100g = 62g by now) → behind
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 14));
+      final titles = insights.map((i) => i.title.toLowerCase()).toList();
+      expect(titles.any((t) => t.contains('protein') || t.contains('pace')), isTrue);
+    });
+  });
+
+  // ── Visceral fat insight ──────────────────────────────────────────────────
+
+  group('smart insight — visceral fat', () {
+    test('visceral fat insight fires at index >= 13 (requires 2 scale entries)', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      // Engine requires scales.length >= 2 — log one previous and one current.
+      await p.logScaleEntry(_scale(date: DateTime.now().subtract(const Duration(days: 7)), visceral: 12));
+      await p.logScaleEntry(_scale(date: DateTime.now(), visceral: 14));
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 10));
+      expect(insights.any((i) => i.title.toLowerCase().contains('visceral')), isTrue);
+    });
+
+    test('visceral fat insight does NOT fire at index < 13', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.logScaleEntry(_scale(date: DateTime.now().subtract(const Duration(days: 7)), visceral: 8));
+      await p.logScaleEntry(_scale(date: DateTime.now(), visceral: 8));
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 10));
+      expect(insights.any((i) => i.title.toLowerCase().contains('visceral')), isFalse);
+    });
+  });
+
+  // ── Workout / rest day insight ────────────────────────────────────────────
+
+  group('smart insight — workout / no-workout-this-week', () {
+    test('no-workout insight fires when 0 workouts this week', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 14));
+      final titles = insights.map((i) => i.title.toLowerCase()).toList();
+      expect(titles.any((t) => t.contains('workout') || t.contains('session')), isTrue);
+    });
+  });
+
+  // ── Insight scores and dedup ──────────────────────────────────────────────
+
+  group('smart insight — scores and category dedup', () {
+    test('topInsights(count:3) returns at most 3 insights', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final top = topInsights(p, DateTime(2026, 5, 31, 10), count: 3);
+      expect(top.length, lessThanOrEqualTo(3));
+    });
+
+    test('topInsights(count:1) returns exactly 1', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final top = topInsights(p, DateTime(2026, 5, 31, 10), count: 1);
+      expect(top.length, 1);
+    });
+
+    test('all insights have non-empty title and body', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final all = generateInsights(p, DateTime(2026, 5, 31, 10));
+      for (final insight in all) {
+        expect(insight.title, isNotEmpty, reason: 'insight title must not be empty');
+        expect(insight.body, isNotEmpty, reason: 'insight body must not be empty');
+        expect(insight.emoji, isNotEmpty, reason: 'insight emoji must not be empty');
+      }
+    });
+
+    test('topInsights has at most one insight per category', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final top = topInsights(p, DateTime(2026, 5, 31, 10), count: 10);
+      final categories = top.map((i) => i.category).toList();
+      final uniqueCategories = categories.toSet();
+      expect(categories.length, uniqueCategories.length,
+          reason: 'No two insights should share a category');
+    });
+
+    test('insights are sorted by score descending', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final all = generateInsights(p, DateTime(2026, 5, 31, 10));
+      for (int i = 0; i < all.length - 1; i++) {
+        expect(all[i].score, greaterThanOrEqualTo(all[i + 1].score),
+            reason: 'Insight at index $i should have score >= index ${i+1}');
+      }
+    });
+
+    test('topInsight returns highest scoring insight', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      final all = generateInsights(p, DateTime(2026, 5, 31, 10));
+      final top = topInsight(p, DateTime(2026, 5, 31, 10));
+      expect(top.score, all.map((i) => i.score).reduce((a, b) => a > b ? a : b));
+    });
+  });
+
+  // ── Insight with scale data ───────────────────────────────────────────────
+
+  group('smart insight — scale-dependent rules', () {
+    test('body comp insight fires when scale data available', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.logScaleEntry(_scale(date: DateTime.now(), weight: 80, bodyFat: 28));
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 10));
+      // With high body fat (28%) the engine should produce a relevant insight
+      expect(insights, isNotEmpty);
+    });
+
+    test('WHR insight fires when waist/hip ratio >= threshold', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.saveHeight(175);
+      await p.logMeasurement(MeasurementEntry(
+        id: 'm', date: DateTime.now(), waistCm: 100, hipsCm: 95));
+      // WHR = 100/95 ≈ 1.05 — well above 0.95 threshold
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 10));
+      expect(insights.any((i) => i.title.toLowerCase().contains('waist') || i.title.toLowerCase().contains('whr')), isTrue);
+    });
+
+    test('waist-down insight fires when waist decreases >= 1.5 cm across 2 entries', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      // Log earlier measurement with larger waist, then recent with smaller waist.
+      await p.logMeasurement(MeasurementEntry(
+          id: 'm1', date: DateTime.now().subtract(const Duration(days: 14)), waistCm: 90));
+      await p.logMeasurement(MeasurementEntry(
+          id: 'm2', date: DateTime.now(), waistCm: 87)); // delta = -3 cm
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 10));
+      expect(insights.any((i) => i.title.toLowerCase().contains('waist')), isTrue);
+    });
+
+    test('waist-down insight does NOT fire when waist decrease < 1.5 cm', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.logMeasurement(MeasurementEntry(
+          id: 'm1', date: DateTime.now().subtract(const Duration(days: 7)), waistCm: 90));
+      await p.logMeasurement(MeasurementEntry(
+          id: 'm2', date: DateTime.now(), waistCm: 89.5)); // delta = -0.5 cm
+      final insights = generateInsights(p, DateTime(2026, 5, 31, 10));
+      // The insight only fires for >= 1.5 cm decrease
+      final waistInsight = insights.where((i) => i.title.toLowerCase().contains('waist down')).toList();
+      expect(waistInsight, isEmpty);
+    });
+  });
 }
 
 SmartScaleEntry _scaleFL({required DateTime date, required double fatKg, required double leanKg}) =>

@@ -206,8 +206,8 @@ class FitnessProvider extends ChangeNotifier {
       (_todayWaterMl / waterGoalMl).clamp(0.0, 1.0);
 
   // ── Net calories & deficit ─────────────────────────────────────────────────
-  /// Calories eaten minus calories burned from workout
-  int get netCalories => (todayCaloriesTotal - todayCaloriesBurned).round();
+  /// Calories eaten minus ALL calories burned today (resting + walking + workout).
+  int get netCalories => (todayCaloriesTotal - totalCaloriesBurned).round();
 
   /// Positive = deficit (good for fat loss), Negative = surplus.
   /// Uses totalCaloriesBurned (resting + walking + workout) for accuracy.
@@ -654,9 +654,6 @@ class FitnessProvider extends ChangeNotifier {
   double get totalCaloriesBurned =>
       restingCaloriesBurned + walkingCaloriesBurned + todayCaloriesBurned;
 
-  /// Net calories = eaten (incl. supplements) - total burned
-  double get netCaloriesDouble => todayCaloriesTotal - totalCaloriesBurned;
-
   int get weeklyCaloriesBurned {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     return _workoutHistory
@@ -962,6 +959,17 @@ class FitnessProvider extends ChangeNotifier {
     _proteinGoal = prefs.getInt('protein_goal') ?? kDefaultProteinGoal;
     _waterGoalMl = prefs.getInt('water_goal_ml') ?? kDefaultWaterGoalMl;
     _stepGoal = prefs.getInt('step_goal') ?? kDefaultStepGoal;
+
+    // Ensure profile + goals are always persisted so they appear in backups
+    // even when the user has never opened Settings to change them from defaults.
+    if (!prefs.containsKey('user_name'))    await prefs.setString('user_name',    _userName);
+    if (!prefs.containsKey('height_cm'))    await prefs.setDouble('height_cm',    _heightCm);
+    if (!prefs.containsKey('age'))          await prefs.setInt('age',             _age);
+    if (!prefs.containsKey('goal_weight_kg')) await prefs.setDouble('goal_weight_kg', _goalWeightKg);
+    if (!prefs.containsKey('calorie_goal')) await prefs.setInt('calorie_goal',    _calorieGoal);
+    if (!prefs.containsKey('protein_goal')) await prefs.setInt('protein_goal',    _proteinGoal);
+    if (!prefs.containsKey('water_goal_ml')) await prefs.setInt('water_goal_ml', _waterGoalMl);
+    if (!prefs.containsKey('step_goal'))    await prefs.setInt('step_goal',       _stepGoal);
 
     // Always reset today's data first (handles midnight day-change case)
     _todayFood = [];
@@ -1614,10 +1622,13 @@ class FitnessProvider extends ChangeNotifier {
       await HomeWidget.saveWidgetData<int>('proteinGoal', proteinGoal);
       await HomeWidget.saveWidgetData<int>('water', todayWaterMl);
       await HomeWidget.saveWidgetData<int>('waterGoal', waterGoalMl);
-      // Progress as 0–100 ints so the native side doesn't recompute.
-      await HomeWidget.saveWidgetData<int>('calPct', (calorieProgress * 100).round());
-      await HomeWidget.saveWidgetData<int>('protPct', (proteinProgress * 100).round());
-      await HomeWidget.saveWidgetData<int>('waterPct', (waterProgress * 100).round());
+      // Raw unclamped percentages (can be >100) so the widget can draw overflow laps.
+      await HomeWidget.saveWidgetData<int>('calPct',
+          calorieGoal  > 0 ? (todayCaloriesTotal / calorieGoal  * 100).round() : 0);
+      await HomeWidget.saveWidgetData<int>('protPct',
+          proteinGoal  > 0 ? (todayProteinTotal  / proteinGoal  * 100).round() : 0);
+      await HomeWidget.saveWidgetData<int>('waterPct',
+          waterGoalMl  > 0 ? (todayWaterMl       / waterGoalMl  * 100).round() : 0);
 
       final insight = topInsight(this, DateTime.now());
       await HomeWidget.saveWidgetData<String>('insightEmoji', insight.emoji);
