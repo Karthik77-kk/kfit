@@ -279,6 +279,58 @@ class FitnessProvider extends ChangeNotifier {
     return (t - 500).clamp(1200, 3500);
   }
 
+  // ── Smart goal recommendations ─────────────────────────────────────────────
+  //
+  // Auto-calculated from body data so the user has science-backed targets
+  // instead of fixed defaults. Shown in Settings as suggestions the user can
+  // apply with one tap.
+
+  /// Recommended daily calorie intake for ~0.5 kg/week fat loss.
+  /// = TDEE − 500, clamped to the safe range [1200, 2800].
+  /// Returns null when weight/height/age haven't been logged yet.
+  double? get recommendedCalorieGoal {
+    final t = tdee;
+    if (t == null) return null;
+    return (t - 500).clamp(1200.0, 2800.0);
+  }
+
+  /// Recommended daily protein for fat loss + muscle retention.
+  /// Uses 2.0 g/kg lean body mass when scale data is available,
+  /// otherwise 1.8 g/kg total body weight.
+  /// Science: at least 1.6 g/kg lean mass protects muscle in a deficit.
+  int get recommendedProteinGoal {
+    final lean = leanMassKg;
+    if (lean != null && lean > 10) {
+      return (lean * 2.0).round().clamp(60, 300);
+    }
+    final w = latestWeightKg;
+    if (w != null) {
+      return (w * 1.8).round().clamp(60, 300);
+    }
+    return kDefaultProteinGoal;
+  }
+
+  /// Recommended daily water intake: 35 ml per kg body weight.
+  /// 35 ml/kg is widely recommended for active adults aiming for fat loss.
+  int get recommendedWaterGoal {
+    final w = latestWeightKg;
+    if (w == null) return kDefaultWaterGoalMl;
+    return ((w * 35).round()).clamp(1500, 4500);
+  }
+
+  /// True when the user's manually-set goals differ meaningfully from
+  /// what the body data recommends (triggers a nudge in Settings).
+  bool get hasGoalRecommendations {
+    final rCal  = recommendedCalorieGoal;
+    final rProt = recommendedProteinGoal;
+    final rWat  = recommendedWaterGoal;
+    if (rCal == null) return false;
+    final calDiff  = (rCal.round() - _calorieGoal).abs() > 50;
+    final protDiff = (rProt        - _proteinGoal).abs() > 5;
+    final watDiff  = (rWat         - _waterGoalMl).abs() > 150;
+    return calDiff || protDiff || watDiff;
+  }
+
   /// kg remaining to reach goal weight (negative = already below goal)
   double? get kgToGoal {
     final w = latestWeightKg;
