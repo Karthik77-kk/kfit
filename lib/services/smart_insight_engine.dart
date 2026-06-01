@@ -495,6 +495,100 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
     ));
   }
 
+  // ── Habit pattern: late-night eating ──────────────────────────────────────
+  if (p.hasLateNightEatingPattern) {
+    out.add(Insight(
+      emoji: '🌙',
+      title: 'Late-night eating is a pattern',
+      body: 'Your logs show >25% of your meals happening after 9 PM. Late meals '
+          'spike insulin before sleep and hurt fat burn. Front-load calories — '
+          'bigger breakfast, smaller dinner.',
+      accent: _kIndigo,
+      category: InsightCategory.nutrition,
+      score: 74,
+    ));
+  }
+
+  // ── Habit pattern: deficit streak ─────────────────────────────────────────
+  final defStreak = p.deficitStreak;
+  if (defStreak >= 7) {
+    out.add(Insight(
+      emoji: '🏆',
+      title: '$defStreak-day deficit streak — elite',
+      body: 'You have been under your calorie goal for $defStreak days straight. '
+          'This sustained consistency is exactly what drives real fat loss results. '
+          'Protect your protein to keep the muscle.',
+      accent: _kGreen,
+      category: InsightCategory.prediction,
+      score: 67,
+    ));
+  } else if (defStreak >= 3) {
+    out.add(Insight(
+      emoji: '🎯',
+      title: '$defStreak-day deficit — keep it going',
+      body: 'You have been in a deficit for $defStreak days. One more consistent '
+          'day moves the needle. Tonight: hit protein, skip late snacks.',
+      accent: _kGreen,
+      category: InsightCategory.prediction,
+      score: 44,
+    ));
+  }
+
+  // ── Habit score card ───────────────────────────────────────────────────────
+  final hs = p.habitScore;
+  if (hs >= 80) {
+    out.add(Insight(
+      emoji: '⭐',
+      title: 'Habit score $hs/100 — excellent',
+      body: 'Calorie control, protein, hydration, and training consistency are '
+          'all strong this month. You are building the foundation for lasting change.',
+      accent: _kGreen,
+      category: InsightCategory.motivation,
+      score: 35,
+    ));
+  } else if (hs >= 50 && hs < 80) {
+    out.add(Insight(
+      emoji: '📈',
+      title: 'Habit score $hs/100 — room to grow',
+      body: 'Your overall consistency is moderate. The fastest gains come from '
+          'picking the one weakest category and fixing it this week.',
+      accent: _kOrange,
+      category: InsightCategory.motivation,
+      score: 28,
+    ));
+  }
+
+  // ── Calorie adherence is low ───────────────────────────────────────────────
+  final calAdh = p.calorieAdherenceRate;
+  // Guard: only fire if there is recent calorie history (avgCalories > 0 = logged data exists).
+  if (p.avgCaloriesForDays(1, 30) > 0 && calAdh < 0.45) {
+    out.add(Insight(
+      emoji: '📋',
+      title: 'Calorie goal missed ${((1 - calAdh) * 100).round()}% of days',
+      body: 'You are only hitting your ${p.calorieGoal} kcal target about '
+          '${(calAdh * 100).round()}% of days. Log every meal — even estimating '
+          'keeps you 30% more consistent than not logging.',
+      accent: _kOrange,
+      category: InsightCategory.nutrition,
+      score: 72,
+    ));
+  }
+
+  // ── Protein adherence is low ───────────────────────────────────────────────
+  final protAdh = p.proteinAdherenceRate;
+  if (p.avgProteinForDays(1, 30) > 0 && protAdh < 0.4) {
+    out.add(Insight(
+      emoji: '🥩',
+      title: 'Protein goal missed most days',
+      body: 'You hit ${p.proteinGoal}g+ on only ${(protAdh * 100).round()}% of '
+          'logged days. Low protein while in a deficit accelerates muscle loss. '
+          'Add whey or eggs to breakfast — it is the easiest protein win.',
+      accent: _kRed,
+      category: InsightCategory.nutrition,
+      score: 76,
+    ));
+  }
+
   // ── Goal-pace coaching (uses the trend-based ETA) ─────────────────────────
   final eta = p.estimatedGoalDate;
   final wk = p.weeksToGoal;

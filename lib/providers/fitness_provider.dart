@@ -939,6 +939,119 @@ class FitnessProvider extends ChangeNotifier {
     return result;
   }
 
+  // ── Habit pattern analysis ─────────────────────────────────────────────────
+
+  /// % of past 30 logged days where calories were within ±15% of goal.
+  double get calorieAdherenceRate {
+    int count = 0, met = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 30; i++) {
+      final d = now.subtract(Duration(days: i));
+      final cal = caloriesForDate(d);
+      if (cal == 0) continue;
+      count++;
+      if (cal >= calorieGoal * 0.85 && cal <= calorieGoal * 1.15) met++;
+    }
+    return count > 0 ? met / count : 0.0;
+  }
+
+  /// % of past 30 logged days where protein met ≥ 90% of goal.
+  double get proteinAdherenceRate {
+    int count = 0, met = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 30; i++) {
+      final d = now.subtract(Duration(days: i));
+      final prot = proteinForDate(d);
+      if (prot == 0) continue;
+      count++;
+      if (prot >= proteinGoal * 0.9) met++;
+    }
+    return count > 0 ? met / count : 0.0;
+  }
+
+  /// % of past 30 logged days where water reached ≥ 90% of goal.
+  double get waterAdherenceRate {
+    int count = 0, met = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 30; i++) {
+      final d = now.subtract(Duration(days: i));
+      final water = waterForDate(d);
+      if (water == 0) continue;
+      count++;
+      if (water >= waterGoalMl * 0.9) met++;
+    }
+    return count > 0 ? met / count : 0.0;
+  }
+
+  /// Consecutive days (before today) that ended in a calorie deficit.
+  int get deficitStreak {
+    int streak = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 30; i++) {
+      final d = now.subtract(Duration(days: i));
+      final cal = caloriesForDate(d);
+      if (cal == 0) break;
+      if (cal < calorieGoal * 0.99) streak++;
+      else break;
+    }
+    return streak;
+  }
+
+  /// True when > 25% of logged meals in the past 14 days were after 9 PM.
+  bool get hasLateNightEatingPattern {
+    int late = 0, total = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 14; i++) {
+      final key = _keyFor(now.subtract(Duration(days: i)));
+      final entries = _foodHistory[key];
+      if (entries == null) continue;
+      for (final e in entries) {
+        if (e.calories > 50) {
+          total++;
+          if (e.timestamp.hour >= 21) late++;
+        }
+      }
+    }
+    return total >= 6 && late / total > 0.25;
+  }
+
+  /// Weighted habit score 0–100 based on adherence + workout + eating patterns.
+  int get habitScore {
+    if (_foodHistory.isEmpty) return 0;
+    double score = 0;
+    double maxScore = 0;
+    final calAdh = calorieAdherenceRate;
+    final protAdh = proteinAdherenceRate;
+    final watAdh = waterAdherenceRate;
+    if (calAdh > 0) { score += calAdh * 30; maxScore += 30; }
+    if (protAdh > 0) { score += protAdh * 25; maxScore += 25; }
+    if (watAdh > 0) { score += watAdh * 15; maxScore += 15; }
+    score += (weeklyWorkoutDays / 4.0).clamp(0.0, 1.0) * 20; maxScore += 20;
+    if (!hasLateNightEatingPattern) score += 10; maxScore += 10;
+    return maxScore > 0 ? (score / maxScore * 100).round().clamp(0, 100) : 0;
+  }
+
+  /// Yesterday's calories (0 if no data).
+  double get yesterdayCal =>
+      caloriesForDate(DateTime.now().subtract(const Duration(days: 1)));
+
+  /// Yesterday's protein (0 if no data).
+  double get yesterdayProtein =>
+      proteinForDate(DateTime.now().subtract(const Duration(days: 1)));
+
+  /// Yesterday's water in mL (0 if no data).
+  int get yesterdayWater =>
+      waterForDate(DateTime.now().subtract(const Duration(days: 1)));
+
+  /// True if any workout was logged yesterday.
+  bool get workedOutYesterday {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    return _workoutHistory.any((w) =>
+        w.date.year == yesterday.year &&
+        w.date.month == yesterday.month &&
+        w.date.day == yesterday.day);
+  }
+
   // ── Persistence ────────────────────────────────────────────────────────────
   String get _todayKey {
     final n = DateTime.now();
@@ -1629,6 +1742,10 @@ class FitnessProvider extends ChangeNotifier {
           proteinGoal  > 0 ? (todayProteinTotal  / proteinGoal  * 100).round() : 0);
       await HomeWidget.saveWidgetData<int>('waterPct',
           waterGoalMl  > 0 ? (todayWaterMl       / waterGoalMl  * 100).round() : 0);
+      await HomeWidget.saveWidgetData<int>('steps', todaySteps);
+      await HomeWidget.saveWidgetData<int>('stepGoal', stepGoal);
+      await HomeWidget.saveWidgetData<int>('stepPct',
+          stepGoal > 0 ? (todaySteps / stepGoal * 100).round() : 0);
 
       final insight = topInsight(this, DateTime.now());
       await HomeWidget.saveWidgetData<String>('insightEmoji', insight.emoji);
