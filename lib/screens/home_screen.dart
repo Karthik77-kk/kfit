@@ -478,7 +478,7 @@ class _CalorieRingTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      net >= 0 ? 'net surplus so far' : 'net deficit so far',
+                      net >= 0 ? 'calorie surplus today' : 'calorie deficit today',
                       style: const TextStyle(color: _kSecond, fontSize: 12),
                     ),
                   ],

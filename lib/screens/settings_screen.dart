@@ -175,6 +175,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 20),
 
 
+          // ── SMART RECOMMENDATIONS ────────────────────────────────
+          if (p.hasGoalRecommendations) ...[
+            _Header('Smart Recommendations'),
+            _SmartGoalsTile(p: p),
+            const SizedBox(height: 20),
+          ],
+
           // ── GOALS ─────────────────────────────────────────────────
           _Header('Goals'),
           _Tile(
@@ -278,7 +285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'Version 1.4.1 (Build 45) — Personal fitness tracker',
+            subtitle: 'v2.3.0 · Build 62 — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),
@@ -286,6 +293,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+}
+
+// ── Smart goal recommendations tile ─────────────────────────────────────────
+
+class _SmartGoalsTile extends StatelessWidget {
+  final FitnessProvider p;
+  const _SmartGoalsTile({required this.p});
+
+  @override
+  Widget build(BuildContext context) {
+    final rCal  = p.recommendedCalorieGoal?.round();
+    final rProt = p.recommendedProteinGoal;
+    final rWat  = p.recommendedWaterGoal;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF40C8E0).withValues(alpha: 0.3)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Text('🧬', style: TextStyle(fontSize: 16)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text('Calculated from your body data',
+                style: TextStyle(color: Colors.white, fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        const Text(
+          'Your current goals vs what your body metrics actually suggest:',
+          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.4),
+        ),
+        const SizedBox(height: 12),
+
+        // Calorie row
+        if (rCal != null)
+          _RecoRow(
+            emoji: '🔥',
+            label: 'Calories',
+            current: '${p.calorieGoal} kcal',
+            recommended: '$rCal kcal',
+            reason: 'TDEE ${p.tdee?.round() ?? "—"} kcal − 500 (0.5 kg/wk loss)',
+            matches: (rCal - p.calorieGoal).abs() <= 50,
+          ),
+
+        // Protein row
+        _RecoRow(
+          emoji: '💪',
+          label: 'Protein',
+          current: '${p.proteinGoal}g',
+          recommended: '${rProt}g',
+          reason: p.leanMassKg != null
+              ? '2.0 g × ${p.leanMassKg!.toStringAsFixed(1)} kg lean mass'
+              : '1.8 g × ${p.latestWeightKg?.toStringAsFixed(1) ?? "?"}kg body weight',
+          matches: (rProt - p.proteinGoal).abs() <= 5,
+        ),
+
+        // Water row
+        _RecoRow(
+          emoji: '💧',
+          label: 'Water',
+          current: '${p.waterGoalMl} ml',
+          recommended: '$rWat ml',
+          reason: '35 ml × ${p.latestWeightKg?.toStringAsFixed(1) ?? "?"}kg body weight',
+          matches: (rWat - p.waterGoalMl).abs() <= 150,
+        ),
+
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () async {
+              if (rCal != null) await p.saveCalorieGoal(rCal);
+              await p.saveProteinGoal(rProt);
+              await p.saveWaterGoal(rWat);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Goals updated from your body data'),
+                    backgroundColor: Color(0xFF30D158),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.check_circle_outline, size: 16),
+            label: const Text('Apply Recommendations'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF30D158),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(vertical: 11),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _RecoRow extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final String current;
+  final String recommended;
+  final String reason;
+  final bool   matches;
+  const _RecoRow({required this.emoji, required this.label, required this.current,
+      required this.recommended, required this.reason, required this.matches});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(emoji, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text('$label: ',
+                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+                Text(current,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                const Text(' → ',
+                    style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+                Text(recommended,
+                    style: TextStyle(
+                        color: matches
+                            ? const Color(0xFF30D158)
+                            : const Color(0xFF40C8E0),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+                if (matches)
+                  const Text('  ✓',
+                      style: TextStyle(color: Color(0xFF30D158), fontSize: 11)),
+              ]),
+              Text(reason,
+                  style: const TextStyle(
+                      color: Color(0xFF8E8E93), fontSize: 10, height: 1.3)),
+            ]),
+          ),
+        ]),
+      );
 }
 
 // ── AI Chat settings tile ────────────────────────────────────────────────────

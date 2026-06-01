@@ -19,25 +19,24 @@ import java.util.Calendar
 
 /**
  * Full-canvas home-screen widget. Every pixel is drawn by [drawWidget] onto a
- * single Bitmap so we have complete control over typography, colour, and layout —
- * no RemoteViews tinting limits, no platform ProgressBar colour issues.
+ * single Bitmap using the ACTUAL widget dimensions from [AppWidgetManager.getAppWidgetOptions].
+ * This prevents the bottom-crop issue caused by drawing a larger bitmap than the widget.
  *
- * Layout (drawn at 280 × 120 dp logical, scaled to device density):
- *
- *  ┌─────────────────────────────────────────┐
- *  │  K FITNESS              SUN 01 JUN      │  ← header (green brand + muted date)
- *  ├────────────┬────────────────────────────┤
- *  │            │  ● CALORIES  1,200/1,700   │
- *  │  [RINGS]   │  ████████░░░ 71%           │
- *  │            │  ● PROTEIN    85 / 100 g   │
- *  │            │  ████████████ 85%          │
- *  │            │  ● WATER    1.8 / 2.5 L    │
- *  │            │  ████████░░░ 72%           │
- *  │            │  ● STEPS   4.2k / 8k       │
- *  │            │  ████░░░░░░░ 53%           │
- *  ├────────────┴────────────────────────────┤
- *  │  💡 Protein behind pace — add whey...   │  ← insight strip (darker bg)
- *  └─────────────────────────────────────────┘
+ * Layout:
+ *  ┌─────────────────────────────────────┐
+ *  │  K FITNESS              MON 1 JUN  │  header
+ *  ├─────────┬───────────────────────────┤
+ *  │         │  ● CALORIES  800 / 1700  │
+ *  │ [RINGS] │  ████████░░░ 47%         │
+ *  │         │  ● PROTEIN   48g / 100g  │
+ *  │         │  ████████░░░ 48%         │
+ *  │         │  ● WATER   1.3 / 2.5L   │
+ *  │         │  ████░░░░░░░ 52%         │
+ *  │         │  ● STEPS   51 / 8k      │
+ *  │         │  ████░░░░░░░ 1%          │
+ *  ├─────────┴───────────────────────────┤
+ *  │  💪  Muscle dipped 0.8 kg          │  insight strip
+ *  └─────────────────────────────────────┘
  */
 class KFitnessWidgetProvider : AppWidgetProvider() {
 
@@ -47,6 +46,16 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         for (id in appWidgetIds) updateWidget(context, appWidgetManager, id)
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: android.os.Bundle
+    ) {
+        // Redraw when user resizes the widget so layout adapts.
+        updateWidget(context, appWidgetManager, appWidgetId)
     }
 
     companion object {
@@ -60,9 +69,10 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
         private val WHITE  = Color.WHITE
 
         fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int) {
-            val views = RemoteViews(context.packageName, R.layout.kfitness_widget)
-            val prefs = HomeWidgetPlugin.getData(context)
+            val views  = RemoteViews(context.packageName, R.layout.kfitness_widget)
+            val prefs  = HomeWidgetPlugin.getData(context)
 
+            // ── Read widget data ─────────────────────────────────────────────
             val cal      = prefs.getInt("calories",    0)
             val calGoal  = prefs.getInt("calorieGoal", 1700)
             val prot     = prefs.getInt("protein",     0)
@@ -77,14 +87,23 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
             val waterPct = prefs.getInt("waterPct",0).coerceAtLeast(0) / 100f
             val stepPct  = prefs.getInt("stepPct", 0).coerceAtLeast(0) / 100f
 
-            val emoji  = prefs.getString("insightEmoji", "💡") ?: "💡"
-            val title  = prefs.getString("insightTitle", "Open K Fitness") ?: "Open K Fitness"
+            val emoji   = prefs.getString("insightEmoji", "💡") ?: "💡"
+            val title   = prefs.getString("insightTitle", "Open K Fitness") ?: "Open K Fitness"
             val insight = if (emoji.isBlank()) title else "$emoji  $title"
+
+            // ── Actual widget dimensions from launcher ───────────────────────
+            // Use OPTION_APPWIDGET_MIN_WIDTH/HEIGHT which are the guaranteed minimums.
+            // At 0 they mean "not yet set by launcher" — fall back to XML defaults.
+            val opts    = manager.getAppWidgetOptions(widgetId)
+            val wDp     = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
+                .coerceAtLeast(200)
+            val hDp     = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 160)
+                .coerceAtLeast(140)
 
             views.setImageViewBitmap(
                 R.id.widget_canvas,
                 drawWidget(
-                    context,
+                    context, wDp, hDp,
                     cal, calGoal, calPct,
                     prot, protGoal, protPct,
                     water, waterGoal, waterPct,
@@ -93,6 +112,7 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
                 )
             )
 
+            // ── Tap → open app ───────────────────────────────────────────────
             val intent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
@@ -104,8 +124,11 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
             manager.updateAppWidget(widgetId, views)
         }
 
+        // ── Drawing ──────────────────────────────────────────────────────────
+
         private fun drawWidget(
             context: Context,
+            widthDp: Int, heightDp: Int,
             cal: Int, calGoal: Int, calPct: Float,
             prot: Int, protGoal: Int, protPct: Float,
             water: Int, waterGoal: Int, waterPct: Float,
@@ -113,128 +136,127 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
             insight: String
         ): Bitmap {
             val dp = context.resources.displayMetrics.density
-            val W  = (280 * dp).toInt().coerceAtLeast(1)
-            val H  = (126 * dp).toInt().coerceAtLeast(1)
+            // Draw at actual widget dimensions so nothing is clipped.
+            val W  = (widthDp  * dp).toInt().coerceAtLeast(200)
+            val H  = (heightDp * dp).toInt().coerceAtLeast(120)
             val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
             val cv  = Canvas(bmp)
             val p   = Paint(Paint.ANTI_ALIAS_FLAG)
 
-            val pad      = 12f * dp
-            val r        = 18f * dp   // corner radius
-            val headerH  = 20f * dp
-            val stripH   = 24f * dp
-            val contentT = pad + headerH + 3f * dp
-            val contentB = H - stripH - 2f * dp
-            val ringSize = contentB - contentT
-            val metricsL = pad + ringSize + 10f * dp
-            val metricsR = W - pad
-            val mW       = metricsR - metricsL
+            // Proportional layout — all sizes relative to canvas H.
+            val rad     = 18f * dp
+            val pad     = 10f * dp
+            val hdrH    = (H * 0.14f).coerceAtLeast(16f * dp)
+            val stripH  = (H * 0.17f).coerceAtLeast(20f * dp)
+            val contT   = pad + hdrH + 2f * dp
+            val contB   = H  - stripH - 2f * dp
+            val ringSize= contB - contT
+            val metL    = pad + ringSize + 8f * dp
+            val metR    = W   - pad
+            val mW      = metR - metL
 
-            // ── Background ────────────────────────────────────────────────────
+            // Scale font sizes with available height.
+            val labelSz = (H * 0.058f).coerceIn(7f * dp, 10f * dp)
+            val valueSz = (H * 0.072f).coerceIn(8f * dp, 12f * dp)
+            val barH    = (H * 0.022f).coerceIn(2f * dp, 3.5f * dp)
+
+            // ── Background ──────────────────────────────────────────────────
             p.color = BG; p.style = Paint.Style.FILL
-            cv.drawRoundRect(RectF(0f, 0f, W.toFloat(), H.toFloat()), r, r, p)
+            cv.drawRoundRect(RectF(0f, 0f, W.toFloat(), H.toFloat()), rad, rad, p)
 
-            // ── Header ─────────────────────────────────────────────────────────
+            // ── Header ──────────────────────────────────────────────────────
+            val hdrY = pad + hdrH * 0.72f
+            p.textSize = (hdrH * 0.52f).coerceIn(8f * dp, 11f * dp)
             p.color = GREEN
-            p.textSize = 9.5f * dp
             p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            cv.drawText("K FITNESS", pad, pad + 14f * dp, p)
+            cv.drawText("K FITNESS", pad, hdrY, p)
 
-            p.color = MUTED
-            p.textSize = 8.5f * dp
-            p.typeface = Typeface.DEFAULT
+            p.textSize = (hdrH * 0.48f).coerceIn(7f * dp, 10f * dp)
+            p.color = MUTED; p.typeface = Typeface.DEFAULT
             p.textAlign = Paint.Align.RIGHT
-            cv.drawText(todayLabel(), W - pad, pad + 14f * dp, p)
+            cv.drawText(todayLabel(), W - pad, hdrY, p)
             p.textAlign = Paint.Align.LEFT
 
-            // thin divider
-            p.color = 0x1AFFFFFF.toInt(); p.strokeWidth = 0.7f * dp; p.style = Paint.Style.STROKE
-            cv.drawLine(pad, pad + headerH, W - pad, pad + headerH, p)
+            p.color = 0x1AFFFFFF.toInt(); p.strokeWidth = 0.6f * dp; p.style = Paint.Style.STROKE
+            cv.drawLine(pad, pad + hdrH, W - pad, pad + hdrH, p)
             p.style = Paint.Style.FILL
 
-            // ── Rings ──────────────────────────────────────────────────────────
-            drawRings(cv, pad, contentT, ringSize, calPct, protPct, waterPct)
+            // ── Rings ────────────────────────────────────────────────────────
+            drawRings(cv, pad, contT, ringSize, calPct, protPct, waterPct)
 
-            // ── Metrics ────────────────────────────────────────────────────────
+            // ── Metric rows ──────────────────────────────────────────────────
             data class Row(val color: Int, val label: String, val value: String, val pct: Float)
             val rows = listOf(
-                Row(RED,    "CALORIES", fmtCal(cal, calGoal),         calPct),
-                Row(GREEN,  "PROTEIN",  "${prot}g / ${protGoal}g",    protPct),
-                Row(CYAN,   "WATER",    fmtWater(water, waterGoal),   waterPct),
-                Row(ORANGE, "STEPS",    fmtSteps(steps, stepGoal),    stepPct),
+                Row(RED,    "CALORIES", fmtCal(cal, calGoal),       calPct),
+                Row(GREEN,  "PROTEIN",  "${prot}g / ${protGoal}g",  protPct),
+                Row(CYAN,   "WATER",    fmtWater(water, waterGoal), waterPct),
+                Row(ORANGE, "STEPS",    fmtSteps(steps, stepGoal),  stepPct),
             )
             val rowH = ringSize / rows.size
 
             for ((i, row) in rows.withIndex()) {
-                val rTop = contentT + i * rowH
-                val midY = rTop + rowH * 0.38f
+                val rT   = contT + i * rowH
+                val midY = rT + rowH * 0.34f
 
-                // colour dot
+                // dot
                 p.color = row.color
-                cv.drawCircle(metricsL + 4f * dp, midY, 3.2f * dp, p)
+                cv.drawCircle(metL + 3.5f * dp, midY, 3f * dp, p)
 
-                // label (muted, small caps)
-                p.textSize  = 7f * dp
-                p.color     = MUTED
-                p.typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                cv.drawText(row.label, metricsL + 10f * dp, midY + 4f * dp, p)
+                // label
+                p.textSize = labelSz; p.color = MUTED
+                p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                cv.drawText(row.label, metL + 9f * dp, midY + labelSz * 0.35f, p)
 
-                // value (white, monospace)
-                p.textSize  = 9f * dp
-                p.color     = WHITE
-                p.typeface  = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-                cv.drawText(row.value, metricsL + 10f * dp, midY + 14f * dp, p)
+                // value
+                p.textSize = valueSz; p.color = WHITE
+                p.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                cv.drawText(row.value, metL + 9f * dp, midY + labelSz * 0.35f + valueSz + 1f * dp, p)
 
                 // progress bar
-                val barTop = midY + 17f * dp
-                val barH2  = 2.8f * dp
-                val barR   = barH2 / 2f
-
+                val barT = midY + labelSz * 0.35f + valueSz + 4f * dp
+                val barR2 = barH / 2f
                 p.typeface = Typeface.DEFAULT
-                p.color = (row.color and 0x00FFFFFF) or 0x30000000
-                cv.drawRoundRect(RectF(metricsL, barTop, metricsR, barTop + barH2), barR, barR, p)
+
+                p.color = (row.color and 0x00FFFFFF) or 0x2E000000
+                cv.drawRoundRect(RectF(metL, barT, metR, barT + barH), barR2, barR2, p)
 
                 val fill = row.pct.coerceIn(0f, 1f) * mW
-                if (fill > barR * 2) {
+                if (fill > barR2 * 2f) {
                     p.color = row.color
-                    cv.drawRoundRect(RectF(metricsL, barTop, metricsL + fill, barTop + barH2), barR, barR, p)
+                    cv.drawRoundRect(RectF(metL, barT, metL + fill, barT + barH), barR2, barR2, p)
                 }
-                // overflow sparkle: bright dot past the end when >100%
                 if (row.pct > 1f) {
                     p.color = blendWithWhite(row.color, 0.55f)
-                    cv.drawCircle(metricsR - 3f * dp, barTop + barH2 / 2f, 4f * dp, p)
+                    cv.drawCircle(metR - 3f * dp, barT + barH / 2f, 4f * dp, p)
                 }
             }
 
-            // ── Insight strip ──────────────────────────────────────────────────
+            // ── Insight strip ─────────────────────────────────────────────────
             val stripTop = H.toFloat() - stripH
             val stripPath = Path().apply {
                 addRoundRect(
                     RectF(0f, stripTop, W.toFloat(), H.toFloat()),
-                    floatArrayOf(0f, 0f, 0f, 0f, r, r, r, r),
+                    floatArrayOf(0f, 0f, 0f, 0f, rad, rad, rad, rad),
                     Path.Direction.CW
                 )
             }
             p.color = STRIP
             cv.drawPath(stripPath, p)
 
-            p.color = 0x1AFFFFFF.toInt(); p.style = Paint.Style.STROKE; p.strokeWidth = 0.7f * dp
+            p.color = 0x1AFFFFFF.toInt(); p.style = Paint.Style.STROKE; p.strokeWidth = 0.6f * dp
             cv.drawLine(pad, stripTop, W - pad, stripTop, p)
             p.style = Paint.Style.FILL
 
-            p.textSize = 9f * dp
-            p.color    = 0xCCFFFFFF.toInt()
-            p.typeface = Typeface.DEFAULT
-            val maxTxtW = W - pad * 2
-            val truncated = truncate(p, insight, maxTxtW)
-            cv.drawText(truncated, pad, stripTop + stripH * 0.68f, p)
+            val insightSz = (stripH * 0.40f).coerceIn(8f * dp, 11f * dp)
+            p.textSize = insightSz; p.color = 0xCCFFFFFF.toInt(); p.typeface = Typeface.DEFAULT
+            val insightY = stripTop + stripH * 0.65f
+            cv.drawText(truncate(p, insight, W - pad * 2), pad, insightY, p)
 
             return bmp
         }
 
         private fun drawRings(
-            cv: Canvas,
-            left: Float, top: Float, size: Float,
+            cv: Canvas, left: Float, top: Float, size: Float,
             calPct: Float, protPct: Float, waterPct: Float
         ) {
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
@@ -261,9 +283,9 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
                 } else {
                     paint.color = color; paint.strokeCap = Paint.Cap.BUTT
                     cv.drawArc(rect, -90f, 360f, false, paint)
-                    val overSweep = 360f * (pct - 1f).coerceIn(0f, 1f)
+                    val over = 360f * (pct - 1f).coerceIn(0f, 1f)
                     paint.color = blendWithWhite(color, 0.45f); paint.strokeCap = Paint.Cap.ROUND
-                    cv.drawArc(rect, -90f, overSweep, false, paint)
+                    cv.drawArc(rect, -90f, over, false, paint)
                 }
             }
         }
@@ -277,21 +299,17 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
 
         private fun truncate(p: Paint, text: String, maxW: Float): String {
             if (p.measureText(text) <= maxW) return text
-            val ellipsis = "…"
-            val ew = p.measureText(ellipsis)
+            val ew = p.measureText("…")
             var i = text.length
             while (i > 0 && p.measureText(text.substring(0, i)) + ew > maxW) i--
-            return text.substring(0, i) + ellipsis
+            return text.substring(0, i) + "…"
         }
 
         private fun todayLabel(): String {
-            val cal   = Calendar.getInstance()
-            val days  = arrayOf("SUN","MON","TUE","WED","THU","FRI","SAT")
-            val months= arrayOf("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
-            val dow   = days[cal.get(Calendar.DAY_OF_WEEK) - 1]
-            val dom   = cal.get(Calendar.DAY_OF_MONTH)
-            val mon   = months[cal.get(Calendar.MONTH)]
-            return "$dow $dom $mon"
+            val cal    = Calendar.getInstance()
+            val days   = arrayOf("SUN","MON","TUE","WED","THU","FRI","SAT")
+            val months = arrayOf("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+            return "${days[cal.get(Calendar.DAY_OF_WEEK) - 1]} ${cal.get(Calendar.DAY_OF_MONTH)} ${months[cal.get(Calendar.MONTH)]}"
         }
 
         private fun fmtCal(cal: Int, goal: Int) = "$cal / $goal"
