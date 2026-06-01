@@ -325,9 +325,12 @@ class _SmartGoalsTile extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 8),
-        const Text(
-          'Your current goals vs what your body metrics actually suggest:',
-          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.4),
+        Text(
+          p.isTdeeCalibrated
+              ? 'Calorie target is calibrated from your REAL weight trend + intake '
+                '(not a generic formula). Protein & water scale with your body:'
+              : 'Your current goals vs what your body metrics suggest:',
+          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.4),
         ),
         const SizedBox(height: 12),
 
@@ -338,7 +341,9 @@ class _SmartGoalsTile extends StatelessWidget {
             label: 'Calories',
             current: '${p.calorieGoal} kcal',
             recommended: '$rCal kcal',
-            reason: 'TDEE ${p.tdee?.round() ?? "—"} kcal − 500 (0.5 kg/wk loss)',
+            reason: p.isTdeeCalibrated
+                ? 'Real maintenance ${p.bestTdee?.round() ?? "—"} kcal − 500 ✓ calibrated'
+                : 'Est. TDEE ${p.bestTdee?.round() ?? "—"} kcal − 500 (0.5 kg/wk loss)',
             matches: (rCal - p.calorieGoal).abs() <= 50,
           ),
 

@@ -462,7 +462,7 @@ class _AiPredictionsCard extends StatelessWidget {
     final pred30  = p.predictedWeightInDays(30);
     final pred90  = p.predictedWeightInDays(90);
     final goalDate = p.estimatedGoalDate;
-    final tdee     = p.tdee;
+    final tdee     = p.bestTdee;
     final target   = p.fatLossCalorieTarget;
 
     // Smart calorie suggestion based on weight trend
@@ -561,12 +561,17 @@ class _AiPredictionsCard extends StatelessWidget {
         if (tdee != null && target != null) ...[
           const SizedBox(height: 10),
           Row(children: [
-            _MetaChip2('TDEE', '${tdee.round()} kcal', _kOrange),
+            _MetaChip2(p.isTdeeCalibrated ? 'TDEE ✓' : 'TDEE', '${tdee.round()} kcal', _kOrange),
             const SizedBox(width: 8),
             _MetaChip2('Fat Loss Target', '${target.round()} kcal', _kGreen),
             const SizedBox(width: 8),
             _MetaChip2('Current Goal', '${p.calorieGoal} kcal', _kBlue),
           ]),
+          if (p.isTdeeCalibrated) ...[
+            const SizedBox(height: 6),
+            const Text('✓ TDEE calibrated from your real weight trend + intake',
+                style: TextStyle(color: _kGreen, fontSize: 10)),
+          ],
         ],
       ]),
     );
@@ -621,10 +626,12 @@ class _BmrTdeeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p     = provider;
-    final bmr   = p.bmr;
-    final tdee  = p.tdee;
-    final target = p.fatLossCalorieTarget;
+    final p          = provider;
+    final bmr        = p.bmr;
+    final tdee       = p.bestTdee;          // calibrated when data allows
+    final estTdee    = p.tdee;              // raw BMR×activity estimate
+    final target     = p.fatLossCalorieTarget;
+    final calibrated = p.isTdeeCalibrated;
 
     if (bmr == null) {
       return _Card(
@@ -657,11 +664,13 @@ class _BmrTdeeCard extends StatelessWidget {
               )),
               const SizedBox(width: 10),
               Expanded(child: _MetaChip(
-                label: 'TDEE',
+                label: calibrated ? 'TDEE ✓' : 'TDEE',
                 value: '${tdee?.round() ?? '—'}',
                 unit: 'kcal/day',
                 color: _kOrange,
-                tooltip: 'Total daily energy expenditure',
+                tooltip: calibrated
+                    ? 'Calibrated from your real weight trend + intake'
+                    : 'Estimated from BMR × activity level',
               )),
               const SizedBox(width: 10),
               Expanded(child: _MetaChip(
@@ -669,7 +678,7 @@ class _BmrTdeeCard extends StatelessWidget {
                 value: '${target?.round() ?? '—'}',
                 unit: 'kcal/day',
                 color: _kGreen,
-                tooltip: '500 kcal below TDEE for fat loss',
+                tooltip: '500 kcal below maintenance for fat loss',
               )),
             ],
           ),
@@ -677,19 +686,25 @@ class _BmrTdeeCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _kGreen.withOpacity(0.08),
+              color: (calibrated ? _kGreen : _kOrange).withOpacity(0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
-                const Text('💡', style: TextStyle(fontSize: 14)),
+                Text(calibrated ? '🎯' : '💡', style: const TextStyle(fontSize: 14)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    target != null
-                        ? 'Your fat-loss target is ~${target.round()} kcal/day. '
-                          'Your current goal is set to ${p.calorieGoal} kcal.'
-                        : 'Enter weight, height and age to compute your targets.',
+                    target == null
+                        ? 'Enter weight, height and age to compute your targets.'
+                        : calibrated
+                            ? 'Calibrated from YOUR data: you actually maintain at '
+                              '~${tdee!.round()} kcal/day (the BMR estimate was '
+                              '${estTdee?.round() ?? '—'}). For steady fat loss aim '
+                              '~${target.round()} kcal — your goal is ${p.calorieGoal} kcal.'
+                            : 'Estimated fat-loss target ~${target.round()} kcal/day '
+                              '(goal: ${p.calorieGoal} kcal). Keep logging weight + food '
+                              'for ~2 weeks and this calibrates to your real metabolism.',
                     style: const TextStyle(
                         color: Colors.white70, fontSize: 12, height: 1.4),
                   ),

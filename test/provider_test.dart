@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karthik_fitness/models/models.dart';
@@ -6,6 +7,19 @@ import 'package:karthik_fitness/providers/fitness_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Seeds 'body_history' in SharedPreferences with [(date, weightKg)] entries.
+/// Needed because logBodyEntry always uses DateTime.now(), so past-dated weight
+/// trends (for regression / adaptive TDEE) must be seeded directly.
+Map<String, Object> _seedBody(List<(DateTime, double)> entries) {
+  final list = entries.map((e) => {
+        'id': 'b${e.$1.millisecondsSinceEpoch}',
+        'date': e.$1.toIso8601String(),
+        'weightKg': e.$2,
+        'steps': 0,
+      }).toList();
+  return {'body_history': jsonEncode(list)};
+}
 
 SmartScaleEntry _scale({double weight = 75.0, double bmr = 1800.0, DateTime? date}) =>
     SmartScaleEntry(
@@ -1203,12 +1217,117 @@ void main() {
       expect(p.fatLossCalorieTarget, isNull);
     });
 
-    test('= TDEE - 500, clamped [1200, 3500]', () async {
+    test('= bestTdee - 500, clamped [1200, 2800] (uses formula TDEE without trend)', () async {
       await p.saveHeight(170.0);
       await p.saveAge(24);
       await p.logBodyEntry(weightKg: 78.0);
-      final t = p.tdee!;
-      expect(p.fatLossCalorieTarget, closeTo((t - 500).clamp(1200.0, 3500.0), 1.0));
+      // Single weight entry → no trend → adaptiveTdee null → bestTdee == formula tdee.
+      expect(p.adaptiveTdee, isNull);
+      final t = p.bestTdee!;
+      expect(p.fatLossCalorieTarget, closeTo((t - 500).clamp(1200.0, 2800.0), 1.0));
+    });
+  });
+
+  // ── Adaptive (data-calibrated) TDEE ───────────────────────────────────────
+
+  group('adaptiveTdee / bestTdee / isTdeeCalibrated', () {
+    test('adaptiveTdee null with no weight history', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      expect(p.adaptiveTdee, isNull);
+      expect(p.isTdeeCalibrated, isFalse);
+    });
+
+    test('adaptiveTdee null with < 3 body entries', () async {
+      SharedPreferences.setMockInitialValues(_seedBody([
+        (DateTime.now().subtract(const Duration(days: 20)), 80.0),
+        (DateTime.now(), 79.0),
+      ]));
+      final p = FitnessProvider();
+      await p.loadData();
+      expect(p.adaptiveTdee, isNull);
+    });
+
+    test('adaptiveTdee null when trend span < 14 days', () async {
+      SharedPreferences.setMockInitialValues(_seedBody([
+        (DateTime.now().subtract(const Duration(days: 6)), 80.0),
+        (DateTime.now().subtract(const Duration(days: 3)), 79.8),
+        (DateTime.now(), 79.6),
+      ]));
+      final p = FitnessProvider();
+      await p.loadData();
+      expect(p.adaptiveTdee, isNull); // span only 6 days
+    });
+
+    test('adaptiveTdee null without logged calories (no intake to calibrate against)', () async {
+      SharedPreferences.setMockInitialValues(_seedBody([
+        (DateTime.now().subtract(const Duration(days: 28)), 80.0),
+        (DateTime.now().subtract(const Duration(days: 14)), 79.5),
+        (DateTime.now(), 79.0),
+      ]));
+      final p = FitnessProvider();
+      await p.loadData();
+      // No food logged → avgCalories 0 → adaptiveTdee null
+      expect(p.adaptiveTdee, isNull);
+    });
+
+    test('adaptiveTdee = avgIntake - weeklyChange*7700/7 when data is sufficient', () async {
+      // Seed declining weight (≈ -0.5 kg/wk over 28 days) + food history at 1500 kcal/day.
+      final foodSeed = <String, Object>{};
+      final now = DateTime.now();
+      for (int i = 1; i <= 28; i++) {
+        final d = now.subtract(Duration(days: i));
+        final key = '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+        foodSeed['food_$key'] = jsonEncode([
+          {'id': 'f$i', 'name': 'Meal', 'calories': 1500.0, 'protein': 100.0,
+           'mealType': 1, 'timestamp': DateTime(d.year, d.month, d.day, 13).toIso8601String(),
+           'servingNote': ''}
+        ]);
+      }
+      final bodySeed = _seedBody([
+        (now.subtract(const Duration(days: 28)), 80.0),
+        (now.subtract(const Duration(days: 14)), 79.0),
+        (now.subtract(const Duration(days: 1)),  78.0),
+      ]);
+      SharedPreferences.setMockInitialValues({...foodSeed, ...bodySeed});
+      final p = FitnessProvider();
+      await p.loadData();
+
+      final weekly = p.weeklyWeightChange;
+      expect(weekly, isNotNull);
+      expect(weekly!, lessThan(0)); // losing
+      final adaptive = p.adaptiveTdee;
+      expect(adaptive, isNotNull);
+      expect(p.isTdeeCalibrated, isTrue);
+      // adaptive ≈ avgIntake − weekly*7700/7; should be ABOVE avg intake (since losing)
+      final avgIntake = p.avgCaloriesForDays(0, 28);
+      expect(adaptive!, greaterThan(avgIntake));
+      // Sanity: in a believable human range
+      expect(adaptive, inInclusiveRange(1200.0, 4500.0));
+    });
+
+    test('bestTdee falls back to formula tdee when adaptive unavailable', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.saveHeight(170);
+      await p.saveAge(24);
+      await p.logBodyEntry(weightKg: 78.0);
+      expect(p.adaptiveTdee, isNull);
+      expect(p.bestTdee, equals(p.tdee));
+      expect(p.isTdeeCalibrated, isFalse);
+    });
+
+    test('recommendedCalorieGoal uses bestTdee and never recommends overeating below 1200', () async {
+      final p = FitnessProvider();
+      await p.loadData();
+      await p.saveHeight(163);
+      await p.saveAge(24);
+      await p.logBodyEntry(weightKg: 78.3);
+      final rec = p.recommendedCalorieGoal;
+      expect(rec, isNotNull);
+      expect(rec!, greaterThanOrEqualTo(1200));
+      expect(rec, lessThanOrEqualTo(2800));
+      expect(rec, closeTo(p.bestTdee! - 500, 5));
     });
   });
 
