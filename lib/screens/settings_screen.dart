@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/fitness_provider.dart';
+import '../services/on_device_ai_service.dart';
+import 'chat_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -221,6 +223,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 20),
 
+          // ── AI CHAT ───────────────────────────────────────────────
+          _Header('AI Coach Chat'),
+          _AiChatSettingsTile(),
+          const SizedBox(height: 20),
+
           // ── DATA ──────────────────────────────────────────────────
           _Header('Data & Backup'),
           _Tile(
@@ -277,6 +284,179 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+}
+
+// ── AI Chat settings tile ────────────────────────────────────────────────────
+
+class _AiChatSettingsTile extends StatefulWidget {
+  @override
+  State<_AiChatSettingsTile> createState() => _AiChatSettingsTileState();
+}
+
+class _AiChatSettingsTileState extends State<_AiChatSettingsTile> {
+  final _ctrl = TextEditingController();
+  bool  _show = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final ai = context.read<OnDeviceAiService>();
+    _ctrl.text = ai.hfToken;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ai   = context.watch<OnDeviceAiService>();
+    final ready = ai.isReady;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: const Color(0xFF8E8E93).withValues(alpha: 0.2)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Text('🤖', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('On-Device AI Coach',
+                  style: TextStyle(color: Colors.white, fontSize: 14,
+                      fontWeight: FontWeight.w600)),
+              Text('Gemma 3 1B INT4 · ~600 MB · offline',
+                  style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
+            ]),
+          ),
+          // Status chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: (ready
+                      ? const Color(0xFF30D158)
+                      : const Color(0xFF8E8E93))
+                  .withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: (ready
+                          ? const Color(0xFF30D158)
+                          : const Color(0xFF8E8E93))
+                      .withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              ready ? '● Ready' : ai.state == AiModelState.downloading
+                  ? 'Downloading…'
+                  : ai.state == AiModelState.loading
+                      ? 'Loading…'
+                      : 'Not installed',
+              style: TextStyle(
+                  color: ready
+                      ? const Color(0xFF30D158)
+                      : const Color(0xFF8E8E93),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600),
+            ),
+          ),
+        ]),
+        if (!ready) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'Enter your HuggingFace token to enable AI chat. '
+            'Free at huggingface.co/settings/tokens — accept the '
+            'Gemma 3 license on litert-community/Gemma3-1B-IT first.',
+            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.5),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _ctrl,
+            obscureText: !_show,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'hf_xxxxxxxxxxxxxxxxxxxx',
+              hintStyle:
+                  const TextStyle(color: Color(0xFF8E8E93)),
+              suffixIcon: IconButton(
+                icon: Icon(_show ? Icons.visibility_off : Icons.visibility,
+                    color: const Color(0xFF8E8E93), size: 18),
+                onPressed: () => setState(() => _show = !_show),
+              ),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 10),
+          if (ai.state == AiModelState.downloading)
+            Column(children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: ai.dlProgress,
+                  minHeight: 6,
+                  backgroundColor: const Color(0xFF2C2C2E),
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFF30D158)),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text('${(ai.dlProgress * 600).round()} / ~600 MB',
+                  style: const TextStyle(
+                      color: Color(0xFF8E8E93), fontSize: 11)),
+            ])
+          else
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _ctrl.text.trim().isEmpty
+                    ? null
+                    : () async {
+                        await ai.saveToken(_ctrl.text);
+                        await ai.downloadAndLoad();
+                      },
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF30D158),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                ),
+                child: const Text('Download AI Model (~600 MB)',
+                    style: TextStyle(fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+          if (ai.state == AiModelState.error) ...[
+            const SizedBox(height: 8),
+            Text(ai.errorMessage,
+                style: const TextStyle(
+                    color: Color(0xFFFF453A), fontSize: 11)),
+          ],
+        ] else ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => openChat(context),
+              icon: const Text('💬', style: TextStyle(fontSize: 14)),
+              label: const Text('Open AI Coach Chat'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF30D158),
+                side: const BorderSide(color: Color(0xFF30D158), width: 1),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+              ),
+            ),
+          ),
+        ],
+      ]),
     );
   }
 }

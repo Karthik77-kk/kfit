@@ -9,6 +9,7 @@ import '../models/models.dart';
 import '../services/smart_insight_engine.dart';
 import 'settings_screen.dart';
 import 'notification_panel.dart';
+import 'chat_screen.dart';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
@@ -105,7 +106,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 delegate: SliverChildListDelegate([
 
                   // ── AI Coach (top) ────────────────────────────────────────
-                  const _SectionHdr('AI COACH'),
+                  Row(children: [
+                    const Expanded(child: _SectionHdr('AI COACH')),
+                    GestureDetector(
+                      onTap: () => openChat(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _kGreen.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: _kGreen.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text('💬', style: TextStyle(fontSize: 11)),
+                          SizedBox(width: 4),
+                          Text('Ask AI',
+                              style: TextStyle(
+                                  color: _kGreen,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                    ),
+                  ]),
                   const SizedBox(height: 10),
                   _AiCoachSection(provider: p),
                   const SizedBox(height: 20),

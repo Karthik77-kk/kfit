@@ -8,7 +8,6 @@ const _kGreen = Color(0xFF30D158);
 const _kBlue = Color(0xFF40C8E0);
 const _kRed = Color(0xFFFF453A);
 const _kOrange = Color(0xFFFF9F0A);
-const _kIndigo = Color(0xFF5E5CE6);
 const _kSecond = Color(0xFF8E8E93);
 
 /// Opens the in-app notification center as a full page.

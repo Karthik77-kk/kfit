@@ -55,10 +55,6 @@ Map<String, Object> _seedWater(List<int> mlByDay) {
   return prefs;
 }
 
-/// Merges two seed maps.
-Map<String, Object> _merge(Map<String, Object> a, Map<String, Object> b) =>
-    {...a, ...b};
-
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 void main() {

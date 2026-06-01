@@ -1,7 +1,7 @@
 name: karthik_fitness
 description: Personal fitness tracker - fat loss & muscle retention
 publish_to: 'none'
-version: 2.3.0+26
+version: 2.3.0+27
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -17,9 +17,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   pedometer: ^4.1.1
   path_provider: ^2.1.2
-  share_plus: ^9.0.0
+  share_plus: ^10.0.0
   file_picker: ^8.0.0
   home_widget: ^0.7.0
+  flutter_gemma: ^0.16.3
 
 dev_dependencies:
   flutter_test:
