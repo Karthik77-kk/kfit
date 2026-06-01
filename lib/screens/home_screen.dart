@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _greeting() {
     final h = DateTime.now().hour;
-    if (h < 6)  return 'morning';
+    if (h < 6)  return 'night';
     if (h < 12) return 'morning';
     if (h < 17) return 'afternoon';
     if (h < 21) return 'evening';
@@ -278,6 +278,11 @@ class _ActivityRingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = provider;
+    // Raw unclamped ratios so the painter and rows can show overflow > 100%.
+    final calRaw  = p.calorieGoal  > 0 ? p.todayCaloriesTotal / p.calorieGoal  : 0.0;
+    final protRaw = p.proteinGoal  > 0 ? p.todayProteinTotal  / p.proteinGoal  : 0.0;
+    final watRaw  = p.waterGoalMl  > 0 ? p.todayWaterMl       / p.waterGoalMl  : 0.0;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
@@ -285,7 +290,7 @@ class _ActivityRingsCard extends StatelessWidget {
         SizedBox(
           width: 110, height: 110,
           child: CustomPaint(painter: _RingsPainter(
-            values: [p.calorieProgress, p.proteinProgress, p.waterProgress],
+            values: [calRaw, protRaw, watRaw],
             colors: [_kRed, _kGreen, _kBlue],
           )),
         ),
@@ -293,15 +298,15 @@ class _ActivityRingsCard extends StatelessWidget {
         Expanded(child: Column(children: [
           _RingRow(color: _kRed, label: 'Calories',
             value: '${p.todayCaloriesTotal.round()} / ${p.calorieGoal} kcal',
-            progress: p.calorieProgress),
+            progress: calRaw),
           const SizedBox(height: 10),
           _RingRow(color: _kGreen, label: 'Protein',
             value: '${p.todayProteinTotal.round()} / ${p.proteinGoal}g',
-            progress: p.proteinProgress),
+            progress: protRaw),
           const SizedBox(height: 10),
           _RingRow(color: _kBlue, label: 'Water',
             value: '${p.todayWaterMl} / ${p.waterGoalMl} ml',
-            progress: p.waterProgress),
+            progress: watRaw),
         ])),
       ]),
     );
@@ -311,30 +316,38 @@ class _ActivityRingsCard extends StatelessWidget {
 class _RingRow extends StatelessWidget {
   final Color color;
   final String label, value;
-  final double progress;
+  final double progress; // unclamped — can be > 1.0
   const _RingRow({required this.color, required this.label, required this.value, required this.progress});
 
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Row(children: [
-      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-      const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
-      const Spacer(),
-      Text('${(progress * 100).round()}%', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-    ]),
-    const SizedBox(height: 4),
-    ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(
-      value: progress, backgroundColor: color.withOpacity(0.15),
-      valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 5,
-    )),
-    const SizedBox(height: 2),
-    Text(value, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
-  ]);
+  Widget build(BuildContext context) {
+    final isOver = progress > 1.0;
+    // When over goal, shift colour toward white so it visually pops.
+    final displayColor = isOver ? Color.lerp(color, Colors.white, 0.45)! : color;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: displayColor, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
+        const Spacer(),
+        Text('${(progress * 100).round()}%',
+            style: TextStyle(color: displayColor, fontSize: 11, fontWeight: FontWeight.w600)),
+      ]),
+      const SizedBox(height: 4),
+      ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(
+        value: isOver ? 1.0 : progress,
+        backgroundColor: color.withOpacity(0.15),
+        valueColor: AlwaysStoppedAnimation<Color>(displayColor),
+        minHeight: 5,
+      )),
+      const SizedBox(height: 2),
+      Text(value, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+    ]);
+  }
 }
 
 class _RingsPainter extends CustomPainter {
-  final List<double> values;
+  final List<double> values; // unclamped — can be > 1.0
   final List<Color> colors;
   const _RingsPainter({required this.values, required this.colors});
 
@@ -343,20 +356,52 @@ class _RingsPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     const stroke = 10.0;
     const gap = 14.0;
+    const startAngle = -math.pi / 2;
+    const fullSweep = 2 * math.pi;
+
     for (int i = 0; i < values.length; i++) {
       final r = size.width / 2 - stroke / 2 - i * gap;
       if (r <= 0) continue;
+      final v = values[i];
+
+      // Background track
       canvas.drawCircle(center, r, Paint()
         ..color = colors[i].withOpacity(0.15)
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke);
-      if (values[i] > 0) {
+
+      if (v <= 0) continue;
+
+      if (v <= 1.0) {
+        // Normal fill
         canvas.drawArc(
           Rect.fromCircle(center: center, radius: r),
-          -math.pi / 2, 2 * math.pi * values[i].clamp(0.0, 1.0),
-          false,
+          startAngle, fullSweep * v, false,
           Paint()
             ..color = colors[i]
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = stroke
+            ..strokeCap = StrokeCap.round,
+        );
+      } else {
+        // Over goal: fill the full ring with a flat join so the overflow sits cleanly on top.
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: r),
+          startAngle, fullSweep, false,
+          Paint()
+            ..color = colors[i]
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = stroke
+            ..strokeCap = StrokeCap.butt,
+        );
+        // Overflow lap: draw from the top again in a lighter shade — creates the
+        // Apple Watch "lapping" effect showing exactly how much over goal you are.
+        final overflowSweep = fullSweep * (v - 1.0).clamp(0.0, 1.0);
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: r),
+          startAngle, overflowSweep, false,
+          Paint()
+            ..color = Color.lerp(colors[i], Colors.white, 0.45)!
             ..style = PaintingStyle.stroke
             ..strokeWidth = stroke
             ..strokeCap = StrokeCap.round,
@@ -486,10 +531,25 @@ class _CalorieRingPainter extends CustomPainter {
     canvas.drawArc(Rect.fromCircle(center: center, radius: innerRadius),
         startAngle, fullCircle, false, bgPaint..color = const Color(0xFF2C2C2E));
 
-    final eatenSweep = (eaten / goal * fullCircle).clamp(0.0, fullCircle);
-    if (eatenSweep > 0) {
-      canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
-          startAngle, eatenSweep, false, eatenPaint);
+    // Eaten ring — shows overflow lap when calories exceed goal.
+    final eatenRatio = goal > 0 ? eaten / goal : 0.0;
+    if (eatenRatio > 0) {
+      if (eatenRatio <= 1.0) {
+        canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
+            startAngle, fullCircle * eatenRatio, false, eatenPaint);
+      } else {
+        // Full ring with flat join, then overflow lap in lighter orange.
+        canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
+            startAngle, fullCircle, false, eatenPaint..strokeCap = StrokeCap.butt);
+        final overflowSweep = fullCircle * (eatenRatio - 1.0).clamp(0.0, 1.0);
+        canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
+            startAngle, overflowSweep, false,
+            Paint()
+              ..color = _kOrange.withOpacity(0.6)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 22
+              ..strokeCap = StrokeCap.round);
+      }
     }
 
     // Both rings share the same scale (goal) so eaten vs burned is directly
@@ -536,10 +596,10 @@ class _MacroRow extends StatelessWidget {
           )),
           const SizedBox(width: 8),
           Expanded(child: _MacroChip(
-            label: 'Net',
-            value: '${p.netCalories}',
-            goal: p.netCalories <= p.calorieGoal ? 'under goal ✓' : 'over goal',
-            color: p.netCalories <= p.calorieGoal ? _kGreen : _kRed,
+            label: 'Burned',
+            value: '${p.totalCaloriesBurned.round()}',
+            goal: 'kcal burned',
+            color: _kGreen,
             progress: 1.0,
           )),
         ],

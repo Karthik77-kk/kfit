@@ -48,9 +48,10 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
             val water = prefs.getInt("water", 0)
             val waterGoal = prefs.getInt("waterGoal", 2500)
 
-            val calPct = prefs.getInt("calPct", 0).coerceIn(0, 100) / 100f
-            val protPct = prefs.getInt("protPct", 0).coerceIn(0, 100) / 100f
-            val waterPct = prefs.getInt("waterPct", 0).coerceIn(0, 100) / 100f
+            // Raw unclamped ratios — can be >1f so drawRings can show overflow laps.
+            val calPct = prefs.getInt("calPct", 0).coerceAtLeast(0) / 100f
+            val protPct = prefs.getInt("protPct", 0).coerceAtLeast(0) / 100f
+            val waterPct = prefs.getInt("waterPct", 0).coerceAtLeast(0) / 100f
 
             val emoji = prefs.getString("insightEmoji", "") ?: ""
             val title = prefs.getString("insightTitle", "Open K Fitness") ?: "Open K Fitness"
@@ -76,6 +77,13 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
             manager.updateAppWidget(widgetId, views)
         }
 
+        private fun blendWithWhite(color: Int, fraction: Float): Int {
+            val r = (Color.red(color)   * (1 - fraction) + 255 * fraction).toInt().coerceIn(0, 255)
+            val g = (Color.green(color) * (1 - fraction) + 255 * fraction).toInt().coerceIn(0, 255)
+            val b = (Color.blue(color)  * (1 - fraction) + 255 * fraction).toInt().coerceIn(0, 255)
+            return Color.argb(255, r, g, b)
+        }
+
         private fun drawRings(context: Context, calPct: Float, protPct: Float, waterPct: Float): Bitmap {
             val density = context.resources.displayMetrics.density
             val size = (84 * density).toInt().coerceAtLeast(120)
@@ -91,19 +99,34 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = stroke
-                strokeCap = Paint.Cap.ROUND
             }
             for ((color, pct, i) in rings) {
                 val r = size / 2f - stroke / 2f - i * gap
                 if (r <= 0) continue
                 val rect = RectF(cx - r, cy - r, cx + r, cy + r)
-                // Track
+
+                // Background track
                 paint.color = (color and 0x00FFFFFF) or 0x30000000
+                paint.strokeCap = Paint.Cap.ROUND
                 canvas.drawArc(rect, 0f, 360f, false, paint)
-                // Progress
-                if (pct > 0f) {
+
+                if (pct <= 0f) continue
+
+                if (pct <= 1f) {
+                    // Normal fill with round caps
                     paint.color = color
-                    canvas.drawArc(rect, -90f, 360f * pct.coerceIn(0f, 1f), false, paint)
+                    paint.strokeCap = Paint.Cap.ROUND
+                    canvas.drawArc(rect, -90f, 360f * pct, false, paint)
+                } else {
+                    // Over goal: full ring with flat join so the overflow arc sits cleanly on top
+                    paint.color = color
+                    paint.strokeCap = Paint.Cap.BUTT
+                    canvas.drawArc(rect, -90f, 360f, false, paint)
+                    // Overflow lap in a lighter shade — same Apple Watch lapping effect
+                    val overflowSweep = 360f * (pct - 1f).coerceIn(0f, 1f)
+                    paint.color = blendWithWhite(color, 0.45f)
+                    paint.strokeCap = Paint.Cap.ROUND
+                    canvas.drawArc(rect, -90f, overflowSweep, false, paint)
                 }
             }
             return bitmap

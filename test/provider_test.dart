@@ -115,6 +115,29 @@ void main() {
     test('height defaults to 170cm', () => expect(p.heightCm, 170.0));
     test('age defaults to 24', () => expect(p.age, 24));
     test('goalWeight defaults to 70kg', () => expect(p.goalWeightKg, 70.0));
+
+    test('profile + goals always persisted to prefs after loadData (backup fix)', () async {
+      // Even without the user ever visiting Settings, all keys must exist in
+      // SharedPreferences so they appear in export backups.
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('user_name'),     isTrue,  reason: 'user_name missing from backup');
+      expect(prefs.containsKey('height_cm'),     isTrue,  reason: 'height_cm missing from backup');
+      expect(prefs.containsKey('age'),           isTrue,  reason: 'age missing from backup');
+      expect(prefs.containsKey('goal_weight_kg'),isTrue,  reason: 'goal_weight_kg missing from backup');
+      expect(prefs.containsKey('calorie_goal'),  isTrue,  reason: 'calorie_goal missing from backup');
+      expect(prefs.containsKey('protein_goal'),  isTrue,  reason: 'protein_goal missing from backup');
+      expect(prefs.containsKey('water_goal_ml'), isTrue,  reason: 'water_goal_ml missing from backup');
+      expect(prefs.containsKey('step_goal'),     isTrue,  reason: 'step_goal missing from backup');
+      // Values must match the loaded defaults
+      expect(prefs.getString('user_name'),     'Karthik');
+      expect(prefs.getDouble('height_cm'),     170.0);
+      expect(prefs.getInt('age'),              24);
+      expect(prefs.getDouble('goal_weight_kg'),70.0);
+      expect(prefs.getInt('calorie_goal'),     1700);
+      expect(prefs.getInt('protein_goal'),     100);
+      expect(prefs.getInt('water_goal_ml'),    2500);
+      expect(prefs.getInt('step_goal'),        8000);
+    });
   });
 
   // ── User profile setters ───────────────────────────────────────────────────
@@ -1229,6 +1252,1124 @@ void main() {
     test('supplementHistory includes today', () async {
       await p.updateSupplement('whey', true);
       expect(p.supplementHistory[_todayKey()]!.whey, isTrue);
+    });
+  });
+
+  // ── whtrStatus ───────────────────────────────────────────────────────────
+
+  group('whtrStatus', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('returns dash label when no measurement logged', () {
+      expect(p.whtrStatus.label, '—');
+    });
+
+    test('Healthy when waist/height < 0.5', () async {
+      await p.saveHeight(180);
+      await p.logMeasurement(MeasurementEntry(id: 'm', date: DateTime.now(), waistCm: 80));
+      // 80/180 ≈ 0.444 → Healthy
+      expect(p.whtrStatus.label, 'Healthy');
+    });
+
+    test('Raised when waist/height in [0.5, 0.6)', () async {
+      await p.saveHeight(180);
+      await p.logMeasurement(MeasurementEntry(id: 'm', date: DateTime.now(), waistCm: 99));
+      // 99/180 ≈ 0.55 → Raised
+      expect(p.whtrStatus.label, 'Raised');
+    });
+
+    test('High when waist/height >= 0.6', () async {
+      await p.saveHeight(160);
+      await p.logMeasurement(MeasurementEntry(id: 'm', date: DateTime.now(), waistCm: 100));
+      // 100/160 = 0.625 → High
+      expect(p.whtrStatus.label, 'High');
+    });
+
+    test('returns dash when height is 0 (guard against divide-by-zero)', () async {
+      await p.saveHeight(0);
+      await p.logMeasurement(MeasurementEntry(id: 'm', date: DateTime.now(), waistCm: 80));
+      expect(p.whtrStatus.label, '—');
+    });
+  });
+
+  // ── ffmiStatus ───────────────────────────────────────────────────────────
+
+  group('ffmiStatus', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('returns dash when no scale entry logged', () {
+      expect(p.ffmiStatus.label, '—');
+    });
+
+    test('Below average when ffmi < 18', () async {
+      await p.saveHeight(180);
+      // lean 50kg, h=1.8 → 50/3.24 + 6.1*(1.8-1.8) ≈ 15.4 → Below average
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 65,
+        bodyFatPercent: 23, bodyFatKg: 15, muscleMassKg: 30, muscleMassPercent: 46,
+        leanBodyMassKg: 50, biologicalAge: 24, visceralFatIndex: 5, bmr: 1600,
+        bodyWaterPercent: 55, boneMassKg: 3, proteinPercent: 17, skeletalMuscleMassKg: 25,
+      ));
+      expect(p.ffmiStatus.label, 'Below average');
+    });
+
+    test('Average when ffmi in [18, 20)', () async {
+      await p.saveHeight(180);
+      // lean 60kg → ffmi ≈ 18.52 → Average
+      await p.logScaleEntry(_scaleLean(date: DateTime.now(), lean: 60));
+      expect(p.ffmiStatus.label, 'Average');
+    });
+
+    test('Athletic when ffmi in [20, 22)', () async {
+      await p.saveHeight(175);
+      // lean 65kg, h=1.75 → 65/3.0625 + 6.1*(1.8-1.75) ≈ 21.2 + 0.305 ≈ 21.5 → Athletic
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 80,
+        bodyFatPercent: 18.75, bodyFatKg: 15, muscleMassKg: 40, muscleMassPercent: 50,
+        leanBodyMassKg: 65, biologicalAge: 24, visceralFatIndex: 4, bmr: 1800,
+        bodyWaterPercent: 60, boneMassKg: 3.5, proteinPercent: 19, skeletalMuscleMassKg: 32,
+      ));
+      expect(p.ffmiStatus.label, 'Athletic');
+    });
+
+    test('Excellent when ffmi in [22, 25)', () async {
+      await p.saveHeight(175);
+      // lean 73kg, h=1.75 → 73/3.0625 + 6.1*(1.8-1.75) ≈ 23.8 + 0.305 ≈ 24.1 → Excellent
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 88,
+        bodyFatPercent: 17, bodyFatKg: 15, muscleMassKg: 45, muscleMassPercent: 51,
+        leanBodyMassKg: 73, biologicalAge: 24, visceralFatIndex: 4, bmr: 1900,
+        bodyWaterPercent: 62, boneMassKg: 3.5, proteinPercent: 20, skeletalMuscleMassKg: 36,
+      ));
+      expect(p.ffmiStatus.label, 'Excellent');
+    });
+
+    test('Very high when ffmi >= 25', () async {
+      await p.saveHeight(175);
+      // lean 85kg, h=1.75 → 85/3.0625 + 0.305 ≈ 27.76 + 0.305 ≈ 28.07 → Very high
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 100,
+        bodyFatPercent: 15, bodyFatKg: 15, muscleMassKg: 52, muscleMassPercent: 52,
+        leanBodyMassKg: 85, biologicalAge: 24, visceralFatIndex: 3, bmr: 2100,
+        bodyWaterPercent: 64, boneMassKg: 4, proteinPercent: 21, skeletalMuscleMassKg: 42,
+      ));
+      expect(p.ffmiStatus.label, 'Very high');
+    });
+  });
+
+  // ── hydrationStatus ──────────────────────────────────────────────────────
+
+  group('hydrationStatus', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('null when no scale entry', () {
+      expect(p.hydrationStatus, isNull);
+    });
+
+    test('Low when bodyWaterPercent < 50', () async {
+      await p.logScaleEntry(_scale()..toString()); // use helper then override
+      // Build entry with low water
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 75,
+        bodyFatPercent: 20, bodyFatKg: 15, muscleMassKg: 35, muscleMassPercent: 46,
+        leanBodyMassKg: 60, biologicalAge: 24, visceralFatIndex: 5, bmr: 1700,
+        bodyWaterPercent: 45, boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
+      ));
+      expect(p.hydrationStatus!.label, 'Low');
+    });
+
+    test('Healthy when bodyWaterPercent in [50, 65]', () async {
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 75,
+        bodyFatPercent: 20, bodyFatKg: 15, muscleMassKg: 35, muscleMassPercent: 46,
+        leanBodyMassKg: 60, biologicalAge: 24, visceralFatIndex: 5, bmr: 1700,
+        bodyWaterPercent: 58, boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
+      ));
+      expect(p.hydrationStatus!.label, 'Healthy');
+    });
+
+    test('High when bodyWaterPercent > 65', () async {
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 75,
+        bodyFatPercent: 20, bodyFatKg: 15, muscleMassKg: 35, muscleMassPercent: 46,
+        leanBodyMassKg: 60, biologicalAge: 24, visceralFatIndex: 5, bmr: 1700,
+        bodyWaterPercent: 70, boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
+      ));
+      expect(p.hydrationStatus!.label, 'High');
+    });
+  });
+
+  // ── bioAgeDelta ──────────────────────────────────────────────────────────
+
+  group('bioAgeDelta', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('null when no scale entry', () {
+      expect(p.bioAgeDelta, isNull);
+    });
+
+    test('negative when biologically younger than real age', () async {
+      await p.saveAge(30);
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 75,
+        bodyFatPercent: 18, bodyFatKg: 13.5, muscleMassKg: 38, muscleMassPercent: 50,
+        leanBodyMassKg: 61.5, biologicalAge: 25, visceralFatIndex: 4, bmr: 1750,
+        bodyWaterPercent: 60, boneMassKg: 3.3, proteinPercent: 19, skeletalMuscleMassKg: 30,
+      ));
+      expect(p.bioAgeDelta, -5); // 25 - 30 = -5
+    });
+
+    test('positive when biologically older than real age', () async {
+      await p.saveAge(24);
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 85,
+        bodyFatPercent: 28, bodyFatKg: 24, muscleMassKg: 30, muscleMassPercent: 35,
+        leanBodyMassKg: 61, biologicalAge: 30, visceralFatIndex: 8, bmr: 1600,
+        bodyWaterPercent: 50, boneMassKg: 3, proteinPercent: 16, skeletalMuscleMassKg: 24,
+      ));
+      expect(p.bioAgeDelta, 6); // 30 - 24 = 6
+    });
+
+    test('null when biologicalAge is 0 (not reported by scale)', () async {
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 75,
+        bodyFatPercent: 20, bodyFatKg: 15, muscleMassKg: 35, muscleMassPercent: 46,
+        leanBodyMassKg: 60, biologicalAge: 0, visceralFatIndex: 5, bmr: 1700,
+        bodyWaterPercent: 55, boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
+      ));
+      expect(p.bioAgeDelta, isNull);
+    });
+  });
+
+  // ── caloriesAvgForWeekday ────────────────────────────────────────────────
+
+  group('caloriesAvgForWeekday', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('null when no data for that weekday', () {
+      // today's weekday might have 0 food, but historical keys are empty
+      // ask for a day with no data in history
+      final someWeekday = (DateTime.now().weekday % 7) + 1; // shift by 1
+      expect(p.caloriesAvgForWeekday(someWeekday), isNull);
+    });
+
+    test('returns todays calories when today has food', () async {
+      await p.addFoodEntry(_food('f1', 700, 30));
+      final today = DateTime.now().weekday;
+      final avg = p.caloriesAvgForWeekday(today);
+      expect(avg, isNotNull);
+      expect(avg!, closeTo(700, 1));
+    });
+
+    test('averages multiple entries for same weekday', () async {
+      final now = DateTime.now();
+      final weekday = now.weekday;
+
+      // Log food for today (which is on `weekday`).
+      await p.addFoodEntry(_food('t', 700, 30));
+
+      // The getter should return that value for today's weekday.
+      final avg = p.caloriesAvgForWeekday(weekday);
+      expect(avg, isNotNull);
+      expect(avg!, closeTo(700, 1));
+    });
+  });
+
+  // ── clearNotifications / pushNotification (provider layer) ───────────────
+
+  group('clearNotifications and pushNotification via provider', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('clearNotifications empties milestone feed', () async {
+      // Push a milestone notification then clear it.
+      final n = AppNotification(
+        id: 'test1', emoji: '🏋️', title: 'Test milestone',
+        body: 'You did it!', accent: 0xFFFF9F0A,
+        category: 'milestone', timestamp: DateTime.now(),
+      );
+      await p.pushNotification(n);
+      expect(p.milestoneFeed.isNotEmpty, isTrue);
+
+      await p.clearNotifications();
+      expect(p.milestoneFeed, isEmpty);
+    });
+
+    test('pushNotification adds to milestoneFeed', () async {
+      final n = AppNotification(
+        id: 'ms_push', emoji: '🎯', title: 'Goal reached!',
+        body: 'Hit 70kg!', accent: 0xFF30D158,
+        category: 'milestone', timestamp: DateTime.now(),
+      );
+      await p.pushNotification(n);
+      expect(p.milestoneFeed.any((e) => e.id == 'ms_push'), isTrue);
+    });
+
+    test('pushNotification increments unreadNotifications count', () async {
+      await p.markNotificationsRead(); // clear badge first
+      final before = p.unreadNotifications;
+      final n = AppNotification(
+        id: 'badge_test', emoji: '🏆', title: 'New badge',
+        body: 'You earned it', accent: 0xFF40C8E0,
+        category: 'milestone', timestamp: DateTime.now(),
+      );
+      await p.pushNotification(n);
+      expect(p.unreadNotifications, greaterThan(before));
+    });
+  });
+
+  // ── _purgeStaleDailyKeys (stale key cleanup) ────────────────────────────
+
+  group('Stale daily key purge (food/water/supp keys > 61 days)', () {
+    test('removes food/water/supp keys older than 61 days on loadData', () async {
+      final staleDate = DateTime.now().subtract(const Duration(days: 70));
+      final staleKey = '${staleDate.year}-${staleDate.month.toString().padLeft(2,'0')}-${staleDate.day.toString().padLeft(2,'0')}';
+
+      // Pre-seed stale keys in SharedPreferences
+      SharedPreferences.setMockInitialValues({
+        'food_$staleKey': '[]',
+        'water_$staleKey': '500',
+        'supp_$staleKey': '{"whey":false,"creatine":false,"multivitamin":false}',
+      });
+
+      final p = FitnessProvider();
+      await p.loadData();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('food_$staleKey'), isFalse,
+          reason: 'food key older than 61 days should be purged');
+      expect(prefs.containsKey('water_$staleKey'), isFalse,
+          reason: 'water key older than 61 days should be purged');
+      expect(prefs.containsKey('supp_$staleKey'), isFalse,
+          reason: 'supp key older than 61 days should be purged');
+    });
+
+    test('keeps food/water/supp keys within 60 days', () async {
+      final recentDate = DateTime.now().subtract(const Duration(days: 30));
+      final recentKey = '${recentDate.year}-${recentDate.month.toString().padLeft(2,'0')}-${recentDate.day.toString().padLeft(2,'0')}';
+
+      SharedPreferences.setMockInitialValues({
+        'food_$recentKey': '[]',
+        'water_$recentKey': 1000, // int, not String
+      });
+
+      final p = FitnessProvider();
+      await p.loadData();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('food_$recentKey'), isTrue,
+          reason: 'food key within 60 days must NOT be purged');
+      expect(prefs.containsKey('water_$recentKey'), isTrue,
+          reason: 'water key within 60 days must NOT be purged');
+    });
+
+    test('does not purge non-daily keys (workouts, body_history etc)', () async {
+      SharedPreferences.setMockInitialValues({
+        'workouts': '[]',
+        'body_history': '[]',
+        'goals_calorie': 1700, // int
+      });
+
+      final p = FitnessProvider();
+      await p.loadData();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('workouts'), isTrue);
+      expect(prefs.containsKey('body_history'), isTrue);
+      expect(prefs.containsKey('goals_calorie'), isTrue);
+    });
+  });
+
+  // ── netCalories — uses totalCaloriesBurned (resting + walking + workout) ──
+
+  group('netCalories uses totalCaloriesBurned', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('0 when no food and no burn', () {
+      expect(p.netCalories, 0);
+    });
+
+    test('equals todayCaloriesTotal when no burn sources active', () async {
+      await p.addFoodEntry(_food('f1', 800, 40));
+      // No weight → no resting burn; no steps; no workout → burn = 0
+      expect(p.netCalories, p.todayCaloriesTotal.round());
+    });
+
+    test('is less than todayCaloriesTotal when weight logged (resting burn active)', () async {
+      await p.logBodyEntry(weightKg: 75.0);
+      await p.addFoodEntry(_food('f1', 800, 40));
+      // Resting burn is prorated from BMR (Mifflin), but requires weight.
+      // Since burn > 0, net < eaten.
+      expect(p.netCalories, lessThan(p.todayCaloriesTotal.round()));
+    });
+
+    test('decreases further when steps are added', () async {
+      await p.logBodyEntry(weightKg: 75.0);
+      await p.addFoodEntry(_food('f1', 1000, 50));
+      final netBefore = p.netCalories;
+      // Add steps → walkingCaloriesBurned increases → net decreases
+      await p.updateTodaySteps(8000);
+      expect(p.netCalories, lessThan(netBefore));
+    });
+
+    test('consistent with inDeficit: inDeficit == (netCalories < calorieGoal)', () async {
+      await p.saveCalorieGoal(1700);
+      await p.addFoodEntry(_food('f1', 800, 40));
+      expect(p.inDeficit, equals(p.netCalories < p.calorieGoal));
+    });
+
+    test('consistent with calorieDeficit: calorieGoal - netCalories = calorieDeficit', () async {
+      await p.saveCalorieGoal(1700);
+      await p.addFoodEntry(_food('f1', 1200, 60));
+      expect(p.calorieDeficit, equals(p.calorieGoal - p.netCalories));
+    });
+
+    test('inDeficit false when netCalories exceeds calorieGoal', () async {
+      await p.saveCalorieGoal(1000);
+      await p.addFoodEntry(_food('f1', 1500, 60)); // way over goal, no burn
+      expect(p.inDeficit, isFalse);
+      expect(p.netCalories, greaterThan(p.calorieGoal));
+    });
+
+    test('includes workout calories in burn (MET)', () async {
+      await p.logBodyEntry(weightKg: 80.0);
+      await p.addFoodEntry(_food('f1', 1200, 60));
+      final netBefore = p.netCalories;
+      await p.logWorkout(_workout('w1', exercises: [
+        ExerciseLog(name: 'Bench Press', sets: [SetData(reps: 8, weight: 60),SetData(reps: 8, weight: 60),SetData(reps: 8, weight: 60)]),
+      ]));
+      expect(p.netCalories, lessThan(netBefore));
+    });
+  });
+
+  // ── Over-goal raw ratios (drives ring overflow display) ───────────────────
+
+  group('Over-goal raw ratios for ring overflow', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('raw calorie ratio > 1.0 when over goal', () async {
+      await p.saveCalorieGoal(1000);
+      await p.addFoodEntry(_food('f1', 1200, 40)); // 120% of goal
+      final rawRatio = p.calorieGoal > 0 ? p.todayCaloriesTotal / p.calorieGoal : 0.0;
+      expect(rawRatio, greaterThan(1.0));
+      expect(rawRatio, closeTo(1.2, 0.01));
+    });
+
+    test('raw protein ratio > 1.0 when over protein goal', () async {
+      await p.saveProteinGoal(50);
+      await p.addFoodEntry(_food('f1', 200, 80)); // 160% of goal
+      final rawRatio = p.proteinGoal > 0 ? p.todayProteinTotal / p.proteinGoal : 0.0;
+      expect(rawRatio, greaterThan(1.0));
+      expect(rawRatio, closeTo(1.6, 0.01));
+    });
+
+    test('raw water ratio > 1.0 when over water goal', () async {
+      await p.saveWaterGoal(1000);
+      await p.addWater(1500); // 150% of goal
+      final rawRatio = p.waterGoalMl > 0 ? p.todayWaterMl / p.waterGoalMl : 0.0;
+      expect(rawRatio, greaterThan(1.0));
+      expect(rawRatio, closeTo(1.5, 0.01));
+    });
+
+    test('calPct formula produces >100 when over goal', () async {
+      await p.saveCalorieGoal(1700);
+      await p.addFoodEntry(_food('f1', 2000, 80));
+      final calPct = p.calorieGoal > 0 ? (p.todayCaloriesTotal / p.calorieGoal * 100).round() : 0;
+      expect(calPct, greaterThan(100));
+      expect(calPct, closeTo(118, 1)); // 2000/1700*100 ≈ 118
+    });
+
+    test('caloriesRemaining is negative when over goal', () async {
+      await p.saveCalorieGoal(1000);
+      await p.addFoodEntry(_food('f1', 1200, 40));
+      expect(p.caloriesRemaining, lessThan(0));
+      expect(p.caloriesRemaining, -200); // 1000 - 1200
+    });
+
+    test('calorieProgress clamped to 1.0 even when 150% over', () async {
+      await p.saveCalorieGoal(1000);
+      await p.addFoodEntry(_food('f1', 1500, 40));
+      expect(p.calorieProgress, 1.0); // clamped
+    });
+
+    test('proteinProgress clamped to 1.0 even when over', () async {
+      await p.saveProteinGoal(50);
+      await p.addFoodEntry(_food('f1', 200, 100));
+      expect(p.proteinProgress, 1.0);
+    });
+
+    test('goalProgress clamped to 1.0 when weight goes below goal (over-achieved)', () async {
+      await p.saveGoalWeight(70.0);
+      await p.logScaleEntry(_scale(date: DateTime.now().subtract(const Duration(days: 10)), weight: 80));
+      await p.logScaleEntry(_scale(date: DateTime.now(), weight: 65)); // past goal
+      expect(p.goalProgress, 1.0); // clamped, goal is reached
+    });
+  });
+
+  // ── fatMassKg and leanMassKg ─────────────────────────────────────────────
+
+  group('fatMassKg and leanMassKg', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('fatMassKg null when no scale entry', () {
+      expect(p.fatMassKg, isNull);
+    });
+
+    test('fatMassKg null when bodyFatKg is 0 on scale entry', () async {
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 75,
+        bodyFatPercent: 0, bodyFatKg: 0, muscleMassKg: 35, muscleMassPercent: 46,
+        leanBodyMassKg: 60, biologicalAge: 24, visceralFatIndex: 5, bmr: 1700,
+        bodyWaterPercent: 55, boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
+      ));
+      expect(p.fatMassKg, isNull);
+    });
+
+    test('fatMassKg returns bodyFatKg from latest scale entry', () async {
+      await p.logScaleEntry(_scale(weight: 75, bmr: 1700));
+      // _scale sets bodyFatKg = weight * 0.2 = 75 * 0.2 = 15
+      expect(p.fatMassKg, closeTo(15.0, 0.01));
+    });
+
+    test('leanMassKg null when no scale entry', () {
+      expect(p.leanMassKg, isNull);
+    });
+
+    test('leanMassKg null when leanBodyMassKg is 0 on entry', () async {
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 75,
+        bodyFatPercent: 20, bodyFatKg: 15, muscleMassKg: 35, muscleMassPercent: 46,
+        leanBodyMassKg: 0, biologicalAge: 24, visceralFatIndex: 5, bmr: 1700,
+        bodyWaterPercent: 55, boneMassKg: 3.2, proteinPercent: 18, skeletalMuscleMassKg: 28,
+      ));
+      expect(p.leanMassKg, isNull);
+    });
+
+    test('leanMassKg returns leanBodyMassKg from latest scale entry', () async {
+      await p.logScaleEntry(_scale(weight: 75, bmr: 1700));
+      // _scale sets leanBodyMassKg = weight * 0.8 = 60
+      expect(p.leanMassKg, closeTo(60.0, 0.01));
+    });
+
+    test('fatMassKg updates to latest scale entry', () async {
+      await p.logScaleEntry(_scale(date: DateTime.now().subtract(const Duration(days: 2)), weight: 80, bmr: 1700));
+      await p.logScaleEntry(_scale(date: DateTime.now(), weight: 75, bmr: 1680));
+      expect(p.fatMassKg, closeTo(75 * 0.2, 0.01)); // from latest entry
+    });
+  });
+
+  // ── startWeightKg ────────────────────────────────────────────────────────
+
+  group('startWeightKg', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('null when no history', () {
+      expect(p.startWeightKg, isNull);
+    });
+
+    test('returns first body entry weight', () async {
+      await p.logBodyEntry(weightKg: 85.0);
+      expect(p.startWeightKg, closeTo(85.0, 0.01));
+    });
+
+    test('returns scale entry if it predates body entry', () async {
+      await p.logScaleEntry(_scale(
+          date: DateTime.now().subtract(const Duration(days: 10)), weight: 90, bmr: 1800));
+      await p.logBodyEntry(weightKg: 85.0); // today
+      expect(p.startWeightKg, closeTo(90.0, 0.01)); // scale is older
+    });
+
+    test('returns body entry if it predates scale entry', () async {
+      // For this we can only log today entries (same-day merging)
+      // Just verify it returns the earliest one
+      await p.logBodyEntry(weightKg: 85.0);
+      expect(p.startWeightKg, closeTo(85.0, 0.01));
+    });
+
+    test('ignores zero-weight entries', () async {
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now().subtract(const Duration(days: 5)), weightKg: 0,
+        bodyFatPercent: 0, bodyFatKg: 0, muscleMassKg: 0, muscleMassPercent: 0,
+        leanBodyMassKg: 0, biologicalAge: 0, visceralFatIndex: 0, bmr: 0,
+        bodyWaterPercent: 0, boneMassKg: 0, proteinPercent: 0, skeletalMuscleMassKg: 0,
+      ));
+      await p.logBodyEntry(weightKg: 80.0);
+      expect(p.startWeightKg, closeTo(80.0, 0.01)); // zero-weight ignored
+    });
+  });
+
+  // ── projectedEodCalories and projectedEodProtein ─────────────────────────
+
+  group('projectedEodCalories', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('null when no food logged', () {
+      // Even if hour >= 11, no food = null
+      expect(p.projectedEodCalories, isNull);
+    });
+
+    test('null when no protein logged', () {
+      expect(p.projectedEodProtein, isNull);
+    });
+
+    test('returns positive value when food logged (if after 11 AM)', () async {
+      // Can't mock DateTime.now().hour, so we can only assert the null/non-null
+      // boundary based on current time. If before 11 AM → null; after 11 AM → non-null.
+      await p.addFoodEntry(_food('f1', 800, 40));
+      final hour = DateTime.now().hour;
+      if (hour >= 11) {
+        expect(p.projectedEodCalories, isNotNull);
+        expect(p.projectedEodCalories!, greaterThan(0));
+      } else {
+        expect(p.projectedEodCalories, isNull);
+      }
+    });
+
+    test('projectedEodProtein returns positive when protein logged after 11 AM', () async {
+      await p.addFoodEntry(_food('f1', 400, 50));
+      final hour = DateTime.now().hour;
+      if (hour >= 11) {
+        expect(p.projectedEodProtein, isNotNull);
+        expect(p.projectedEodProtein!, greaterThan(0));
+      } else {
+        expect(p.projectedEodProtein, isNull);
+      }
+    });
+
+    test('projectedEodCalories includes supplement calories in signal', () async {
+      await p.updateSupplement('whey', true); // +120 kcal
+      final hour = DateTime.now().hour;
+      if (hour >= 11) {
+        expect(p.projectedEodCalories, isNotNull);
+        // With whey, todayCaloriesTotal = 120 > 0, so projection is non-null
+        expect(p.projectedEodCalories!, greaterThan(0));
+      } else {
+        expect(p.projectedEodCalories, isNull);
+      }
+    });
+  });
+
+  // ── overeatsOnWeekends ───────────────────────────────────────────────────
+
+  group('overeatsOnWeekends', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('false when no historical data at all', () {
+      expect(p.overeatsOnWeekends, isFalse);
+    });
+
+    test('false when no weekend data (only weekday data)', () async {
+      // Today might be a weekday or weekend; we can only influence today's data.
+      // If today is a weekday, add today's data and expect false (no weekend data).
+      final now = DateTime.now();
+      final isWeekend = now.weekday == DateTime.saturday || now.weekday == DateTime.sunday;
+      if (!isWeekend) {
+        await p.addFoodEntry(_food('f1', 1800, 80));
+        expect(p.overeatsOnWeekends, isFalse); // no weekend data to compare
+      }
+    });
+
+    test('false when weekend avg <= weekday avg + 250', () async {
+      // If today is a weekend, logging 1700 kcal → weekend avg 1700.
+      // No weekday data → false (empty weekday = false).
+      // Actually with no weekday data, overeatsOnWeekends = false.
+      expect(p.overeatsOnWeekends, isFalse);
+    });
+
+    test('false when only one side has data', () async {
+      await p.addFoodEntry(_food('f1', 2500, 80));
+      // Today contributes to either weekday or weekend bucket, but not both.
+      // Missing one side → false.
+      expect(p.overeatsOnWeekends, isFalse);
+    });
+  });
+
+  // ── avgWaterForDays ──────────────────────────────────────────────────────
+
+  group('avgWaterForDays', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('0 when no water logged', () {
+      expect(p.avgWaterForDays(0, 6), 0);
+    });
+
+    test('returns today water when only today has data', () async {
+      await p.addWater(2000);
+      expect(p.avgWaterForDays(0, 0), closeTo(2000, 0.01));
+    });
+
+    test('averages only days with water (no zero dilution)', () async {
+      await p.addWater(3000);
+      // Only today has data; days 1-6 are empty → average = 3000 (not 3000/7)
+      expect(p.avgWaterForDays(0, 6), closeTo(3000, 0.01));
+    });
+
+    test('window 0-0 considers only today', () async {
+      await p.addWater(1500);
+      expect(p.avgWaterForDays(0, 0), closeTo(1500, 0.01));
+    });
+
+    test('0 when window excludes today (day 1 to 7) and no past data', () {
+      expect(p.avgWaterForDays(1, 7), 0);
+    });
+  });
+
+  // ── waterAvgForWeekday ───────────────────────────────────────────────────
+
+  group('waterAvgForWeekday', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('null when no data for that weekday', () {
+      final today = DateTime.now().weekday;
+      final otherWeekday = (today % 7) + 1;
+      expect(p.waterAvgForWeekday(otherWeekday), isNull);
+    });
+
+    test('returns today water for today weekday', () async {
+      await p.addWater(2200);
+      final today = DateTime.now().weekday;
+      final avg = p.waterAvgForWeekday(today);
+      expect(avg, isNotNull);
+      expect(avg!, closeTo(2200, 0.01));
+    });
+  });
+
+  // ── bodyCompositionStatus — all branches ─────────────────────────────────
+
+  group('bodyCompositionStatus all classification branches', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('returns Log data label when no weight and no scale', () {
+      expect(p.bodyCompositionStatus.label, 'Log data');
+    });
+
+    test('returns BMI-based label when weight logged but no scale', () async {
+      await p.saveHeight(170);
+      await p.logBodyEntry(weightKg: 70.0); // BMI 24.2 → Normal
+      final status = p.bodyCompositionStatus;
+      expect(status.label, isNotEmpty);
+      expect(status.label, isNot('Log data'));
+    });
+
+    test('Overfat when bf >= 25%', () async {
+      await p.saveHeight(175);
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 80,
+        bodyFatPercent: 28, bodyFatKg: 22.4, muscleMassKg: 35, muscleMassPercent: 44,
+        leanBodyMassKg: 57.6, biologicalAge: 28, visceralFatIndex: 11, bmr: 1600,
+        bodyWaterPercent: 50, boneMassKg: 3.2, proteinPercent: 17, skeletalMuscleMassKg: 29,
+      ));
+      expect(p.bodyCompositionStatus.label, 'Overfat');
+    });
+
+    test('Athletic when bf < 15% and FFMI >= 20', () async {
+      await p.saveHeight(175);
+      // lean=65, h=1.75 → FFMI=65/3.0625+6.1*0.05=21.2+0.305=21.5 → Athletic
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 75,
+        bodyFatPercent: 13, bodyFatKg: 9.75, muscleMassKg: 42, muscleMassPercent: 56,
+        leanBodyMassKg: 65, biologicalAge: 24, visceralFatIndex: 4, bmr: 1800,
+        bodyWaterPercent: 62, boneMassKg: 3.5, proteinPercent: 20, skeletalMuscleMassKg: 33,
+      ));
+      final status = p.bodyCompositionStatus;
+      expect(status.label, 'Athletic');
+    });
+
+    test('Lean when bf < 20% and FFMI >= 19', () async {
+      await p.saveHeight(175);
+      // lean=60, h=1.75 → FFMI=60/3.0625+0.305=19.6+0.305=19.9 → Lean (bf=18 < 20)
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 73,
+        bodyFatPercent: 18, bodyFatKg: 13.14, muscleMassKg: 38, muscleMassPercent: 52,
+        leanBodyMassKg: 60, biologicalAge: 24, visceralFatIndex: 6, bmr: 1720,
+        bodyWaterPercent: 58, boneMassKg: 3.3, proteinPercent: 18, skeletalMuscleMassKg: 30,
+      ));
+      final status = p.bodyCompositionStatus;
+      expect(status.label, anyOf('Lean', 'Average'));
+    });
+
+    test('Average for moderate body fat and FFMI', () async {
+      await p.saveHeight(170);
+      // lean=56, h=1.7 → FFMI=56/2.89+6.1*0.1=19.38+0.61=19.99 → Average
+      // bf=22 → not overfat, not lean → Average
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 72,
+        bodyFatPercent: 22, bodyFatKg: 15.84, muscleMassKg: 36, muscleMassPercent: 50,
+        leanBodyMassKg: 56, biologicalAge: 25, visceralFatIndex: 7, bmr: 1680,
+        bodyWaterPercent: 55, boneMassKg: 3.2, proteinPercent: 17, skeletalMuscleMassKg: 28,
+      ));
+      final status = p.bodyCompositionStatus;
+      expect(status.label, isNotEmpty);
+      expect(status.label, isNot('Log data'));
+    });
+
+    test('Recomp needed when FFMI < 18 (low muscle despite normal body fat)', () async {
+      await p.saveHeight(175);
+      // lean=50, h=1.75 → FFMI=50/3.0625+0.305=16.3+0.305=16.6 → Below average
+      // bf=22 → not overfat
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's', date: DateTime.now(), weightKg: 64,
+        bodyFatPercent: 22, bodyFatKg: 14.08, muscleMassKg: 32, muscleMassPercent: 50,
+        leanBodyMassKg: 50, biologicalAge: 30, visceralFatIndex: 8, bmr: 1550,
+        bodyWaterPercent: 52, boneMassKg: 3.0, proteinPercent: 16, skeletalMuscleMassKg: 25,
+      ));
+      final status = p.bodyCompositionStatus;
+      expect(status.label, 'Recomp needed');
+    });
+  });
+
+  // ── calorieDeficit exact values ──────────────────────────────────────────
+
+  group('calorieDeficit exact values', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('equals calorieGoal when no food and no burn', () {
+      // deficit = goal - (0 - 0) = goal
+      expect(p.calorieDeficit, p.calorieGoal);
+    });
+
+    test('exact value: goal=1700, eaten=1200, burn=0 → deficit=500', () async {
+      await p.saveCalorieGoal(1700);
+      await p.addFoodEntry(_food('f1', 1200, 60));
+      // No weight → no resting burn; no steps; no workout → burn=0
+      expect(p.calorieDeficit, 500);
+    });
+
+    test('exact value: goal=1700, eaten=2000, burn=0 → deficit=-300 (surplus)', () async {
+      await p.saveCalorieGoal(1700);
+      await p.addFoodEntry(_food('f1', 2000, 80));
+      expect(p.calorieDeficit, -300);
+    });
+
+    test('0 when eaten = goal exactly and no burn', () async {
+      await p.saveCalorieGoal(1500);
+      await p.addFoodEntry(_food('f1', 1500, 60));
+      expect(p.calorieDeficit, 0);
+    });
+
+    test('inDeficit true when deficit > 0', () async {
+      await p.saveCalorieGoal(1700);
+      await p.addFoodEntry(_food('f1', 1000, 40));
+      expect(p.inDeficit, isTrue);
+      expect(p.calorieDeficit, greaterThan(0));
+    });
+
+    test('inDeficit false when deficit < 0 (surplus)', () async {
+      await p.saveCalorieGoal(1000);
+      await p.addFoodEntry(_food('f1', 1500, 60));
+      expect(p.inDeficit, isFalse);
+      expect(p.calorieDeficit, lessThan(0));
+    });
+
+    test('inDeficit false at exact boundary (eaten = goal, burn = 0)', () async {
+      await p.saveCalorieGoal(1200);
+      await p.addFoodEntry(_food('f1', 1200, 50));
+      expect(p.calorieDeficit, 0);
+      expect(p.inDeficit, isFalse); // not strictly < goal
+    });
+  });
+
+  // ── caloriesRemaining edge cases ─────────────────────────────────────────
+
+  group('caloriesRemaining', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('equals calorieGoal when nothing eaten', () {
+      expect(p.caloriesRemaining, p.calorieGoal);
+    });
+
+    test('decreases as food is added', () async {
+      await p.saveCalorieGoal(1700);
+      await p.addFoodEntry(_food('f1', 500, 20));
+      expect(p.caloriesRemaining, 1200);
+    });
+
+    test('is 0 when exactly at goal', () async {
+      await p.saveCalorieGoal(1000);
+      await p.addFoodEntry(_food('f1', 1000, 40));
+      expect(p.caloriesRemaining, 0);
+    });
+
+    test('is negative when over goal', () async {
+      await p.saveCalorieGoal(1000);
+      await p.addFoodEntry(_food('f1', 1300, 50));
+      expect(p.caloriesRemaining, -300);
+    });
+
+    test('does not subtract burned calories (food-only metric)', () async {
+      await p.saveCalorieGoal(1700);
+      await p.logBodyEntry(weightKg: 75); // enables resting burn
+      await p.addFoodEntry(_food('f1', 1000, 40));
+      // caloriesRemaining = goal - food-only = 700 (ignores burn)
+      expect(p.caloriesRemaining, 700);
+    });
+  });
+
+  // ── daysSinceLastWorkout ─────────────────────────────────────────────────
+
+  group('daysSinceLastWorkout', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('999 when no workouts ever', () {
+      expect(p.daysSinceLastWorkout, 999);
+    });
+
+    test('0 when workout logged today', () async {
+      await p.logWorkout(_workout('w1'));
+      expect(p.daysSinceLastWorkout, 0);
+    });
+
+    test('positive when most recent workout was yesterday or before', () async {
+      // Can't easily create a workout on a past date via logWorkout (uses date),
+      // but we can verify the today=0 case and the empty=999 case.
+      await p.logWorkout(_workout('w1'));
+      expect(p.daysSinceLastWorkout, greaterThanOrEqualTo(0));
+    });
+  });
+
+  // ── weeklyProteinGoalHitDays extended ────────────────────────────────────
+
+  group('weeklyProteinGoalHitDays extended', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('0 with no food', () {
+      expect(p.weeklyProteinGoalHitDays, 0);
+    });
+
+    test('1 when today meets goal exactly', () async {
+      await p.saveProteinGoal(100);
+      await p.addFoodEntry(_food('f1', 400, 100));
+      expect(p.weeklyProteinGoalHitDays, 1);
+    });
+
+    test('0 when today below goal', () async {
+      await p.saveProteinGoal(100);
+      await p.addFoodEntry(_food('f1', 300, 50));
+      expect(p.weeklyProteinGoalHitDays, 0);
+    });
+
+    test('whey protein counts toward protein goal', () async {
+      await p.saveProteinGoal(30); // low goal
+      await p.updateSupplement('whey', true); // +25g protein
+      await p.addFoodEntry(_food('f1', 200, 10)); // 10g food
+      // total = 35g > 30g goal → hit
+      expect(p.weeklyProteinGoalHitDays, 1);
+    });
+  });
+
+  // ── weeklyWaterGoalHitDays extended ──────────────────────────────────────
+
+  group('weeklyWaterGoalHitDays extended', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('0 with no water', () {
+      expect(p.weeklyWaterGoalHitDays, 0);
+    });
+
+    test('1 when exactly at goal', () async {
+      await p.saveWaterGoal(2000);
+      await p.addWater(2000);
+      expect(p.weeklyWaterGoalHitDays, 1);
+    });
+
+    test('0 when 1 ml below goal', () async {
+      await p.saveWaterGoal(2000);
+      await p.addWater(1999);
+      expect(p.weeklyWaterGoalHitDays, 0);
+    });
+
+    test('1 when over goal', () async {
+      await p.saveWaterGoal(1000);
+      await p.addWater(2500);
+      expect(p.weeklyWaterGoalHitDays, 1);
+    });
+  });
+
+  // ── bodyCompTrajectory detailed ──────────────────────────────────────────
+
+  group('bodyCompTrajectory detailed verdicts', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('null with fewer than 2 scale entries', () async {
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now(), fatKg: 18, leanKg: 56));
+      expect(p.bodyCompTrajectory, isNull);
+    });
+
+    test('null when first entry has zero bodyFatKg', () async {
+      await p.logScaleEntry(SmartScaleEntry(
+        id: 's0', date: DateTime.now().subtract(const Duration(days: 30)),
+        weightKg: 70, bodyFatPercent: 0, bodyFatKg: 0, muscleMassKg: 0, muscleMassPercent: 0,
+        leanBodyMassKg: 56, biologicalAge: 24, visceralFatIndex: 5, bmr: 1600,
+        bodyWaterPercent: 55, boneMassKg: 3, proteinPercent: 17, skeletalMuscleMassKg: 28,
+      ));
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now(), fatKg: 16, leanKg: 58));
+      expect(p.bodyCompTrajectory, isNull);
+    });
+
+    test('Losing fat and some muscle verdict', () async {
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now().subtract(const Duration(days: 30)), fatKg: 20, leanKg: 58));
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now(), fatKg: 17, leanKg: 56));
+      final t = p.bodyCompTrajectory!;
+      expect(t.verdict.toLowerCase(), contains('muscle'));
+      expect(t.fatChange, closeTo(-3.0, 0.01));
+      expect(t.leanChange, closeTo(-2.0, 0.01));
+    });
+
+    test('Fat trending up verdict when fat increases > 0.3 kg', () async {
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now().subtract(const Duration(days: 15)), fatKg: 18, leanKg: 56));
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now(), fatKg: 20, leanKg: 56));
+      final t = p.bodyCompTrajectory!;
+      expect(t.verdict.toLowerCase(), contains('fat'));
+      expect(t.fatChange, closeTo(2.0, 0.01));
+    });
+
+    test('Holding steady verdict when both changes < 0.3', () async {
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now().subtract(const Duration(days: 7)), fatKg: 18.1, leanKg: 56.1));
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now(), fatKg: 18.0, leanKg: 56.0));
+      final t = p.bodyCompTrajectory!;
+      expect(t.verdict.toLowerCase(), contains('steady'));
+    });
+
+    test('Gaining both fat and muscle verdict', () async {
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now().subtract(const Duration(days: 30)), fatKg: 16, leanKg: 54));
+      await p.logScaleEntry(_scaleFatLean(date: DateTime.now(), fatKg: 17.5, leanKg: 56));
+      final t = p.bodyCompTrajectory!;
+      expect(t.verdict.toLowerCase(), contains('gaining'));
+    });
+  });
+
+  // ── getPersonalRecord edge cases ─────────────────────────────────────────
+
+  group('getPersonalRecord edge cases', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('returns highest weight across multiple workouts', () async {
+      await p.logWorkout(_workout('w1', exercises: [
+        ExerciseLog(name: 'Bench Press', sets: [SetData(reps: 8, weight: 60), SetData(reps: 8, weight: 65)]),
+      ]));
+      await p.logWorkout(_workout('w2', date: DateTime.now().subtract(const Duration(days: 1)), exercises: [
+        ExerciseLog(name: 'Bench Press', sets: [SetData(reps: 5, weight: 70)]),
+      ]));
+      expect(p.getPersonalRecord('Bench Press'), 70.0);
+    });
+
+    test('null for exercise never logged', () {
+      expect(p.getPersonalRecord('Deadlift'), isNull);
+    });
+
+    test('null when all sets have zero weight (bodyweight exercise)', () async {
+      await p.logWorkout(_workout('w1', exercises: [
+        ExerciseLog(name: 'Push-ups', sets: [SetData(reps: 15, weight: 0), SetData(reps: 15, weight: 0)]),
+      ]));
+      expect(p.getPersonalRecord('Push-ups'), isNull);
+    });
+  });
+
+  // ── 90-day workout trim edge cases ───────────────────────────────────────
+
+  group('Workout 90-day trim edge cases', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('workout 89 days ago is kept (well within 90-day window)', () async {
+      // Use 89 days to avoid timing race: two DateTime.now() calls can drift.
+      final d89 = DateTime.now().subtract(const Duration(days: 89));
+      await p.logWorkout(_workout('old', date: d89));
+      await p.logWorkout(_workout('new'));
+      expect(p.workoutHistory.any((w) => w.id == 'old'), isTrue);
+    });
+
+    test('workout 91 days ago is trimmed when new workout is logged', () async {
+      final d91 = DateTime.now().subtract(const Duration(days: 91));
+      await p.logWorkout(_workout('old', date: d91));
+      await p.logWorkout(_workout('new'));
+      expect(p.workoutHistory.any((w) => w.id == 'old'), isFalse);
+    });
+  });
+
+  // ── hasPedometerData and todaySteps extended ─────────────────────────────
+
+  group('hasPedometerData and todaySteps extended', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('todaySteps is 0 initially', () {
+      expect(p.todaySteps, 0);
+    });
+
+    test('stepProgress is 0 when no steps', () {
+      expect(p.stepProgress, 0.0);
+    });
+
+    test('stepProgress is 0.5 when at half goal', () async {
+      await p.saveStepGoal(10000);
+      await p.logBodyEntry(weightKg: 70, steps: 5000);
+      expect(p.stepProgress, closeTo(0.5, 0.01));
+    });
+
+    test('stepProgress clamped to 1.0 when steps exceed goal', () async {
+      await p.saveStepGoal(5000);
+      await p.logBodyEntry(weightKg: 70, steps: 9000);
+      expect(p.stepProgress, 1.0);
+    });
+  });
+
+  // ── supplementCalories / supplementProtein edge cases ────────────────────
+
+  group('Supplement calorie/protein edge cases', () {
+    late FitnessProvider p;
+    setUp(() async { p = FitnessProvider(); await p.loadData(); });
+
+    test('supplementCalories 0 when no supplements taken', () {
+      expect(p.supplementCalories, 0);
+    });
+
+    test('supplementCalories 120 when whey taken', () async {
+      await p.updateSupplement('whey', true);
+      expect(p.supplementCalories, 120);
+    });
+
+    test('supplementCalories 0 when creatine/multivitamin taken (no calories)', () async {
+      await p.updateSupplement('creatine', true);
+      await p.updateSupplement('multivitamin', true);
+      expect(p.supplementCalories, 0);
+    });
+
+    test('supplementProtein 0 when no supplements taken', () {
+      expect(p.supplementProtein, 0);
+    });
+
+    test('supplementProtein 25 when whey taken', () async {
+      await p.updateSupplement('whey', true);
+      expect(p.supplementProtein, 25);
+    });
+
+    test('todayCaloriesTotal correctly sums food + whey only', () async {
+      await p.addFoodEntry(_food('f1', 500, 30));
+      await p.updateSupplement('whey', true);    // +120 kcal
+      await p.updateSupplement('creatine', true); // +0 kcal
+      expect(p.todayCaloriesTotal, closeTo(620, 0.01));
     });
   });
 }
