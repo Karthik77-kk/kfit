@@ -160,6 +160,12 @@ class OnDeviceAiService extends ChangeNotifier {
         ? '${p.estimatedGoalDate!.day} ${months[p.estimatedGoalDate!.month - 1]} ${p.estimatedGoalDate!.year}'
         : 'no ETA yet';
     final kgLeft = p.kgToGoal?.toStringAsFixed(1) ?? 'N/A';
+    final tdee   = p.bestTdee != null
+        ? '${p.bestTdee!.round()} kcal/day${p.isTdeeCalibrated ? " (calibrated from real data)" : " (estimated)"}'
+        : 'not enough data';
+    final cutTarget = p.fatLossCalorieTarget != null
+        ? '${p.fatLossCalorieTarget!.round()} kcal/day'
+        : 'N/A';
 
     return '''You are ${p.userName}'s personal on-device fitness AI coach. Today is $date.
 
@@ -172,6 +178,10 @@ Protein   ${p.todayProteinTotal.round()} / ${p.proteinGoal} g  (${(p.proteinProg
 Water     ${p.todayWaterMl} / ${p.waterGoalMl} ml (${(p.waterProgress * 100).round()}%)
 Steps     ${p.todaySteps} / ${p.stepGoal}  (${(p.stepProgress * 100).round()}%)
 Workout   ${p.todayWorkout != null ? 'done' : 'not done'}
+
+METABOLISM
+Maintenance (TDEE)  $tdee
+Fat-loss target     $cutTarget (for ~0.5 kg/week loss)
 
 7-DAY AVERAGES
 Calories  ${p.avgCaloriesForDays(1, 7).round()} kcal/day

@@ -272,11 +272,51 @@ class FitnessProvider extends ChangeNotifier {
     return b * multiplier;
   }
 
-  /// Suggested calorie deficit for fat loss (500 below TDEE)
+  // ── Adaptive (data-calibrated) TDEE ────────────────────────────────────────
+  //
+  // The BMR×activity-factor `tdee` above is only an ESTIMATE — it overstates or
+  // understates real maintenance because activity level is guessed from logged
+  // workout days. When we have enough real data we can do far better: back-
+  // calculate the user's TRUE maintenance from how their weight actually moved
+  // against what they actually ate. This is the same energy-balance method
+  // MacroFactor/RP use:  TDEE = avgIntake − (weeklyWeightChangeKg × 7700 ÷ 7).
+  //
+  // 7700 kcal ≈ energy in 1 kg of body mass. Losing 0.5 kg/wk while eating 1500
+  // ⇒ TDEE = 1500 − (−0.5 × 1100) = 2050. Gaining works the same in reverse.
+
+  /// Real maintenance calories calibrated from the user's own weight trend and
+  /// logged intake. Null until there's a trustworthy signal: a weight trend
+  /// spanning ≥14 days (≥3 logs) AND logged calories over that window.
+  /// Clamped to a believable human range [1200, 4500] to reject bad data.
+  double? get adaptiveTdee {
+    final weekly = weeklyWeightChange; // kg/week, negative = losing
+    if (weekly == null) return null;
+    final entries = getRecentBodyEntries(days: 60);
+    if (entries.length < 3) return null;
+    final spanDays = entries.last.date.difference(entries.first.date).inDays;
+    if (spanDays < 14) return null;
+    // Average daily intake over a comparable recent window (skips empty days).
+    final avgIntake = avgCaloriesForDays(0, spanDays.clamp(7, 30));
+    if (avgIntake <= 0) return null;
+    final energyFromWeight = weekly * 7700 / 7; // kcal/day stored(+)/released(−)
+    final t = avgIntake - energyFromWeight;
+    return t.clamp(1200.0, 4500.0);
+  }
+
+  /// The TDEE we trust most: data-calibrated [adaptiveTdee] when available,
+  /// otherwise the BMR×activity estimate [tdee]. Use THIS for any calorie goal
+  /// math so the user gets accurate, personalised targets.
+  double? get bestTdee => adaptiveTdee ?? tdee;
+
+  /// True when [bestTdee] is the data-calibrated value (for "calibrated" UI badges).
+  bool get isTdeeCalibrated => adaptiveTdee != null;
+
+  /// Suggested calorie target for fat loss (500 below maintenance).
+  /// Uses [bestTdee] so it reflects real maintenance once data is available.
   double? get fatLossCalorieTarget {
-    final t = tdee;
+    final t = bestTdee;
     if (t == null) return null;
-    return (t - 500).clamp(1200, 3500);
+    return (t - 500).clamp(1200.0, 2800.0);
   }
 
   // ── Smart goal recommendations ─────────────────────────────────────────────
@@ -286,10 +326,12 @@ class FitnessProvider extends ChangeNotifier {
   // apply with one tap.
 
   /// Recommended daily calorie intake for ~0.5 kg/week fat loss.
-  /// = TDEE − 500, clamped to the safe range [1200, 2800].
+  /// = bestTdee − 500, clamped to the safe range [1200, 2800].
+  /// Prefers the data-calibrated [adaptiveTdee] so it won't recommend
+  /// overeating when the activity-factor estimate is too high.
   /// Returns null when weight/height/age haven't been logged yet.
   double? get recommendedCalorieGoal {
-    final t = tdee;
+    final t = bestTdee;
     if (t == null) return null;
     return (t - 500).clamp(1200.0, 2800.0);
   }
