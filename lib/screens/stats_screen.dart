@@ -25,10 +25,6 @@ class _StatsScreenState extends State<StatsScreen> {
   final _ageCtrl     = TextEditingController();
   final _goalWtCtrl  = TextEditingController();
 
-  // 1RM calculator state
-  double _ormWeight   = 60;
-  int    _ormReps     = 8;
-  String _ormExercise = 'Bench Press';
 
   // Prevents re-populating fields after user edits them
   bool _fieldsPopulated = false;
@@ -109,19 +105,35 @@ class _StatsScreenState extends State<StatsScreen> {
     }
 
     final futures = <Future>[];
+    final skipped = <String>[];
     futures.add(p.logBodyEntry(weightKg: weight, steps: steps.clamp(0, 100000)));
-    if (height != null && height > 50 && height < 300) {
-      futures.add(p.saveHeight(height));
+
+    // Each optional field: save if valid, flag if the user typed something invalid.
+    if (_heightCtrl.text.trim().isNotEmpty) {
+      if (height != null && height > 50 && height < 300) {
+        futures.add(p.saveHeight(height));
+      } else {
+        skipped.add('height (50–300 cm)');
+      }
     }
-    if (age != null && age >= 10 && age <= 100) {
-      futures.add(p.saveAge(age));
+    if (_ageCtrl.text.trim().isNotEmpty) {
+      if (age != null && age >= 10 && age <= 100) {
+        futures.add(p.saveAge(age));
+      } else {
+        skipped.add('age (10–100)');
+      }
     }
-    if (goalWt != null && goalWt > 10 && goalWt < 500) {
-      futures.add(p.saveGoalWeight(goalWt));
+    if (_goalWtCtrl.text.trim().isNotEmpty) {
+      if (goalWt != null && goalWt > 10 && goalWt < 500) {
+        futures.add(p.saveGoalWeight(goalWt));
+      } else {
+        skipped.add('goal weight (10–500 kg)');
+      }
     }
 
     await Future.wait(futures);
-    if (mounted) {
+    if (!mounted) return;
+    if (skipped.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Stats saved ✓'),
@@ -129,6 +141,9 @@ class _StatsScreenState extends State<StatsScreen> {
           duration: Duration(seconds: 1),
         ),
       );
+    } else {
+      // Honest feedback: weight saved, but flag what was out of range.
+      _showError('Weight saved. Skipped invalid: ${skipped.join(', ')}');
     }
   }
 
@@ -142,9 +157,6 @@ class _StatsScreenState extends State<StatsScreen> {
       ),
     );
   }
-
-  // Epley 1RM formula: weight × (1 + reps/30)
-  double get _oneRM => _ormWeight * (1 + _ormReps / 30);
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +192,6 @@ class _StatsScreenState extends State<StatsScreen> {
                           iconColor: _kGreen,
                           unit: 'kg',
                           ctrl: _weightCtrl,
-                          nextFocus: FocusNode(),
                         ),
                         _HDivider(),
                         _FieldRow(
@@ -399,19 +410,6 @@ class _StatsScreenState extends State<StatsScreen> {
                   // ── 1RM Estimator from history ─────────────────────────
                   const _SectionLabel('1RM ESTIMATOR (FROM YOUR LOGS)'),
                   const _OneRMSection(),
-                  const SizedBox(height: 16),
-
-                  // ── 1RM Calculator (manual) ────────────────────────────
-                  const _SectionLabel('1RM CALCULATOR (MANUAL ENTRY)'),
-                  _OrmCalc(
-                    weight: _ormWeight,
-                    reps: _ormReps,
-                    exercise: _ormExercise,
-                    oneRM: _oneRM,
-                    onWeightChanged: (v) => setState(() => _ormWeight = v),
-                    onRepsChanged: (v) => setState(() => _ormReps = v),
-                    onExerciseChanged: (v) => setState(() => _ormExercise = v),
-                  ),
                   const SizedBox(height: 16),
                 ]),
               ),
@@ -1076,186 +1074,6 @@ class _OneRMSection extends StatelessWidget {
   }
 }
 
-// ─── 1RM Calculator ────────────────────────────────────────────────────────────
-class _OrmCalc extends StatelessWidget {
-  final double weight;
-  final int reps;
-  final String exercise;
-  final double oneRM;
-  final ValueChanged<double> onWeightChanged;
-  final ValueChanged<int> onRepsChanged;
-  final ValueChanged<String> onExerciseChanged;
-
-  const _OrmCalc({
-    required this.weight, required this.reps, required this.exercise,
-    required this.oneRM, required this.onWeightChanged,
-    required this.onRepsChanged, required this.onExerciseChanged,
-  });
-
-  static const _exercises = [
-    'Bench Press', 'Squat', 'Deadlift', 'Overhead Press',
-    'Barbell Row', 'Incline Press', 'Romanian Deadlift',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    // Training zones based on % of 1RM
-    final zones = [
-      ('Strength', '85–100%', '${(oneRM * 0.85).round()}–${oneRM.round()} kg', _kRed),
-      ('Hypertrophy', '67–85%', '${(oneRM * 0.67).round()}–${(oneRM * 0.85).round()} kg', _kGreen),
-      ('Endurance', '50–67%', '${(oneRM * 0.5).round()}–${(oneRM * 0.67).round()} kg', _kBlue),
-    ];
-
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Exercise picker
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _exercises.map((ex) {
-                final sel = ex == exercise;
-                return GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    onExerciseChanged(ex);
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: sel ? _kGreen : Colors.white.withOpacity(0.07),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      ex,
-                      style: TextStyle(
-                        color: sel ? Colors.black : _kSecond,
-                        fontSize: 12,
-                        fontWeight: sel ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Weight slider
-          Row(
-            children: [
-              const SizedBox(width: 4),
-              Text('Weight: ', style: const TextStyle(color: _kSecond, fontSize: 13)),
-              Text('${weight.round()} kg',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-            ],
-          ),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: _kGreen,
-              inactiveTrackColor: _kGreen.withOpacity(0.2),
-              thumbColor: _kGreen,
-              overlayColor: _kGreen.withOpacity(0.15),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-            ),
-            child: Slider(
-              value: weight.clamp(5, 200),
-              min: 5, max: 200,
-              divisions: 195,
-              onChanged: (v) => onWeightChanged(v.roundToDouble()),
-            ),
-          ),
-
-          // Reps slider
-          Row(
-            children: [
-              const SizedBox(width: 4),
-              Text('Reps: ', style: const TextStyle(color: _kSecond, fontSize: 13)),
-              Text('$reps',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(width: 8),
-              if (reps > 12)
-                const Text('(use ≤12 for accuracy)',
-                    style: TextStyle(color: _kOrange, fontSize: 11)),
-            ],
-          ),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: _kBlue,
-              inactiveTrackColor: _kBlue.withOpacity(0.2),
-              thumbColor: _kBlue,
-              overlayColor: _kBlue.withOpacity(0.15),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-            ),
-            child: Slider(
-              value: reps.toDouble().clamp(1, 20),
-              min: 1, max: 20,
-              divisions: 19,
-              onChanged: (v) => onRepsChanged(v.round()),
-            ),
-          ),
-
-          // 1RM result
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-            decoration: BoxDecoration(
-              color: _kOrange.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _kOrange.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Estimated 1RM',
-                        style: TextStyle(color: _kSecond, fontSize: 12)),
-                    Text('${oneRM.round()} kg',
-                        style: const TextStyle(
-                            color: _kOrange, fontSize: 28,
-                            fontWeight: FontWeight.w800, height: 1.1)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('${weight.round()}kg × $reps reps',
-                        style: const TextStyle(color: _kSecond, fontSize: 11)),
-                    Text('Epley formula', style: const TextStyle(color: _kSecond, fontSize: 10)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Training zones
-          ...zones.map((z) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                Container(width: 10, height: 10,
-                    decoration: BoxDecoration(color: z.$4, shape: BoxShape.circle)),
-                const SizedBox(width: 8),
-                Text('${z.$1} (${z.$2})',
-                    style: TextStyle(color: z.$4, fontSize: 12, fontWeight: FontWeight.w600)),
-                const Spacer(),
-                Text(z.$3,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-              ],
-            ),
-          )),
-        ],
-      ),
-    );
-  }
-}
-
 // ─── Reusable widgets ──────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
@@ -1312,13 +1130,12 @@ class _FieldRow extends StatelessWidget {
   final TextEditingController ctrl;
   final TextInputType keyboard;
   final bool isLast;
-  final FocusNode? nextFocus;
 
   const _FieldRow({
     required this.label, required this.icon, required this.iconColor,
     required this.unit, required this.ctrl,
     this.keyboard = const TextInputType.numberWithOptions(decimal: true),
-    this.isLast = false, this.nextFocus,
+    this.isLast = false,
   });
 
   @override

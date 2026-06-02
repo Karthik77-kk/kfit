@@ -117,12 +117,16 @@ class NotificationsScreen extends StatelessWidget {
 
     // Walk reminder: after noon if under 50% steps
     if (hour >= 12 && p.todaySteps < p.stepGoal * 0.5) {
+      final stepPct = p.stepGoal > 0
+          ? (p.todaySteps / p.stepGoal * 100).round()
+          : 0;
+      final stepsLeft = (p.stepGoal - p.todaySteps).clamp(0, p.stepGoal);
       reminders.add(_ReminderItem(
         emoji: '🚶',
         color: _kBlue,
-        title: 'Steps at ${_fmtK(p.todaySteps)} — halfway to ${_fmtK(p.stepGoal)}',
-        body: 'A 20-min walk after lunch adds ~2,000 steps, burns ~${_walkKcal(p.latestWeightKg)} kcal, '
-            'and lowers post-meal blood sugar.',
+        title: '${_fmtK(p.todaySteps)} of ${_fmtK(p.stepGoal)} steps ($stepPct%)',
+        body: '${_fmtK(stepsLeft)} to go. A 20-min walk after lunch adds ~2,000 steps, '
+            'burns ~${_walkKcal(p.latestWeightKg)} kcal, and lowers post-meal blood sugar.',
       ));
     }
 

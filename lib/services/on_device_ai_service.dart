@@ -20,12 +20,14 @@ enum AiModelState {
 class OnDeviceAiService extends ChangeNotifier {
   static const _prefToken = 'hf_token_ai_chat';
 
-  // Gemma 3 1B IT INT4 LiteRT-LM format — smallest capable model (~600 MB).
+  // Gemma 3 1B IT INT4 LiteRT-LM format — smallest capable model (~550 MB).
   // Requires a free HuggingFace account + accepting the Gemma 3 license on
   // litert-community/Gemma3-1B-IT before download.
+  // NOTE: filename is `gemma3-1b-it-int4` (no hyphen after "gemma") — the
+  // hyphenated form 404s. Verified against the HF repo file listing.
   static const _modelUrl =
       'https://huggingface.co/litert-community/Gemma3-1B-IT'
-      '/resolve/main/gemma-3-1b-it-int4.litertlm';
+      '/resolve/main/gemma3-1b-it-int4.litertlm';
 
   AiModelState _state      = AiModelState.notInstalled;
   double       _dlProgress = 0.0; // 0.0–1.0
