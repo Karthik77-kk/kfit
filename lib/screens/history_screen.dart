@@ -368,7 +368,7 @@ class _WeightHistory extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               _StatBadge(
-                label: '${entries.length}d change',
+                label: 'Total change',
                 value: '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)} kg',
                 color: isLoss ? const Color(0xFF30D158) : const Color(0xFFFF9F0A),
               ),
@@ -581,7 +581,7 @@ class _WaterHistory extends StatelessWidget {
         final day = sortedDays[i];
         final ml = history[day] ?? 0;
         final goal = p.waterGoalMl;
-        final progress = (ml / goal).clamp(0.0, 1.0);
+        final progress = goal > 0 ? (ml / goal).clamp(0.0, 1.0) : 0.0;
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),

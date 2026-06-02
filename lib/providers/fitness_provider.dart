@@ -286,7 +286,10 @@ class FitnessProvider extends ChangeNotifier {
 
   /// Real maintenance calories calibrated from the user's own weight trend and
   /// logged intake. Null until there's a trustworthy signal: a weight trend
-  /// spanning ≥14 days (≥3 logs) AND logged calories over that window.
+  /// spanning ≥7 days (≥3 logs) AND logged calories over that window.
+  /// 7 days is the practical minimum for an energy-balance TDEE estimate; the
+  /// linear-regression slope smooths day-to-day water-weight noise, and the
+  /// estimate sharpens automatically as more history accrues.
   /// Clamped to a believable human range [1200, 4500] to reject bad data.
   double? get adaptiveTdee {
     final weekly = weeklyWeightChange; // kg/week, negative = losing
@@ -294,7 +297,7 @@ class FitnessProvider extends ChangeNotifier {
     final entries = getRecentBodyEntries(days: 60);
     if (entries.length < 3) return null;
     final spanDays = entries.last.date.difference(entries.first.date).inDays;
-    if (spanDays < 14) return null;
+    if (spanDays < 7) return null;
     // Average daily intake over a comparable recent window (skips empty days).
     final avgIntake = avgCaloriesForDays(0, spanDays.clamp(7, 30));
     if (avgIntake <= 0) return null;
@@ -1031,6 +1034,23 @@ class FitnessProvider extends ChangeNotifier {
           w.date.day == day.day);
     }
     return result;
+  }
+
+  /// Rolling last 7 days (oldest first, today last) — each entry is the
+  /// single-letter weekday label + whether a workout was logged that day.
+  /// Matches [weeklyWorkoutDays] so the "LAST 7 DAYS" grid and the "X/7"
+  /// stat always agree (the calendar-week [weeklyWorkoutMap] did not).
+  List<({String label, bool done})> get rolling7DayWorkouts {
+    const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // weekday 1..7
+    final now = DateTime.now();
+    return List.generate(7, (i) {
+      final day = now.subtract(Duration(days: 6 - i));
+      final done = _workoutHistory.any((w) =>
+          w.date.year == day.year &&
+          w.date.month == day.month &&
+          w.date.day == day.day);
+      return (label: letters[day.weekday - 1], done: done);
+    });
   }
 
   // ── Habit pattern analysis ─────────────────────────────────────────────────

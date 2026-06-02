@@ -359,7 +359,11 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   void _addItemWithQty(BuildContext ctx, FoodItem item, double servings) {
     HapticFeedback.lightImpact();
     final provider = ctx.read<FitnessProvider>();
-    final label = servings == 1.0 ? item.serving : '${servings}× ${item.serving}';
+    // Format whole servings as "2×" not "2.0×"; keep one decimal for halves.
+    final qtyStr = servings == servings.roundToDouble()
+        ? servings.toInt().toString()
+        : servings.toStringAsFixed(1);
+    final label = servings == 1.0 ? item.serving : '$qtyStr× ${item.serving}';
     provider.addFoodEntry(FoodEntry(
       id: provider.newId(),
       name: item.name,
@@ -382,7 +386,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   void _addCustom(BuildContext ctx) {
     final name = _nameCtrl.text.trim();
     final cal = double.tryParse(_calCtrl.text.trim()) ?? 0;
-    final prot = double.tryParse(_protCtrl.text.trim()) ?? 0;
+    // Clamp protein to >= 0 so a stray "-5" can't subtract from the day's total.
+    final prot = (double.tryParse(_protCtrl.text.trim()) ?? 0).clamp(0.0, 100000.0);
     if (name.isEmpty) {
       ScaffoldMessenger.of(ctx).showSnackBar(
           const SnackBar(content: Text('⚠️ Enter a food name'), duration: Duration(seconds: 1)));

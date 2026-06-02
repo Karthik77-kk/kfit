@@ -5,6 +5,34 @@ import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import 'package:uuid/uuid.dart';
 
+/// Summarises a set list honestly. When all sets share the same reps & weight
+/// it reads "3×10 @20kg"; when sets vary it shows the rep range
+/// ("3 sets · 8–12 reps") instead of misleadingly echoing only the first set.
+String _formatSets(List<SetData> sets, {bool compact = false}) {
+  if (sets.isEmpty) return '';
+  final reps = sets.map((s) => s.reps).toList();
+  final weights = sets.map((s) => s.weight).toList();
+  final sameReps = reps.toSet().length == 1;
+  final sameWeight = weights.toSet().length == 1;
+  final w = weights.first;
+  final wStr = w > 0 ? '${w.toStringAsFixed(1)}kg' : '';
+
+  if (sameReps && sameWeight) {
+    final sep = compact ? '@' : ' @ ';
+    return compact
+        ? '${sets.length}×${reps.first}${w > 0 ? '@$wStr' : ''}'
+        : '${sets.length} set${sets.length == 1 ? '' : 's'} × ${reps.first} reps'
+            '${w > 0 ? '$sep$wStr' : ''}';
+  }
+  // Varied sets — show count + rep range (and weight range if it varies).
+  final lo = reps.reduce((a, b) => a < b ? a : b);
+  final hi = reps.reduce((a, b) => a > b ? a : b);
+  final repPart = lo == hi ? '$lo reps' : '$lo–$hi reps';
+  return compact
+      ? '${sets.length} sets · $repPart'
+      : '${sets.length} sets · $repPart';
+}
+
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
   @override
@@ -498,10 +526,7 @@ class _TodayWorkoutSummary extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(child: Text(ex.name, style: const TextStyle(fontSize: 13))),
               Text(
-                ex.sets.isNotEmpty
-                    ? '${ex.sets.length}×${ex.sets.first.reps}'
-                        '${ex.sets.first.weight > 0 ? ' @${ex.sets.first.weight.toStringAsFixed(1)}kg' : ''}'
-                    : '',
+                _formatSets(ex.sets, compact: true),
                 style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
               ),
             ]),
@@ -539,9 +564,7 @@ class _ExerciseCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               const SizedBox(height: 4),
               Text(
-                '${sets.length} set${sets.length == 1 ? '' : 's'}'
-                '${sets.isNotEmpty ? ' × ${sets.first.reps} reps' : ''}'
-                '${sets.isNotEmpty && sets.first.weight > 0 ? ' @ ${sets.first.weight.toStringAsFixed(1)} kg' : ''}',
+                _formatSets(sets),
                 style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
               ),
             ],

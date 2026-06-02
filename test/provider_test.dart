@@ -937,6 +937,31 @@ void main() {
       await p.logWorkout(_workout('w3'));
       expect(p.weeklyWorkoutDays, 1); // Still just 1 unique day
     });
+
+    test('rolling7DayWorkouts has 7 entries, today last', () {
+      final r = p.rolling7DayWorkouts;
+      expect(r.length, 7);
+      // Last entry's label must equal today's weekday letter.
+      const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+      expect(r.last.label, letters[DateTime.now().weekday - 1]);
+    });
+
+    test('rolling7DayWorkouts all false with no workouts', () {
+      expect(p.rolling7DayWorkouts.every((e) => e.done == false), isTrue);
+    });
+
+    test('rolling7DayWorkouts marks today done after logging', () async {
+      await p.logWorkout(_workout('today'));
+      expect(p.rolling7DayWorkouts.last.done, isTrue);
+    });
+
+    test('rolling7DayWorkouts done-count matches weeklyWorkoutDays', () async {
+      await p.logWorkout(_workout('today'));
+      await p.logWorkout(_workout('d2',
+          date: DateTime.now().subtract(const Duration(days: 2))));
+      final doneCount = p.rolling7DayWorkouts.where((e) => e.done).length;
+      expect(doneCount, p.weeklyWorkoutDays); // grid and stat agree
+    });
   });
 
   // ── Calorie streak ────────────────────────────────────────────────────────
@@ -1248,15 +1273,40 @@ void main() {
       expect(p.adaptiveTdee, isNull);
     });
 
-    test('adaptiveTdee null when trend span < 14 days', () async {
+    test('adaptiveTdee null when trend span < 7 days', () async {
       SharedPreferences.setMockInitialValues(_seedBody([
-        (DateTime.now().subtract(const Duration(days: 6)), 80.0),
+        (DateTime.now().subtract(const Duration(days: 5)), 80.0),
         (DateTime.now().subtract(const Duration(days: 3)), 79.8),
         (DateTime.now(), 79.6),
       ]));
       final p = FitnessProvider();
       await p.loadData();
-      expect(p.adaptiveTdee, isNull); // span only 6 days
+      expect(p.adaptiveTdee, isNull); // span only 5 days
+    });
+
+    test('adaptiveTdee triggers at a 9-day span (real-user scenario)', () async {
+      // Matches the user: ~6 logs over 9 days losing weight + logged calories.
+      final foodSeed = <String, Object>{};
+      final now = DateTime.now();
+      for (int i = 1; i <= 9; i++) {
+        final d = now.subtract(Duration(days: i));
+        final key = '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+        foodSeed['food_$key'] = jsonEncode([
+          {'id': 'f$i', 'name': 'Meal', 'calories': 1450.0, 'protein': 90.0,
+           'mealType': 1, 'timestamp': DateTime(d.year, d.month, d.day, 13).toIso8601String(),
+           'servingNote': ''}
+        ]);
+      }
+      final bodySeed = _seedBody([
+        (now.subtract(const Duration(days: 9)), 79.1),
+        (now.subtract(const Duration(days: 5)), 78.7),
+        (now.subtract(const Duration(days: 1)), 78.3),
+      ]);
+      SharedPreferences.setMockInitialValues({...foodSeed, ...bodySeed});
+      final p = FitnessProvider();
+      await p.loadData();
+      expect(p.adaptiveTdee, isNotNull, reason: '9-day span should calibrate');
+      expect(p.isTdeeCalibrated, isTrue);
     });
 
     test('adaptiveTdee null without logged calories (no intake to calibrate against)', () async {

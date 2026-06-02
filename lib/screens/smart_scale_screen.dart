@@ -81,6 +81,7 @@ class _LogTabState extends State<_LogTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final latest = context.read<FitnessProvider>().latestScaleEntry;
       if (latest != null) {
         _weight.text = latest.weightKg.toStringAsFixed(1);

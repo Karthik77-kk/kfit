@@ -69,28 +69,47 @@ class _HomeScreenState extends State<HomeScreen> {
         child: CustomScrollView(
           slivers: [
             SliverAppBar(
-              expandedHeight: 110,
+              expandedHeight: 108,
               pinned: true,
               backgroundColor: Colors.black,
               surfaceTintColor: Colors.transparent,
+              // Greeting + streak live in the collapsing background so they fade
+              // out on scroll and never overlap the pinned action icons.
               flexibleSpace: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(left: 20, bottom: 14, right: 20),
-                title: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(today, style: const TextStyle(color: _kSecond, fontSize: 11, fontWeight: FontWeight.w400)),
-                    Text('Good ${_greeting()}, ${context.watch<FitnessProvider>().userName}! 👋', style: const TextStyle(
-                      color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700, letterSpacing: -0.5,
-                    )),
-                  ],
+                background: SafeArea(
+                  child: Padding(
+                    // right padding clears the pinned bell + settings icons
+                    padding: const EdgeInsets.fromLTRB(20, 6, 96, 0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(today, style: const TextStyle(
+                            color: _kSecond, fontSize: 11, fontWeight: FontWeight.w400)),
+                        const SizedBox(height: 2),
+                        Row(children: [
+                          Flexible(
+                            child: Text(
+                              'Good ${_greeting()}, ${context.watch<FitnessProvider>().userName}! 👋',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white, fontSize: 20,
+                                fontWeight: FontWeight.w700, letterSpacing: -0.5,
+                              ),
+                            ),
+                          ),
+                          if (p.workoutStreak > 0) ...[
+                            const SizedBox(width: 8),
+                            _StreakBadge(streak: p.workoutStreak),
+                          ],
+                        ]),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 4, top: 8),
-                  child: _StreakBadge(streak: p.workoutStreak),
-                ),
                 _NotificationBell(unread: p.unreadNotifications),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, size: 22),
@@ -467,21 +486,12 @@ class _CalorieRingTile extends StatelessWidget {
                   size: const Size(180, 180),
                   painter: _CalorieRingPainter(eaten: eaten, burned: burned, goal: goal),
                 ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      net >= 0 ? '+${net.round()}' : '${net.round()}',
-                      style: TextStyle(
-                        fontSize: 32, fontWeight: FontWeight.w800,
-                        color: net > 200 ? _kRed : net < -200 ? _kGreen : Colors.white,
-                      ),
-                    ),
-                    Text(
-                      net >= 0 ? 'calorie surplus today' : 'calorie deficit today',
-                      style: const TextStyle(color: _kSecond, fontSize: 12),
-                    ),
-                  ],
+                Text(
+                  net >= 0 ? '+${net.round()}' : '${net.round()}',
+                  style: TextStyle(
+                    fontSize: 34, fontWeight: FontWeight.w800,
+                    color: net > 200 ? _kRed : net < -200 ? _kGreen : Colors.white,
+                  ),
                 ),
               ],
             ),
@@ -1149,9 +1159,9 @@ class _WeeklyReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = provider;
-    final map = p.weeklyWorkoutMap;
-    final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final today = DateTime.now().weekday - 1;
+    // Rolling last 7 days (oldest → today) so the grid matches the "X/7" stat
+    // and the "LAST 7 DAYS" section title.
+    final rolling = p.rolling7DayWorkouts;
     final weekly = p.weeklyWeightChange;
     final avgCal = p.weeklyAvgCalories;
     final avgCalColor = avgCal <= p.calorieGoal ? _kGreen : _kRed;
@@ -1160,11 +1170,11 @@ class _WeeklyReportCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
       child: Column(children: [
-        // ── 7-day workout grid ──────────────────────────────────────────
+        // ── 7-day workout grid (rolling, today = last) ──────────────────
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(7, (i) {
-            final done = i < map.length ? map[i] : false;
-            final isToday = i == today;
+            final done = rolling[i].done;
+            final isToday = i == 6; // last cell is today
             return Column(children: [
               Container(
                 width: 34, height: 34,
@@ -1177,7 +1187,7 @@ class _WeeklyReportCard extends StatelessWidget {
                 child: done ? const Icon(Icons.check_rounded, color: _kGreen, size: 16) : null,
               ),
               const SizedBox(height: 4),
-              Text(days[i], style: TextStyle(
+              Text(rolling[i].label, style: TextStyle(
                 color: done ? _kGreen : isToday ? Colors.white : _kSecond,
                 fontSize: 11, fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
               )),

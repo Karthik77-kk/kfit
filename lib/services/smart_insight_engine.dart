@@ -282,9 +282,10 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
         score: 34,
       ));
     } else if (steps < p.stepGoal * 0.3) {
+      final pct = p.stepGoal > 0 ? (steps / p.stepGoal * 100).round() : 0;
       out.add(Insight(
         emoji: '🚶',
-        title: 'Only ${_fmtK(steps)} steps so far',
+        title: '${_fmtK(steps)} steps — only $pct% of your ${_fmtK(p.stepGoal)} goal',
         body: 'A 20-min walk after lunch adds ~2,000 steps and '
             '~${_walkBurn(weight, minutes: 20)} kcal — and lowers blood sugar.',
         accent: _kBlue,
