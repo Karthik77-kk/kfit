@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
+import '../services/food_api_service.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
@@ -597,7 +598,16 @@ class _InputBar extends StatelessWidget {
             onSubmitted: (_) => onSend(),
           ),
         ),
-        const SizedBox(width: 6),
+        // Nutrition lookup button
+        IconButton(
+          icon: const Text('🍎', style: TextStyle(fontSize: 18)),
+          tooltip: 'Look up nutrition',
+          onPressed: thinking ? null : () => _showNutritionLookup(context, controller),
+          style: IconButton.styleFrom(
+            minimumSize: const Size(36, 36),
+            foregroundColor: _kSecond,
+          ),
+        ),
         AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           child: thinking
@@ -658,6 +668,263 @@ class _ModelChip extends StatelessWidget {
       child: Text(label,
           style: TextStyle(color: color, fontSize: 10,
               fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+// ── Nutrition lookup ──────────────────────────────────────────────────────────
+
+void _showNutritionLookup(
+    BuildContext context, TextEditingController chatCtrl) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: _kCard,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _NutritionLookupSheet(chatController: chatCtrl),
+  );
+}
+
+class _NutritionLookupSheet extends StatefulWidget {
+  final TextEditingController chatController;
+  const _NutritionLookupSheet({required this.chatController});
+
+  @override
+  State<_NutritionLookupSheet> createState() => _NutritionLookupSheetState();
+}
+
+class _NutritionLookupSheetState extends State<_NutritionLookupSheet> {
+  final _ctrl    = TextEditingController();
+  List<FoodApiResult> _results  = [];
+  bool                _loading  = false;
+  String?             _error;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final q = _ctrl.text.trim();
+    if (q.isEmpty) return;
+
+    setState(() { _loading = true; _error = null; _results = []; });
+
+    try {
+      final r = await FoodApiService.search(q);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _results = r;
+        if (r.isEmpty) _error = 'No results for "$q". Try a different term.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error   = 'No internet connection.';
+      });
+    }
+  }
+
+  void _inject(FoodApiResult item) {
+    final text =
+        '[Nutrition lookup: ${item.name} — '
+        '${item.calories100g.round()} kcal, '
+        '${item.protein100g.toStringAsFixed(1)}g protein, '
+        '${item.carbs100g.toStringAsFixed(1)}g carbs per 100g] ';
+    widget.chatController.text = text;
+    widget.chatController.selection = TextSelection.fromPosition(
+      TextPosition(offset: widget.chatController.text.length),
+    );
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (_, scrollCtrl) => Column(children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 8),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: _kSecond.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '🍎 Nutrition Lookup',
+                style: TextStyle(color: Colors.white, fontSize: 16,
+                    fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 10),
+            child: Text(
+              'Search any food · tap a result to inject into your question',
+              style: TextStyle(color: _kSecond, fontSize: 12),
+            ),
+          ),
+
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. chicken breast, Maggi noodles…',
+                    hintStyle: const TextStyle(color: _kSecond, fontSize: 13),
+                    filled: true,
+                    fillColor: Colors.black.withValues(alpha: 0.4),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                  ),
+                  onSubmitted: (_) => _search(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _loading ? null : _search,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _kGreen,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(
+                            color: Colors.black, strokeWidth: 2))
+                    : const Icon(Icons.search_rounded, size: 20),
+              ),
+            ]),
+          ),
+
+          // Results / states
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: _kGreen, strokeWidth: 2))
+                : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('😕', style: TextStyle(fontSize: 32)),
+                              const SizedBox(height: 12),
+                              Text(_error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      color: _kSecond, fontSize: 13,
+                                      height: 1.5)),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _results.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('🍽️',
+                                    style: TextStyle(fontSize: 36)),
+                                const SizedBox(height: 10),
+                                const Text(
+                                    'Search for any food item above',
+                                    style: TextStyle(
+                                        color: _kSecond, fontSize: 13)),
+                                const SizedBox(height: 6),
+                                Text(
+                                    'Results include calories, protein & carbs per 100g',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        color: _kSecond.withValues(alpha: 0.6),
+                                        fontSize: 11)),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            controller: scrollCtrl,
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+                            itemCount: _results.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(color: Color(0xFF2C2C2E), height: 1),
+                            itemBuilder: (_, i) {
+                              final r = _results[i];
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                title: Text(r.name,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 13),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis),
+                                subtitle: Text(
+                                  '${r.calories100g.round()} kcal · '
+                                  '${r.protein100g.toStringAsFixed(1)}g prot · '
+                                  '${r.carbs100g.toStringAsFixed(1)}g carbs '
+                                  '· ${r.fat100g.toStringAsFixed(1)}g fat per 100g',
+                                  style: const TextStyle(
+                                      color: _kSecond, fontSize: 11),
+                                ),
+                                trailing: FilledButton(
+                                  onPressed: () => _inject(r),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor:
+                                        _kGreen.withValues(alpha: 0.15),
+                                    foregroundColor: _kGreen,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text('Inject',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700)),
+                                ),
+                              );
+                            },
+                          ),
+          ),
+        ]),
+      ),
     );
   }
 }

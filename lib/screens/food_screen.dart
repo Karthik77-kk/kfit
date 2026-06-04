@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+import '../services/food_api_service.dart';
 
 /// Call this from any context (standalone or embedded) to open the Add Food sheet.
 void showAddFoodSheet(BuildContext context) {
@@ -239,6 +240,12 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   final _calCtrl = TextEditingController();
   final _protCtrl = TextEditingController();
 
+  // Online search state
+  List<FoodApiResult> _onlineResults  = [];
+  bool                _searchingOnline = false;
+  String?             _onlineError;
+  String              _lastOnlineQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -284,6 +291,197 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     }
     return kFoodDatabase.where((f) => f.category == _selectedCategory).toList();
   }
+
+  // ── Online search ────────────────────────────────────────────────────────────
+
+  Future<void> _searchOnline(BuildContext ctx) async {
+    if (_searchingOnline) return;
+    final query = _search.trim();
+    if (query.length < 2) return;
+
+    setState(() {
+      _searchingOnline = true;
+      _onlineError     = null;
+      _onlineResults   = [];
+      _lastOnlineQuery = query;
+    });
+
+    try {
+      final results = await FoodApiService.search(query);
+      if (!mounted) return;
+      setState(() {
+        _searchingOnline = false;
+        _onlineResults   = results;
+        if (results.isEmpty) {
+          _onlineError = 'No online results for "$query".\nTry a different name or add a custom entry.';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _searchingOnline = false;
+        _onlineError     = 'No internet connection. Try again later.';
+      });
+    }
+  }
+
+  // ── Gram picker (for API results — per-100g basis) ───────────────────────────
+
+  void _showGramPicker(BuildContext ctx, FoodApiResult item) {
+    final gCtrl = TextEditingController(text: '100');
+
+    showDialog(
+      context: ctx,
+      barrierColor: Colors.black87,
+      builder: (dCtx) => StatefulBuilder(
+        builder: (dCtx, setD) {
+          final raw    = double.tryParse(gCtrl.text) ?? 100.0;
+          final grams  = raw.clamp(1.0, 5000.0);
+          final cal    = item.caloriesForGrams(grams).round();
+          final prot   = item.proteinForGrams(grams);
+          final carbs  = item.carbsForGrams(grams);
+          final fat    = item.fatForGrams(grams);
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1C1C1E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(item.name,
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Row(children: [
+                  const Text('🌐', style: TextStyle(fontSize: 11)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${item.source} · per 100g: ${item.calories100g.round()} kcal, '
+                    '${item.protein100g.toStringAsFixed(1)}g protein',
+                    style: TextStyle(color: Colors.white.withOpacity(0.38), fontSize: 10),
+                  ),
+                ]),
+              ],
+            ),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              const SizedBox(height: 4),
+              // Quick gram presets
+              Row(children: [50, 100, 150, 200].map((g) {
+                final sel = grams.round() == g;
+                return Expanded(child: Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: GestureDetector(
+                    onTap: () { gCtrl.text = '$g'; setD(() {}); },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? const Color(0xFF40C8E0).withValues(alpha: 0.18)
+                            : Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: sel
+                              ? const Color(0xFF40C8E0).withValues(alpha: 0.5)
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Text('${g}g',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: sel
+                                ? const Color(0xFF40C8E0)
+                                : Colors.white.withOpacity(0.5),
+                            fontSize: 12,
+                            fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                          )),
+                    ),
+                  ),
+                ));
+              }).toList()),
+              const SizedBox(height: 12),
+              // Custom gram field
+              TextField(
+                controller: gCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  suffix: Text('g', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 16)),
+                  hintText: '100',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                ),
+                onChanged: (_) => setD(() {}),
+              ),
+              const SizedBox(height: 12),
+              // Live macro preview
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                  _NutCol(label: 'Calories', value: '$cal kcal', color: const Color(0xFF30D158)),
+                  _NutCol(label: 'Protein',  value: '${prot.toStringAsFixed(1)}g', color: const Color(0xFF40C8E0)),
+                  _NutCol(label: 'Carbs',    value: '${carbs.toStringAsFixed(1)}g', color: const Color(0xFFFF9F0A)),
+                  _NutCol(label: 'Fat',      value: '${fat.toStringAsFixed(1)}g',   color: const Color(0xFF8E8E93)),
+                ]),
+              ),
+              const SizedBox(height: 4),
+            ]),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dCtx),
+                child: Text('Cancel', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              ),
+              ElevatedButton(
+                onPressed: raw < 1 ? null : () {
+                  Navigator.pop(dCtx);
+                  _addApiItem(ctx, item, grams);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF30D158),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _addApiItem(BuildContext ctx, FoodApiResult item, double grams) {
+    HapticFeedback.lightImpact();
+    final provider = ctx.read<FitnessProvider>();
+    final gStr = grams == grams.roundToDouble()
+        ? '${grams.toInt()}g'
+        : '${grams.toStringAsFixed(1)}g';
+    provider.addFoodEntry(FoodEntry(
+      id:          provider.newId(),
+      name:        item.name,
+      calories:    item.caloriesForGrams(grams),
+      protein:     item.proteinForGrams(grams),
+      mealType:    _selectedMeal,
+      timestamp:   DateTime.now(),
+      servingNote: '$gStr · 🌐 ${item.source}',
+    ));
+    final messenger = ScaffoldMessenger.of(ctx);
+    Navigator.pop(ctx);
+    messenger.showSnackBar(SnackBar(
+      content: Text('${item.name} added ✓'),
+      backgroundColor: const Color(0xFF30D158),
+      duration: const Duration(seconds: 1),
+    ));
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
 
   void _showQuantityPicker(BuildContext ctx, FoodItem item) {
     double servings = 1.0;
@@ -481,7 +679,15 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               child: TextField(
                 controller: _searchCtrl,
                 style: const TextStyle(color: Colors.white),
-                onChanged: (v) => setState(() => _search = v),
+                onChanged: (v) => setState(() {
+                  _search = v;
+                  // Reset online results when query changes
+                  if (v != _lastOnlineQuery) {
+                    _onlineResults  = [];
+                    _onlineError    = null;
+                    _searchingOnline = false;
+                  }
+                }),
                 decoration: InputDecoration(
                   hintText: 'Search 200+ Indian foods...',
                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
@@ -564,31 +770,154 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 ]),
               ),
 
-            // Food list
+            // Food list (local DB + online results)
             Expanded(
-              child: _filtered.isEmpty
-                  ? Center(child: Text('No results for "$_search"',
-                      style: TextStyle(color: Colors.white.withOpacity(0.4))))
-                  : ListView.builder(
-                      controller: scrollCtrl,
-                      padding: const EdgeInsets.only(bottom: 20),
-                      itemCount: _filtered.length,
-                      itemBuilder: (listCtx, i) {
-                        final item = _filtered[i];
-                        return ListTile(
-                          leading: Text(item.emoji, style: const TextStyle(fontSize: 22)),
-                          title: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                          subtitle: Text(
-                            '${item.calories.toInt()} kcal · ${item.protein.toStringAsFixed(1)}g protein  ·  ${item.serving}',
-                            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.only(bottom: 20),
+                children: [
+                  // ── Local results ───────────────────────────────────────
+                  if (_filtered.isNotEmpty)
+                    ..._filtered.map((item) => ListTile(
+                      leading: Text(item.emoji, style: const TextStyle(fontSize: 22)),
+                      title: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      subtitle: Text(
+                        '${item.calories.toInt()} kcal · ${item.protein.toStringAsFixed(1)}g protein · ${item.serving}',
+                        style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.add_circle, color: Color(0xFF30D158)),
+                        onPressed: () => _showQuantityPicker(context, item),
+                      ),
+                    )),
+
+                  // ── Online search section ────────────────────────────────
+                  if (_search.length > 2 && _filtered.isEmpty) ...[
+                    // Divider
+                    if (_onlineResults.isNotEmpty || _searchingOnline || _onlineError != null)
+                      const Divider(color: Color(0xFF2C2C2E), height: 1),
+
+                    // "Search online" button (idle state)
+                    if (!_searchingOnline && _onlineResults.isEmpty && _onlineError == null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Column(children: [
+                          Text(
+                            'No local results for "$_search"',
+                            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.add_circle, color: Color(0xFF30D158)),
-                            onPressed: () => _showQuantityPicker(context, item),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _searchOnline(context),
+                              icon: const Text('🌐', style: TextStyle(fontSize: 14)),
+                              label: const Text('Search online food database'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF40C8E0),
+                                side: const BorderSide(color: Color(0xFF40C8E0), width: 1),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 11),
+                              ),
+                            ),
                           ),
-                        );
-                      },
+                        ]),
+                      ),
+
+                    // Loading
+                    if (_searchingOnline)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            CircularProgressIndicator(color: Color(0xFF40C8E0), strokeWidth: 2),
+                            SizedBox(height: 10),
+                            Text('Searching online…',
+                                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+                          ]),
+                        ),
+                      ),
+
+                    // Error state
+                    if (_onlineError != null && !_searchingOnline)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(children: [
+                          Text(_onlineError!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13)),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: () => _searchOnline(context),
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text('Try again'),
+                            style: TextButton.styleFrom(foregroundColor: const Color(0xFF40C8E0)),
+                          ),
+                        ]),
+                      ),
+
+                    // Online results
+                    if (_onlineResults.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                        child: Row(children: [
+                          const Text('🌐 ', style: TextStyle(fontSize: 11)),
+                          Text(
+                            'Online results  ·  values per 100 g',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.35),
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ]),
+                      ),
+                      ..._onlineResults.map((item) => ListTile(
+                        leading: Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF40C8E0).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Center(
+                            child: Text('🌐', style: TextStyle(fontSize: 16)),
+                          ),
+                        ),
+                        title: Text(
+                          item.name,
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${item.calories100g.round()} kcal · '
+                          '${item.protein100g.toStringAsFixed(1)}g prot · '
+                          '${item.carbs100g.toStringAsFixed(1)}g carbs per 100g',
+                          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.add_circle, color: Color(0xFF40C8E0)),
+                          onPressed: () => _showGramPicker(context, item),
+                        ),
+                      )),
+                    ],
+                  ],
+
+                  // ── Catch-all: empty local + not searching online ─────────
+                  if (_search.isNotEmpty && _filtered.isEmpty &&
+                      _onlineResults.isEmpty && !_searchingOnline &&
+                      _onlineError == null && _search.length <= 2)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Text(
+                          'Type more to search…',
+                          style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+                        ),
+                      ),
                     ),
+                ],
+              ),
             ),
           ]),
         );
