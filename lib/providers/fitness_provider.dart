@@ -1671,7 +1671,13 @@ class FitnessProvider extends ChangeNotifier {
         .replaceAll(':', '-').replaceAll('.', '-').substring(0, 19);
     final fileName = 'kfitness_backup_$timestamp.json';
     final file = File('${dir.path}/$fileName');
-    await file.writeAsString(jsonEncode(data));
+    try {
+      await file.writeAsString(jsonEncode(data));
+    } on FileSystemException catch (e) {
+      throw Exception('Export failed — check storage space. (${e.message})');
+    } catch (e) {
+      throw Exception('Export failed: $e');
+    }
     return file.path;
   }
 

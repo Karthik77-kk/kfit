@@ -884,9 +884,10 @@ class _GoalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p        = provider;
-    final current  = p.latestWeightKg!;
+    // Guard: parent checks non-null but provider can update mid-frame
+    final current  = p.latestWeightKg ?? 0.0;
     final goal     = p.goalWeightKg;
-    final kg       = p.kgToGoal!;
+    final kg       = p.kgToGoal ?? 0.0;
     final isLosing = kg > 0;
     final color    = isLosing ? _kOrange : _kGreen;
     final weeks    = p.weeksToGoal;

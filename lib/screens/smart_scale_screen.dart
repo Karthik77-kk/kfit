@@ -119,11 +119,13 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState == null || !_formKey.currentState!.validate()) return;
+    final weightVal = double.tryParse(_weight.text);
+    if (weightVal == null) return; // form validator should catch this, but guard anyway
     final entry = SmartScaleEntry(
       id: const Uuid().v4(),
       date: DateTime.now(),
-      weightKg: double.parse(_weight.text),
+      weightKg: weightVal,
       bodyFatPercent: double.tryParse(_bodyFatPct.text) ?? 0,
       bodyFatKg: double.tryParse(_bodyFatKg.text) ?? 0,
       muscleMassKg: double.tryParse(_muscleMassKg.text) ?? 0,

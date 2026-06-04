@@ -11,7 +11,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace "com.example.karthik_fitness"
+    namespace "com.example.karthik_fitness"  // namespace keeps R class compat
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -26,7 +26,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.karthik_fitness"
+        applicationId "com.karthik.fitness"
         minSdk 24  // flutter_gemma (MediaPipe LLM) requires API 24+
         targetSdk flutter.targetSdkVersion
         versionCode flutter.versionCode
@@ -47,8 +47,9 @@ android {
     buildTypes {
         release {
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
-            minifyEnabled false
-            shrinkResources false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

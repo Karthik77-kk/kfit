@@ -1,18 +1,11 @@
 // Build 67 — FoodApiService: offline fallback, per-100g model, edge cases
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:karthik_fitness/services/food_api_service.dart';
 
-// ─── Mock HTTP client helpers ─────────────────────────────────────────────────
-
-/// Builds a mock OpenFoodFacts JSON body.
-String _offBody(List<Map<String, dynamic>> products) =>
-    jsonEncode({'products': products, 'count': products.length});
+// ─── Mock HTTP helpers ────────────────────────────────────────────────────────
 
 Map<String, dynamic> _offProduct(String name,
     {double cal = 200, double prot = 10, double carb = 25, double fat = 5}) =>
