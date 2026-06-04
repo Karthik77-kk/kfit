@@ -1383,12 +1383,15 @@ class _MeasurementsSectionState extends State<_MeasurementsSection> {
 
   void _prefill() {
     final m = widget.provider.latestMeasurements;
-    if (m == null) return;
-    if (m.chestCm != null)   _chestCtrl.text  = m.chestCm!.toStringAsFixed(1);
-    if (m.waistCm != null)   _waistCtrl.text  = m.waistCm!.toStringAsFixed(1);
-    if (m.hipsCm != null)    _hipsCtrl.text   = m.hipsCm!.toStringAsFixed(1);
-    if (m.leftArmCm != null) _armCtrl.text    = m.leftArmCm!.toStringAsFixed(1);
-    if (m.leftThighCm != null) _thighCtrl.text = m.leftThighCm!.toStringAsFixed(1);
+    if (m == null) {
+      if (mounted) setState(() {}); // force label update
+      return;
+    }
+    if (_chestCtrl.text.isEmpty && m.chestCm != null)     _chestCtrl.text  = m.chestCm!.toStringAsFixed(1);
+    if (_waistCtrl.text.isEmpty && m.waistCm != null)     _waistCtrl.text  = m.waistCm!.toStringAsFixed(1);
+    if (_hipsCtrl.text.isEmpty && m.hipsCm != null)       _hipsCtrl.text   = m.hipsCm!.toStringAsFixed(1);
+    if (_armCtrl.text.isEmpty && m.leftArmCm != null)     _armCtrl.text    = m.leftArmCm!.toStringAsFixed(1);
+    if (_thighCtrl.text.isEmpty && m.leftThighCm != null) _thighCtrl.text  = m.leftThighCm!.toStringAsFixed(1);
     if (mounted) setState(() {});
   }
 
@@ -1433,8 +1436,17 @@ class _MeasurementsSectionState extends State<_MeasurementsSection> {
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
     final recent = p.getRecentMeasurements(days: 90);
+    final latest = widget.provider.latestMeasurements;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (latest != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Pre-filled from ${latest.date.day}/${latest.date.month}/${latest.date.year} — update changed values only',
+            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+          ),
+        ),
       _Card(child: Column(children: [
         _FieldRow(label: 'Chest',      icon: Icons.straighten_outlined,    iconColor: _kGreen,  unit: 'cm', ctrl: _chestCtrl),
         _HDivider(),

@@ -7,7 +7,6 @@ import '../services/on_device_ai_service.dart';
 const _kGreen  = Color(0xFF30D158);
 const _kCard   = Color(0xFF1C1C1E);
 const _kSecond = Color(0xFF8E8E93);
-const _kBlue   = Color(0xFF40C8E0);
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -38,7 +37,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Initialise model lazily on first open.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ai = context.read<OnDeviceAiService>();
-      if (ai.state == AiModelState.notInstalled) ai.init();
+      ai.init();
     });
   }
 
@@ -136,34 +135,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
 // ── Setup (not installed) ─────────────────────────────────────────────────────
 
-class _SetupView extends StatefulWidget {
+class _SetupView extends StatelessWidget {
   final OnDeviceAiService ai;
   const _SetupView({required this.ai});
-  @override
-  State<_SetupView> createState() => _SetupViewState();
-}
-
-class _SetupViewState extends State<_SetupView> {
-  final _ctrl = TextEditingController();
-  bool  _show = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl.text = widget.ai.hfToken;
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final ai        = widget.ai;
-    final hasToken  = _ctrl.text.trim().isNotEmpty;
-
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
       child: Column(children: [
@@ -181,58 +158,27 @@ class _SetupViewState extends State<_SetupView> {
         ),
         const SizedBox(height: 32),
 
-        // Step 1 — HuggingFace token
-        _StepCard(
-          step: '1',
-          title: 'Get a free HuggingFace token',
-          body: 'Visit huggingface.co → accept Gemma licence on the '
-                'litert-community/Gemma3-1B-IT page → Settings → '
-                'Tokens → New token (read access is enough).',
-        ),
-        const SizedBox(height: 12),
-
-        // Step 2 — paste token
-        _StepCard(
-          step: '2',
-          title: 'Paste your token below',
-          body: null,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: TextField(
-              controller: _ctrl,
-              obscureText: !_show,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'hf_xxxxxxxxxxxxxxxxxxxx',
-                hintStyle: const TextStyle(color: _kSecond),
-                filled: true,
-                fillColor: Colors.black,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _kSecond),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: _kSecond.withValues(alpha: 0.4)),
-                ),
-                suffixIcon: IconButton(
-                  icon: Icon(_show ? Icons.visibility_off : Icons.visibility,
-                      color: _kSecond, size: 18),
-                  onPressed: () => setState(() => _show = !_show),
+        // Info card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _kCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _kSecond.withValues(alpha: 0.18)),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('ℹ️', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Download once over WiFi (~600 MB). Chat works 100% offline after this.',
+                  style: TextStyle(color: _kSecond, fontSize: 13, height: 1.5),
                 ),
               ),
-              onChanged: (_) => setState(() {}),
-            ),
+            ],
           ),
-        ),
-        const SizedBox(height: 12),
-
-        // Step 3 — download
-        _StepCard(
-          step: '3',
-          title: 'Download the model once (~600 MB)',
-          body: 'WiFi recommended. The model stays on your phone — '
-                'chat works offline after this.',
         ),
         const SizedBox(height: 28),
 
@@ -240,12 +186,7 @@ class _SetupViewState extends State<_SetupView> {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: hasToken
-                ? () async {
-                    await ai.saveToken(_ctrl.text);
-                    await ai.downloadAndLoad();
-                  }
-                : null,
+            onPressed: ai.downloadAndLoad,
             icon: const Icon(Icons.download_rounded),
             label: const Text('Download & Enable AI Chat'),
             style: FilledButton.styleFrom(
@@ -693,57 +634,6 @@ class _ChatMessage {
   _ChatMessage({required this.text, required this.isUser});
 }
 
-class _StepCard extends StatelessWidget {
-  final String  step;
-  final String  title;
-  final String? body;
-  final Widget? child;
-  const _StepCard(
-      {required this.step, required this.title, this.body, this.child});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _kCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _kSecond.withValues(alpha: 0.18)),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 24, height: 24,
-            decoration: BoxDecoration(
-              color: _kBlue.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(step,
-                  style: const TextStyle(
-                      color: _kBlue, fontSize: 12,
-                      fontWeight: FontWeight.w700)),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-              Text(title,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 13,
-                      fontWeight: FontWeight.w600)),
-              if (body != null) ...[
-                const SizedBox(height: 4),
-                Text(body!,
-                    style: const TextStyle(
-                        color: _kSecond, fontSize: 12, height: 1.45)),
-              ],
-              if (child != null) child!,
-            ]),
-          ),
-        ]),
-      );
-}
 
 class _ModelChip extends StatelessWidget {
   final AiModelState state;

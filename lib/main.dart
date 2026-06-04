@@ -9,6 +9,7 @@ import 'screens/workout_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/smart_scale_screen.dart';
+import 'screens/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -106,7 +107,13 @@ class KarthikFitnessApp extends StatelessWidget {
           thickness: 0.5,
         ),
       ),
-      home: const MainNavigationScreen(),
+      home: Consumer<FitnessProvider>(
+        builder: (context, p, _) {
+          if (!p.isLoaded) return const _SplashScreen();
+          if (!p.onboardingDone) return const OnboardingScreen();
+          return const MainNavigationScreen();
+        },
+      ),
     );
   }
 }
@@ -116,6 +123,19 @@ class MainNavigationScreen extends StatefulWidget {
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Text('💪', style: TextStyle(fontSize: 72)),
+      ),
+    );
+  }
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen>
