@@ -78,6 +78,16 @@ class FitnessProvider extends ChangeNotifier {
   String _userName = 'Karthik';
   String get userName => _userName;
 
+  bool _onboardingDone = false;
+  bool get onboardingDone => _onboardingDone;
+
+  Future<void> markOnboardingDone() async {
+    _onboardingDone = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_done', true);
+    notifyListeners();
+  }
+
   Future<void> saveUserName(String name) async {
     _userName = name.trim().isEmpty ? 'Karthik' : name.trim();
     final prefs = await SharedPreferences.getInstance();
@@ -1180,6 +1190,7 @@ class FitnessProvider extends ChangeNotifier {
     _age = prefs.getInt('age') ?? 24;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
     _userName = prefs.getString('user_name') ?? 'Karthik';
+    _onboardingDone = prefs.getBool('onboarding_done') ?? false;
 
     // User-defined goals
     _calorieGoal = prefs.getInt('calorie_goal') ?? kDefaultCalorieGoal;

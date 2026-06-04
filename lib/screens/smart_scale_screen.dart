@@ -60,7 +60,9 @@ class _LogTab extends StatefulWidget {
   State<_LogTab> createState() => _LogTabState();
 }
 
-class _LogTabState extends State<_LogTab> {
+class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _formKey = GlobalKey<FormState>();
 
   final _weight = TextEditingController();
@@ -80,24 +82,29 @@ class _LogTabState extends State<_LogTab> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final latest = context.read<FitnessProvider>().latestScaleEntry;
-      if (latest != null) {
-        _weight.text = latest.weightKg.toStringAsFixed(1);
-        _bodyFatPct.text = latest.bodyFatPercent.toStringAsFixed(1);
-        _bodyFatKg.text = latest.bodyFatKg.toStringAsFixed(1);
-        _muscleMassKg.text = latest.muscleMassKg.toStringAsFixed(1);
-        _muscleMassPct.text = latest.muscleMassPercent.toStringAsFixed(1);
-        _leanBodyMass.text = latest.leanBodyMassKg.toStringAsFixed(1);
-        _bioAge.text = latest.biologicalAge.toString();
-        _visceralFat.text = latest.visceralFatIndex.toString();
-        _bmr.text = latest.bmr.toStringAsFixed(0);
-        _bodyWater.text = latest.bodyWaterPercent.toStringAsFixed(1);
-        _boneMass.text = latest.boneMassKg.toStringAsFixed(2);
-        _proteinPct.text = latest.proteinPercent.toStringAsFixed(1);
-        _skeletalMuscle.text = latest.skeletalMuscleMassKg.toStringAsFixed(1);
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prefill());
+  }
+
+  void _prefill() {
+    if (!mounted) return;
+    // Only prefill if ALL fields are empty (don't overwrite user edits)
+    if (_weight.text.isNotEmpty) return;
+    final latest = context.read<FitnessProvider>().latestScaleEntry;
+    if (latest == null) return;
+    setState(() {
+      _weight.text = latest.weightKg.toStringAsFixed(1);
+      _bodyFatPct.text = latest.bodyFatPercent.toStringAsFixed(1);
+      _bodyFatKg.text = latest.bodyFatKg.toStringAsFixed(1);
+      _muscleMassKg.text = latest.muscleMassKg.toStringAsFixed(1);
+      _muscleMassPct.text = latest.muscleMassPercent.toStringAsFixed(1);
+      _leanBodyMass.text = latest.leanBodyMassKg.toStringAsFixed(1);
+      _bioAge.text = latest.biologicalAge.toString();
+      _visceralFat.text = latest.visceralFatIndex.toString();
+      _bmr.text = latest.bmr.toStringAsFixed(0);
+      _bodyWater.text = latest.bodyWaterPercent.toStringAsFixed(1);
+      _boneMass.text = latest.boneMassKg.toStringAsFixed(2);
+      _proteinPct.text = latest.proteinPercent.toStringAsFixed(1);
+      _skeletalMuscle.text = latest.skeletalMuscleMassKg.toStringAsFixed(1);
     });
   }
 
@@ -144,6 +151,11 @@ class _LogTabState extends State<_LogTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required for AutomaticKeepAliveClientMixin
+    final latest = context.watch<FitnessProvider>().latestScaleEntry;
+    final subtitle = latest != null
+        ? 'Pre-filled from ${latest.date.day}/${latest.date.month}/${latest.date.year} — update changed values'
+        : 'Enter today\'s scale readings';
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -151,8 +163,8 @@ class _LogTabState extends State<_LogTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Enter today\'s scale readings',
-              style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+            Text(subtitle,
+              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
             ),
             const SizedBox(height: 16),
             _Section('Essential', [
