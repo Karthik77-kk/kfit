@@ -53,9 +53,9 @@ Keep branches focused. If adding 3 features, use 3 branches.
 Every merge to `master` that ships a new APK must bump `pubspec.yaml` version:
 - `versionName` (e.g. `1.0.0`) — bump for significant releases
 - `versionCode` (`+N`) — bump on EVERY merge
-- **New features** → increment build integer: `45` → `46`
-- **Fixes/patches to an existing build** → add sub-version: `45` → `45.1`, `45.1` → `45.2`
-Current build: **45**. Next feature build: **46**. Next patch build: **45.1**.
+- **New features** → increment build integer: `68` → `69`
+- **Fixes/patches to an existing build** → add sub-version: `68` → `68.1`, `68.1` → `68.2`
+Current build: **68**. Next feature build: **69**. Next patch build: **68.1**.
 
 ### Rule 5 — Commit message format
 ```
