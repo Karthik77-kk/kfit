@@ -69,13 +69,23 @@
         </div>
 
         <div class="chat-messages" id="chatMessages">
-          <div class="msg msg-user">
+          <div class="msg msg-user" id="userMsg">
             <div class="msg-bubble">
               What should I eat for dinner? I have 380 kcal left.
             </div>
           </div>
 
-          <div class="msg msg-ai" id="aiReply">
+          <!-- Thinking indicator -->
+          <div class="msg msg-ai" id="thinkingMsg" style="display:none">
+            <div class="msg-avatar">🤖</div>
+            <div class="msg-bubble think-bubble">
+              <span class="think-dot"></span>
+              <span class="think-dot"></span>
+              <span class="think-dot"></span>
+            </div>
+          </div>
+
+          <div class="msg msg-ai" id="aiReply" style="display:none">
             <div class="msg-avatar">🤖</div>
             <div class="msg-bubble">
               <span id="aiTyping" class="typing-text"></span>
@@ -121,65 +131,74 @@
     },
     {
       user: "Am I losing fat or muscle?",
-      ai:   "Your weight dropped 1.2kg in 3 weeks, but your FFMI held steady at 22.1 — that's a great sign you're preserving muscle. The 453 kcal average deficit is spot-on for fat-only loss. Keep protein above 100g/day. 🎯",
+      ai:   "Your weight dropped 1.2kg in 3 weeks, but your FFMI held steady at 22.1 — that's a great sign you're preserving muscle. The 453 kcal average deficit is spot-on. Keep protein above 100g/day. 🎯",
     },
     {
       user: "Should I train today or rest?",
       ai:   "You've trained 4 days in a row and your deficit has been 600+ kcal the last 2 days. A rest day today would help recovery without breaking your 12-day streak. Light walking counts! 🚶",
     },
+    {
+      user: "Why is my weight not dropping this week?",
+      ai:   "Water retention is masking fat loss — you hit sodium-heavy foods 3 days this week. Your 7-day moving average is still down 0.2kg. Stay consistent, the scale will catch up! 📉",
+    },
   ];
 
   let convIdx = 0;
-  const typingEl  = document.getElementById('aiTyping');
-  const cursorEl  = document.getElementById('cursor');
-  const userBubble = document.querySelector('.msg-user .msg-bubble');
+  const typingEl    = document.getElementById('aiTyping');
+  const cursorEl    = document.getElementById('cursor');
+  const userMsgEl   = document.getElementById('userMsg');
+  const thinkingEl  = document.getElementById('thinkingMsg');
+  const aiReplyEl   = document.getElementById('aiReply');
 
   function runConversation() {
     const conv = conversations[convIdx % conversations.length];
     convIdx++;
 
-    // Reset
-    if (typingEl)   typingEl.textContent = '';
+    // Update user message, hide AI reply
+    const userBubble = userMsgEl?.querySelector('.msg-bubble');
     if (userBubble) userBubble.textContent = conv.user;
+    if (aiReplyEl)  aiReplyEl.style.display  = 'none';
+    if (typingEl)   typingEl.textContent      = '';
 
-    // Cursor blink on
-    if (cursorEl) cursorEl.style.display = 'inline';
+    // Show thinking dots after short delay
+    setTimeout(() => {
+      if (thinkingEl) thinkingEl.style.display = 'flex';
 
-    // Type the AI reply
-    let charIdx = 0;
-    const interval = setInterval(() => {
-      if (!typingEl) return;
-      typingEl.textContent += conv.ai[charIdx];
-      charIdx++;
-      if (charIdx >= conv.ai.length) {
-        clearInterval(interval);
-        if (cursorEl) {
-          gsap.to(cursorEl, { opacity: 0, duration: 0.5, delay: 1.5, onComplete: () => {
-            if (cursorEl) cursorEl.style.display = 'none';
-            setTimeout(runConversation, 2000);
-          }});
-        }
-      }
-    }, 22);
+      // After thinking, show AI reply
+      setTimeout(() => {
+        if (thinkingEl) thinkingEl.style.display = 'none';
+        if (aiReplyEl)  aiReplyEl.style.display  = 'flex';
+        if (cursorEl)   cursorEl.style.display   = 'inline';
+
+        let charIdx = 0;
+        const interval = setInterval(() => {
+          if (!typingEl) return;
+          typingEl.textContent += conv.ai[charIdx];
+          charIdx++;
+          if (charIdx >= conv.ai.length) {
+            clearInterval(interval);
+            gsap.to(cursorEl, {
+              opacity: 0, duration: 0.5, delay: 1.8,
+              onComplete() {
+                if (cursorEl) cursorEl.style.display = 'none';
+                setTimeout(runConversation, 2200);
+              },
+            });
+          }
+        }, 20);
+      }, 1100);
+    }, 400);
   }
 
-  // Start after section scrolls into view
   ScrollTrigger.create({
     trigger: '.ai-section',
     start: 'top 65%',
-    onEnter: () => setTimeout(runConversation, 600),
+    onEnter: () => setTimeout(runConversation, 500),
     once: true,
   });
 
-  // Cursor blink animation
   if (cursorEl) {
-    gsap.to(cursorEl, {
-      opacity: 0,
-      duration: 0.5,
-      repeat: -1,
-      yoyo: true,
-      ease: 'steps(1)',
-    });
+    gsap.to(cursorEl, { opacity: 0, duration: 0.5, repeat: -1, yoyo: true, ease: 'steps(1)' });
   }
 </script>
 
@@ -390,6 +409,30 @@
     color: var(--green);
     font-weight: 300;
     margin-left: 1px;
+  }
+
+  /* Thinking dots */
+  .think-bubble {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 14px 18px;
+    min-height: 44px;
+  }
+
+  .think-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: think-bounce 1.2s ease-in-out infinite;
+  }
+
+  .think-dot:nth-child(2) { animation-delay: 0.2s; }
+  .think-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes think-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30%            { transform: translateY(-6px); opacity: 1; }
   }
 
   /* Input bar */
