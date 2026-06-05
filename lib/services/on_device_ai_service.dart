@@ -119,6 +119,8 @@ class OnDeviceAiService extends ChangeNotifier {
   }
 
   // ── Chat ────────────────────────────────────────────────────────────────────
+  /// Sends [userMessage] to the model, prepending keyword-triggered context
+  /// (semi-RAG) so the AI always has the relevant data for the question.
   Stream<String> sendMessage(String userMessage, FitnessProvider provider) async* {
     if (_model == null) {
       yield 'Model not loaded. Close and reopen the chat to retry.';
@@ -132,7 +134,10 @@ class OnDeviceAiService extends ChangeNotifier {
         randomSeed:   42,
         tokenBuffer:  256,
       );
-      await _chat!.addQueryChunk(Message(text: userMessage, isUser: true));
+      // Prepend relevant historical context based on keywords in the message
+      final ctx   = _buildContextForQuery(userMessage, provider);
+      final msg   = ctx.isEmpty ? userMessage : '$ctx\n\nUser: $userMessage';
+      await _chat!.addQueryChunk(Message(text: msg, isUser: true));
       await for (final r in _chat!.generateChatResponseAsync()) {
         if (r is TextResponse) yield r.token;
       }
@@ -140,6 +145,123 @@ class OnDeviceAiService extends ChangeNotifier {
       yield '\n\n[Error: $e]';
     }
   }
+
+  /// Builds extra context for the query based on keyword detection.
+  /// Keeps the base system prompt compact while injecting deep history only
+  /// when the user is actually asking about that topic.
+  String _buildContextForQuery(String query, FitnessProvider p) {
+    final q   = query.toLowerCase();
+    final mo  = ['Jan','Feb','Mar','Apr','May','Jun',
+                 'Jul','Aug','Sep','Oct','Nov','Dec'];
+    String fd(DateTime dt) => '${dt.day} ${mo[dt.month - 1]}';
+
+    final parts = <String>[];
+
+    // ── Weight history (30 days) when user asks about weight/progress/trend ──
+    if (_has(q, ['weight', 'kg', 'progress', 'trend', 'losing', 'gaining', 'heavy'])) {
+      final entries = p.getRecentBodyEntries(days: 60);
+      final last30  = entries.length > 30 ? entries.sublist(entries.length - 30) : entries;
+      if (last30.isNotEmpty) {
+        final lines = last30.map((e) => '${fd(e.date)}: ${e.weightKg.toStringAsFixed(1)}kg').join(', ');
+        parts.add('[Weight log — last 30 entries: $lines]');
+      }
+    }
+
+    // ── Food history (14 days) when user asks about food/diet/calories/macros ─
+    if (_has(q, ['food', 'eat', 'diet', 'calorie', 'calori', 'protein', 'carb', 'fat', 'meal', 'breakfast', 'lunch', 'dinner', 'snack', 'what did i'])) {
+      final foodHist  = p.foodHistory;
+      final foodLines = <String>[];
+      for (int i = 0; i < 14; i++) {
+        final day = DateTime.now().subtract(Duration(days: i));
+        final key = '${day.year}-${day.month.toString().padLeft(2,'0')}-${day.day.toString().padLeft(2,'0')}';
+        final entries = foodHist[key];
+        if (entries == null || entries.isEmpty) continue;
+        final cal  = entries.fold(0.0, (s, e) => s + e.calories).round();
+        final prot = entries.fold(0.0, (s, e) => s + e.protein).round();
+        final items = entries.take(6).map((e) {
+          final ml = e.mealType.toString().split('.').last[0].toUpperCase();
+          return '[$ml:${e.name} ${e.calories.round()}kcal]';
+        }).join(' ');
+        foodLines.add('${fd(day)}: ${cal}kcal ${prot}g $items');
+      }
+      if (foodLines.isNotEmpty) {
+        parts.add('[Food log — last 14 days:\n${foodLines.join('\n')}]');
+      }
+    }
+
+    // ── Workout history (15 sessions) when user asks about workouts/exercises ─
+    if (_has(q, ['workout', 'exercise', 'lift', 'bench', 'deadlift', 'squat', 'pull', 'push', 'gym', 'train', 'reps', 'sets', 'strength', 'muscle', 'pr', 'personal'])) {
+      final allW = [...p.workoutHistory]..sort((a, b) => b.date.compareTo(a.date));
+      final last15 = allW.take(15).toList();
+      if (last15.isNotEmpty) {
+        final lines = last15.map((w) {
+          final exStr = w.exercises.map((ex) {
+            if (ex.sets.isEmpty) return ex.name;
+            final best = ex.sets.reduce((a, b) => a.weight >= b.weight ? a : b);
+            return '${ex.name} ${best.weight.toStringAsFixed(0)}×${best.reps}';
+          }).join(', ');
+          return '${fd(w.date)}: ${w.name} — $exStr';
+        }).join('\n');
+        parts.add('[Workout history — last 15:\n$lines]');
+      }
+    }
+
+    // ── Body measurements when user asks about measurements/waist/chest/arms ──
+    if (_has(q, ['measurement', 'waist', 'chest', 'arm', 'thigh', 'hip', 'circumference', 'size', 'inches', 'cm'])) {
+      final meas = p.measurementHistory;
+      if (meas.isNotEmpty) {
+        final last5 = meas.length > 5 ? meas.sublist(meas.length - 5) : meas;
+        final lines = last5.reversed.map((e) {
+          final ps = <String>[];
+          if (e.chestCm     != null) ps.add('chest ${e.chestCm!.toStringAsFixed(1)}cm');
+          if (e.waistCm     != null) ps.add('waist ${e.waistCm!.toStringAsFixed(1)}cm');
+          if (e.hipsCm      != null) ps.add('hips ${e.hipsCm!.toStringAsFixed(1)}cm');
+          if (e.leftArmCm   != null) ps.add('arm ${e.leftArmCm!.toStringAsFixed(1)}cm');
+          if (e.leftThighCm != null) ps.add('thigh ${e.leftThighCm!.toStringAsFixed(1)}cm');
+          return '${fd(e.date)}: ${ps.join(', ')}';
+        }).join('\n');
+        parts.add('[Body measurements — last 5:\n$lines]');
+      }
+    }
+
+    // ── Scale / body composition when user asks about body fat / composition ──
+    if (_has(q, ['body fat', 'fat%', 'lean', 'muscle mass', 'body comp', 'scale', 'visceral', 'bmr', 'metabolism', 'composition'])) {
+      final scales = p.scaleHistory;
+      final last5  = scales.length > 5 ? scales.sublist(scales.length - 5) : scales;
+      if (last5.isNotEmpty) {
+        final lines = last5.reversed.map((e) =>
+          '${fd(e.date)}: ${e.weightKg.toStringAsFixed(1)}kg fat ${e.bodyFatPercent.toStringAsFixed(1)}% muscle ${e.muscleMassKg.toStringAsFixed(1)}kg lean ${e.leanBodyMassKg.toStringAsFixed(1)}kg BMR ${e.bmr.round()}'
+        ).join('\n');
+        parts.add('[Scale history — last 5:\n$lines]');
+      }
+    }
+
+    // ── Water / supplement history ────────────────────────────────────────────
+    if (_has(q, ['water', 'hydrat', 'supplement', 'whey', 'creatine', 'protein powder', 'multi'])) {
+      final waterH = p.waterHistory;
+      final suppH  = p.supplementHistory;
+      final wlines = <String>[];
+      for (int i = 0; i < 14; i++) {
+        final day = DateTime.now().subtract(Duration(days: i));
+        final key = '${day.year}-${day.month.toString().padLeft(2,'0')}-${day.day.toString().padLeft(2,'0')}';
+        final ml   = waterH[key] ?? 0;
+        final supp = suppH[key];
+        if (ml == 0 && supp == null) continue;
+        final w  = supp?.whey         == true ? 'Whey✓' : 'Whey✗';
+        final cr = supp?.creatine     == true ? 'Cr✓'   : 'Cr✗';
+        final mv = supp?.multivitamin == true ? 'Mv✓'   : 'Mv✗';
+        wlines.add('${fd(day)}: ${ml}ml $w$cr$mv');
+      }
+      if (wlines.isNotEmpty) {
+        parts.add('[Water & supplements — 14d:\n${wlines.join('\n')}]');
+      }
+    }
+
+    return parts.join('\n');
+  }
+
+  static bool _has(String query, List<String> keywords) =>
+      keywords.any((k) => query.contains(k));
 
   // ── Compact system prompt — targets ~700 tokens for Gemma 3 1B (2048 limit) ─
   // Leaves ~1300 tokens for multi-turn conversation.
@@ -282,12 +404,16 @@ METABOLISM: TDEE $tdee(*=calibrated) | Cut target ${cut}kcal/day | Trend $trend 
 PROGRESS: ${wt}kg→${p.goalWeightKg.toStringAsFixed(1)}kg ($pct% done, ${kgLeft}kg left) | Wks to goal: ${p.weeksToGoal?.toStringAsFixed(0) ?? 'N/A'}
 GOALS: Cal ${p.calorieGoal}kcal Prot ${p.proteinGoal}g Water ${p.waterGoalMl}ml Steps ${p.stepGoal}
 HABITS: Score ${p.habitScore}/100 | DefStreak ${p.deficitStreak}d | CalAdhere ${(p.calorieAdherenceRate*100).round()}% | ProtAdhere ${(p.proteinAdherenceRate*100).round()}% | WorkStreak ${p.workoutStreak}d | DietStreak ${p.calorieStreak}d | LateNight:${p.hasLateNightEatingPattern ? 'yes' : 'no'}
-${buf}RULES: 2-4 sentences. Reference actual numbers. Indian foods: roti/dal/paneer/eggs/curd/chicken/whey. Be specific & actionable.''';
+${buf}RULES: Think step by step, then give a concise answer (2-5 sentences). Always cite the user's ACTUAL numbers. For food suggestions use Indian foods: roti/dal/paneer/eggs/curd/chicken/fish/whey. Be direct and specific — no generic advice.''';
   }
 
   /// Exposed for unit tests only.
   @visibleForTesting
   String buildSystemPromptForTest(FitnessProvider p) => _systemPrompt(p);
+
+  @visibleForTesting
+  String buildContextForQueryTest(String query, FitnessProvider p) =>
+      _buildContextForQuery(query, p);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   void _setState(AiModelState s, {String error = ''}) {

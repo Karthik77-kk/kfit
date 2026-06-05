@@ -38,7 +38,13 @@ void main() async {
         MultiProvider(
           providers: [
             ChangeNotifierProvider(create: (_) => FitnessProvider()..loadData()),
-            ChangeNotifierProvider(create: (_) => OnDeviceAiService()..init()),
+            // lazy:false → service created at app start, not at first chat open.
+            // Model loading begins immediately in background so it's ready
+            // (or nearly ready) by the time the user taps Ask AI.
+            ChangeNotifierProvider(
+              lazy: false,
+              create: (_) => OnDeviceAiService()..init(),
+            ),
           ],
           child: const KarthikFitnessApp(),
         ),

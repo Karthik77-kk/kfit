@@ -15,7 +15,7 @@ class SupplementsScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
           // ── Progress summary ──────────────────────────────────────────────
-          _ProgressHeader(taken: p.supplements.takenCount),
+          _ProgressHeader(taken: p.supplements.takenCount, streak: p.supplementStreak),
           const SizedBox(height: 20),
 
           // ── Supplement cards ──────────────────────────────────────────────
@@ -101,7 +101,8 @@ class SupplementsScreen extends StatelessWidget {
 
 class _ProgressHeader extends StatelessWidget {
   final int taken;
-  const _ProgressHeader({required this.taken});
+  final int streak; // consecutive days all 3 taken
+  const _ProgressHeader({required this.taken, this.streak = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -162,8 +163,12 @@ class _ProgressHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Consistency is key — take these daily for best results.',
-                  style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11),
+                  streak >= 7
+                      ? '🔥 $streak-day supplement streak! Keep it going.'
+                      : streak >= 2
+                          ? 'On a $streak-day streak — consistency builds results!'
+                          : 'Consistency is key — take these daily for best results.',
+                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11),
                 ),
               ],
             ),

@@ -45,6 +45,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
         dialogTitle: 'Select K Fitness backup',
       );
       if (result != null && result.files.single.path != null) {
+        // Confirm before overwriting all current data
+        if (!mounted) return;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: const Color(0xFF1C1C1E),
+            title: const Text('Replace all data?'),
+            content: const Text(
+              'This will overwrite ALL your current data with the backup. This cannot be undone.',
+              style: TextStyle(color: Color(0xFF8E8E93)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Restore', style: TextStyle(color: Color(0xFFFF453A))),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
         final ok = await context.read<FitnessProvider>()
             .importAllData(result.files.single.path!);
         if (mounted) {
@@ -285,7 +309,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'v2.3.0 · Build 69 — Personal fitness tracker',
+            subtitle: 'v2.3.0 · Build 70 — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),
