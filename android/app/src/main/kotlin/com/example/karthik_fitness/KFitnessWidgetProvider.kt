@@ -193,6 +193,20 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
                 Row(ORANGE, "STEPS",    fmtSteps(steps, stepGoal),  stepPct),
             )
             val rowH = ringSize / rows.size
+            // Draw section group labels: INTAKE (rows 0-1) / ACTIVITY (rows 2-3)
+            val groupLabelSz = (6f * dp).coerceIn(6f, 9f)
+            p.textSize = groupLabelSz
+            p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            p.color = 0x55FFFFFF.toInt()
+            // "INTAKE" sits just above row 0
+            cv.drawText("INTAKE", metL, contT - 3f * dp, p)
+            // "ACTIVITY" sits just above row 2
+            cv.drawText("ACTIVITY", metL, contT + rowH * 2f - 3f * dp, p)
+            // thin separator between intake and activity rows
+            p.color = 0x18FFFFFF.toInt(); p.style = Paint.Style.STROKE; p.strokeWidth = 0.5f * dp
+            val sepY = contT + rowH * 2f - groupLabelSz - 5f * dp
+            cv.drawLine(metL, sepY, W - pad, sepY, p)
+            p.style = Paint.Style.FILL
 
             for ((i, row) in rows.withIndex()) {
                 val rT   = contT + i * rowH

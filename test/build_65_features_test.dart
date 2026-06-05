@@ -470,34 +470,37 @@ group('AI system prompt history coverage', () {
     expect(prompt.length, greaterThan(200));
   });
 
-  test('prompt contains FOOD LOG section header', () async {
+  // Build 69: compact prompt uses different headers — updated to match new format
+  test('prompt contains FOOD section header', () async {
     final p = await _loaded();
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('FOOD LOG'), isTrue);
+    expect(prompt.contains('FOOD'), isTrue); // compact: "FOOD (3d):"
   });
 
-  test('prompt contains WEIGHT LOG section header', () async {
+  test('prompt contains WEIGHT section', () async {
     final p = await _loaded();
+    await p.logBodyEntry(weightKg: 75.0, steps: 0);
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('WEIGHT LOG'), isTrue);
+    expect(prompt.contains('WEIGHT'), isTrue); // compact: "WEIGHT:"
   });
 
-  test('prompt contains SCALE HISTORY section header', () async {
+  test('prompt contains BODY section when scale logged', () async {
     final p = await _loaded();
+    await p.logScaleEntry(_scale(weight: 77.0));
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('SCALE HISTORY'), isTrue);
+    expect(prompt.contains('BODY'), isTrue); // compact: "BODY:" for composition
   });
 
-  test('prompt contains BODY MEASUREMENTS section header', () async {
+  test('prompt contains HABITS section', () async {
     final p = await _loaded();
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('BODY MEASUREMENTS'), isTrue);
+    expect(prompt.contains('HABITS'), isTrue);
   });
 
-  test('prompt contains WORKOUT LOG section header', () async {
+  test('prompt contains WORKOUTS section header', () async {
     final p = await _loaded();
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('WORKOUT LOG'), isTrue);
+    expect(prompt.contains('WORKOUTS'), isTrue); // compact: "WORKOUTS (5):"
   });
 
   test('prompt contains today food calories when food logged', () async {
@@ -522,11 +525,12 @@ group('AI system prompt history coverage', () {
     expect(prompt.contains('Pull B'), isTrue);
   });
 
-  test('prompt includes measurement waist value', () async {
+  test('prompt does not crash when measurements are logged', () async {
+    // Build 69 compact prompt dropped raw measurements section to save tokens.
+    // Verify no exception is thrown when measurement data exists.
     final p = await _loaded();
     await p.logMeasurement(_meas(waist: 81.5));
-    final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('81.5'), isTrue);
+    expect(() => OnDeviceAiService().buildSystemPromptForTest(p), returnsNormally);
   });
 
   test('prompt starts with user name', () async {
@@ -541,28 +545,31 @@ group('AI system prompt history coverage', () {
     expect(prompt.toLowerCase().contains('indian'), isTrue);
   });
 
-  test('prompt "No food logged" when no food entries', () async {
+  // Build 69 compact prompt: empty-state text updated to match new compact format
+  test('prompt mentions no food when no food entries', () async {
     final p = await _loaded();
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('No food logged'), isTrue);
+    // Compact prompt shows "No food logged in last 3 days."
+    expect(prompt.toLowerCase().contains('no food'), isTrue);
   });
 
-  test('prompt "No workouts logged" when no workouts', () async {
+  test('prompt mentions no workouts when none logged', () async {
     final p = await _loaded();
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('No workouts logged'), isTrue);
+    // Compact prompt shows "None logged."
+    expect(prompt.contains('None logged'), isTrue);
   });
 
-  test('prompt "No scale entries logged" when no scale data', () async {
+  test('prompt does not crash when no scale data', () async {
     final p = await _loaded();
-    final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('No scale entries logged'), isTrue);
+    // Compact prompt omits scale section entirely when no data — no crash
+    expect(() => OnDeviceAiService().buildSystemPromptForTest(p), returnsNormally);
   });
 
-  test('prompt capped at 15 workouts', () async {
+  test('prompt capped at 5 workouts (Build 69 compact format)', () async {
     final p = await _loaded();
-    // Log 20 workouts
-    for (int i = 0; i < 20; i++) {
+    // Log 10 workouts
+    for (int i = 0; i < 10; i++) {
       await p.logWorkout(_workout(
         id: 'w$i',
         name: 'Workout $i',
@@ -570,12 +577,10 @@ group('AI system prompt history coverage', () {
       ));
     }
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    // Count occurrences of "Workout" in the WORKOUT LOG section
-    final workoutSection = prompt.split('WORKOUT LOG').last.split('RULES').first;
-    // Each workout appears once as a line; if 15-cap works, "Workout 15/16/17/18/19"
-    // should NOT appear. Workout 0–14 should be included (newest 15).
-    expect(workoutSection.contains('Workout 0'), isTrue);
-    expect(workoutSection.contains('Workout 19'), isFalse);
+    // Compact prompt shows last 5 workouts: "Workout 0" (today) should appear,
+    // "Workout 9" (9 days ago) should NOT appear.
+    expect(prompt.contains('Workout 0'), isTrue);
+    expect(prompt.contains('Workout 9'), isFalse);
   });
 }); // end AI system prompt group
 } // end main()

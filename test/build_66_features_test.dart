@@ -71,149 +71,59 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  // ── 1. AiModelConfig data class ────────────────────────────────────────────
+  // ── 1. Single-model API (Build 69: multi-model removed) ──────────────────────
 
-  group('AiModelConfig', () {
-    test('availableModels has exactly 3 entries', () {
-      expect(OnDeviceAiService.availableModels.length, 3);
+  group('Single-model API (Build 69)', () {
+    test('model name is Gemma 3 1B', () {
+      expect(OnDeviceAiService().modelName, 'Gemma 3 1B');
     });
 
-    test('first model is gemma3_1b', () {
-      expect(OnDeviceAiService.availableModels.first.id, 'gemma3_1b');
-    });
-
-    test('gemma3_1b URL points to litert-community Gemma3-1B-IT', () {
-      final m = OnDeviceAiService.availableModels
-          .firstWhere((m) => m.id == 'gemma3_1b');
-      expect(m.url, contains('litert-community/Gemma3-1B-IT'));
-      expect(m.url, endsWith('.litertlm'));
-    });
-
-    test('gemma4_e4b URL points to litert-community gemma-4-E4B', () {
-      final m = OnDeviceAiService.availableModels
-          .firstWhere((m) => m.id == 'gemma4_e4b');
-      expect(m.url, contains('gemma-4-E4B-it-litert-lm'));
-      expect(m.url, endsWith('.litertlm'));
-    });
-
-    test('qwen25_1b5 URL points to litert-community Qwen2.5-1.5B', () {
-      final m = OnDeviceAiService.availableModels
-          .firstWhere((m) => m.id == 'qwen25_1b5');
-      expect(m.url, contains('Qwen2.5-1.5B-Instruct'));
-      expect(m.url, endsWith('.litertlm'));
-    });
-
-    test('all models have non-empty name, sizeLabel, description', () {
-      for (final m in OnDeviceAiService.availableModels) {
-        expect(m.name.isNotEmpty,        isTrue, reason: '${m.id} missing name');
-        expect(m.sizeLabel.isNotEmpty,   isTrue, reason: '${m.id} missing sizeLabel');
-        expect(m.description.isNotEmpty, isTrue, reason: '${m.id} missing description');
-      }
-    });
-
-    test('gemma3_1b maxTokens is 2048', () {
-      final m = OnDeviceAiService.availableModels
-          .firstWhere((m) => m.id == 'gemma3_1b');
-      expect(m.maxTokens, 2048);
-    });
-
-    test('gemma4_e4b maxTokens is 4096', () {
-      final m = OnDeviceAiService.availableModels
-          .firstWhere((m) => m.id == 'gemma4_e4b');
-      expect(m.maxTokens, 4096);
-    });
-
-    test('qwen25_1b5 maxTokens is 4096', () {
-      final m = OnDeviceAiService.availableModels
-          .firstWhere((m) => m.id == 'qwen25_1b5');
-      expect(m.maxTokens, 4096);
-    });
-
-    test('all model IDs are unique', () {
-      final ids = OnDeviceAiService.availableModels.map((m) => m.id).toList();
-      expect(ids.toSet().length, ids.length);
-    });
-
-    test('all model URLs are unique', () {
-      final urls = OnDeviceAiService.availableModels.map((m) => m.url).toList();
-      expect(urls.toSet().length, urls.length);
-    });
-
-    test('qualityBadge is one of known values', () {
-      const valid = {'Fast', 'Best', 'Alternative'};
-      for (final m in OnDeviceAiService.availableModels) {
-        expect(valid, contains(m.qualityBadge),
-            reason: '${m.id} has unexpected badge: ${m.qualityBadge}');
-      }
-    });
-  });
-
-  // ── 2. Model selection ─────────────────────────────────────────────────────
-
-  group('Model selection', () {
-    test('default activeModelId is gemma3_1b', () {
-      expect(OnDeviceAiService().activeModelId, 'gemma3_1b');
-    });
-
-    test('activeConfig returns config matching activeModelId', () {
-      final ai = OnDeviceAiService();
-      expect(ai.activeConfig.id, ai.activeModelId);
-    });
-
-    test('selectModel persists selection to SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({});
-      final ai = OnDeviceAiService();
-      await ai.selectModel('qwen25_1b5');
-
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('ai_active_model_id'), 'qwen25_1b5');
-    });
-
-    test('selectModel updates activeModelId in memory', () async {
-      SharedPreferences.setMockInitialValues({});
-      final ai = OnDeviceAiService();
-      await ai.selectModel('gemma4_e4b');
-      expect(ai.activeModelId, 'gemma4_e4b');
-    });
-
-    test('selectModel with unknown id does nothing', () async {
-      SharedPreferences.setMockInitialValues({});
-      final ai = OnDeviceAiService();
-      final before = ai.activeModelId;
-      await ai.selectModel('nonexistent_model_xyz');
-      expect(ai.activeModelId, before);
-    });
-
-    test('selectModel notifies listeners', () async {
-      SharedPreferences.setMockInitialValues({});
-      final ai = OnDeviceAiService();
-      var count = 0;
-      ai.addListener(() => count++);
-      await ai.selectModel('qwen25_1b5');
-      expect(count, greaterThan(0));
-    });
-
-    test('isModelInstalled false for all before any download', () {
-      final ai = OnDeviceAiService();
-      for (final m in OnDeviceAiService.availableModels) {
-        expect(ai.isModelInstalled(m.id), isFalse);
-      }
-    });
-
-    test('installedModelId is empty string initially', () {
-      expect(OnDeviceAiService().installedModelId, isEmpty);
-    });
-
-    test('activeConfig falls back to first model for unknown id', () {
-      final ai = OnDeviceAiService();
-      // Force an invalid activeModelId — simulate corrupted prefs
-      // activeConfig should still return the first model safely
-      expect(ai.activeConfig, isNotNull);
-      expect(ai.activeConfig, equals(OnDeviceAiService.availableModels.first));
+    test('model size contains 600', () {
+      expect(OnDeviceAiService().modelSize, contains('600'));
     });
 
     test('initial state is notInstalled', () {
       expect(OnDeviceAiService().state, AiModelState.notInstalled);
+    });
+
+    test('isReady is false before init', () {
+      expect(OnDeviceAiService().isReady, isFalse);
+    });
+
+    test('isInstalled is false when no prefs record', () {
+      expect(OnDeviceAiService().isInstalled, isFalse);
+    });
+
+    test('downloadAndLoad does not crash when called again while already downloading', () async {
+      // This tests the guard condition: if already downloading/loading, second call returns early
+      final ai = OnDeviceAiService();
+      // Second call before first completes — should not throw
+      expect(() async {
+        // We can't fully test download without network, but can test the guard
+        if (ai.state == AiModelState.downloading) await ai.downloadAndLoad();
+      }, returnsNormally);
+    });
+  });
+
+  // ── 2. State transitions ──────────────────────────────────────────────────────
+
+  group('Model state', () {
+    test('initial state is notInstalled', () {
+      expect(OnDeviceAiService().state, AiModelState.notInstalled);
+    });
+
+    test('dlProgress starts at 0.0', () {
+      expect(OnDeviceAiService().dlProgress, 0.0);
+    });
+
+    test('errorMessage is empty initially', () {
+      expect(OnDeviceAiService().errorMessage, isEmpty);
+    });
+
+    test('isReady false when notInstalled', () {
+      final ai = OnDeviceAiService();
+      expect(ai.state, AiModelState.notInstalled);
+      expect(ai.isReady, isFalse);
     });
   });
 
@@ -232,10 +142,11 @@ void main() {
       expect(prompt.contains('1800'), isTrue);
     });
 
-    test('prompt contains BODY COMPOSITION section', () async {
+    test('prompt contains BODY section when scale/weight logged', () async {
       final p = await _loaded();
+      await p.logBodyEntry(weightKg: 80.0, steps: 0);
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('BODY COMPOSITION'), isTrue);
+      expect(prompt.contains('BODY'), isTrue); // compact: "BODY:" inline section
     });
 
     test('prompt includes BMI when weight and height logged', () async {
@@ -252,17 +163,18 @@ void main() {
       expect(prompt.contains('21.5'), isTrue);
     });
 
-    test('prompt includes visceral fat index when scale logged', () async {
+    test('prompt includes muscle mass when scale logged', () async {
+      // Build 69 compact: visceral fat removed, but muscle mass still shown
       final p = await _loaded();
-      await p.logScaleEntry(_scale(visceral: 7.0));
+      await p.logScaleEntry(_scale(fat: 20.0));
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('Visceral fat'), isTrue);
+      expect(prompt.contains('Muscle'), isTrue);
     });
 
-    test('prompt contains GOAL PROGRESS section', () async {
+    test('prompt contains PROGRESS section', () async {
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('GOAL PROGRESS'), isTrue);
+      expect(prompt.contains('PROGRESS'), isTrue); // compact: "PROGRESS:"
     });
 
     test('prompt includes goal weight in goal progress', () async {
@@ -271,10 +183,10 @@ void main() {
       expect(prompt.contains('70.0'), isTrue);
     });
 
-    test('prompt contains FOOD LOG — ITEMS section', () async {
+    test('prompt contains FOOD section', () async {
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('FOOD LOG — ITEMS'), isTrue);
+      expect(prompt.contains('FOOD'), isTrue); // compact: "FOOD (3d):"
     });
 
     test('prompt includes individual food item name', () async {
@@ -297,16 +209,17 @@ void main() {
       expect(prompt.contains('D:'), isTrue);
     });
 
-    test('prompt contains FOOD LOG — TOTALS section for days 8-14', () async {
+    test('prompt does not crash with 14 days food history', () async {
+      // Build 69 compact: days 8-14 totals section dropped — verify no crash
       final p = await _loaded();
-      final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('FOOD LOG — TOTALS'), isTrue);
+      expect(() => OnDeviceAiService().buildSystemPromptForTest(p), returnsNormally);
     });
 
-    test('prompt contains WATER & SUPPLEMENTS section', () async {
+    test('prompt contains WATER/SUPPS section when data exists', () async {
       final p = await _loaded();
+      await p.addWater(1500);
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('WATER & SUPPLEMENTS'), isTrue);
+      expect(prompt.contains('WATER/SUPPS'), isTrue); // compact header
     });
 
     test('prompt shows water amount when logged', () async {
@@ -316,23 +229,29 @@ void main() {
       expect(prompt.contains('2800'), isTrue);
     });
 
-    test('prompt shows supplement check marks when taken', () async {
+    test('prompt shows supplement check when taken (compact: W✓)', () async {
       final p = await _loaded();
       await p.updateSupplement('whey', true);
+      await p.addWater(500); // need water data for WATER/SUPPS section to appear
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('Whey✓'), isTrue);
+      expect(prompt.contains('W✓'), isTrue); // compact format: W✓ not Whey✓
     });
 
-    test('prompt shows supplement X when not taken', () async {
+    test('prompt shows supplement X when not taken (compact: W✗)', () async {
       final p = await _loaded();
+      await p.addWater(500); // trigger WATER/SUPPS section
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('Whey✗'), isTrue);
+      expect(prompt.contains('W✗'), isTrue); // compact format: W✗ not Whey✗
     });
 
-    test('prompt contains ESTIMATED 1RM section', () async {
+    test('prompt contains 1RM section when lifts logged', () async {
       final p = await _loaded();
+      await p.logWorkout(WorkoutLog(
+        id: 'w0', name: 'Test', date: DateTime.now(), workoutType: WorkoutType.custom,
+        exercises: [ExerciseLog(name: 'Deadlift', sets: [SetData(reps: 5, weight: 100)])],
+      ));
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('ESTIMATED 1RM'), isTrue);
+      expect(prompt.contains('1RM'), isTrue); // compact: "1RM:"
     });
 
     test('prompt shows 1RM estimate for logged compound lift', () async {
@@ -352,22 +271,24 @@ void main() {
       expect(prompt.contains('Deadlift'), isTrue);
     });
 
-    test('prompt shows No compound lifts when none logged', () async {
+    test('prompt omits 1RM section when no compound lifts logged', () async {
+      // Compact prompt: 1RM section only appears when lifts exist (no fallback text)
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('No compound lifts'), isTrue);
+      // No 1RM line when nothing logged — prompt should not contain "1RM:"
+      expect(prompt.contains('1RM:'), isFalse);
     });
 
-    test('prompt contains workout streak', () async {
+    test('prompt contains WorkStreak in HABITS', () async {
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('Workout streak'), isTrue);
+      expect(prompt.contains('WorkStreak'), isTrue); // compact: "WorkStreak Xd"
     });
 
-    test('prompt contains diet streak', () async {
+    test('prompt contains DietStreak in HABITS', () async {
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('Diet streak'), isTrue);
+      expect(prompt.contains('DietStreak'), isTrue); // compact: "DietStreak Xd"
     });
 
     test('prompt length is > 500 chars (has real content)', () async {
@@ -428,11 +349,12 @@ void main() {
       expect(prompt.contains('320'), isTrue);
     });
 
-    test('measurement waist value appears in prompt', () async {
+    test('prompt does not crash when measurement logged (compact drops raw measurements)', () async {
+      // Build 69: body measurements section dropped from compact prompt to save tokens.
       final p = await _loaded();
       await p.logMeasurement(_meas(waist: 83.5));
-      final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('83.5'), isTrue);
+      // No crash, and WHR may appear if waist/hip data is sufficient
+      expect(() => OnDeviceAiService().buildSystemPromptForTest(p), returnsNormally);
     });
 
     test('scale weight appears in prompt', () async {

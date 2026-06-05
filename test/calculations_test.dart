@@ -238,7 +238,8 @@ void main() {
 
   // ─── MET workout calorie calculation ────────────────────────────────────
 
-  group('calculateWorkoutCalories — MET formula', () {
+  group('calculateWorkoutCalories — MET formula (Build 69 rep-weighted)', () {
+    // Build 69: duration = sets × (avgReps × 0.05 + 1.5) clamped [1.5, 4.0]
     late FitnessProvider p;
     setUp(() async {
       p = FitnessProvider();
@@ -246,54 +247,58 @@ void main() {
       await p.logBodyEntry(weightKg: 70.0);
     });
 
-    test('Running (MET=9.8), 3 sets @ 70kg', () {
-      // duration = 3 * 2.25 = 6.75 min
-      // kcal = 9.8 * 70 * 6.75 / 60 ≈ 76.9
-      final w = WorkoutLog(id: '1', date: DateTime.now(), exercises: [
+    test('Running (MET=9.8), 3 sets × 1 rep @ 70kg', () {
+      // avgReps=1, minPerSet=(1*0.05+1.5)=1.55, dur=3*1.55=4.65 min
+      // kcal = 9.8 * 70 * 4.65 / 60 ≈ 53
+      final w = WorkoutLog(id: '1', name: 'Run', date: DateTime.now(), exercises: [
         ExerciseLog(name: 'Running', sets: [
           SetData(reps: 1, weight: 0),
           SetData(reps: 1, weight: 0),
           SetData(reps: 1, weight: 0),
         ]),
       ]);
-      expect(p.calculateWorkoutCalories(w), closeTo(9.8 * 70 * 6.75 / 60, 1.0));
+      final avgReps = 1.0;
+      final minPerSet = (avgReps * 0.05 + 1.5).clamp(1.5, 4.0);
+      final dur = 3 * minPerSet;
+      final expected = (9.8 * 70 * dur / 60).round();
+      expect(p.calculateWorkoutCalories(w), expected);
     });
 
-    test('Strength (unknown exercise, MET=5.0 default), 3 sets @ 70kg', () {
-      final w = WorkoutLog(id: '1', date: DateTime.now(), exercises: [
-        ExerciseLog(name: 'Some Unknown Exercise', sets: [
+    test('Strength (unknown MET=5.0), 3 sets × 10 reps @ 70kg', () {
+      // avgReps=10, minPerSet=(10*0.05+1.5)=2.0, dur=3*2.0=6.0 min
+      // kcal = 5.0 * 70 * 6.0 / 60 = 35
+      final w = WorkoutLog(id: '1', name: 'S', date: DateTime.now(), exercises: [
+        ExerciseLog(name: 'SomeUnknownExercise', sets: [
           SetData(reps: 10, weight: 50),
           SetData(reps: 10, weight: 50),
           SetData(reps: 10, weight: 50),
         ]),
       ]);
-      // MET=5.0 (default), 3 sets * 2.25 = 6.75 min
-      expect(p.calculateWorkoutCalories(w), closeTo(5.0 * 70 * 6.75 / 60, 1.0));
+      expect(p.calculateWorkoutCalories(w), closeTo(5.0 * 70 * 6.0 / 60, 1.0));
     });
 
-    test('HIIT (MET=10.0) burns more than strength (MET=5.0) per set', () {
-      final hiit = WorkoutLog(id: '1', date: DateTime.now(), exercises: [
-        ExerciseLog(name: 'HIIT', sets: [SetData(reps: 1, weight: 0), SetData(reps: 1, weight: 0)]),
+    test('HIIT (MET=10.0) burns more than Bench Press (MET=5.5) per set', () {
+      final hiit = WorkoutLog(id: '1', name: 'H', date: DateTime.now(), exercises: [
+        ExerciseLog(name: 'HIIT', sets: [SetData(reps: 10, weight: 0), SetData(reps: 10, weight: 0)]),
       ]);
-      final strength = WorkoutLog(id: '2', date: DateTime.now(), exercises: [
+      final strength = WorkoutLog(id: '2', name: 'S', date: DateTime.now(), exercises: [
         ExerciseLog(name: 'Bench Press', sets: [SetData(reps: 10, weight: 80), SetData(reps: 10, weight: 80)]),
       ]);
       expect(p.calculateWorkoutCalories(hiit), greaterThan(p.calculateWorkoutCalories(strength)));
     });
 
-    test('0 sets = 2.0 min default duration used', () {
-      final w = WorkoutLog(id: '1', date: DateTime.now(), exercises: [
+    test('0 sets contributes 0 calories (Build 69 skips empty exercises)', () {
+      final w = WorkoutLog(id: '1', name: 'E', date: DateTime.now(), exercises: [
         ExerciseLog(name: 'Push-ups', sets: []),
       ]);
-      // sets=0, duration=2.0 min, MET=5.0
-      expect(p.calculateWorkoutCalories(w), closeTo(5.0 * 70 * 2.0 / 60, 1.0));
+      // Build 69: if sets.isEmpty → skip (return 0 contribution)
+      expect(p.calculateWorkoutCalories(w), 0);
     });
 
     test('uses fallback 70kg when no body entry', () async {
       final fresh = FitnessProvider();
       await fresh.loadData();
-      // no body entry — falls back to 70kg
-      final w = WorkoutLog(id: '1', date: DateTime.now(), exercises: [
+      final w = WorkoutLog(id: '1', name: 'W', date: DateTime.now(), exercises: [
         ExerciseLog(name: 'Squats', sets: [SetData(reps: 10, weight: 60)]),
       ]);
       expect(fresh.calculateWorkoutCalories(w), greaterThan(0));

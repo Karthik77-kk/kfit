@@ -69,8 +69,12 @@ class FitnessProvider extends ChangeNotifier {
   double _heightCm = 170.0;
   double get heightCm => _heightCm;
 
-  int _age = 24; // Karthik's age
+  int _age = 24;
   int get age => _age;
+
+  bool _isMale = true;
+  bool get isMale => _isMale;
+  bool get isFemale => !_isMale;
 
   double _goalWeightKg = 70.0;
   double get goalWeightKg => _goalWeightKg;
@@ -267,7 +271,8 @@ class FitnessProvider extends ChangeNotifier {
     if (scaleBmr != null && scaleBmr > 0) return scaleBmr;
     final w = latestWeightKg;
     if (w == null) return null;
-    return 10 * w + 6.25 * _heightCm - 5 * _age + 5;
+    // Mifflin-St Jeor: male +5, female −161
+    return 10 * w + 6.25 * _heightCm - 5 * _age + (_isMale ? 5.0 : -161.0);
   }
 
   /// TDEE = BMR × activity multiplier (standard Harris-Benedict activity factors)
@@ -714,24 +719,50 @@ class FitnessProvider extends ChangeNotifier {
     return streak;
   }
 
-  /// MET values for exercises (metabolic equivalent of task)
+  /// MET values per exercise (metabolic equivalent of task).
+  /// Compound/cardio values are research-backed; strength defaults to 5.0.
   static const Map<String, double> _exerciseMet = {
+    // Cardio
     'Running': 9.8, 'Cycling': 8.0, 'Jump Rope': 12.3, 'Swimming': 8.0,
     'HIIT': 10.0, 'Burpees': 8.0, 'Walking': 3.5, 'Jumping Jacks': 8.0,
     'Sprinting': 13.5, 'Sprints': 13.5, 'Stair Climbing': 8.0, 'Elliptical': 5.5,
     'Rowing': 7.0, 'Rowing Machine': 7.0, 'Boxing': 9.8, 'Kickboxing': 9.0,
     'Yoga': 3.0, 'Pilates': 3.5, 'Stretching': 2.5,
     'Rock Climbing': 8.0, 'Hiking': 6.0, 'Dancing': 5.0,
-    'Default': 5.0, // strength training
+    // Compound lifts
+    'Deadlift': 6.0, 'Romanian Deadlift': 6.0, 'Sumo Deadlift': 6.0,
+    'Squats': 6.5, 'Front Squat': 6.5, 'Goblet Squat': 6.0,
+    'Bench Press': 5.5, 'Incline Bench Press': 5.5, 'Decline Bench Press': 5.5,
+    'Overhead Press': 5.5, 'Shoulder Press': 5.5, 'Military Press': 5.5,
+    'Barbell Rows': 6.0, 'Dumbbell Rows': 5.5, 'Cable Rows': 5.5,
+    'Pull-ups': 8.0, 'Chin-ups': 8.0, 'Lat Pulldown': 5.5,
+    'Dips': 6.5, 'Push-ups': 5.0,
+    'Lunges': 5.5, 'Leg Press': 5.5, 'Leg Curl': 4.5, 'Leg Extension': 4.5,
+    'Hip Thrust': 5.5, 'Glute Bridge': 4.5, 'Calf Raises': 4.0,
+    // Isolation
+    'Bicep Curls': 4.5, 'Hammer Curls': 4.5, 'Preacher Curls': 4.5,
+    'Tricep Extensions': 4.5, 'Tricep Pushdown': 4.5, 'Skull Crushers': 4.5,
+    'Lateral Raises': 4.0, 'Front Raises': 4.0, 'Face Pulls': 4.0,
+    'Chest Flyes': 4.5, 'Cable Flyes': 4.5,
+    'Plank': 4.0, 'Abs': 4.0, 'Crunches': 4.0, 'Sit-ups': 4.5,
+    'Default': 5.0, // generic strength training
   };
 
+  /// Calculates calories burned for a workout using MET × user weight × duration.
+  /// Duration is rep-weighted: heavy low-rep sets are shorter per set than high-rep sets.
+  /// Formula: sets × (avgReps × 0.05 + 1.5) minutes per exercise.
   int calculateWorkoutCalories(WorkoutLog w) {
     final weight = latestWeightKg ?? 70.0;
     int total = 0;
     for (final ex in w.exercises) {
-      final met = _exerciseMet[ex.name] ?? _exerciseMet['Default']!;
+      final met  = _exerciseMet[ex.name] ?? _exerciseMet['Default']!;
       final sets = ex.sets.length;
-      final durationMin = sets > 0 ? (sets * 2.25) : 2.0;
+      if (sets == 0) continue;
+      // Rep-weighted duration: low-rep heavy sets (5 reps → 1.75 min/set),
+      // high-rep light sets (15 reps → 2.25 min/set), bodyweight (20 reps → 2.5 min/set)
+      final avgReps       = ex.sets.fold(0, (s, e) => s + e.reps) / sets;
+      final minPerSet     = (avgReps * 0.05 + 1.5).clamp(1.5, 4.0);
+      final durationMin   = sets * minPerSet;
       total += (met * weight * durationMin / 60).round();
     }
     return total;
@@ -1188,6 +1219,7 @@ class FitnessProvider extends ChangeNotifier {
     // User profile
     _heightCm = prefs.getDouble('height_cm') ?? 170.0;
     _age = prefs.getInt('age') ?? 24;
+    _isMale = prefs.getBool('is_male') ?? true;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
     _userName = prefs.getString('user_name') ?? 'Karthik';
     _onboardingDone = prefs.getBool('onboarding_done') ?? false;
@@ -1203,6 +1235,7 @@ class FitnessProvider extends ChangeNotifier {
     if (!prefs.containsKey('user_name'))    await prefs.setString('user_name',    _userName);
     if (!prefs.containsKey('height_cm'))    await prefs.setDouble('height_cm',    _heightCm);
     if (!prefs.containsKey('age'))          await prefs.setInt('age',             _age);
+    if (!prefs.containsKey('is_male'))      await prefs.setBool('is_male',        _isMale);
     if (!prefs.containsKey('goal_weight_kg')) await prefs.setDouble('goal_weight_kg', _goalWeightKg);
     if (!prefs.containsKey('calorie_goal')) await prefs.setInt('calorie_goal',    _calorieGoal);
     if (!prefs.containsKey('protein_goal')) await prefs.setInt('protein_goal',    _proteinGoal);
@@ -1784,6 +1817,13 @@ class FitnessProvider extends ChangeNotifier {
     _goalWeightKg = kg.clamp(30, 300);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('goal_weight_kg', _goalWeightKg);
+    notifyListeners();
+  }
+
+  Future<void> saveSex(bool isMale) async {
+    _isMale = isMale;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_male', _isMale);
     notifyListeners();
   }
 

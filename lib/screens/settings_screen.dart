@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
+import 'chat_screen.dart' show openChat;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -229,9 +230,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 20),
 
-          // ── AI MODEL ──────────────────────────────────────────────
-          _Header('AI Model'),
-          const _AiModelSection(),
+          // ── AI COACH ──────────────────────────────────────────────
+          _Header('AI Coach'),
+          const _AiStatusTile(),
           const SizedBox(height: 20),
 
           // ── DATA ──────────────────────────────────────────────────
@@ -284,7 +285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'v2.3.0 · Build 68 — Personal fitness tracker',
+            subtitle: 'v2.3.0 · Build 69 — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),
@@ -446,53 +447,20 @@ class _RecoRow extends StatelessWidget {
       );
 }
 
-// ── AI Model section ─────────────────────────────────────────────────────────
+// ── AI Coach status tile ──────────────────────────────────────────────────────
 
-class _AiModelSection extends StatelessWidget {
-  const _AiModelSection();
-
-  @override
-  Widget build(BuildContext context) {
-    final ai = context.watch<OnDeviceAiService>();
-    return Column(
-      children: OnDeviceAiService.availableModels.map((cfg) =>
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _ModelCard(cfg: cfg, ai: ai),
-        ),
-      ).toList(),
-    );
-  }
-}
-
-class _ModelCard extends StatelessWidget {
-  final AiModelConfig        cfg;
-  final OnDeviceAiService    ai;
-  const _ModelCard({required this.cfg, required this.ai});
+class _AiStatusTile extends StatelessWidget {
+  const _AiStatusTile();
 
   static const _kGreen  = Color(0xFF30D158);
   static const _kCard   = Color(0xFF1C1C1E);
   static const _kSecond = Color(0xFF8E8E93);
-  static const _kBlue   = Color(0xFF40C8E0);
-  static const _kOrange = Color(0xFFFF9F0A);
-
-  Color _badgeColor() {
-    switch (cfg.qualityBadge) {
-      case 'Best':        return _kGreen;
-      case 'Alternative': return _kBlue;
-      default:            return _kOrange; // Fast
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final isActive    = ai.activeModelId    == cfg.id;
-    final isInstalled = ai.installedModelId == cfg.id;
-    final isDownloading = ai.state == AiModelState.downloading && isActive;
-    final isLoading     = ai.state == AiModelState.loading     && isActive;
-    final isReady       = ai.isReady && isActive;
-
-    final badgeColor = _badgeColor();
+    final ai = context.watch<OnDeviceAiService>();
+    final isDownloading = ai.state == AiModelState.downloading;
+    final isLoading     = ai.state == AiModelState.loading;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -500,65 +468,29 @@ class _ModelCard extends StatelessWidget {
         color: _kCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isReady
-              ? _kGreen.withValues(alpha: 0.5)
-              : isActive
-                  ? _kGreen.withValues(alpha: 0.2)
-                  : Colors.transparent,
-          width: isReady ? 1.5 : 1,
+          color: ai.isReady
+              ? _kGreen.withValues(alpha: 0.4)
+              : _kSecond.withValues(alpha: 0.15),
         ),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-        // ── Header row ──────────────────────────────────────────────
         Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Text(cfg.name,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 14,
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(cfg.qualityBadge,
-                      style: TextStyle(
-                          color: badgeColor, fontSize: 10,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ]),
-              const SizedBox(height: 3),
-              Text('${cfg.sizeLabel} · ${cfg.description}',
-                  style: const TextStyle(color: _kSecond, fontSize: 11, height: 1.4)),
-            ]),
-          ),
-          const SizedBox(width: 8),
-          // Status chip
-          if (isReady)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: _kGreen.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text('● Active',
-                  style: TextStyle(color: _kGreen, fontSize: 10,
-                      fontWeight: FontWeight.w600)),
-            )
-          else if (isLoading && isActive)
-            const SizedBox(
-              width: 18, height: 18,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: _kGreen),
-            ),
+          const Text('🤖', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Gemma 3 1B  ·  ~600 MB  ·  offline',
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+            Text(ai.isReady ? 'Ready — tap to chat' : ai.state == AiModelState.notInstalled
+                ? 'Download once over Wi-Fi to enable AI chat'
+                : ai.state == AiModelState.downloading ? 'Downloading…'
+                : ai.state == AiModelState.loading ? 'Loading model…'
+                : 'Error',
+                style: const TextStyle(color: _kSecond, fontSize: 11, height: 1.4)),
+          ])),
+          _StatusChip(ai.state),
         ]),
 
-        // ── Download progress (shown while downloading THIS model) ──
+        // Download progress bar
         if (isDownloading) ...[
           const SizedBox(height: 10),
           ClipRRect(
@@ -571,81 +503,82 @@ class _ModelCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '${(ai.dlProgress * 100).round()}% · ${_mbDownloaded(ai.dlProgress, cfg.sizeLabel)} downloaded',
-            style: const TextStyle(color: _kSecond, fontSize: 11),
-          ),
+          Text('${(ai.dlProgress * 100).round()}% · ${(ai.dlProgress * 600).round()} / ~600 MB',
+              style: const TextStyle(color: _kSecond, fontSize: 11)),
         ],
 
-        // ── Error ──────────────────────────────────────────────────
-        if (ai.state == AiModelState.error && isActive && ai.errorMessage.isNotEmpty) ...[
+        // Error message
+        if (ai.state == AiModelState.error && ai.errorMessage.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(ai.errorMessage,
               style: const TextStyle(color: Color(0xFFFF453A), fontSize: 11)),
         ],
 
-        // ── Action buttons ─────────────────────────────────────────
-        if (!isReady && !isDownloading) ...[
+        // Action buttons
+        if (!isDownloading) ...[
           const SizedBox(height: 12),
-          Row(children: [
-            // Select / Download button
-            Expanded(
-              child: isInstalled && !isActive
-                  // Downloaded but not active — show "Switch to this model"
-                  ? FilledButton(
-                      onPressed: () => context.read<OnDeviceAiService>().selectModel(cfg.id),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _kGreen,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ai.isReady
+                ? OutlinedButton.icon(
+                    onPressed: () => openChat(context),
+                    icon: const Text('💬', style: TextStyle(fontSize: 14)),
+                    label: const Text('Open AI Coach Chat'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _kGreen,
+                      side: const BorderSide(color: _kGreen),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                    ),
+                  )
+                : isLoading
+                    ? const Center(child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: CircularProgressIndicator(color: _kGreen, strokeWidth: 2)))
+                    : FilledButton.icon(
+                        onPressed: () => context.read<OnDeviceAiService>().downloadAndLoad(),
+                        icon: const Icon(Icons.download_rounded, size: 16),
+                        label: const Text('Download AI Model (~600 MB)',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _kGreen,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                        ),
                       ),
-                      child: const Text('Switch to this model',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                    )
-                  : !isInstalled
-                      // Not downloaded yet — show Download button
-                      ? FilledButton.icon(
-                          onPressed: () async {
-                            final svc = context.read<OnDeviceAiService>();
-                            await svc.selectModel(cfg.id);
-                            await svc.downloadAndLoad();
-                          },
-                          icon: const Icon(Icons.download_rounded, size: 16),
-                          label: Text('Download ${cfg.sizeLabel}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: isActive ? _kGreen : const Color(0xFF2C2C2E),
-                            foregroundColor: isActive ? Colors.black : Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                        )
-                      // Installed, active, but not loaded (loading state) — no button
-                      : const SizedBox.shrink(),
-            ),
-          ]),
+          ),
         ],
-
       ]),
     );
   }
+}
 
-  String _mbDownloaded(double progress, String sizeLabel) {
-    // Parse approximate size from label like "~1.6 GB"
-    final match = RegExp(r'([\d.]+)\s*(GB|MB)').firstMatch(sizeLabel);
-    if (match == null) return '';
-    final val  = double.tryParse(match.group(1) ?? '0') ?? 0;
-    final unit = match.group(2);
-    final totalMb = unit == 'GB' ? val * 1024 : val;
-    final doneMb  = (progress * totalMb).round();
-    return doneMb >= 1024
-        ? '${(doneMb / 1024).toStringAsFixed(1)} GB'
-        : '$doneMb MB';
+class _StatusChip extends StatelessWidget {
+  final AiModelState state;
+  const _StatusChip(this.state);
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (state) {
+      AiModelState.ready        => ('● Ready',      const Color(0xFF30D158)),
+      AiModelState.downloading  => ('↓ Downloading', Colors.orange),
+      AiModelState.loading      => ('⟳ Loading',    Colors.orange),
+      AiModelState.error        => ('✕ Error',       const Color(0xFFFF453A)),
+      AiModelState.notInstalled => ('Not installed', const Color(0xFF8E8E93)),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(label,
+          style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+    );
   }
 }
+
 
 class _Header extends StatelessWidget {
   final String text;

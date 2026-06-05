@@ -220,6 +220,9 @@ class _StatsScreenState extends State<StatsScreen> {
                           keyboard: TextInputType.number,
                         ),
                         _HDivider(),
+                        // Sex toggle — affects BMR formula (male +5 / female −161)
+                        _SexToggleRow(),
+                        _HDivider(),
                         _FieldRow(
                           label: 'Goal Weight',
                           icon: Icons.flag_outlined,
@@ -1188,6 +1191,62 @@ class _HDivider extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     height: 0.5, color: const Color(0xFF3A3A3C),
     margin: const EdgeInsets.symmetric(vertical: 2),
+  );
+}
+
+/// Sex toggle — sets Mifflin-St Jeor constant (male: +5, female: −161).
+/// Affects BMR → TDEE → recommended calorie goal.
+class _SexToggleRow extends StatelessWidget {
+  static const _kCard = Color(0xFF2C2C2E);
+
+  @override
+  Widget build(BuildContext context) {
+    final p      = context.watch<FitnessProvider>();
+    final isMale = p.isMale;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      child: Row(children: [
+        const Icon(Icons.person_outline, color: Color(0xFF40C8E0), size: 20),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text('Biological Sex',
+              style: TextStyle(color: Colors.white, fontSize: 15,
+                  fontWeight: FontWeight.w500)),
+        ),
+        // Toggle between Male / Female
+        Container(
+          decoration: BoxDecoration(
+            color: _kCard, borderRadius: BorderRadius.circular(10)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            _SexBtn(label: '♂ Male',   selected: isMale,  onTap: () => context.read<FitnessProvider>().saveSex(true)),
+            _SexBtn(label: '♀ Female', selected: !isMale, onTap: () => context.read<FitnessProvider>().saveSex(false)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _SexBtn extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SexBtn({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFF30D158) : Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: selected ? Colors.black : const Color(0xFF8E8E93),
+              fontSize: 13, fontWeight: FontWeight.w600)),
+    ),
   );
 }
 
