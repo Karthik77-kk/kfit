@@ -211,7 +211,7 @@ void main() {
       // if (_formKey.currentState == null || !_formKey.currentState!.validate())
       // When currentState is null → short-circuit, no validate() call, no crash.
       FormState? nullableState; // simulates currentState being null
-      final shouldReturn = nullableState == null;
+      final shouldReturn = nullableState is! FormState;
       expect(shouldReturn, isTrue);
     });
   });
