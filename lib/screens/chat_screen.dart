@@ -57,13 +57,18 @@ class _ChatScreenState extends State<ChatScreen> {
         messages: [],
       );
     }
-    // The AI provider is initialised once at app start (lazy:false in main.dart).
-    // We must NOT call ai.init() here — that causes a second model load.
-    // Only auto-download if the model hasn't been installed yet.
+    // On open: if auto-load was off, model is installed but not in memory — load now.
+    // If not installed at all, start download.
+    // Guards in initForChat() and downloadAndLoad() prevent double-loading.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final ai = context.read<OnDeviceAiService>();
-      if (ai.state == AiModelState.notInstalled) {
+      if (ai.isInstalled &&
+          !ai.isReady &&
+          ai.state != AiModelState.loading &&
+          ai.state != AiModelState.downloading) {
+        ai.initForChat();
+      } else if (!ai.isInstalled) {
         ai.downloadAndLoad();
       }
     });
