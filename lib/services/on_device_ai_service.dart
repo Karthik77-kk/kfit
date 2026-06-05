@@ -20,6 +20,7 @@ class OnDeviceAiService extends ChangeNotifier {
 
   static const _prefToken          = 'hf_token_ai_chat';
   static const _prefInstalledModel = 'ai_installed_model_id';
+  static const _prefAutoLoad       = 'ai_auto_load';
   static const _installedId        = 'gemma3_1b';
 
   // ── State ───────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ class OnDeviceAiService extends ChangeNotifier {
   String       _error      = '';
   String       _hfToken    = '';
   bool         _installed  = false;
+  bool         _autoLoad   = true; // cached from prefs; true = load at app start
 
   InferenceModel? _model;
   InferenceChat?  _chat;
@@ -40,20 +42,51 @@ class OnDeviceAiService extends ChangeNotifier {
   bool         get isReady      => _state == AiModelState.ready;
   bool         get hasToken     => _hfToken.isNotEmpty;
   bool         get isInstalled  => _installed;
+  bool         get autoLoad     => _autoLoad;
   String       get modelName    => _modelName;
   String       get modelSize    => _modelSize;
 
-  // ── Init — called ONCE at app start via lazy:false provider ────────────────
-  // Guard prevents re-entry: if already ready/loading/downloading, returns
-  // immediately. ChatScreen must NOT call this — the provider handles it.
+  // ── Auto-load setting ────────────────────────────────────────────────────────
+  Future<void> saveAutoLoad(bool value) async {
+    _autoLoad = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefAutoLoad, value);
+    notifyListeners();
+  }
+
+  // ── Init — called at app start (lazy:false) ──────────────────────────────────
+  // Respects the ai_auto_load setting: if disabled, skips loading entirely.
+  // The guard also prevents double-loading if init() is called more than once.
   Future<void> init() async {
-    // Already in a valid state — do nothing
     if (_state == AiModelState.ready    ||
         _state == AiModelState.loading  ||
         _state == AiModelState.downloading) return;
 
-    await saveToken(_enterpriseToken);
     final prefs = await SharedPreferences.getInstance();
+    _autoLoad = prefs.getBool(_prefAutoLoad) ?? true;
+
+    // Auto-load disabled — don't touch the model until user opens AI Coach.
+    if (!_autoLoad) {
+      _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
+      notifyListeners();
+      return;
+    }
+
+    await _doInit(prefs);
+  }
+
+  // ── initForChat — always loads, ignores the auto-load setting ───────────────
+  // Called by ChatScreen when the user explicitly opens AI Coach.
+  Future<void> initForChat() async {
+    if (_state == AiModelState.ready    ||
+        _state == AiModelState.loading  ||
+        _state == AiModelState.downloading) return;
+    final prefs = await SharedPreferences.getInstance();
+    await _doInit(prefs);
+  }
+
+  Future<void> _doInit(SharedPreferences prefs) async {
+    await saveToken(_enterpriseToken);
     _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
 
     try {

@@ -67,6 +67,38 @@ void main() {
     test('model size label is ~600 MB', () {
       expect(OnDeviceAiService().modelSize, '~600 MB');
     });
+
+    test('autoLoad defaults to true on fresh service', () {
+      final ai = OnDeviceAiService();
+      expect(ai.autoLoad, isTrue);
+    });
+
+    test('saveAutoLoad persists false and updates getter', () async {
+      SharedPreferences.setMockInitialValues({});
+      final ai = OnDeviceAiService();
+      await ai.saveAutoLoad(false);
+      expect(ai.autoLoad, isFalse);
+      // Verify persisted
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('ai_auto_load'), isFalse);
+    });
+
+    test('saveAutoLoad persists true', () async {
+      SharedPreferences.setMockInitialValues({'ai_auto_load': false});
+      final ai = OnDeviceAiService();
+      await ai.saveAutoLoad(true);
+      expect(ai.autoLoad, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('ai_auto_load'), isTrue);
+    });
+
+    test('autoLoad toggle does not affect model name or size', () async {
+      SharedPreferences.setMockInitialValues({});
+      final ai = OnDeviceAiService();
+      await ai.saveAutoLoad(false);
+      expect(ai.modelName, 'Gemma 3 1B');
+      expect(ai.modelSize, '~600 MB');
+    });
   });
 
   // ── 2. Rich system prompt injection (Build 71) ────────────────────────────────

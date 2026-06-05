@@ -257,6 +257,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ── AI COACH ──────────────────────────────────────────────
           _Header('AI Coach'),
           const _AiStatusTile(),
+          const SizedBox(height: 8),
+          _AiAutoLoadTile(),
           const SizedBox(height: 20),
 
           // ── DATA ──────────────────────────────────────────────────
@@ -639,4 +641,33 @@ class _Tile extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
   );
+}
+
+// ── AI Auto-load toggle ───────────────────────────────────────────────────────
+class _AiAutoLoadTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final ai = context.watch<OnDeviceAiService>();
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        secondary: const Icon(Icons.bolt_rounded, color: Color(0xFF30D158)),
+        title: const Text('Load AI at app start',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          ai.autoLoad
+              ? 'AI is ready before you open it'
+              : 'AI loads only when you open AI Coach',
+          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+        ),
+        value: ai.autoLoad,
+        activeColor: const Color(0xFF30D158),
+        onChanged: (v) => context.read<OnDeviceAiService>().saveAutoLoad(v),
+      ),
+    );
+  }
 }
