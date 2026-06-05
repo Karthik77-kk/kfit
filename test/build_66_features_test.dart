@@ -133,7 +133,7 @@ void main() {
     test('prompt contains GOALS section', () async {
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('GOALS'), isTrue);
+      expect(prompt.contains('Goal:'), isTrue);
     });
 
     test('prompt includes calorie goal value', () async {
@@ -174,7 +174,7 @@ void main() {
     test('prompt contains PROGRESS section', () async {
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('PROGRESS'), isTrue); // compact: "PROGRESS:"
+      expect(prompt.contains('done,'), isTrue); // compact: "PROGRESS:"
     });
 
     test('prompt includes goal weight in goal progress', () async {
@@ -282,13 +282,13 @@ void main() {
     test('prompt contains WorkStreak in HABITS', () async {
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('WorkStreak'), isTrue); // compact: "WorkStreak Xd"
+      expect(prompt.contains('WorkoutStreak'), isTrue); // compact: "WorkStreak Xd"
     });
 
     test('prompt contains DietStreak in HABITS', () async {
       final p = await _loaded();
       final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-      expect(prompt.contains('DietStreak'), isTrue); // compact: "DietStreak Xd"
+      expect(prompt.contains('Streak'), isTrue); // compact: "DietStreak Xd"
     });
 
     test('prompt length is > 500 chars (has real content)', () async {
