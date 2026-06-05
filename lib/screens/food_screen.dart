@@ -87,8 +87,43 @@ class FoodScreen extends StatelessWidget {
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
+
+  Future<void> _copyYesterday(BuildContext context) async {
+    final p = context.read<FitnessProvider>();
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final key = '${yesterday.year}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
+    final yEntries = p.foodHistory[key] ?? [];
+    if (yEntries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No food logged yesterday to copy'),
+            backgroundColor: Color(0xFFFF9F0A)),
+      );
+      return;
+    }
+    for (final e in yEntries) {
+      await p.addFoodEntry(FoodEntry(
+        id: DateTime.now().millisecondsSinceEpoch.toString() + e.id,
+        name: e.name, calories: e.calories, protein: e.protein,
+        mealType: e.mealType, servingNote: e.servingNote,
+        timestamp: DateTime.now(),
+      ));
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Copied ${yEntries.length} items from yesterday'),
+        backgroundColor: const Color(0xFF30D158),
+        duration: const Duration(seconds: 2),
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final p = context.read<FitnessProvider>();
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final key = '${yesterday.year}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
+    final hasYesterday = (p.foodHistory[key] ?? []).isNotEmpty;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -100,6 +135,19 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 8),
           Text('Tap + Add Food to start logging',
               style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14)),
+          if (hasYesterday) ...[
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () => _copyYesterday(context),
+              icon: const Icon(Icons.copy_rounded, size: 16),
+              label: const Text('Copy yesterday\'s meals'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF30D158),
+                side: const BorderSide(color: Color(0xFF30D158)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -709,6 +757,10 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               ),
             ),
 
+            // ── Recent foods (5 most recent unique food names logged today or ever) ──
+            if (_search.isEmpty)
+              _RecentFoodsRow(meal: _selectedMeal),
+
             // Category tabs
             if (_search.isEmpty)
               SizedBox(
@@ -984,6 +1036,94 @@ class _MiniField extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
+    );
+  }
+}
+
+// ── Recent foods row ──────────────────────────────────────────────────────────
+// Shows the last 5 distinct food names logged across any day, as quick-add chips.
+class _RecentFoodsRow extends StatelessWidget {
+  final MealType meal;
+  const _RecentFoodsRow({required this.meal});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.read<FitnessProvider>();
+    // Collect unique food names from recent history (newest first)
+    final seen  = <String>{};
+    final names = <String>[];
+    final hist  = p.foodHistory;
+    final keys  = hist.keys.toList()..sort((a, b) => b.compareTo(a));
+    for (final key in keys) {
+      for (final e in (hist[key] ?? [])) {
+        if (seen.add(e.name.toLowerCase())) names.add(e.name);
+        if (names.length >= 5) break;
+      }
+      if (names.length >= 5) break;
+    }
+    if (names.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('RECENT', style: TextStyle(color: Color(0xFF8E8E93),
+            fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8, runSpacing: 6,
+          children: names.map((name) {
+            // Find matching FoodItem in DB for calorie info
+            final item = kFoodDatabase.where((f) => f.name.toLowerCase() == name.toLowerCase())
+                .firstOrNull;
+            return GestureDetector(
+              onTap: () {
+                if (item != null) {
+                  // Add directly with default serving
+                  context.read<FitnessProvider>().addFoodEntry(FoodEntry(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: item.name,
+                    calories: item.calories,
+                    protein: item.protein,
+                    mealType: meal,
+                    servingNote: item.serving,
+                    timestamp: DateTime.now(),
+                  ));
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Added ${item.name}'),
+                    backgroundColor: const Color(0xFF30D158),
+                    duration: const Duration(seconds: 2),
+                  ));
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2C2C2E),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF3A3A3C)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.history_rounded, size: 12, color: Color(0xFF8E8E93)),
+                  const SizedBox(width: 4),
+                  Text(name,
+                      style: const TextStyle(color: Colors.white, fontSize: 12,
+                          fontWeight: FontWeight.w500),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (item != null) ...[
+                    const SizedBox(width: 4),
+                    Text('${item.calories.round()}kcal',
+                        style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
+                  ],
+                ]),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        const Divider(color: Color(0xFF2C2C2E), height: 1),
+        const SizedBox(height: 4),
+      ]),
     );
   }
 }

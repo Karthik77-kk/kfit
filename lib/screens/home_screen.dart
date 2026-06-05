@@ -176,6 +176,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   _AiCoachSection(provider: p),
                   const SizedBox(height: 20),
 
+                  // ── Getting-started card (shows until user logs weight, food, or workout) ─
+                  if (p.latestWeightKg == null && p.todayFood.isEmpty && p.workoutHistory.isEmpty)
+                    const _GettingStartedCard(),
+                  if (p.latestWeightKg == null && p.todayFood.isEmpty && p.workoutHistory.isEmpty)
+                    const SizedBox(height: 20),
+
                   // ── Activity rings ────────────────────────────────────────
                   const _SectionHdr('TODAY\'S ACTIVITY'),
                   const SizedBox(height: 10),
@@ -707,8 +713,52 @@ class _BurnBreakdownTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Calories Burned Today',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          Row(children: [
+            const Expanded(child: Text('Calories Burned Today',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+            GestureDetector(
+              onTap: () => showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  backgroundColor: const Color(0xFF1C1C1E),
+                  title: const Text('How calories burned is calculated'),
+                  content: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('😴  Resting (BMR)',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      SizedBox(height: 4),
+                      Text('Your body burns calories just to stay alive — breathing, heart beating, organs working. This is called your Basal Metabolic Rate (BMR). It\'s prorated based on how many hours of the day have passed.',
+                          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
+                      SizedBox(height: 14),
+                      Text('👟  Walking',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      SizedBox(height: 4),
+                      Text('Calculated from your step count using a formula that scales with your body weight. Heavier = more calories per step.',
+                          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
+                      SizedBox(height: 14),
+                      Text('💪  Workout',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      SizedBox(height: 4),
+                      Text('Calculated from each exercise\'s MET value × your weight × duration. Log your exercises in the Workout tab to see this update.',
+                          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Got it', style: TextStyle(color: Color(0xFF30D158))),
+                    ),
+                  ],
+                ),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(Icons.info_outline_rounded, color: Color(0xFF8E8E93), size: 18),
+              ),
+            ),
+          ]),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(child: _BurnChip(icon: '😴', label: 'Resting',
@@ -1636,6 +1686,55 @@ class _MacroLegendRow extends StatelessWidget {
             style: TextStyle(
                 color: color, fontWeight: FontWeight.w600, fontSize: 13)),
       ],
+    );
+  }
+}
+
+// ─── Getting-started card ──────────────────────────────────────────────────────
+// Shown on day 1 until the user logs weight, food, or a workout.
+class _GettingStartedCard extends StatelessWidget {
+  const _GettingStartedCard();
+
+  @override
+  Widget build(BuildContext context) {
+    const steps = [
+      ('⚖️', 'Log your weight',    'Stats tab → Log Today'),
+      ('🍽️', 'Log your first meal', 'Nutrition tab → + Add Food'),
+      ('💪', 'Log a workout',       'Workout tab → pick an exercise'),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Text('🚀', style: TextStyle(fontSize: 18)),
+          SizedBox(width: 8),
+          Text('Get started',
+              style: TextStyle(color: Colors.white, fontSize: 15,
+                  fontWeight: FontWeight.w700)),
+        ]),
+        const SizedBox(height: 4),
+        const Text('3 steps to unlock your personalised insights',
+            style: TextStyle(color: _kSecond, fontSize: 12)),
+        const SizedBox(height: 14),
+        ...steps.map((s) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(children: [
+            Text(s.$1, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(s.$2, style: const TextStyle(color: Colors.white, fontSize: 13,
+                  fontWeight: FontWeight.w600)),
+              Text(s.$3, style: const TextStyle(color: _kSecond, fontSize: 11)),
+            ])),
+            const Icon(Icons.arrow_forward_ios_rounded, color: _kSecond, size: 13),
+          ]),
+        )),
+      ]),
     );
   }
 }

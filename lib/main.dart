@@ -248,13 +248,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
               label: 'Workout',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.monitor_weight_outlined, size: 24),
-              activeIcon: Icon(Icons.monitor_weight_rounded, size: 24),
-              label: 'Scale',
+              icon: Icon(Icons.biotech_outlined, size: 24),
+              activeIcon: Icon(Icons.biotech_rounded, size: 24),
+              label: 'Body',  // was "Scale" — Body is clearer (body composition)
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_outlined, size: 24),
-              activeIcon: Icon(Icons.bar_chart_rounded, size: 24),
+              icon: Icon(Icons.analytics_outlined, size: 24),
+              activeIcon: Icon(Icons.analytics_rounded, size: 24),
               label: 'Stats',
             ),
             BottomNavigationBarItem(

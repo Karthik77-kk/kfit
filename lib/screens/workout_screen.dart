@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -58,20 +59,28 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     super.dispose();
   }
 
+  /// Shows a rest timer bottom sheet. User picks 60 / 90 / 120 / 180s or custom.
+  void _showRestTimer(BuildContext ctx) {
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => const _RestTimerSheet(),
+    );
+  }
+
   String _defaultWorkoutName() {
     final weekday = DateTime.now().weekday;
+    // Simple day-based names — no gym jargon (was "Push/Pull split")
     switch (weekday) {
-      case 1:
-      case 3:
-      case 5:
-        return 'Workout A — Push';
-      case 2:
-      case 4:
-        return 'Workout B — Pull';
-      case 6:
-        return 'Full Body';
-      default:
-        return 'Rest Day / Light Activity';
+      case 1: return 'Monday Workout';
+      case 2: return 'Tuesday Workout';
+      case 3: return 'Wednesday Workout';
+      case 4: return 'Thursday Workout';
+      case 5: return 'Friday Workout';
+      case 6: return 'Weekend Workout';
+      default: return 'Sunday Workout';
     }
   }
 
@@ -173,11 +182,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               });
               HapticFeedback.lightImpact();
               Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).clearSnackBars();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(tip),
-                  duration: const Duration(seconds: 3),
+                  duration: const Duration(seconds: 4),
                   backgroundColor: const Color(0xFF2C2C2E),
+                  action: SnackBarAction(
+                    label: '⏱ Rest Timer',
+                    textColor: const Color(0xFF30D158),
+                    onPressed: () => _showRestTimer(context),
+                  ),
                 ),
               );
             },
@@ -579,6 +594,146 @@ class _ExerciseCard extends StatelessWidget {
           onPressed: onRemove,
           icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFFF453A), size: 22),
         ),
+      ]),
+    );
+  }
+}
+
+// ─── Rest Timer ───────────────────────────────────────────────────────────────
+class _RestTimerSheet extends StatefulWidget {
+  const _RestTimerSheet();
+  @override
+  State<_RestTimerSheet> createState() => _RestTimerSheetState();
+}
+
+class _RestTimerSheetState extends State<_RestTimerSheet> {
+  static const _presets = [60, 90, 120, 180];
+  int      _selected  = 90;   // seconds chosen
+  int      _remaining = 90;   // seconds left
+  bool     _running   = false;
+  Timer?   _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _start() {
+    _timer?.cancel();
+    setState(() { _remaining = _selected; _running = true; });
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) { t.cancel(); return; }
+      setState(() {
+        _remaining--;
+        if (_remaining <= 0) {
+          _running = false;
+          t.cancel();
+          HapticFeedback.heavyImpact();
+        }
+      });
+    });
+  }
+
+  void _reset() {
+    _timer?.cancel();
+    setState(() { _remaining = _selected; _running = false; });
+  }
+
+  String get _label {
+    if (_remaining <= 0) return 'Done!';
+    final m = _remaining ~/ 60;
+    final s = _remaining % 60;
+    return m > 0
+        ? '$m:${s.toString().padLeft(2,'0')}'
+        : '${s}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final done = _remaining <= 0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Handle
+        Container(width: 40, height: 4,
+            decoration: BoxDecoration(color: const Color(0xFF3A3A3C),
+                borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 20),
+        const Text('Rest Timer', style: TextStyle(color: Colors.white, fontSize: 18,
+            fontWeight: FontWeight.w700)),
+        const SizedBox(height: 24),
+
+        // Countdown display
+        Text(_label, style: TextStyle(
+          color: done ? const Color(0xFF30D158) : Colors.white,
+          fontSize: 60, fontWeight: FontWeight.w200, letterSpacing: -2,
+        )),
+        const SizedBox(height: 4),
+
+        // Progress bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: _selected > 0 ? _remaining / _selected : 0,
+            minHeight: 4,
+            backgroundColor: const Color(0xFF2C2C2E),
+            valueColor: AlwaysStoppedAnimation(
+                done ? const Color(0xFF30D158) : const Color(0xFF40C8E0)),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Preset buttons
+        if (!_running)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: _presets.map((s) {
+              final sel = _selected == s;
+              return GestureDetector(
+                onTap: () => setState(() { _selected = s; _remaining = s; }),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: sel ? const Color(0xFF30D158).withValues(alpha: 0.15) : const Color(0xFF2C2C2E),
+                    borderRadius: BorderRadius.circular(10),
+                    border: sel ? Border.all(color: const Color(0xFF30D158)) : null,
+                  ),
+                  child: Text(s >= 60 ? '${s ~/ 60}m${s % 60 > 0 ? " ${s%60}s" : ""}' : '${s}s',
+                      style: TextStyle(
+                          color: sel ? const Color(0xFF30D158) : Colors.white,
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+              );
+            }).toList(),
+          ),
+        const SizedBox(height: 20),
+
+        // Action buttons
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          if (_running || done)
+            TextButton(
+              onPressed: _reset,
+              child: const Text('Reset', style: TextStyle(color: Color(0xFF8E8E93))),
+            ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 160,
+            child: FilledButton(
+              onPressed: done ? () => Navigator.pop(context) : (_running ? null : _start),
+              style: FilledButton.styleFrom(
+                backgroundColor: done ? const Color(0xFF30D158) : const Color(0xFF30D158),
+                disabledBackgroundColor: const Color(0xFF2C2C2E),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(done ? 'Back to Workout' : (_running ? 'Running…' : 'Start'),
+                  style: TextStyle(
+                      color: _running ? const Color(0xFF8E8E93) : Colors.black,
+                      fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ]),
       ]),
     );
   }
