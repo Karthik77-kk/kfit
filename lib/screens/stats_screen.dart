@@ -1564,14 +1564,66 @@ class _MeasurementTrendRow extends StatelessWidget {
             ? (delta < 0 ? _kSecond : _kGreen)
             : (delta < 0 ? _kGreen : _kRed);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(children: [
         SizedBox(width: 52, child: Text(label, style: const TextStyle(color: _kSecond, fontSize: 12))),
         Text('${latest.toStringAsFixed(1)} cm',
             style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
         if (delta != null)
           Text(deltaStr, style: TextStyle(color: deltaColor, fontSize: 11)),
+        const Spacer(),
+        // Sparkline: show last 5 values as a mini line chart
+        if (nonNull.length >= 2)
+          SizedBox(
+            width: 60, height: 24,
+            child: CustomPaint(painter: _SparklinePainter(nonNull.takeLast(5), deltaColor)),
+          ),
       ]),
     );
   }
+}
+
+extension _TakeLast<T> on List<T> {
+  List<T> takeLast(int n) => length > n ? sublist(length - n) : this;
+}
+
+class _SparklinePainter extends CustomPainter {
+  final List<double> values;
+  final Color color;
+  const _SparklinePainter(this.values, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final range = (maxV - minV).abs();
+
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.8)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    for (int i = 0; i < values.length; i++) {
+      final x = i / (values.length - 1) * size.width;
+      final norm = range < 0.01 ? 0.5 : (values[i] - minV) / range;
+      // Invert: lower value = lower on chart (naturally for waist = good going down)
+      final y = size.height - norm * size.height;
+      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    canvas.drawPath(path, paint);
+
+    // Dot at latest value
+    final lx = size.width;
+    final ln = range < 0.01 ? 0.5 : (values.last - minV) / range;
+    final ly = size.height - ln * size.height;
+    canvas.drawCircle(Offset(lx, ly), 3,
+        Paint()..color = color..style = PaintingStyle.fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter old) =>
+      old.values != values || old.color != color;
 }

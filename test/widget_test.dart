@@ -49,7 +49,7 @@ void main() {
     expect(find.text('Summary'),   findsWidgets);
     expect(find.text('Nutrition'), findsWidgets);
     expect(find.text('Workout'),   findsWidgets);
-    expect(find.text('Scale'),     findsWidgets);
+    expect(find.text('Body'),      findsWidgets);
     expect(find.text('Stats'),     findsWidgets);
     expect(find.text('History'),   findsWidgets);
   });
