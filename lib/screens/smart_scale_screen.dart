@@ -214,17 +214,28 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Green accent bar + white uppercase title — clearly separates sections
         Padding(
-          padding: const EdgeInsets.only(bottom: 10, top: 4),
-          child: Text(title,
-              style: const TextStyle(
-                  color: Color(0xFF8E8E93),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5)),
+          padding: const EdgeInsets.only(top: 20, bottom: 12),
+          child: Row(children: [
+            Container(
+              width: 3, height: 14,
+              decoration: BoxDecoration(
+                color: const Color(0xFF30D158),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(title.toUpperCase(),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6)),
+          ]),
         ),
         ...fields,
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
       ],
     );
   }

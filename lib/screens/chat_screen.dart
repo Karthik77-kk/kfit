@@ -35,10 +35,16 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialise model lazily on first open.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // On open: init (loads model if already installed), then auto-download if not.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final ai = context.read<OnDeviceAiService>();
-      ai.init();
+      await ai.init();
+      if (!mounted) return;
+      // Auto-start download if model isn't installed yet — no button press needed.
+      if (ai.state == AiModelState.notInstalled) {
+        ai.downloadAndLoad();
+      }
     });
   }
 
@@ -136,6 +142,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
 // ── Setup (not installed) ─────────────────────────────────────────────────────
 
+// _SetupView is shown only briefly — initState auto-triggers download immediately.
 class _SetupView extends StatelessWidget {
   final OnDeviceAiService ai;
   const _SetupView({required this.ai});
@@ -153,37 +160,15 @@ class _SetupView extends StatelessWidget {
         const SizedBox(height: 8),
         const Text(
           'Gemma 3 1B · ~600 MB · runs 100% offline\n'
-          'Powered by your actual fitness data',
+          'Starting download automatically…',
           textAlign: TextAlign.center,
           style: TextStyle(color: _kSecond, fontSize: 13, height: 1.5),
         ),
-        const SizedBox(height: 32),
-
-        // Info card
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _kCard,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _kSecond.withValues(alpha: 0.18)),
-          ),
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('ℹ️', style: TextStyle(fontSize: 18)),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Download once over WiFi (~600 MB). Chat works 100% offline after this.',
-                  style: TextStyle(color: _kSecond, fontSize: 13, height: 1.5),
-                ),
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: 40),
+        const CircularProgressIndicator(color: _kGreen, strokeWidth: 2),
         const SizedBox(height: 28),
 
-        // Download button
+        // Fallback manual button in case auto-download stalls
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
