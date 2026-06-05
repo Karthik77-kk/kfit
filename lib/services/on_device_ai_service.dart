@@ -43,8 +43,15 @@ class OnDeviceAiService extends ChangeNotifier {
   String       get modelName    => _modelName;
   String       get modelSize    => _modelSize;
 
-  // ── Init — called at app start and on chat-screen open ─────────────────────
+  // ── Init — called ONCE at app start via lazy:false provider ────────────────
+  // Guard prevents re-entry: if already ready/loading/downloading, returns
+  // immediately. ChatScreen must NOT call this — the provider handles it.
   Future<void> init() async {
+    // Already in a valid state — do nothing
+    if (_state == AiModelState.ready    ||
+        _state == AiModelState.loading  ||
+        _state == AiModelState.downloading) return;
+
     await saveToken(_enterpriseToken);
     final prefs = await SharedPreferences.getInstance();
     _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
@@ -101,6 +108,13 @@ class OnDeviceAiService extends ChangeNotifier {
   }
 
   Future<void> _loadModel() async {
+    // Model already in memory — just surface the ready state without reloading.
+    // This is the key guard that prevents re-loading when user navigates back
+    // to an existing chat while the app is still running.
+    if (_model != null) {
+      _setState(AiModelState.ready);
+      return;
+    }
     _setState(AiModelState.loading);
     try {
       _model = await FlutterGemma.getActiveModel(
@@ -119,142 +133,169 @@ class OnDeviceAiService extends ChangeNotifier {
   }
 
   // ── Chat ────────────────────────────────────────────────────────────────────
-  /// Sends [userMessage] to the model, prepending keyword-triggered context
-  /// (semi-RAG) so the AI always has the relevant data for the question.
+  /// Sends [userMessage] to the model.
+  ///
+  /// On the FIRST message of a conversation, context-relevant history is
+  /// injected into the SYSTEM PROMPT (not the user message). This keeps the
+  /// KV-cache stable across turns and prevents token overflow.
+  ///
+  /// On subsequent messages, plain text is sent — no per-turn context
+  /// injection. This is the key fix for the "exceeded maximum tokens" error.
   Stream<String> sendMessage(String userMessage, FitnessProvider provider) async* {
     if (_model == null) {
-      yield 'Model not loaded. Close and reopen the chat to retry.';
+      yield 'Model not loaded. Please go back and reopen the chat.';
       return;
     }
     try {
-      _chat ??= await _model!.createChat(
-        systemInstruction: _systemPrompt(provider),
-        temperature:  0.7,
-        topK:         40,
-        randomSeed:   42,
-        tokenBuffer:  256,
-      );
-      // Prepend relevant historical context based on keywords in the message
-      final ctx   = _buildContextForQuery(userMessage, provider);
-      final msg   = ctx.isEmpty ? userMessage : '$ctx\n\nUser: $userMessage';
-      await _chat!.addQueryChunk(Message(text: msg, isUser: true));
+      if (_chat == null) {
+        // First message — build context-enriched system prompt for this topic.
+        // Context is injected ONCE here and stays in the system instruction.
+        // Never injected per-turn so conversation tokens stay bounded.
+        final sysPrompt = _buildRichSystemPrompt(userMessage, provider);
+        _chat = await _model!.createChat(
+          systemInstruction: sysPrompt,
+          temperature:  0.7,
+          topK:         40,
+          randomSeed:   42,
+          tokenBuffer:  256, // tokens reserved for model output per turn
+        );
+      }
+      // Plain user message — no context appended (it's already in the system prompt).
+      await _chat!.addQueryChunk(Message(text: userMessage, isUser: true));
       await for (final r in _chat!.generateChatResponseAsync()) {
         if (r is TextResponse) yield r.token;
       }
     } catch (e) {
-      yield '\n\n[Error: $e]';
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('token') || msg.contains('exceed') || msg.contains('context length')) {
+        // Conversation hit the token limit — reset so next message starts fresh.
+        _chat = null;
+        yield '\n\n⚠️ Conversation got too long. Starting fresh — please ask your question again.';
+      } else {
+        yield '\n\n[Error: $e]';
+      }
     }
   }
 
-  /// Builds extra context for the query based on keyword detection.
-  /// Keeps the base system prompt compact while injecting deep history only
-  /// when the user is actually asking about that topic.
+  /// Builds the system prompt for a new conversation, injecting only the
+  /// context sections relevant to [firstMessage] keywords.
+  /// Sections are strictly capped to stay within the 2048-token KV cache.
+  String _buildRichSystemPrompt(String firstMessage, FitnessProvider p) {
+    final q    = firstMessage.toLowerCase();
+    final base = _systemPrompt(p); // ~500-700 tokens
+    final ctx  = _buildContextForQuery(q, p); // 0-400 tokens, keyword-gated
+    if (ctx.isEmpty) return base;
+    // Append context before RULES so model always reads it before answering.
+    return base.replaceFirst(
+      'RULES:',
+      'EXTRA DATA:\n$ctx\nRULES:',
+    );
+  }
+
+  /// Builds keyword-triggered context for injection into the system prompt.
+  /// STRICT token caps per section — total must stay under ~400 tokens so the
+  /// full system prompt (base ~600t + context ~400t = ~1000t) leaves ~800t
+  /// for conversation turns before hitting the 2048 KV-cache limit.
   String _buildContextForQuery(String query, FitnessProvider p) {
-    final q   = query.toLowerCase();
-    final mo  = ['Jan','Feb','Mar','Apr','May','Jun',
-                 'Jul','Aug','Sep','Oct','Nov','Dec'];
+    final mo = ['Jan','Feb','Mar','Apr','May','Jun',
+                'Jul','Aug','Sep','Oct','Nov','Dec'];
     String fd(DateTime dt) => '${dt.day} ${mo[dt.month - 1]}';
 
     final parts = <String>[];
 
-    // ── Weight history (30 days) when user asks about weight/progress/trend ──
-    if (_has(q, ['weight', 'kg', 'progress', 'trend', 'losing', 'gaining', 'heavy'])) {
+    // ── Weight (last 14 entries, 1-line CSV) — ~60 tokens ─────────────────
+    if (_has(query, ['weight', 'kg', 'progress', 'trend', 'losing', 'gaining'])) {
       final entries = p.getRecentBodyEntries(days: 60);
-      final last30  = entries.length > 30 ? entries.sublist(entries.length - 30) : entries;
-      if (last30.isNotEmpty) {
-        final lines = last30.map((e) => '${fd(e.date)}: ${e.weightKg.toStringAsFixed(1)}kg').join(', ');
-        parts.add('[Weight log — last 30 entries: $lines]');
+      final slice   = entries.length > 14 ? entries.sublist(entries.length - 14) : entries;
+      if (slice.isNotEmpty) {
+        parts.add('WeightLog: ${slice.map((e) => '${fd(e.date)}:${e.weightKg.toStringAsFixed(1)}kg').join(', ')}');
       }
     }
 
-    // ── Food history (14 days) when user asks about food/diet/calories/macros ─
-    if (_has(q, ['food', 'eat', 'diet', 'calorie', 'calori', 'protein', 'carb', 'fat', 'meal', 'breakfast', 'lunch', 'dinner', 'snack', 'what did i'])) {
-      final foodHist  = p.foodHistory;
-      final foodLines = <String>[];
-      for (int i = 0; i < 14; i++) {
-        final day = DateTime.now().subtract(Duration(days: i));
-        final key = '${day.year}-${day.month.toString().padLeft(2,'0')}-${day.day.toString().padLeft(2,'0')}';
-        final entries = foodHist[key];
-        if (entries == null || entries.isEmpty) continue;
-        final cal  = entries.fold(0.0, (s, e) => s + e.calories).round();
-        final prot = entries.fold(0.0, (s, e) => s + e.protein).round();
-        final items = entries.take(6).map((e) {
+    // ── Food (last 5 days, max 2 items/meal, totals only for older) — ~120t ─
+    if (_has(query, ['food', 'eat', 'diet', 'calorie', 'protein', 'carb', 'meal', 'breakfast', 'lunch', 'dinner', 'snack', 'what did'])) {
+      final hist  = p.foodHistory;
+      final lines = <String>[];
+      for (int i = 0; i < 5; i++) {
+        final day  = DateTime.now().subtract(Duration(days: i));
+        final key  = '${day.year}-${day.month.toString().padLeft(2,'0')}-${day.day.toString().padLeft(2,'0')}';
+        final ents = hist[key];
+        if (ents == null || ents.isEmpty) continue;
+        final cal  = ents.fold(0.0, (s, e) => s + e.calories).round();
+        final prot = ents.fold(0.0, (s, e) => s + e.protein).round();
+        // Compact: show 2 items max, then "..." if more
+        final items = ents.take(2).map((e) {
           final ml = e.mealType.toString().split('.').last[0].toUpperCase();
-          return '[$ml:${e.name} ${e.calories.round()}kcal]';
+          return '$ml:${e.name}(${e.calories.round()})';
         }).join(' ');
-        foodLines.add('${fd(day)}: ${cal}kcal ${prot}g $items');
+        final extra = ents.length > 2 ? '+${ents.length - 2}more' : '';
+        lines.add('${fd(day)}:${cal}kcal ${prot}g $items$extra');
       }
-      if (foodLines.isNotEmpty) {
-        parts.add('[Food log — last 14 days:\n${foodLines.join('\n')}]');
-      }
+      if (lines.isNotEmpty) parts.add('FoodLog:\n${lines.join('\n')}');
     }
 
-    // ── Workout history (15 sessions) when user asks about workouts/exercises ─
-    if (_has(q, ['workout', 'exercise', 'lift', 'bench', 'deadlift', 'squat', 'pull', 'push', 'gym', 'train', 'reps', 'sets', 'strength', 'muscle', 'pr', 'personal'])) {
-      final allW = [...p.workoutHistory]..sort((a, b) => b.date.compareTo(a.date));
-      final last15 = allW.take(15).toList();
-      if (last15.isNotEmpty) {
-        final lines = last15.map((w) {
-          final exStr = w.exercises.map((ex) {
+    // ── Workouts (last 5, best-set only) — ~80 tokens ─────────────────────
+    if (_has(query, ['workout', 'exercise', 'lift', 'bench', 'deadlift', 'squat', 'gym', 'train', 'strength', 'muscle', 'reps', 'sets'])) {
+      final all  = [...p.workoutHistory]..sort((a, b) => b.date.compareTo(a.date));
+      final last = all.take(5);
+      if (last.isNotEmpty) {
+        final lines = last.map((w) {
+          final exs = w.exercises.map((ex) {
             if (ex.sets.isEmpty) return ex.name;
             final best = ex.sets.reduce((a, b) => a.weight >= b.weight ? a : b);
             return '${ex.name} ${best.weight.toStringAsFixed(0)}×${best.reps}';
           }).join(', ');
-          return '${fd(w.date)}: ${w.name} — $exStr';
+          return '${fd(w.date)}:${w.name}—$exs';
         }).join('\n');
-        parts.add('[Workout history — last 15:\n$lines]');
+        parts.add('Workouts:\n$lines');
       }
     }
 
-    // ── Body measurements when user asks about measurements/waist/chest/arms ──
-    if (_has(q, ['measurement', 'waist', 'chest', 'arm', 'thigh', 'hip', 'circumference', 'size', 'inches', 'cm'])) {
-      final meas = p.measurementHistory;
-      if (meas.isNotEmpty) {
-        final last5 = meas.length > 5 ? meas.sublist(meas.length - 5) : meas;
-        final lines = last5.reversed.map((e) {
-          final ps = <String>[];
-          if (e.chestCm     != null) ps.add('chest ${e.chestCm!.toStringAsFixed(1)}cm');
-          if (e.waistCm     != null) ps.add('waist ${e.waistCm!.toStringAsFixed(1)}cm');
-          if (e.hipsCm      != null) ps.add('hips ${e.hipsCm!.toStringAsFixed(1)}cm');
-          if (e.leftArmCm   != null) ps.add('arm ${e.leftArmCm!.toStringAsFixed(1)}cm');
-          if (e.leftThighCm != null) ps.add('thigh ${e.leftThighCm!.toStringAsFixed(1)}cm');
-          return '${fd(e.date)}: ${ps.join(', ')}';
-        }).join('\n');
-        parts.add('[Body measurements — last 5:\n$lines]');
+    // ── Measurements (latest entry only) — ~30 tokens ─────────────────────
+    if (_has(query, ['measurement', 'waist', 'chest', 'arm', 'thigh', 'hip', 'size'])) {
+      final latest = p.latestMeasurements;
+      if (latest != null) {
+        final ps = <String>[];
+        if (latest.chestCm     != null) ps.add('chest ${latest.chestCm!.toStringAsFixed(0)}cm');
+        if (latest.waistCm     != null) ps.add('waist ${latest.waistCm!.toStringAsFixed(0)}cm');
+        if (latest.hipsCm      != null) ps.add('hips ${latest.hipsCm!.toStringAsFixed(0)}cm');
+        if (latest.leftArmCm   != null) ps.add('arm ${latest.leftArmCm!.toStringAsFixed(0)}cm');
+        if (latest.leftThighCm != null) ps.add('thigh ${latest.leftThighCm!.toStringAsFixed(0)}cm');
+        if (ps.isNotEmpty) parts.add('Measurements: ${ps.join(', ')}');
       }
     }
 
-    // ── Scale / body composition when user asks about body fat / composition ──
-    if (_has(q, ['body fat', 'fat%', 'lean', 'muscle mass', 'body comp', 'scale', 'visceral', 'bmr', 'metabolism', 'composition'])) {
+    // ── Scale / body composition (last 3) — ~60 tokens ────────────────────
+    if (_has(query, ['body fat', 'fat%', 'lean', 'muscle mass', 'body comp', 'scale', 'visceral', 'bmr', 'composition'])) {
       final scales = p.scaleHistory;
-      final last5  = scales.length > 5 ? scales.sublist(scales.length - 5) : scales;
-      if (last5.isNotEmpty) {
-        final lines = last5.reversed.map((e) =>
-          '${fd(e.date)}: ${e.weightKg.toStringAsFixed(1)}kg fat ${e.bodyFatPercent.toStringAsFixed(1)}% muscle ${e.muscleMassKg.toStringAsFixed(1)}kg lean ${e.leanBodyMassKg.toStringAsFixed(1)}kg BMR ${e.bmr.round()}'
-        ).join('\n');
-        parts.add('[Scale history — last 5:\n$lines]');
+      final last3  = scales.length > 3 ? scales.sublist(scales.length - 3) : scales;
+      if (last3.isNotEmpty) {
+        final lines = last3.reversed.map((e) =>
+          '${fd(e.date)}:${e.weightKg.toStringAsFixed(1)}kg fat${e.bodyFatPercent.toStringAsFixed(1)}% muscle${e.muscleMassKg.toStringAsFixed(1)}kg lean${e.leanBodyMassKg.toStringAsFixed(1)}kg'
+        ).join(', ');
+        parts.add('ScaleHistory: $lines');
       }
     }
 
-    // ── Water / supplement history ────────────────────────────────────────────
-    if (_has(q, ['water', 'hydrat', 'supplement', 'whey', 'creatine', 'protein powder', 'multi'])) {
+    // ── Water/supplements (last 7 days, 1-line) — ~50 tokens ──────────────
+    if (_has(query, ['water', 'hydrat', 'supplement', 'whey', 'creatine', 'multi'])) {
       final waterH = p.waterHistory;
       final suppH  = p.supplementHistory;
-      final wlines = <String>[];
-      for (int i = 0; i < 14; i++) {
+      final ws     = <String>[];
+      for (int i = 0; i < 7; i++) {
         final day = DateTime.now().subtract(Duration(days: i));
         final key = '${day.year}-${day.month.toString().padLeft(2,'0')}-${day.day.toString().padLeft(2,'0')}';
         final ml   = waterH[key] ?? 0;
         final supp = suppH[key];
         if (ml == 0 && supp == null) continue;
-        final w  = supp?.whey         == true ? 'Whey✓' : 'Whey✗';
-        final cr = supp?.creatine     == true ? 'Cr✓'   : 'Cr✗';
-        final mv = supp?.multivitamin == true ? 'Mv✓'   : 'Mv✗';
-        wlines.add('${fd(day)}: ${ml}ml $w$cr$mv');
+        final s = [
+          if (supp?.whey         == true) 'W✓' else 'W✗',
+          if (supp?.creatine     == true) 'Cr✓' else 'Cr✗',
+          if (supp?.multivitamin == true) 'M✓' else 'M✗',
+        ].join('');
+        ws.add('${fd(day)}:${ml}ml$s');
       }
-      if (wlines.isNotEmpty) {
-        parts.add('[Water & supplements — 14d:\n${wlines.join('\n')}]');
-      }
+      if (ws.isNotEmpty) parts.add('Water: ${ws.join(' ')}');
     }
 
     return parts.join('\n');
