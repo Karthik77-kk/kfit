@@ -3,16 +3,13 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
 ---
 
 <section class="hero" id="hero">
-  <!-- Particle canvas -->
   <canvas id="particles" class="particles-canvas" aria-hidden="true"></canvas>
-
-  <!-- Ambient glows -->
   <div class="hero-glow hero-glow-green" aria-hidden="true"></div>
   <div class="hero-glow hero-glow-cyan"  aria-hidden="true"></div>
 
   <div class="container hero-inner">
 
-    <!-- ── Left: Copy ─────────────────────────────────────────────────────────── -->
+    <!-- ── Left copy ──────────────────────────────────────────────────────────── -->
     <div class="hero-copy">
       <div class="hero-badge">
         <span class="badge-dot"></span>
@@ -21,81 +18,81 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
 
       <h1 class="hero-title">
         <span class="line-wrap"><span class="line line1">Track smarter.</span></span>
-        <span class="line-wrap"><span class="line line2 gradient-text">Lift heavier.</span></span>
+        <span class="line-wrap"><span class="line line2 gradient-text">Eat right.</span></span>
         <span class="line-wrap"><span class="line line3">Lose fat.</span></span>
       </h1>
 
       <p class="hero-sub">
         Private AI fitness coaching built for Indian bodies.
-        On-device Gemma&nbsp;3, real Indian foods, zero subscriptions — forever.
+        Real Indian foods, on-device Gemma&nbsp;3 AI, zero subscriptions — forever.
+      </p>
+
+      <p class="hero-sideload-note">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Sideload safely — faster updates, no Google account, no Play Store tracking.
       </p>
 
       <div class="hero-actions">
         <a href={APK_URL} class="btn btn-primary btn-lg btn-magnetic" id="dlBtn" download>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
-          </svg>
-          Download APK
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/></svg>
+          <span id="dlBtnText">Download APK</span>
         </a>
-        <a href="#features" class="btn btn-ghost btn-lg">
-          See features
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
+        <a href="#how-it-works" class="btn btn-ghost btn-lg">
+          How it works
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
       </div>
 
-      <!-- Animated stats -->
+      <!-- Stats — user-facing only -->
       <div class="hero-stats">
         <div class="stat-item">
-          <span class="stat-num" data-to="734">0</span>
-          <span class="stat-lbl">tests passing</span>
-        </div>
-        <span class="stat-sep">·</span>
-        <div class="stat-item">
-          <span class="stat-num" data-to="100">0</span><span class="stat-plus">+</span>
+          <span class="stat-num" data-to="100">0</span><span class="stat-suf">+</span>
           <span class="stat-lbl">Indian foods</span>
         </div>
-        <span class="stat-sep">·</span>
+        <span class="stat-div"></span>
         <div class="stat-item">
-          <span class="stat-num" data-to="6">0</span>
-          <span class="stat-lbl">AI models</span>
+          <span class="stat-num" data-to="60">0</span>
+          <span class="stat-lbl">day history</span>
         </div>
-        <span class="stat-sep">·</span>
-        <div class="stat-item">
-          <span class="stat-num" data-to="0">0</span>
-          <span class="stat-lbl">servers</span>
+        <span class="stat-div"></span>
+        <div class="stat-item static-stat">
+          <span class="stat-zero">$0</span>
+          <span class="stat-lbl">forever</span>
         </div>
-      </div>
-
-      <div class="hero-trust">
-        <div class="trust-item"><span>🔒</span><span>Private</span></div>
-        <div class="trust-dot"></div>
-        <div class="trust-item"><span>🤖</span><span>On-device AI</span></div>
-        <div class="trust-dot"></div>
-        <div class="trust-item"><span>🇮🇳</span><span>Indian foods</span></div>
-        <div class="trust-dot"></div>
-        <div class="trust-item"><span>⚡</span><span>Android</span></div>
+        <span class="stat-div"></span>
+        <div class="stat-item static-stat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span class="stat-lbl">data stays on device</span>
+        </div>
       </div>
     </div>
 
-    <!-- ── Right: Phone mockup ──────────────────────────────────────────────────── -->
+    <!-- ── Right: Phone ───────────────────────────────────────────────────────── -->
     <div class="hero-phone-area">
       <div class="phone-halo" aria-hidden="true"></div>
+      <div class="phone-halo phone-halo-2" aria-hidden="true"></div>
 
       <div class="float-badge badge-gemma">
-        <span class="badge-icon">✨</span>
+        <div class="fb-dot"></div>
         <div>
-          <div class="fb-title">Gemma 3 AI</div>
-          <div class="fb-sub">Runs on-device</div>
+          <div class="fb-title">Gemma 3 · On-device</div>
+          <div class="fb-sub">Runs without internet</div>
         </div>
       </div>
 
       <div class="float-badge badge-offline">
-        <span class="badge-icon">📴</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         <div>
-          <div class="fb-title">100% Offline</div>
-          <div class="fb-sub">No internet needed</div>
+          <div class="fb-title">100% Private</div>
+          <div class="fb-sub">Zero cloud, zero tracking</div>
+        </div>
+      </div>
+
+      <div class="float-badge badge-food">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+        <div>
+          <div class="fb-title">Indian Foods + API</div>
+          <div class="fb-sub">Built-in + live search</div>
         </div>
       </div>
 
@@ -103,8 +100,6 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
         <div class="phone-frame">
           <div class="phone-notch"></div>
           <div class="phone-screen">
-
-            <!-- Status bar -->
             <div class="ui-statusbar">
               <span class="ui-time">9:41</span>
               <div class="ui-status-icons">
@@ -115,14 +110,12 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
                   <rect x="12" y="0" width="3" height="11" rx="1"/>
                 </svg>
                 <svg width="16" height="11" viewBox="0 0 24 12" fill="none" stroke="white" stroke-width="1.5" opacity="0.8">
-                  <rect x="1" y="1" width="19" height="10" rx="2"/>
-                  <rect x="2" y="2" width="13" height="8" rx="1" fill="white" stroke="none"/>
+                  <rect x="1" y="1" width="19" height="10" rx="2"/><rect x="2" y="2" width="13" height="8" rx="1" fill="white" stroke="none"/>
                   <path d="M22 4v4a2 2 0 000-4z" fill="white" stroke="none"/>
                 </svg>
               </div>
             </div>
 
-            <!-- Greeting -->
             <div class="ui-greeting">
               <div class="ui-date">Wednesday, June 4</div>
               <div class="ui-name-row">
@@ -131,43 +124,33 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
               </div>
             </div>
 
-            <!-- AI Coach card -->
             <div class="ui-ai-card">
               <div class="ui-ai-icon">🤖</div>
               <div class="ui-ai-body">
                 <div class="ui-ai-label">AI COACH</div>
-                <div class="ui-ai-msg" id="uiAiMsg">453 kcal deficit today. Keep it up! 💪</div>
+                <div class="ui-ai-msg" id="uiAiMsg">453 kcal deficit today — keep it up! 💪</div>
               </div>
             </div>
 
-            <!-- Rings SVG -->
             <div class="ui-rings-wrap">
               <svg class="rings-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="100" cy="100" r="80" stroke="rgba(48,209,88,0.12)"  stroke-width="10" fill="none"/>
                 <circle cx="100" cy="100" r="62" stroke="rgba(64,200,224,0.12)" stroke-width="10" fill="none"/>
                 <circle cx="100" cy="100" r="44" stroke="rgba(255,159,10,0.12)" stroke-width="10" fill="none"/>
-                <circle class="ring-cal" cx="100" cy="100" r="80"
-                  stroke="#30D158" stroke-width="10" fill="none"
-                  stroke-dasharray="502" stroke-dashoffset="502"
-                  stroke-linecap="round" transform="rotate(-90 100 100)"/>
-                <circle class="ring-pro" cx="100" cy="100" r="62"
-                  stroke="#40C8E0" stroke-width="10" fill="none"
-                  stroke-dasharray="390" stroke-dashoffset="390"
-                  stroke-linecap="round" transform="rotate(-90 100 100)"/>
-                <circle class="ring-wat" cx="100" cy="100" r="44"
-                  stroke="#FF9F0A" stroke-width="10" fill="none"
-                  stroke-dasharray="276" stroke-dashoffset="276"
-                  stroke-linecap="round" transform="rotate(-90 100 100)"/>
-                <text x="100" y="93"  text-anchor="middle" fill="white"    font-size="22" font-weight="700" font-family="Inter,sans-serif">1,247</text>
-                <text x="100" y="110" text-anchor="middle" fill="#8E8E93"  font-size="10" font-family="Inter,sans-serif">/ 1,700 kcal</text>
-                <circle cx="62"  cy="170" r="4" fill="#30D158"/>
-                <text x="70"  y="174" fill="#8E8E93" font-size="9" font-family="Inter,sans-serif">Calories</text>
-                <circle cx="107" cy="170" r="4" fill="#40C8E0"/>
-                <text x="115" y="174" fill="#8E8E93" font-size="9" font-family="Inter,sans-serif">Protein</text>
+                <circle class="ring-cal" cx="100" cy="100" r="80" stroke="#30D158" stroke-width="10" fill="none" stroke-dasharray="502" stroke-dashoffset="502" stroke-linecap="round" transform="rotate(-90 100 100)"/>
+                <circle class="ring-pro" cx="100" cy="100" r="62" stroke="#40C8E0" stroke-width="10" fill="none" stroke-dasharray="390" stroke-dashoffset="390" stroke-linecap="round" transform="rotate(-90 100 100)"/>
+                <circle class="ring-wat" cx="100" cy="100" r="44" stroke="#FF9F0A" stroke-width="10" fill="none" stroke-dasharray="276" stroke-dashoffset="276" stroke-linecap="round" transform="rotate(-90 100 100)"/>
+                <text x="100" y="93"  text-anchor="middle" fill="white"   font-size="22" font-weight="700" font-family="Inter,sans-serif">1,247</text>
+                <text x="100" y="110" text-anchor="middle" fill="#8E8E93" font-size="10" font-family="Inter,sans-serif">/ 1,700 kcal</text>
+                <circle cx="56"  cy="172" r="4" fill="#30D158"/>
+                <text x="64"  y="176" fill="#8E8E93" font-size="9" font-family="Inter,sans-serif">Calories</text>
+                <circle cx="108" cy="172" r="4" fill="#40C8E0"/>
+                <text x="116" y="176" fill="#8E8E93" font-size="9" font-family="Inter,sans-serif">Protein</text>
+                <circle cx="152" cy="172" r="4" fill="#FF9F0A"/>
+                <text x="160" y="176" fill="#8E8E93" font-size="9" font-family="Inter,sans-serif">Water</text>
               </svg>
             </div>
 
-            <!-- Steps -->
             <div class="ui-steps">
               <div class="ui-steps-left">
                 <span class="ui-steps-icon">🦶</span>
@@ -177,9 +160,7 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
                 </div>
               </div>
               <div class="ui-steps-bar-wrap">
-                <div class="ui-steps-bar">
-                  <div class="ui-steps-fill" style="width:78%"></div>
-                </div>
+                <div class="ui-steps-bar"><div class="ui-steps-fill"></div></div>
                 <div class="ui-steps-pct">78%</div>
               </div>
             </div>
@@ -198,135 +179,130 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
 <script>
   import gsap from 'gsap';
 
-  // ── Particle canvas ───────────────────────────────────────────────────────────
-  const canvas  = document.getElementById('particles') as HTMLCanvasElement | null;
-  const ctx     = canvas?.getContext('2d');
-
+  // ── Particles ─────────────────────────────────────────────────────────────────
+  const canvas = document.getElementById('particles') as HTMLCanvasElement | null;
+  const ctx    = canvas?.getContext('2d');
   if (canvas && ctx) {
-    const resize = () => {
-      canvas.width  = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-    };
+    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
     resize();
     window.addEventListener('resize', resize, { passive: true });
-
-    const pts = Array.from({ length: 55 }, () => ({
-      x:  Math.random() * canvas.width,
-      y:  Math.random() * canvas.height,
-      r:  Math.random() * 1.8 + 0.4,
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: (Math.random() - 0.5) * 0.25,
-      o:  Math.random() * 0.35 + 0.08,
+    const pts = Array.from({ length: 60 }, () => ({
+      x: Math.random() * canvas.width,  y: Math.random() * canvas.height,
+      r: Math.random() * 2 + 0.4,
+      vx: (Math.random() - 0.5) * 0.28, vy: (Math.random() - 0.5) * 0.28,
+      o: Math.random() * 0.3 + 0.06,
     }));
-
     (function loop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       pts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
         if (p.x < 0 || p.x > canvas.width)  p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(48,209,88,${p.o})`;
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(48,209,88,${p.o})`; ctx.fill();
       });
       requestAnimationFrame(loop);
     })();
   }
 
-  // ── Entrance animation ────────────────────────────────────────────────────────
+  // ── Entrance ──────────────────────────────────────────────────────────────────
   const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-
-  tl.from('.hero-badge',    { opacity: 0, y: 16, duration: 0.5 })
-    .from('.line1',         { y: '110%', duration: 0.7 }, '-=0.2')
-    .from('.line2',         { y: '110%', duration: 0.7 }, '-=0.55')
-    .from('.line3',         { y: '110%', duration: 0.7 }, '-=0.55')
-    .from('.hero-sub',      { opacity: 0, y: 24, duration: 0.6 }, '-=0.4')
-    .from('.hero-actions',  { opacity: 0, y: 20, duration: 0.6 }, '-=0.4')
-    .from('.hero-stats',    { opacity: 0, y: 16, duration: 0.5 }, '-=0.3')
-    .from('.hero-trust',    { opacity: 0, duration: 0.5 }, '-=0.3')
-    .from('.phone-wrapper', { opacity: 0, y: 60, duration: 1.1 }, 0.4)
-    .from('.phone-halo',    { opacity: 0, scale: 0.5, duration: 1.4, ease: 'power2.out' }, 0.5)
-    .from('.badge-gemma',   { opacity: 0, x: 20, duration: 0.5 }, 1.2)
-    .from('.badge-offline', { opacity: 0, x: -20, duration: 0.5 }, 1.4)
-    .from('.scroll-hint',   { opacity: 0, duration: 0.5 }, 1.6);
+  tl.from('.hero-badge',        { opacity: 0, y: 16, duration: 0.5 })
+    .from('.line1',             { y: '110%', duration: 0.7 }, '-=0.2')
+    .from('.line2',             { y: '110%', duration: 0.7 }, '-=0.55')
+    .from('.line3',             { y: '110%', duration: 0.7 }, '-=0.55')
+    .from('.hero-sub',          { opacity: 0, y: 24, duration: 0.6 }, '-=0.4')
+    .from('.hero-sideload-note',{ opacity: 0, y: 12, duration: 0.5 }, '-=0.35')
+    .from('.hero-actions',      { opacity: 0, y: 20, duration: 0.6 }, '-=0.35')
+    .from('.hero-stats',        { opacity: 0, y: 16, duration: 0.5 }, '-=0.3')
+    .from('.phone-wrapper',     { opacity: 0, y: 60, duration: 1.1 }, 0.4)
+    .from('.phone-halo',        { opacity: 0, scale: 0.5, duration: 1.5, ease: 'power2.out' }, 0.5)
+    .from('.badge-gemma',       { opacity: 0, x: 20, duration: 0.5 }, 1.1)
+    .from('.badge-offline',     { opacity: 0, x: -20, duration: 0.5 }, 1.25)
+    .from('.badge-food',        { opacity: 0, y: 16, duration: 0.5 }, 1.4)
+    .from('.scroll-hint',       { opacity: 0, duration: 0.5 }, 1.6);
 
   // ── Ring fill ─────────────────────────────────────────────────────────────────
   gsap.to('.ring-cal', { strokeDashoffset: 135, duration: 2.5, ease: 'power3.out', delay: 1.2 });
   gsap.to('.ring-pro', { strokeDashoffset: 125, duration: 2.5, ease: 'power3.out', delay: 1.4 });
   gsap.to('.ring-wat', { strokeDashoffset: 55,  duration: 2.5, ease: 'power3.out', delay: 1.6 });
 
+  // ── Steps bar animate ─────────────────────────────────────────────────────────
+  setTimeout(() => {
+    const fill = document.querySelector('.ui-steps-fill') as HTMLElement | null;
+    if (fill) gsap.to(fill, { width: '78%', duration: 1.5, ease: 'power2.out', delay: 0.2 });
+  }, 1800);
+
   // ── Stats counter ─────────────────────────────────────────────────────────────
-  const statsObserver = new IntersectionObserver((entries) => {
+  const obs = new IntersectionObserver((entries) => {
     if (!entries[0].isIntersecting) return;
-    statsObserver.disconnect();
+    obs.disconnect();
     document.querySelectorAll<HTMLElement>('.stat-num').forEach(el => {
       const to = parseInt(el.dataset.to || '0');
       const obj = { val: 0 };
-      gsap.to(obj, {
-        val: to, duration: 2, ease: 'power2.out', delay: 0.3,
-        onUpdate() { el.textContent = Math.round(obj.val).toLocaleString(); },
-      });
+      gsap.to(obj, { val: to, duration: 1.8, ease: 'power2.out', delay: 0.3,
+        onUpdate() { el.textContent = Math.round(obj.val).toLocaleString(); } });
     });
   }, { threshold: 0.5 });
   const statsEl = document.querySelector('.hero-stats');
-  if (statsEl) statsObserver.observe(statsEl);
+  if (statsEl) obs.observe(statsEl);
 
-  // ── 3D phone tilt ─────────────────────────────────────────────────────────────
+  // ── Phone 3D tilt ─────────────────────────────────────────────────────────────
   const hero    = document.getElementById('hero');
   const wrapper = document.getElementById('phoneWrapper');
-
   hero?.addEventListener('mousemove', (e) => {
-    const rect = hero.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width  - 0.5) * 2;
-    const y = ((e.clientY - rect.top)  / rect.height - 0.5) * 2;
-    gsap.to(wrapper, {
-      rotateY: x * 14, rotateX: -y * 9,
-      transformPerspective: 1000, duration: 0.5,
-      ease: 'power2.out', overwrite: 'auto',
-    });
+    const r = hero.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width  - 0.5) * 2;
+    const y = ((e.clientY - r.top)  / r.height - 0.5) * 2;
+    gsap.to(wrapper, { rotateY: x * 14, rotateX: -y * 9, transformPerspective: 1000,
+      duration: 0.5, ease: 'power2.out', overwrite: 'auto' });
   }, { passive: true });
-
   hero?.addEventListener('mouseleave', () => {
-    gsap.to(wrapper, {
-      rotateY: -8, rotateX: 4,
-      transformPerspective: 1000,
-      duration: 1.5, ease: 'elastic.out(1, 0.6)',
-    });
+    gsap.to(wrapper, { rotateY: -8, rotateX: 4, transformPerspective: 1000,
+      duration: 1.5, ease: 'elastic.out(1, 0.6)' });
   });
 
-  // ── Magnetic download button ──────────────────────────────────────────────────
+  // ── Magnetic button ───────────────────────────────────────────────────────────
   const dlBtn = document.getElementById('dlBtn');
   dlBtn?.addEventListener('mousemove', (e) => {
-    const rect = (dlBtn as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width  / 2;
-    const y = e.clientY - rect.top  - rect.height / 2;
-    gsap.to(dlBtn, { x: x * 0.28, y: y * 0.28, duration: 0.3, ease: 'power2.out' });
+    const r = (dlBtn as HTMLElement).getBoundingClientRect();
+    gsap.to(dlBtn, { x: (e.clientX - r.left - r.width / 2) * 0.28,
+      y: (e.clientY - r.top - r.height / 2) * 0.28, duration: 0.3, ease: 'power2.out' });
   });
   dlBtn?.addEventListener('mouseleave', () => {
     gsap.to(dlBtn, { x: 0, y: 0, duration: 0.7, ease: 'elastic.out(1, 0.5)' });
   });
 
+  // ── Download click feedback ───────────────────────────────────────────────────
+  dlBtn?.addEventListener('click', () => {
+    const txt = document.getElementById('dlBtnText');
+    if (!txt) return;
+    txt.textContent = 'Downloading…';
+    (dlBtn as HTMLElement).style.background = '#27b349';
+    setTimeout(() => {
+      txt.textContent = 'Download APK';
+      (dlBtn as HTMLElement).style.background = '';
+    }, 3500);
+  });
+
   // ── AI message cycle ──────────────────────────────────────────────────────────
   const messages = [
-    '453 kcal deficit today. Keep it up! 💪',
+    '453 kcal deficit today — keep it up! 💪',
     'Protein low — add 30g more to hit 100g.',
-    '12-day streak! Consistency is key. 🔥',
-    'On pace for −0.5kg/week. Perfect! ✅',
-    'Dinner: 2 chapati + dal = 360 kcal. 🍛',
+    '12-day streak! Consistency is everything. 🔥',
+    'On pace for −0.5kg/week. Perfect rate! ✅',
+    'Dinner idea: 2 chapati + dal = 360 kcal. 🍛',
   ];
   let msgIdx = 0;
   const aiMsg = document.getElementById('uiAiMsg');
   setInterval(() => {
     if (!aiMsg) return;
-    gsap.to(aiMsg, {
-      opacity: 0, y: -5, duration: 0.25,
+    gsap.to(aiMsg, { opacity: 0, y: -5, duration: 0.25,
       onComplete() {
         msgIdx = (msgIdx + 1) % messages.length;
         aiMsg.textContent = messages[msgIdx];
         gsap.to(aiMsg, { opacity: 1, y: 0, duration: 0.3 });
-      },
-    });
+      } });
   }, 3200);
 
   // ── Scroll hint fade ──────────────────────────────────────────────────────────
@@ -337,68 +313,47 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
 </script>
 
 <style>
-  /* ── Section ──────────────────────────────────────────────────────────────── */
   .hero {
-    position: relative;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 120px 0 80px;
-    overflow: hidden;
+    position: relative; min-height: 100vh;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 120px 0 80px; overflow: hidden;
   }
 
-  /* ── Particle canvas ──────────────────────────────────────────────────────── */
   .particles-canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    z-index: 0;
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
   }
 
-  /* ── Ambient glows ────────────────────────────────────────────────────────── */
   .hero-glow {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(100px);
-    pointer-events: none;
-    z-index: 0;
+    position: absolute; border-radius: 50%;
+    filter: blur(120px); pointer-events: none; z-index: 0;
   }
-
   .hero-glow-green {
-    width: 700px; height: 700px;
+    width: 800px; height: 800px;
     background: radial-gradient(ellipse, rgba(48,209,88,0.1) 0%, transparent 70%);
-    top: -10%; right: -15%;
+    top: -15%; right: -20%;
   }
-
   .hero-glow-cyan {
     width: 500px; height: 500px;
     background: radial-gradient(ellipse, rgba(64,200,224,0.07) 0%, transparent 70%);
     top: 20%; left: -10%;
   }
 
-  /* ── Layout ───────────────────────────────────────────────────────────────── */
   .hero-inner {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: center;
-    gap: 64px;
-    position: relative;
-    z-index: 1;
+    display: grid; grid-template-columns: 1fr 1fr;
+    align-items: center; gap: 64px;
+    position: relative; z-index: 1;
   }
 
-  /* ── Copy ─────────────────────────────────────────────────────────────────── */
-  .hero-copy { display: flex; flex-direction: column; gap: 24px; }
+  .hero-copy { display: flex; flex-direction: column; gap: 22px; }
 
   .hero-badge {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 6px 14px;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 100px;
-    font-size: 12px; color: var(--muted); font-weight: 500;
-    width: fit-content;
+    border-radius: 100px; font-size: 12px;
+    color: var(--muted); font-weight: 500; width: fit-content;
   }
 
   .badge-dot {
@@ -407,56 +362,68 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
     animation: dot-pulse 2s ease-in-out infinite;
   }
 
-  /* Title with clip-path reveal */
-  .hero-title { display: flex; flex-direction: column; gap: 4px; }
-
-  .line-wrap { display: block; overflow: hidden; }
-
-  .line { display: block; }
+  .hero-title { display: flex; flex-direction: column; gap: 2px; }
+  .line-wrap  { display: block; overflow: hidden; }
+  .line       { display: block; }
 
   .hero-sub {
     font-size: 18px; color: var(--muted);
-    max-width: 420px; line-height: 1.65;
+    max-width: 440px; line-height: 1.7;
   }
+
+  .hero-sideload-note {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--muted2); line-height: 1.5;
+    max-width: 400px; margin-top: -6px;
+  }
+
+  .hero-sideload-note svg { flex-shrink: 0; color: var(--cyan); }
 
   .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn-lg       { padding: 15px 28px; font-size: 15px; }
 
-  .btn-lg { padding: 15px 28px; font-size: 15px; }
-
-  /* ── Stats row ────────────────────────────────────────────────────────────── */
+  /* ── Stats ──────────────────────────────────────────────────────────────────── */
   .hero-stats {
-    display: flex; align-items: center; gap: 12px;
-    flex-wrap: wrap; padding: 4px 0;
+    display: flex; align-items: center; gap: 0;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px; width: fit-content;
+    flex-wrap: wrap; gap: 0;
   }
 
-  .stat-item { display: flex; align-items: baseline; gap: 5px; }
+  .stat-item {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 3px; padding: 0 20px;
+  }
+
+  .stat-item:first-child { padding-left: 0; }
+  .stat-item:last-child  { padding-right: 0; }
 
   .stat-num {
-    font-size: 20px; font-weight: 800;
-    color: white; letter-spacing: -0.04em;
+    font-size: 22px; font-weight: 800; color: white;
+    letter-spacing: -0.04em; line-height: 1;
     font-variant-numeric: tabular-nums;
   }
 
-  .stat-plus { font-size: 16px; font-weight: 700; color: var(--green); }
+  .stat-suf  { font-size: 16px; font-weight: 700; color: var(--green); margin-left: 1px; }
 
-  .stat-lbl { font-size: 12px; color: var(--muted); }
-
-  .stat-sep { font-size: 16px; color: var(--muted2); }
-
-  /* ── Trust row ────────────────────────────────────────────────────────────── */
-  .hero-trust { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-
-  .trust-item {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 13px; color: var(--muted);
+  .stat-zero {
+    font-size: 22px; font-weight: 800;
+    color: var(--green); letter-spacing: -0.04em; line-height: 1;
   }
 
-  .trust-dot {
-    width: 3px; height: 3px; border-radius: 50%;
-    background: var(--muted2);
+  .stat-lbl  { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  .static-stat { flex-direction: row; align-items: center; gap: 6px; }
+  .static-stat .stat-lbl { margin: 0; }
+
+  .stat-div {
+    width: 1px; height: 32px; background: rgba(255,255,255,0.08);
+    flex-shrink: 0;
   }
 
-  /* ── Phone area ───────────────────────────────────────────────────────────── */
+  /* ── Phone area ─────────────────────────────────────────────────────────────── */
   .hero-phone-area {
     position: relative;
     display: flex; justify-content: center; align-items: center;
@@ -464,33 +431,42 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
   }
 
   .phone-halo {
-    position: absolute;
-    width: 420px; height: 420px; border-radius: 50%;
-    background: radial-gradient(ellipse, rgba(48,209,88,0.22) 0%, transparent 65%);
-    animation: glow-pulse 4s ease-in-out infinite;
-    pointer-events: none;
+    position: absolute; width: 380px; height: 380px; border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(48,209,88,0.2) 0%, transparent 65%);
+    animation: glow-pulse 4s ease-in-out infinite; pointer-events: none;
+  }
+  .phone-halo-2 {
+    width: 260px; height: 260px;
+    background: radial-gradient(ellipse, rgba(64,200,224,0.12) 0%, transparent 65%);
+    animation-delay: -2s;
   }
 
-  /* ── Floating badges ──────────────────────────────────────────────────────── */
+  /* ── Floating badges ──────────────────────────────────────────────────────────── */
   .float-badge {
     position: absolute;
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px;
-    background: rgba(28,28,30,0.88);
+    padding: 10px 14px;
+    background: rgba(15,15,17,0.9);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 14px; z-index: 10;
+    border-radius: 12px; z-index: 10;
     animation: badge-float 6s ease-in-out infinite;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   }
 
-  .badge-gemma  { top: 8%; right: 2%; animation-delay: 0s; }
-  .badge-offline{ bottom: 12%; left: 0%; animation-delay: -3s; }
-  .badge-icon   { font-size: 22px; }
-  .fb-title     { font-size: 13px; font-weight: 600; color: white; }
-  .fb-sub       { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .badge-gemma  { top: 6%;    right: 0%;  animation-delay: 0s; }
+  .badge-offline{ bottom: 16%; left: -2%; animation-delay: -2s; }
+  .badge-food   { top: 42%;   right: -4%; animation-delay: -4s; }
 
-  /* ── Phone frame ──────────────────────────────────────────────────────────── */
+  .fb-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); flex-shrink: 0;
+    animation: dot-pulse 2s ease-in-out infinite;
+  }
+  .fb-title { font-size: 12px; font-weight: 600; color: white; }
+  .fb-sub   { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+  /* ── Phone frame ─────────────────────────────────────────────────────────────── */
   .phone-wrapper {
     position: relative; z-index: 5;
     animation: float 5s ease-in-out infinite;
@@ -500,125 +476,77 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest
   }
 
   .phone-frame {
-    width: 270px;
-    background: #111113;
+    width: 270px; background: #0d0d0f;
     border-radius: 46px;
-    border: 1.5px solid rgba(255,255,255,0.12);
+    border: 1.5px solid rgba(255,255,255,0.13);
     box-shadow:
-      0 50px 100px rgba(0,0,0,0.7),
-      0 0 0 1px rgba(255,255,255,0.04),
-      inset 0 0 0 1px rgba(255,255,255,0.06),
-      0 0 60px rgba(48,209,88,0.14);
-    overflow: hidden;
-    position: relative;
+      0 60px 120px rgba(0,0,0,0.8),
+      inset 0 0 0 1px rgba(255,255,255,0.05),
+      0 0 80px rgba(48,209,88,0.15);
+    overflow: hidden; position: relative;
   }
 
   .phone-notch {
     position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-    width: 100px; height: 28px;
-    background: #111113;
+    width: 100px; height: 28px; background: #0d0d0f;
     border-radius: 0 0 18px 18px; z-index: 10;
     border: 1.5px solid rgba(255,255,255,0.06); border-top: none;
   }
 
-  /* ── App screen ───────────────────────────────────────────────────────────── */
+  /* ── App UI ──────────────────────────────────────────────────────────────────── */
   .phone-screen {
     background: #000; padding: 36px 14px 18px;
-    display: flex; flex-direction: column; gap: 10px;
-    min-height: 560px;
+    display: flex; flex-direction: column; gap: 9px; min-height: 560px;
   }
 
-  .ui-statusbar {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 0 4px; margin-bottom: 2px;
-  }
-
-  .ui-time { font-size: 13px; font-weight: 600; color: white; letter-spacing: -0.02em; }
+  .ui-statusbar { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; }
+  .ui-time      { font-size: 13px; font-weight: 600; color: white; letter-spacing: -0.02em; }
   .ui-status-icons { display: flex; align-items: center; gap: 4px; }
 
-  .ui-greeting { padding: 2px 4px; }
-  .ui-date     { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+  .ui-greeting   { padding: 2px 4px; }
+  .ui-date       { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+  .ui-name-row   { display: flex; align-items: center; justify-content: space-between; }
+  .ui-name       { font-size: 13px; font-weight: 700; color: white; letter-spacing: -0.02em; }
+  .ui-streak     { font-size: 11px; font-weight: 600; background: rgba(255,159,10,0.15); border: 1px solid rgba(255,159,10,0.3); color: #FF9F0A; padding: 2px 7px; border-radius: 100px; }
 
-  .ui-name-row {
-    display: flex; align-items: center;
-    justify-content: space-between; gap: 8px;
-  }
+  .ui-ai-card    { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: linear-gradient(135deg, rgba(48,209,88,0.12), rgba(64,200,224,0.06)); border: 1px solid rgba(48,209,88,0.25); border-radius: 12px; }
+  .ui-ai-icon    { font-size: 18px; flex-shrink: 0; }
+  .ui-ai-label   { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--green); margin-bottom: 2px; }
+  .ui-ai-msg     { font-size: 11px; color: rgba(255,255,255,0.85); line-height: 1.5; }
 
-  .ui-name   { font-size: 13px; font-weight: 700; color: white; letter-spacing: -0.02em; }
-  .ui-streak {
-    font-size: 11px; font-weight: 600;
-    background: rgba(255,159,10,0.15);
-    border: 1px solid rgba(255,159,10,0.3);
-    color: #FF9F0A; padding: 2px 7px; border-radius: 100px;
-  }
+  .ui-rings-wrap { display: flex; justify-content: center; }
+  .rings-svg     { width: 186px; height: 186px; filter: drop-shadow(0 0 14px rgba(48,209,88,0.22)); }
 
-  .ui-ai-card {
-    display: flex; align-items: flex-start; gap: 8px;
-    padding: 10px 12px;
-    background: linear-gradient(135deg, rgba(48,209,88,0.12) 0%, rgba(64,200,224,0.06) 100%);
-    border: 1px solid rgba(48,209,88,0.25);
-    border-radius: 12px;
-  }
-
-  .ui-ai-icon  { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-  .ui-ai-label { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--green); margin-bottom: 2px; }
-  .ui-ai-msg   { font-size: 11px; color: rgba(255,255,255,0.85); line-height: 1.5; }
-
-  .ui-rings-wrap { display: flex; justify-content: center; padding: 4px 0; }
-  .rings-svg     { width: 180px; height: 180px; filter: drop-shadow(0 0 12px rgba(48,209,88,0.2)); }
-
-  .ui-steps {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 8px 12px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-  }
-
+  .ui-steps      { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
   .ui-steps-left { display: flex; align-items: center; gap: 7px; }
   .ui-steps-icon { font-size: 16px; }
   .ui-steps-val  { font-size: 13px; font-weight: 700; color: white; }
   .ui-steps-lbl  { font-size: 9px; color: var(--muted); }
-
   .ui-steps-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
   .ui-steps-bar  { width: 100%; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
-  .ui-steps-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--cyan)); border-radius: 2px; }
+  .ui-steps-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--green), var(--cyan)); border-radius: 2px; }
   .ui-steps-pct  { font-size: 9px; color: var(--muted); }
 
-  /* ── Scroll hint ──────────────────────────────────────────────────────────── */
-  .scroll-hint {
-    position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    color: var(--muted2); font-size: 11px; font-weight: 500; letter-spacing: 0.04em;
-    transition: opacity 0.2s;
-    z-index: 1;
-  }
+  /* ── Scroll hint ─────────────────────────────────────────────────────────────── */
+  .scroll-hint   { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted2); font-size: 11px; font-weight: 500; letter-spacing: 0.04em; transition: opacity 0.2s; z-index: 1; }
+  .scroll-mouse  { width: 22px; height: 34px; border: 1.5px solid rgba(255,255,255,0.15); border-radius: 11px; display: flex; justify-content: center; padding-top: 5px; }
+  .scroll-wheel  { width: 3px; height: 7px; background: rgba(255,255,255,0.3); border-radius: 2px; animation: float 2s ease-in-out infinite; }
 
-  .scroll-mouse {
-    width: 22px; height: 34px;
-    border: 1.5px solid rgba(255,255,255,0.15); border-radius: 11px;
-    display: flex; justify-content: center; padding-top: 5px;
-  }
-
-  .scroll-wheel {
-    width: 3px; height: 7px;
-    background: rgba(255,255,255,0.3); border-radius: 2px;
-    animation: float 2s ease-in-out infinite;
-  }
-
-  /* ── Responsive ───────────────────────────────────────────────────────────── */
+  /* ── Responsive ──────────────────────────────────────────────────────────────── */
   @media (max-width: 900px) {
     .hero-inner { grid-template-columns: 1fr; text-align: center; }
-    .hero-badge, .hero-trust, .hero-stats { margin: 0 auto; }
-    .hero-sub { max-width: none; }
-    .hero-actions, .hero-trust, .hero-stats { justify-content: center; }
+    .hero-badge, .hero-stats { margin: 0 auto; }
+    .hero-sub, .hero-sideload-note { max-width: none; }
+    .hero-actions, .hero-sideload-note { justify-content: center; }
     .hero-phone-area { order: -1; padding: 20px 0 0; }
-    .badge-gemma   { right: 5%; top: 5%; }
-    .badge-offline { left: 5%; bottom: 5%; }
+    .badge-gemma   { right: 4%; top: 4%; }
+    .badge-offline { left: 4%; bottom: 4%; }
+    .badge-food    { display: none; }
+    .hero-stats    { width: 100%; justify-content: center; }
   }
-
   @media (max-width: 480px) {
     .phone-frame { width: 240px; }
-    .hero-stats  { gap: 8px; }
+    .hero-stats  { padding: 12px 14px; }
+    .stat-item   { padding: 0 12px; }
   }
 </style>
