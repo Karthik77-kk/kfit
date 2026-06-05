@@ -1,0 +1,328 @@
+---
+const features = [
+  {
+    id: 'ai',
+    span: 2,
+    accent: '#30D158',
+    accentDim: 'rgba(48,209,88,0.08)',
+    icon: '🤖',
+    tag: 'On-device AI',
+    title: 'Your personal coach runs entirely on your phone',
+    desc: 'Powered by Google Gemma 3. No API calls, no cloud, no privacy trade-offs. Ask anything about nutrition, workouts, or your progress — answered in seconds, offline.',
+    extra: true,
+  },
+  {
+    id: 'foods',
+    span: 1,
+    accent: '#FF9F0A',
+    accentDim: 'rgba(255,159,10,0.08)',
+    icon: '🍛',
+    tag: 'Indian Foods',
+    title: '100+ Indian foods built in',
+    desc: 'Dal, chapati, idli, biryani, paneer — tracked correctly, not guessed from generic databases.',
+  },
+  {
+    id: 'insights',
+    span: 1,
+    accent: '#40C8E0',
+    accentDim: 'rgba(64,200,224,0.08)',
+    icon: '🧠',
+    tag: 'Smart Insights',
+    title: 'Predictive tips, not generic advice',
+    desc: 'A scored insight engine surfaces the most relevant observation for you — deficit trend, protein gap, streak risk — at exactly the right time.',
+  },
+  {
+    id: 'body',
+    span: 2,
+    accent: '#BF5AF2',
+    accentDim: 'rgba(191,90,242,0.08)',
+    icon: '⚖️',
+    tag: 'Body Composition',
+    title: 'Go beyond the scale',
+    desc: 'Log smart scale data — body fat %, muscle mass, visceral fat — and track WHR, FFMI, and recomp progress over time. Know if you\'re truly building muscle while losing fat.',
+    extra: true,
+  },
+  {
+    id: 'workout',
+    span: 1,
+    accent: '#FF453A',
+    accentDim: 'rgba(255,69,58,0.08)',
+    icon: '🏋️',
+    tag: 'Workout Tracking',
+    title: 'Science-backed calorie burn',
+    desc: 'MET-based calorie calculation per exercise, not a flat guess. 1RM calculator, workout streaks, and full history.',
+  },
+  {
+    id: 'widget',
+    span: 1,
+    accent: '#30D158',
+    accentDim: 'rgba(48,209,88,0.08)',
+    icon: '📱',
+    tag: 'Home Widget',
+    title: 'At-a-glance from your home screen',
+    desc: 'Android home widget shows today\'s calories, protein, and steps — without opening the app.',
+  },
+];
+---
+
+<section class="section features-section" id="features">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">Features</span>
+      <h2>Everything you need.<br/><span class="gradient-text">Nothing you don't.</span></h2>
+      <p class="section-sub">Built for one person's fat loss journey — every feature earns its place.</p>
+    </div>
+
+    <div class="bento-grid">
+      {features.map((f) => (
+        <div
+          class={`feature-card fc-${f.id} ${f.span === 2 ? 'span-2' : ''}`}
+          style={`--accent: ${f.accent}; --accent-dim: ${f.accentDim};`}
+          data-tilt
+        >
+          <div class="fc-top">
+            <span class="fc-tag" style={`color: ${f.accent}; background: ${f.accentDim}; border-color: ${f.accent}22`}>
+              {f.tag}
+            </span>
+          </div>
+
+          <div class="fc-icon">{f.icon}</div>
+
+          <h3 class="fc-title">{f.title}</h3>
+          <p class="fc-desc">{f.desc}</p>
+
+          {f.extra && f.id === 'ai' && (
+            <div class="fc-ai-pills">
+              <span class="ai-pill">Gemma 3 1B · Fast</span>
+              <span class="ai-pill">Gemma 3 4B · Best</span>
+              <span class="ai-pill">~600 MB</span>
+            </div>
+          )}
+
+          {f.extra && f.id === 'body' && (
+            <div class="fc-body-stats">
+              <div class="bstat"><span class="bstat-val">18.4%</span><span class="bstat-lbl">Body Fat</span></div>
+              <div class="bstat"><span class="bstat-val">22.1</span><span class="bstat-lbl">FFMI</span></div>
+              <div class="bstat"><span class="bstat-val">0.82</span><span class="bstat-lbl">WHR</span></div>
+            </div>
+          )}
+
+          <!-- Glow border on hover -->
+          <div class="fc-glow" aria-hidden="true"></div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  gsap.registerPlugin(ScrollTrigger);
+
+  // ── Scroll reveal ─────────────────────────────────────────────────────────────
+  gsap.from('.feature-card', {
+    y: 50,
+    opacity: 0,
+    duration: 0.7,
+    stagger: 0.08,
+    ease: 'power2.out',
+    scrollTrigger: {
+      trigger: '.bento-grid',
+      start: 'top 82%',
+    },
+  });
+
+  gsap.from('.section-header', {
+    y: 30,
+    opacity: 0,
+    duration: 0.8,
+    ease: 'power2.out',
+    scrollTrigger: {
+      trigger: '.features-section',
+      start: 'top 80%',
+    },
+  });
+
+  // ── 3D tilt on hover ──────────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLElement>('[data-tilt]').forEach((card) => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width  - 0.5) * 2;
+      const y = ((e.clientY - rect.top)  / rect.height - 0.5) * 2;
+
+      gsap.to(card, {
+        rotateY: x * 6,
+        rotateX: -y * 6,
+        transformPerspective: 800,
+        duration: 0.3,
+        ease: 'power2.out',
+        overwrite: 'auto',
+      });
+    });
+
+    card.addEventListener('mouseleave', () => {
+      gsap.to(card, {
+        rotateY: 0,
+        rotateX: 0,
+        duration: 0.7,
+        ease: 'power3.out',
+      });
+    });
+  });
+</script>
+
+<style>
+  .features-section { padding-bottom: 80px; }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 64px;
+  }
+
+  .section-header h2 { margin-bottom: 16px; }
+
+  .section-sub {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  /* ── Bento grid ───────────────────────────────────────────────────────────── */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .span-2 { grid-column: span 2; }
+
+  /* ── Feature card ─────────────────────────────────────────────────────────── */
+  .feature-card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+    cursor: default;
+    transition: border-color 0.3s ease, background 0.3s ease;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 30% 20%, var(--accent-dim, transparent) 0%, transparent 70%);
+    pointer-events: none;
+    transition: opacity 0.3s;
+    opacity: 0.7;
+  }
+
+  .feature-card:hover {
+    border-color: rgba(var(--accent), 0.25);
+    background: #202022;
+  }
+
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-card:hover .fc-glow { opacity: 1; }
+
+  /* Glow bottom edge */
+  .fc-glow {
+    position: absolute;
+    bottom: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  /* Top row */
+  .fc-top { display: flex; justify-content: flex-start; }
+
+  .fc-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 1px solid;
+  }
+
+  /* Icon */
+  .fc-icon { font-size: 32px; line-height: 1; }
+
+  /* Text */
+  .fc-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: white;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+
+  .fc-desc {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.65;
+    flex: 1;
+  }
+
+  /* ── AI pills ─────────────────────────────────────────────────────────────── */
+  .fc-ai-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .ai-pill {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 100px;
+    background: rgba(48,209,88,0.1);
+    border: 1px solid rgba(48,209,88,0.2);
+    color: var(--green);
+  }
+
+  /* ── Body stats row ───────────────────────────────────────────────────────── */
+  .fc-body-stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 4px;
+  }
+
+  .bstat { display: flex; flex-direction: column; gap: 2px; }
+
+  .bstat-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.04em;
+  }
+
+  .bstat-lbl {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── Responsive ───────────────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .bento-grid { grid-template-columns: 1fr 1fr; }
+    .span-2 { grid-column: span 2; }
+  }
+
+  @media (max-width: 600px) {
+    .bento-grid { grid-template-columns: 1fr; }
+    .span-2 { grid-column: span 1; }
+  }
+</style>

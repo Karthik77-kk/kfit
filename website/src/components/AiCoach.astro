@@ -1,0 +1,442 @@
+---
+---
+
+<section class="section ai-section" id="ai-coach">
+  <div class="container ai-inner">
+
+    <!-- ── Left: Copy ─────────────────────────────────────────────────────────── -->
+    <div class="ai-copy">
+      <span class="section-label">AI Coach</span>
+
+      <h2>
+        Your coach lives<br/>
+        <span class="gradient-text">on your phone.</span>
+      </h2>
+
+      <p class="ai-desc">
+        KarthikFit runs Google Gemma&nbsp;3 entirely on-device — no API key,
+        no internet, no data ever leaves your phone. Ask it anything about
+        your diet, macros, or workout — it answers from your own logs.
+      </p>
+
+      <div class="ai-specs">
+        <div class="spec-item">
+          <div class="spec-icon" style="background:rgba(48,209,88,0.12); color:var(--green)">🧠</div>
+          <div>
+            <div class="spec-title">Gemma 3 1B &amp; 4B</div>
+            <div class="spec-sub">Google's latest on-device LLM</div>
+          </div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-icon" style="background:rgba(64,200,224,0.12); color:var(--cyan)">📴</div>
+          <div>
+            <div class="spec-title">100% offline</div>
+            <div class="spec-sub">No network requests, ever</div>
+          </div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-icon" style="background:rgba(255,159,10,0.12); color:var(--orange)">🔒</div>
+          <div>
+            <div class="spec-title">Private by design</div>
+            <div class="spec-sub">Your data never leaves your device</div>
+          </div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-icon" style="background:rgba(191,90,242,0.12); color:var(--purple)">⚡</div>
+          <div>
+            <div class="spec-title">Context-aware</div>
+            <div class="spec-sub">Reads your logs, streaks, and goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Right: Chat mockup ──────────────────────────────────────────────────── -->
+    <div class="ai-chat-area">
+      <div class="ai-glow" aria-hidden="true"></div>
+
+      <div class="chat-window">
+        <div class="chat-header">
+          <div class="chat-avatar">🤖</div>
+          <div>
+            <div class="chat-name">AI Coach</div>
+            <div class="chat-status">
+              <span class="status-dot"></span>
+              On-device · Gemma&nbsp;3
+            </div>
+          </div>
+          <div class="chat-model-badge">4B</div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg msg-user">
+            <div class="msg-bubble">
+              What should I eat for dinner? I have 380 kcal left.
+            </div>
+          </div>
+
+          <div class="msg msg-ai" id="aiReply">
+            <div class="msg-avatar">🤖</div>
+            <div class="msg-bubble">
+              <span id="aiTyping" class="typing-text"></span>
+              <span class="cursor" id="cursor">|</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <div class="chat-input">Ask about your macros, workouts, progress…</div>
+          <button class="chat-send" aria-label="Send">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  gsap.registerPlugin(ScrollTrigger);
+
+  // ── Scroll reveal ─────────────────────────────────────────────────────────────
+  gsap.from('.ai-copy > *', {
+    y: 30, opacity: 0, duration: 0.7, stagger: 0.1, ease: 'power2.out',
+    scrollTrigger: { trigger: '.ai-section', start: 'top 75%' },
+  });
+
+  gsap.from('.chat-window', {
+    y: 40, opacity: 0, duration: 0.9, ease: 'power2.out',
+    scrollTrigger: { trigger: '.ai-section', start: 'top 70%' },
+  });
+
+  // ── Typewriter chat simulation ────────────────────────────────────────────────
+  const conversations = [
+    {
+      user: "What should I eat for dinner? I have 380 kcal left.",
+      ai:   "With 380 kcal and ~22g protein needed, try: 2 chapati (180 kcal, 6g protein) + moong dal (160 kcal, 12g protein) + cucumber salad (40 kcal). That's 380 kcal and 18g protein — almost perfect! 💪",
+    },
+    {
+      user: "Am I losing fat or muscle?",
+      ai:   "Your weight dropped 1.2kg in 3 weeks, but your FFMI held steady at 22.1 — that's a great sign you're preserving muscle. The 453 kcal average deficit is spot-on for fat-only loss. Keep protein above 100g/day. 🎯",
+    },
+    {
+      user: "Should I train today or rest?",
+      ai:   "You've trained 4 days in a row and your deficit has been 600+ kcal the last 2 days. A rest day today would help recovery without breaking your 12-day streak. Light walking counts! 🚶",
+    },
+  ];
+
+  let convIdx = 0;
+  const typingEl  = document.getElementById('aiTyping');
+  const cursorEl  = document.getElementById('cursor');
+  const userBubble = document.querySelector('.msg-user .msg-bubble');
+
+  function runConversation() {
+    const conv = conversations[convIdx % conversations.length];
+    convIdx++;
+
+    // Reset
+    if (typingEl)   typingEl.textContent = '';
+    if (userBubble) userBubble.textContent = conv.user;
+
+    // Cursor blink on
+    if (cursorEl) cursorEl.style.display = 'inline';
+
+    // Type the AI reply
+    let charIdx = 0;
+    const interval = setInterval(() => {
+      if (!typingEl) return;
+      typingEl.textContent += conv.ai[charIdx];
+      charIdx++;
+      if (charIdx >= conv.ai.length) {
+        clearInterval(interval);
+        if (cursorEl) {
+          gsap.to(cursorEl, { opacity: 0, duration: 0.5, delay: 1.5, onComplete: () => {
+            if (cursorEl) cursorEl.style.display = 'none';
+            setTimeout(runConversation, 2000);
+          }});
+        }
+      }
+    }, 22);
+  }
+
+  // Start after section scrolls into view
+  ScrollTrigger.create({
+    trigger: '.ai-section',
+    start: 'top 65%',
+    onEnter: () => setTimeout(runConversation, 600),
+    once: true,
+  });
+
+  // Cursor blink animation
+  if (cursorEl) {
+    gsap.to(cursorEl, {
+      opacity: 0,
+      duration: 0.5,
+      repeat: -1,
+      yoyo: true,
+      ease: 'steps(1)',
+    });
+  }
+</script>
+
+<style>
+  .ai-section {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 80% at 0% 50%, rgba(48,209,88,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 100% 20%, rgba(64,200,224,0.04) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  /* ── Layout ───────────────────────────────────────────────────────────────── */
+  .ai-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+
+  /* ── Copy ─────────────────────────────────────────────────────────────────── */
+  .ai-copy { display: flex; flex-direction: column; gap: 28px; }
+
+  .ai-copy h2 { margin-top: -4px; }
+
+  .ai-desc {
+    font-size: 17px;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 400px;
+  }
+
+  .ai-specs {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .spec-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .spec-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .spec-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .spec-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  /* ── Chat area ────────────────────────────────────────────────────────────── */
+  .ai-chat-area {
+    position: relative;
+  }
+
+  .ai-glow {
+    position: absolute;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(48,209,88,0.12) 0%, transparent 65%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: glow-pulse 4s ease-in-out infinite;
+  }
+
+  /* ── Chat window ──────────────────────────────────────────────────────────── */
+  .chat-window {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow:
+      0 40px 80px rgba(0,0,0,0.5),
+      0 0 0 1px rgba(48,209,88,0.08);
+  }
+
+  /* Header */
+  .chat-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.3);
+  }
+
+  .chat-avatar {
+    width: 38px; height: 38px;
+    background: var(--green-dim);
+    border: 1px solid rgba(48,209,88,0.3);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .chat-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .chat-status {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 1px;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: dot-pulse 2s ease-in-out infinite;
+  }
+
+  .chat-model-badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 100px;
+    background: rgba(48,209,88,0.12);
+    color: var(--green);
+    border: 1px solid rgba(48,209,88,0.2);
+    letter-spacing: 0.04em;
+  }
+
+  /* Messages */
+  .chat-messages {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 200px;
+  }
+
+  .msg {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .msg-user { justify-content: flex-end; }
+
+  .msg-user .msg-bubble {
+    background: var(--green);
+    color: #000;
+    font-weight: 500;
+    border-radius: 18px 18px 4px 18px;
+    max-width: 75%;
+  }
+
+  .msg-avatar {
+    width: 28px; height: 28px;
+    background: var(--green-dim);
+    border: 1px solid rgba(48,209,88,0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .msg-bubble {
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 11px 14px;
+    border-radius: 18px 18px 18px 4px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    max-width: 80%;
+    color: white;
+    min-height: 44px;
+  }
+
+  .cursor {
+    display: inline;
+    color: var(--green);
+    font-weight: 300;
+    margin-left: 1px;
+  }
+
+  /* Input bar */
+  .chat-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+  }
+
+  .chat-input {
+    flex: 1;
+    font-size: 13px;
+    color: var(--muted2);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 9px 16px;
+  }
+
+  .chat-send {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--green);
+    border: none;
+    color: #000;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+
+  .chat-send:hover {
+    background: #3de06a;
+    box-shadow: 0 0 16px var(--green-glow);
+  }
+
+  /* ── Responsive ───────────────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .ai-inner {
+      grid-template-columns: 1fr;
+      gap: 48px;
+    }
+    .ai-desc { max-width: none; }
+  }
+</style>

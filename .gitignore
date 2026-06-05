@@ -27,3 +27,8 @@ Thumbs.db
 
 # Claude Code local settings (contains GITHUB_TOKEN)
 .claude/settings.local.json
+
+# Website (Astro)
+website/node_modules/
+website/dist/
+website/.astro/
