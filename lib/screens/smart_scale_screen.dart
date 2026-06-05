@@ -242,25 +242,44 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
 
   Widget _Field(String label, TextEditingController ctrl,
       {bool required = false, String hint = '', bool isDecimal = true}) {
+    // Horizontal layout: label on left, input on right
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TextFormField(
-        controller: ctrl,
-        keyboardType: isDecimal
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : TextInputType.number,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          suffixText: required ? '＊' : null,
-          suffixStyle: const TextStyle(color: Color(0xFFFF453A)),
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(children: [
+        // Label on left (flex 1)
+        Expanded(
+          flex: 1,
+          child: Text(label,
+              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13)),
         ),
-        validator: required
-            ? (v) => (v == null || v.isEmpty || double.tryParse(v) == null)
-                ? 'Required'
-                : null
-            : null,
-      ),
+        const SizedBox(width: 12),
+        // Input on right (flex 1, compact)
+        Expanded(
+          flex: 1,
+          child: TextField(
+            controller: ctrl,
+            keyboardType: isDecimal
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : TextInputType.number,
+            style: const TextStyle(color: Colors.white, fontSize: 15,
+                fontWeight: FontWeight.w600),
+            textAlign: TextAlign.right,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+              suffixText: required ? '＊' : null,
+              suffixStyle: const TextStyle(color: Color(0xFFFF453A), fontSize: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.06),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+      ]),
     );
   }
 }
