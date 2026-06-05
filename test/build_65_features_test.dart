@@ -494,7 +494,7 @@ group('AI system prompt history coverage', () {
   test('prompt contains HABITS section', () async {
     final p = await _loaded();
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('HABITS'), isTrue);
+    expect(prompt.contains('Habit score'), isTrue);
   });
 
   test('prompt contains WORKOUTS section header', () async {

@@ -89,15 +89,24 @@ class OnDeviceAiService extends ChangeNotifier {
     await saveToken(_enterpriseToken);
     _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
 
+    // If our pref says not installed, nothing to do.
+    if (!_installed) {
+      _setState(AiModelState.notInstalled);
+      return;
+    }
+
+    // Model is on disk — initialize the runtime and load it into memory.
+    // Do NOT use hasActiveModel(): that returns false on fresh app start because
+    // the model is on disk but hasn't been loaded into the inference engine yet.
+    // Just call getActiveModel() directly; if the file is gone or corrupt it throws
+    // and we clear the installed flag so the user can re-download.
     try {
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
-      if (_installed && FlutterGemma.hasActiveModel()) {
-        await _loadModel();
-      } else {
-        _installed = false;
-        _setState(AiModelState.notInstalled);
-      }
-    } catch (_) {
+      await _loadModel();
+    } catch (e) {
+      // Model file missing or corrupted — reset so user sees download button.
+      _installed = false;
+      await prefs.remove(_prefInstalledModel);
       _setState(AiModelState.notInstalled);
     }
   }
@@ -218,10 +227,11 @@ class OnDeviceAiService extends ChangeNotifier {
     final base = _systemPrompt(p); // ~500-700 tokens
     final ctx  = _buildContextForQuery(q, p); // 0-400 tokens, keyword-gated
     if (ctx.isEmpty) return base;
-    // Append context before RULES so model always reads it before answering.
+    // Inject deeper history just before the final "Now answer" line.
+    const anchor = 'Now answer the user\'s question:';
     return base.replaceFirst(
-      'RULES:',
-      'EXTRA DATA:\n$ctx\nRULES:',
+      anchor,
+      'EXTRA DATA (deeper history):\n$ctx\n\n$anchor',
     );
   }
 
@@ -471,14 +481,20 @@ class OnDeviceAiService extends ChangeNotifier {
 
     final sex = p.isMale ? 'M' : 'F';
 
-return '''You are ${p.userName}'s fitness AI. ${d(now)} ${now.year}.
-PROFILE: ${p.age}y ${sex} ${p.heightCm.toInt()}cm · Indian diet · Goal ${p.goalWeightKg.toStringAsFixed(1)}kg
-TODAY: Cal ${p.todayCaloriesTotal.round()}/${p.calorieGoal}kcal(${(p.calorieProgress*100).round()}%) Prot ${p.todayProteinTotal.round()}/${p.proteinGoal}g Water ${p.todayWaterMl}/${p.waterGoalMl}ml Steps ${p.todaySteps}/${p.stepGoal} Workout:${p.todayWorkout != null ? '✓' : '✗'}
-METABOLISM: TDEE $tdee(*=calibrated) | Cut target ${cut}kcal/day | Trend $trend | ETA $eta
-PROGRESS: ${wt}kg→${p.goalWeightKg.toStringAsFixed(1)}kg ($pct% done, ${kgLeft}kg left) | Wks to goal: ${p.weeksToGoal?.toStringAsFixed(0) ?? 'N/A'}
-GOALS: Cal ${p.calorieGoal}kcal Prot ${p.proteinGoal}g Water ${p.waterGoalMl}ml Steps ${p.stepGoal}
-HABITS: Score ${p.habitScore}/100 | DefStreak ${p.deficitStreak}d | CalAdhere ${(p.calorieAdherenceRate*100).round()}% | ProtAdhere ${(p.proteinAdherenceRate*100).round()}% | WorkStreak ${p.workoutStreak}d | DietStreak ${p.calorieStreak}d | LateNight:${p.hasLateNightEatingPattern ? 'yes' : 'no'}
-${buf}RULES: Think step by step, then give a concise answer (2-5 sentences). Always cite the user's ACTUAL numbers. For food suggestions use Indian foods: roti/dal/paneer/eggs/curd/chicken/fish/whey. Be direct and specific — no generic advice.''';
+// Rules-first layout: Gemma 3 1B reads top-to-bottom. Putting rules at the
+// top prevents the model from "continuing" the data block instead of answering.
+return '''You are ${p.userName}'s personal fitness AI coach. Answer ONLY the user's question. Do NOT repeat or list any data from below. Respond in 2-4 short sentences using ${p.userName}'s actual numbers.
+
+=== ${p.userName.toUpperCase()}'S DATA (reference only — do not recite) ===
+Profile: ${p.age}y $sex ${p.heightCm.toInt()}cm | Goal: ${p.goalWeightKg.toStringAsFixed(1)}kg | Indian diet
+Today(${d(now)}): Cal ${p.todayCaloriesTotal.round()}/${p.calorieGoal}kcal Prot ${p.todayProteinTotal.round()}/${p.proteinGoal}g Water ${p.todayWaterMl}/${p.waterGoalMl}ml Steps ${p.todaySteps}/${p.stepGoal} Gym:${p.todayWorkout != null ? 'done' : 'none'}
+Weight: ${wt}kg→${p.goalWeightKg.toStringAsFixed(1)}kg ($pct% done, ${kgLeft}kg left) | Trend: $trend | ETA: $eta
+TDEE: $tdee | Cut: ${cut}kcal/d | Habit score: ${p.habitScore}/100 | WorkoutStreak: ${p.workoutStreak}d
+${buf.toString().trim()}
+=== END DATA ===
+
+Food suggestions: use Indian foods (roti, dal, paneer, eggs, curd, chicken, fish, whey).
+Now answer the user's question:''';
   }
 
   /// Exposed for unit tests only.

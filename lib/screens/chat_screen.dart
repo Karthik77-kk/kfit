@@ -179,6 +179,40 @@ class _ChatScreenState extends State<ChatScreen> {
                 });
               },
             ),
+          // Delete this chat session
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+            tooltip: 'Delete this chat',
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  backgroundColor: const Color(0xFF1C1C1E),
+                  title: const Text('Delete chat?'),
+                  content: const Text(
+                    'This conversation will be permanently removed.',
+                    style: TextStyle(color: Color(0xFF8E8E93)),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel',
+                          style: TextStyle(color: Color(0xFF8E8E93))),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete',
+                          style: TextStyle(color: Color(0xFFFF453A))),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true && mounted) {
+                await ChatSessionService.deleteSession(_session.id);
+                if (mounted) Navigator.pop(context); // back to sessions list
+              }
+            },
+          ),
         ],
       ),
       body: switch (ai.state) {

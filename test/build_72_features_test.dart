@@ -111,7 +111,7 @@ void main() {
       final ai = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('Hello, how are you?', p);
       expect(prompt, isNot(contains('EXTRA DATA')));
-      expect(prompt, contains('RULES:'));
+      expect(prompt, contains('answer the user'));
     });
 
     test('weight keyword → EXTRA DATA section appears before RULES', () async {
@@ -120,9 +120,9 @@ void main() {
       final ai     = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('What is my weight trend?', p);
       expect(prompt, contains('EXTRA DATA'));
-      expect(prompt, contains('RULES:'));
+      expect(prompt, contains('answer the user'));
       // EXTRA DATA must appear before RULES
-      expect(prompt.indexOf('EXTRA DATA'), lessThan(prompt.indexOf('RULES:')));
+      expect(prompt.indexOf('EXTRA DATA'), lessThan(prompt.indexOf('answer')));
     });
 
     test('food keyword → EXTRA DATA section appears before RULES', () async {
@@ -152,9 +152,9 @@ void main() {
       final p  = await _loaded();
       final ai = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('Random question', p);
-      expect(prompt, contains('RULES:'));
-      expect(prompt, contains('PROFILE:'));
-      expect(prompt, contains('TODAY:'));
+      expect(prompt, contains('answer the user'));
+      expect(prompt, contains('Profile:'));
+      expect(prompt, contains('Today('));
     });
 
     test('prompt does not duplicate RULES when context injected', () async {
@@ -163,7 +163,7 @@ void main() {
       final ai     = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('How am I losing weight?', p);
       // RULES: should appear exactly once
-      final count = 'RULES:'.allMatches(prompt).length;
+      final count = 'Now answer'.allMatches(prompt).length;
       expect(count, 1);
     });
   });
@@ -850,7 +850,7 @@ void main() {
       final ai = OnDeviceAiService();
       final s  = ai.buildSystemPromptForTest(p);
       expect(s, isNotEmpty);
-      expect(s, contains('RULES:'));
+      expect(s, contains('answer the user'));
     });
 
     test('buildRichPromptForTest returns non-empty string', () async {
