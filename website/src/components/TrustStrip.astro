@@ -1,0 +1,60 @@
+---
+const items = [
+  '🔒 100% Private',
+  '🤖 On-device Gemma 3',
+  '🇮🇳 Indian Food Database',
+  '📴 No Internet Required',
+  '⚡ Android 8.0+',
+  '🆓 Free Forever',
+  '💪 Fat Loss + Muscle Retention',
+  '📊 Smart Insights Engine',
+  '🏋️ MET Calorie Tracking',
+  '⚖️ Body Composition Analytics',
+];
+---
+
+<div class="trust-strip" aria-hidden="true">
+  <div class="marquee-track">
+    {[...items, ...items].map(item => (
+      <span class="marquee-item">{item}</span>
+    ))}
+  </div>
+</div>
+
+<style>
+  .trust-strip {
+    overflow: hidden;
+    border-top:    1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 14px 0;
+    background: rgba(255,255,255,0.02);
+    mask-image: linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  }
+
+  .marquee-track {
+    display: flex;
+    gap: 40px;
+    width: max-content;
+    animation: marquee-scroll 30s linear infinite;
+  }
+
+  .trust-strip:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  .marquee-item {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+
+  .marquee-item:hover { color: white; }
+
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+</style>

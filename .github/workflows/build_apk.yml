@@ -8,11 +8,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Extract version from pubspec
+        id: ver
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//')
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "label=v${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -294,9 +303,28 @@ jobs:
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: karthik-fitness-app
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.label }}
+          body: |
+            **K Fitness** · Private AI Fitness Tracker for Android
+
+            ### Install
+            1. Download `app-release.apk` below
+            2. Android Settings → Install unknown apps → Allow
+            3. Tap the downloaded file to install
+
+            Requires Android 8.0+ · ~45 MB · Optional +600 MB for on-device AI (Gemma 3)
+          files: build/app/outputs/flutter-apk/app-release.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

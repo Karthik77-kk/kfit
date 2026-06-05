@@ -7,8 +7,8 @@ interface Props {
 }
 
 const {
-  title = 'KarthikFit — Private AI Fitness Tracker',
-  description = 'On-device AI fitness coaching built for Indian bodies. Track calories, workouts, body composition. Free forever. No Play Store. No subscriptions.',
+  title = 'K Fitness — Private AI Fitness Tracker',
+  description = 'On-device AI fitness tracking built for Indian bodies. Track calories, workouts, body composition with on-device Gemma 3. Free forever. No Play Store.',
 } = Astro.props;
 ---
 <!DOCTYPE html>
@@ -25,7 +25,7 @@ const {
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="KarthikFit" />
+    <meta property="og:site_name" content="K Fitness" />
 
     <!-- Preconnect for fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -33,6 +33,18 @@ const {
 
   </head>
   <body>
+    <!-- Scroll progress bar -->
+    <div id="scrollBar" style="position:fixed;top:0;left:0;height:2px;width:0%;background:#30D158;z-index:9999;transition:width 0.08s linear;pointer-events:none;"></div>
+
     <slot />
+
+    <script>
+      const bar = document.getElementById('scrollBar');
+      window.addEventListener('scroll', () => {
+        if (!bar) return;
+        const pct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+        bar.style.width = `${Math.min(pct, 100)}%`;
+      }, { passive: true });
+    </script>
   </body>
 </html>
