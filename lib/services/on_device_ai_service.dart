@@ -456,6 +456,10 @@ ${buf}RULES: Think step by step, then give a concise answer (2-5 sentences). Alw
   String buildContextForQueryTest(String query, FitnessProvider p) =>
       _buildContextForQuery(query, p);
 
+  @visibleForTesting
+  String buildRichPromptForTest(String firstMessage, FitnessProvider p) =>
+      _buildRichSystemPrompt(firstMessage, p);
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   void _setState(AiModelState s, {String error = ''}) {
     _state = s;
