@@ -216,7 +216,7 @@ void main() {
       await p.logBodyEntry(weightKg: 80.0, steps: 0);
       final ai  = OnDeviceAiService();
       final ctx = ai.buildContextForQueryTest('What is my weight trend?', p);
-      expect(ctx, contains('Weight log'));
+      expect(ctx, contains('WeightLog'));
       expect(ctx, contains('80.0kg'));
     });
 
@@ -228,7 +228,7 @@ void main() {
       ));
       final ai  = OnDeviceAiService();
       final ctx = ai.buildContextForQueryTest('What did I eat today?', p);
-      expect(ctx, contains('Food log'));
+      expect(ctx, contains('FoodLog'));
       expect(ctx, contains('Paneer Rice'));
     });
 
@@ -241,7 +241,7 @@ void main() {
       ));
       final ai  = OnDeviceAiService();
       final ctx = ai.buildContextForQueryTest('How was my last workout?', p);
-      expect(ctx, contains('Workout history'));
+      expect(ctx, contains('Workouts'));
       expect(ctx, contains('Push Day'));
     });
 
@@ -257,7 +257,7 @@ void main() {
       ));
       final ai  = OnDeviceAiService();
       final ctx = ai.buildContextForQueryTest('What is my body fat percentage?', p);
-      expect(ctx, contains('Scale history'));
+      expect(ctx, contains('ScaleHistory'));
     });
 
     test('measurement keywords trigger measurement injection', () async {
@@ -269,7 +269,7 @@ void main() {
       ));
       final ai  = OnDeviceAiService();
       final ctx = ai.buildContextForQueryTest('How is my waist measurement?', p);
-      expect(ctx, contains('Body measurements'));
+      expect(ctx, contains('Measurements'));
     });
 
     test('water keywords trigger water history injection', () async {
