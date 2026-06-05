@@ -4,7 +4,6 @@
 // takeLast extension, sparkline painter, recent foods, scale layout
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -250,18 +249,6 @@ void main() {
 
   // ── 4. Copy yesterday's meals — provider logic (Build 72) ────────────────────
   // _copyYesterday reads yesterday's foodHistory and re-adds each entry for today.
-
-  // Helper: seed yesterday's food via prefs (addFoodEntry always writes to todayKey)
-  Future<FitnessProvider> _loadedWithYesterdayFood(List<Map<String, dynamic>> items) async {
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final key = _dateKey(yesterday);
-    SharedPreferences.setMockInitialValues({
-      'food_$key': jsonEncode(items),
-    });
-    final p = FitnessProvider();
-    await p.loadData();
-    return p;
-  }
 
   group('Copy yesterday meals — provider operations', () {
     test('food seeded for yesterday appears in foodHistory under correct key', () async {

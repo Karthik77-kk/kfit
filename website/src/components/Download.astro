@@ -53,10 +53,10 @@ const VERSION = 'v2.3.0 · Build 66';
 
       <div class="dl-actions">
         <a href={APK_URL} class="btn btn-primary btn-download" download id="downloadBtn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <svg id="dlIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
-          Download APK
+          <span id="dlTxt">Download APK — Free</span>
         </a>
         <a
           href="https://github.com/Karthik77-kk/karthik-fitness/releases"
@@ -110,15 +110,28 @@ const VERSION = 'v2.3.0 · Build 66';
     scrollTrigger: { trigger: '.download-section', start: 'top 75%' },
   });
 
-  // Pulse the download button
   const dlBtn = document.getElementById('downloadBtn');
+  const dlTxt = document.getElementById('dlTxt');
+  const dlIcon = document.getElementById('dlIcon');
+
   if (dlBtn) {
+    // Pulse glow
     gsap.to(dlBtn, {
-      boxShadow: '0 0 50px rgba(48,209,88,0.6)',
-      duration: 1.5,
-      repeat: -1,
-      yoyo: true,
-      ease: 'sine.inOut',
+      boxShadow: '0 0 55px rgba(48,209,88,0.65)',
+      duration: 1.5, repeat: -1, yoyo: true, ease: 'sine.inOut',
+    });
+
+    // Click feedback
+    dlBtn.addEventListener('click', () => {
+      if (!dlTxt || !dlIcon) return;
+      dlTxt.textContent = 'Downloading…';
+      dlIcon.innerHTML = `<path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm3.5-9.5-3.5 3.5-3.5-3.5L9.88 12l1.62 1.63V8h1v5.63L14.12 12z"/>`;
+      (dlBtn as HTMLElement).style.background = '#27b349';
+      setTimeout(() => {
+        dlTxt.textContent = 'Download APK — Free';
+        dlIcon.innerHTML = `<path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>`;
+        (dlBtn as HTMLElement).style.background = '';
+      }, 3500);
     });
   }
 </script>

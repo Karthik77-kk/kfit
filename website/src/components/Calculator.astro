@@ -12,6 +12,22 @@
     <div class="calc-card">
       <!-- Inputs -->
       <div class="calc-inputs">
+
+        <!-- Gender toggle — first, affects formula -->
+        <div class="input-group input-group-full">
+          <label>Biological sex</label>
+          <div class="gender-toggle" id="genderToggle">
+            <button class="gender-btn active" data-gender="m">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M12 12v9M8 17h8"/></svg>
+              Male
+            </button>
+            <button class="gender-btn" data-gender="f">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M12 12v9M9 15h6"/></svg>
+              Female
+            </button>
+          </div>
+        </div>
+
         <div class="input-group">
           <label for="inp-weight">Weight</label>
           <div class="input-row">
@@ -106,13 +122,16 @@
   gsap.registerPlugin(ScrollTrigger);
 
   let activityFactor = 1.375;
+  let gender = 'm'; // 'm' | 'f'
 
   function calculate() {
     const weight = parseFloat((document.getElementById('inp-weight') as HTMLInputElement)?.value) || 75;
     const height = parseFloat((document.getElementById('inp-height') as HTMLInputElement)?.value) || 175;
     const age    = parseInt((document.getElementById('inp-age') as HTMLInputElement)?.value) || 25;
 
-    const bmr    = Math.round((10 * weight) + (6.25 * height) - (5 * age) + 5);
+    // Mifflin-St Jeor: male +5, female -161
+    const sexConstant = gender === 'm' ? 5 : -161;
+    const bmr    = Math.round((10 * weight) + (6.25 * height) - (5 * age) + sexConstant);
     const tdee   = Math.round(bmr * activityFactor);
     const target = Math.round(tdee - 400);
     const protein= Math.round(weight * 1.8);
@@ -158,6 +177,16 @@
 
     inp.addEventListener('input', () => { sl.value = inp.value; calculate(); });
     sl.addEventListener('input',  () => { inp.value = sl.value; calculate(); });
+  });
+
+  // ── Gender toggle ─────────────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLElement>('.gender-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      gender = btn.dataset.gender || 'm';
+      calculate();
+    });
   });
 
   // ── Activity pills ────────────────────────────────────────────────────────────
@@ -292,6 +321,29 @@
     background: var(--green);
     border: none;
     cursor: pointer;
+  }
+
+  /* Gender toggle */
+  .gender-toggle {
+    display: flex; gap: 8px;
+  }
+
+  .gender-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px; color: var(--muted);
+    font-size: 14px; font-weight: 600; font-family: var(--font);
+    cursor: pointer; transition: all 0.2s;
+  }
+
+  .gender-btn:hover { color: white; border-color: var(--border-hi); }
+
+  .gender-btn.active {
+    background: var(--green-dim);
+    border-color: rgba(48,209,88,0.4);
+    color: var(--green);
   }
 
   /* Activity pills */

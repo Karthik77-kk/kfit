@@ -9,43 +9,51 @@
       <span class="section-label">AI Coach</span>
 
       <h2>
-        Your coach lives<br/>
-        <span class="gradient-text">on your phone.</span>
+        Ask anything.<br/>
+        <span class="gradient-text">Get answers from your data.</span>
       </h2>
 
       <p class="ai-desc">
-        KarthikFit runs Google Gemma&nbsp;3 entirely on-device — no API key,
-        no internet, no data ever leaves your phone. Ask it anything about
-        your diet, macros, or workout — it answers from your own logs.
+        K Fitness runs Google Gemma&nbsp;3 entirely on your device — no internet,
+        no subscription, no data ever sent anywhere. It reads your actual logs,
+        your streak, your deficit — and gives you real answers, not generic advice.
       </p>
 
       <div class="ai-specs">
         <div class="spec-item">
-          <div class="spec-icon" style="background:rgba(48,209,88,0.12); color:var(--green)">🧠</div>
+          <div class="spec-icon-wrap" style="background:rgba(48,209,88,0.1);border-color:rgba(48,209,88,0.2)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
           <div>
-            <div class="spec-title">Gemma 3 1B &amp; 4B</div>
-            <div class="spec-sub">Google's latest on-device LLM</div>
+            <div class="spec-title">Answers in seconds, offline</div>
+            <div class="spec-sub">Works in airplane mode. No waiting for a server.</div>
           </div>
         </div>
         <div class="spec-item">
-          <div class="spec-icon" style="background:rgba(64,200,224,0.12); color:var(--cyan)">📴</div>
+          <div class="spec-icon-wrap" style="background:rgba(64,200,224,0.1);border-color:rgba(64,200,224,0.2)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
           <div>
-            <div class="spec-title">100% offline</div>
-            <div class="spec-sub">No network requests, ever</div>
+            <div class="spec-title">Zero data ever leaves your phone</div>
+            <div class="spec-sub">No cloud processing. No account. Nothing logged externally.</div>
           </div>
         </div>
         <div class="spec-item">
-          <div class="spec-icon" style="background:rgba(255,159,10,0.12); color:var(--orange)">🔒</div>
+          <div class="spec-icon-wrap" style="background:rgba(255,159,10,0.1);border-color:rgba(255,159,10,0.2)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.5" stroke-linecap="round"><path d="M3 3h6l3 9-6.5 4 2 5h10l2-5-6.5-4 3-9h6"/></svg>
+          </div>
           <div>
-            <div class="spec-title">Private by design</div>
-            <div class="spec-sub">Your data never leaves your device</div>
+            <div class="spec-title">Knows your deficit, streak, weak days</div>
+            <div class="spec-sub">Reads your actual logs — not guessing from generic data.</div>
           </div>
         </div>
         <div class="spec-item">
-          <div class="spec-icon" style="background:rgba(191,90,242,0.12); color:var(--purple)">⚡</div>
+          <div class="spec-icon-wrap" style="background:rgba(191,90,242,0.1);border-color:rgba(191,90,242,0.2)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.5" stroke-linecap="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l3 3"/><path d="M16 2l2 2-2 2M22 2l-2 2 2 2"/></svg>
+          </div>
           <div>
-            <div class="spec-title">Context-aware</div>
-            <div class="spec-sub">Reads your logs, streaks, and goals</div>
+            <div class="spec-title">Powered by Google Gemma 3</div>
+            <div class="spec-sub">State-of-the-art on-device model. ~600 MB, one-time download.</div>
           </div>
         </div>
       </div>
@@ -65,7 +73,7 @@
               On-device · Gemma&nbsp;3
             </div>
           </div>
-          <div class="chat-model-badge">4B</div>
+          <div class="chat-model-badge">Gemma 3</div>
         </div>
 
         <div class="chat-messages" id="chatMessages">
@@ -250,13 +258,10 @@
     gap: 14px;
   }
 
-  .spec-icon {
-    width: 40px; height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
+  .spec-icon-wrap {
+    width: 38px; height: 38px;
+    border-radius: 10px; border: 1px solid;
+    display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
 
