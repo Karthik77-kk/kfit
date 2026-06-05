@@ -55,7 +55,7 @@ Every merge to `master` that ships a new APK must bump `pubspec.yaml` version:
 - `versionCode` (`+N`) — bump on EVERY merge
 - **New features** → increment build integer: `68` → `69`
 - **Fixes/patches to an existing build** → add sub-version: `68` → `68.1`, `68.1` → `68.2`
-Current build: **69**. Next feature build: **70**. Next patch build: **69.1**.
+Current build: **70**. Next feature build: **71**. Next patch build: **70.1**.
 
 ### Rule 5 — Commit message format
 ```

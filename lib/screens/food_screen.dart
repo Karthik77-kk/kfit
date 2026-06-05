@@ -198,10 +198,13 @@ class _FoodEntryTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entry.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                Text(entry.name,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (entry.servingNote.isNotEmpty)
                   Text(entry.servingNote,
-                      style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 11)),
+                      style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),

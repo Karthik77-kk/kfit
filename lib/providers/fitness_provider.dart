@@ -719,6 +719,27 @@ class FitnessProvider extends ChangeNotifier {
     return streak;
   }
 
+  /// Consecutive days where all 3 supplements were taken.
+  int get supplementStreak {
+    int streak = 0;
+    final today = DateTime.now();
+    // Check today
+    final s = supplements;
+    if (s.whey && s.creatine && s.multivitamin) streak++;
+    // Walk backwards through history
+    for (int i = 1; i <= 60; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key = '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+      final hist = _supplementHistory[key];
+      if (hist != null && hist.whey && hist.creatine && hist.multivitamin) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
   /// MET values per exercise (metabolic equivalent of task).
   /// Compound/cardio values are research-backed; strength defaults to 5.0.
   static const Map<String, double> _exerciseMet = {

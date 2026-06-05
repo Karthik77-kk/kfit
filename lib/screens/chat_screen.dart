@@ -1,27 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
+import '../services/chat_session_service.dart';
 import '../services/food_api_service.dart';
+import 'chat_sessions_screen.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
 const _kCard   = Color(0xFF1C1C1E);
 const _kSecond = Color(0xFF8E8E93);
 
-// ── Entry point ───────────────────────────────────────────────────────────────
+// ── Entry point — opens sessions list ────────────────────────────────────────
 
 void openChat(BuildContext context) {
   Navigator.push(
     context,
-    MaterialPageRoute(builder: (_) => const ChatScreen()),
+    MaterialPageRoute(builder: (_) => const ChatSessionsScreen()),
   );
 }
 
 // ── Chat screen ───────────────────────────────────────────────────────────────
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  /// Pass an existing session to continue it, or null to start a new one.
+  final ChatSession? session;
+  const ChatScreen({super.key, this.session});
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
@@ -31,17 +36,33 @@ class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
   final _scroll     = ScrollController();
   bool  _thinking   = false;
+  late  ChatSession _session;
 
   @override
   void initState() {
     super.initState();
+    // Initialise or restore session
+    if (widget.session != null) {
+      _session = widget.session!;
+      // Restore messages from persisted session
+      for (final m in _session.messages) {
+        _messages.add(_ChatMessage(text: m.text, isUser: m.isUser));
+      }
+    } else {
+      _session = ChatSession(
+        id: const Uuid().v4(),
+        title: 'New Chat',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        messages: [],
+      );
+    }
     // On open: init (loads model if already installed), then auto-download if not.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final ai = context.read<OnDeviceAiService>();
       await ai.init();
       if (!mounted) return;
-      // Auto-start download if model isn't installed yet — no button press needed.
       if (ai.state == AiModelState.notInstalled) {
         ai.downloadAndLoad();
       }
@@ -55,6 +76,17 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  // ── Persist session ─────────────────────────────────────────────────────────
+
+  Future<void> _persistSession() async {
+    _session.updatedAt = DateTime.now();
+    _session.messages
+      ..clear()
+      ..addAll(_messages.map((m) => ChatSessionMessage(
+        text: m.text, isUser: m.isUser, timestamp: DateTime.now())));
+    await ChatSessionService.saveSession(_session);
+  }
+
   // ── Send ────────────────────────────────────────────────────────────────────
 
   Future<void> _send() async {
@@ -65,6 +97,11 @@ class _ChatScreenState extends State<ChatScreen> {
     final provider = context.read<FitnessProvider>();
     if (!ai.isReady) return;
 
+    // Auto-title session from first user message
+    if (_session.messages.isEmpty) {
+      _session.title = ChatSessionService.titleFromFirstMessage(text);
+    }
+
     setState(() {
       _messages.add(_ChatMessage(text: text, isUser: true));
       _controller.clear();
@@ -72,7 +109,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     _scrollBottom();
 
-    // Placeholder for streaming response.
+    // Placeholder for streaming response
     final aiMsg = _ChatMessage(text: '', isUser: false);
     setState(() => _messages.add(aiMsg));
 
@@ -81,7 +118,10 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() => aiMsg.text += token);
       _scrollBottom();
     }
-    if (mounted) setState(() => _thinking = false);
+    if (mounted) {
+      setState(() => _thinking = false);
+      _persistSession(); // save after AI responds
+    }
   }
 
   void _scrollBottom() {
@@ -105,11 +145,15 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('AI Coach'),
+        title: Text(
+          _session.title == 'New Chat' ? 'AI Coach' : _session.title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
-          // Model status chip
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 4),
             child: _ModelChip(ai.state),
           ),
           if (ai.isReady)
@@ -118,7 +162,16 @@ class _ChatScreenState extends State<ChatScreen> {
               tooltip: 'New conversation',
               onPressed: () {
                 ai.resetConversation();
-                setState(() => _messages.clear());
+                setState(() {
+                  _messages.clear();
+                  _session = ChatSession(
+                    id: const Uuid().v4(),
+                    title: 'New Chat',
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                    messages: [],
+                  );
+                });
               },
             ),
         ],
