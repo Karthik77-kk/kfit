@@ -96,7 +96,7 @@ jobs:
               '}',
               '',
               'android {',
-              '    namespace "com.karthik.fitness"',
+              '    namespace "com.example.karthik_fitness"',
               '    compileSdk flutter.compileSdkVersion',
               '    ndkVersion flutter.ndkVersion',
               '',

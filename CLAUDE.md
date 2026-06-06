@@ -56,7 +56,7 @@ Every merge to `master` that ships a new APK must bump `pubspec.yaml` version:
 - **New features** → next integer: `76` → `77`
 - **Patches/fixes** → also next integer: `77` → `78` (do NOT use `77.1` — decimals break Android versionCode)
 - The branch name and commit message can say "Build 77.1" for human readability, but pubspec must have `+78`
-Current build: **79**. Next build: **80**.
+Current build: **80**. Next build: **81**.
 
 ### Rule 5 — Commit message format
 ```
