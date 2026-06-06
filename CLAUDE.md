@@ -157,6 +157,32 @@ Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
 
 This creates an audit trail showing quality gate approval history.
 
+### Rule 14 — Agent model specification for code review and testing
+**All Review and Testing agents MUST use Haiku model ONLY.**
+
+- **Review Agent**: `model: "haiku"` — Fast code audits, syntax checking, rule compliance
+- **Testing Agent**: `model: "haiku"` — Fast test execution, result analysis, validation
+
+Why Haiku:
+- ✅ Sufficient capability for structured review/testing tasks (not creative work)
+- ✅ 2-3x faster than Sonnet/Opus
+- ✅ Lower cost (important for frequent merge-to-main operations)
+- ✅ Deterministic output (suitable for pass/fail verdicts)
+- ❌ NOT suitable for: architecture design, creative problem-solving, complex multi-step planning
+
+**Implementation:**
+```yaml
+# Review Agent
+subagent_type: code-review
+model: "haiku"  # MANDATORY
+
+# Testing Agent  
+subagent_type: testing
+model: "haiku"  # MANDATORY
+```
+
+This rule ensures efficient quality gates without sacrificing review quality.
+
 ---
 
 ## Build & Run Commands
