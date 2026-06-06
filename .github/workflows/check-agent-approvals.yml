@@ -74,6 +74,17 @@ jobs:
               return;
             }
 
+            // Get the actual PR object if triggered by issue_comment
+            let prObj = context.payload.pull_request;
+            if (!prObj) {
+              const { data: pullRequest } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+              });
+              prObj = pullRequest;
+            }
+
             const state = bothApproved ? 'success' : 'pending';
             const description = bothApproved
               ? '✅ Both agents approved - ready to merge'
@@ -82,7 +93,7 @@ jobs:
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              sha: pr.head.sha,
+              sha: prObj.head.sha,
               state: state,
               description: description,
               context: 'dual-agent-approval',
