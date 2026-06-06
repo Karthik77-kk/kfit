@@ -169,6 +169,7 @@ class OnDeviceAiService extends ChangeNotifier {
     try {
       _dlProgress = 0;
       _lastNotifiedPct = -1;
+      _downloadCancelled = false; // Reset cancel flag for new download attempt
       _setState(AiModelState.downloading);
 
       // Issue #3: Check disk space before downloading
@@ -180,7 +181,8 @@ class OnDeviceAiService extends ChangeNotifier {
 
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
       // Issue #6: Add 30-minute timeout to download
-      await Future.value(FlutterGemma.installModel(
+      // CRITICAL FIX: Removed Future.value() wrapper that was causing download to return immediately
+      await FlutterGemma.installModel(
         modelType: _modelType,
         fileType:  _modelFile,
       )
@@ -196,7 +198,7 @@ class OnDeviceAiService extends ChangeNotifier {
             _dlProgress = (intPct / 100.0).clamp(0.0, 1.0);
             _notifyIfNotDisposed();
           })
-          .install())
+          .install()
           .timeout(const Duration(minutes: 30),
               onTimeout: () => throw TimeoutException('Download exceeded 30 minutes'));
 
