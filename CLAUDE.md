@@ -35,8 +35,8 @@ Personal Flutter fitness tracker for Karthik (Bangalore, India) focused on fat l
 
 ## ⚡ Development Workflow (MANDATORY)
 
-### Rule 1 — Never commit directly to `master`
-All changes go in a feature branch. `master` is protected — only merged via PR or fast-forward after full review.
+### Rule 1 — Never commit directly to `main`
+All changes go in a feature branch. `main` is protected — only merged via PR or fast-forward after full review.
 
 ### Rule 2 — Branch naming
 ```
@@ -50,7 +50,7 @@ Example: `feature/build-43-step-goal-settings`
 Keep branches focused. If adding 3 features, use 3 branches.
 
 ### Rule 4 — Bump build number before merging
-Every merge to `master` that ships a new APK must bump `pubspec.yaml` version:
+Every merge to `main` that ships a new APK must bump `pubspec.yaml` version:
 - `versionName` (e.g. `1.0.0`) — bump for significant releases
 - `versionCode` (`+N`) — bump on EVERY merge — **MUST be a whole integer** (Android requires it)
 - **New features** → next integer: `76` → `77`
@@ -78,7 +78,7 @@ Examples:
 5. Diff review — confirm only intended files changed
 6. Bump `pubspec.yaml` version code
 7. **`git push origin <branch-name>` — MANDATORY. Branch MUST exist on remote before merging.**
-8. Merge to `master` → CI auto-triggers → APK built
+8. Merge to `main` → CI auto-triggers → APK built
 
 ### Rule 8 — MANDATORY: Push branch to remote before merging
 **This rule cannot be skipped under any circumstances.**
@@ -100,53 +100,47 @@ git push origin --delete fix/build-N-description
 - Verify GitHub Actions run succeeds
 - APK artifact appears under Actions → latest run
 
-### Rule 8 — 🚫 MANDATORY DUAL-APPROVAL WORKFLOW (UNBREAKABLE)
+### Rule 9 — 🚫 MANDATORY DUAL-APPROVAL WORKFLOW (UNBREAKABLE)
 **This rule cannot be broken. No exceptions. Ever.**
 
-1. **Master + Main must ALWAYS be in sync**
-   - After every merge to master, immediately sync: `git merge master main && git push origin main`
-   - If out of sync, revert to last sync state
-
-2. **No direct commits to master/main**
+1. **No direct commits to main**
    - Create feature branch: `feature/build-X-*` or `fix/build-X-*`
    - All changes ONLY via branches
 
-3. **Code Review Agent MUST approve before merge**
+2. **Code Review Agent MUST approve before merge**
    - Run: `/code-review` or `/review-branch`
    - Wait for ✅ APPROVED
    - Fix any issues, re-review
    - **Cannot merge without approval**
 
-4. **Testing Agent MUST approve before merge**
+3. **Testing Agent MUST approve before merge**
    - Run: `/verify` (flutter test + flutter analyze)
    - All tests must PASS: ✅ 100%
    - Zero errors, zero warnings
    - **Cannot merge without approval**
 
-5. **Merge sequence (cannot skip steps)**
+4. **Merge sequence (cannot skip steps)**
    - Feature branch complete
    - Invoke code review agent → ✅ APPROVED
    - Invoke testing agent → ✅ ALL TESTS PASS
-   - ONLY THEN: `git merge ... && git push origin master`
-   - IMMEDIATELY: `git merge master main && git push origin main`
+   - ONLY THEN: `git merge ... && git push origin main`
 
-6. **Violations = immediate rollback**
-   - Direct commit to master/main → REVERT
+5. **Violations = immediate rollback**
+   - Direct commit to main → REVERT
    - Skip code review → REVERT
    - Skip testing → REVERT
    - Merge with failing tests → REVERT
-   - Branches out of sync → FORCE SYNC
 
 **See:** [Mandatory Dual-Approval Workflow](../memory/rule_mandatory_dual_approval_workflow.md) for full details.
 
-### Rule 9 — NEVER change applicationId
+### Rule 10 — NEVER change applicationId
 The `applicationId` in the CI workflow (`build_apk.yml` line ~114) is **permanently fixed** at `com.example.karthik_fitness`.
 - **Changing applicationId = different app on the device.** Android treats it as a brand-new app, not an update. Every user must uninstall and lose their data.
 - The original "can't install" error (Builds 74–75) was caused by **decimal versionCodes**, NOT by applicationId. Changing applicationId was the wrong fix.
 - Current value: `applicationId "com.example.karthik_fitness"` — do not touch, ever.
 - If this rule is ever broken in error: **immediately revert** before any user installs the bad APK.
 
-### Rule 10 — namespace ≠ applicationId (they are different)
+### Rule 11 — namespace ≠ applicationId (they are different)
 In Android, these two fields serve completely different purposes:
 - `namespace` = Java/Kotlin source package for R class generation. **Must match the package declarations in committed .kt files** (`com.example.karthik_fitness`). Changing this breaks compilation.
 - `applicationId` = The app's identity on the device and Play Store. Changing this breaks updates for existing users.
@@ -157,7 +151,7 @@ In Android, these two fields serve completely different purposes:
   ```
 - Never conflate the two. Never change either without understanding the consequences.
 
-### Rule 11 — versionCode must be a whole integer, always
+### Rule 12 — versionCode must be a whole integer, always
 - `pubspec.yaml` version format: `versionName+versionCode` (e.g. `2.3.0+82`)
 - **versionCode MUST be a plain integer** — Flutter/Android truncates decimals silently.
   - ✅ `2.3.0+82` → versionCode 82
@@ -166,7 +160,7 @@ In Android, these two fields serve completely different purposes:
 - Branch names and commit messages may use "Build 81.1" notation for human readability, but `pubspec.yaml` must always have `+82` (the next integer).
 - Lesson: Builds 72.1, 74.1, 74.4, 75.1 all shipped with duplicate versionCodes, causing "can't install" errors for users. Never again.
 
-### Rule 12 — Mandatory agent approval before merge to main
+### Rule 13 — Mandatory agent approval before merge to main
 **NO feature branch merges to main WITHOUT explicit approval from both Review Agent and Testing Agent.**
 
 This is a quality gate requirement:
@@ -182,7 +176,7 @@ Both agents must explicitly approve (PASS verdict) before merge is allowed. This
 4. **ONLY if both approve:** Merge to main via `git merge --no-ff`
 5. If either rejects: Fix issues, recommit, re-review, re-test until both PASS
 
-### Rule 13 — Agent approval signatures in commit messages
+### Rule 14 — Agent approval signatures in commit messages
 When merging after agent approval, the merge commit message MUST include approval signatures:
 
 ```
@@ -196,7 +190,7 @@ Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
 
 This creates an audit trail showing quality gate approval history.
 
-### Rule 14 — Agent model specification for code review and testing
+### Rule 15 — Agent model specification for code review and testing
 **All Review and Testing agents MUST use Haiku model ONLY.**
 
 - **Review Agent**: `model: "haiku"` — Fast code audits, syntax checking, rule compliance
