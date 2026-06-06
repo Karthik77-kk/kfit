@@ -15,7 +15,6 @@ class OnDeviceAiService extends ChangeNotifier {
   static const _modelFile    = ModelFileType.litertlm;
   static const _modelName    = 'Gemma 3 1B';
   static const _modelSize    = '~600 MB';
-  // KV-cache for 1B model. Compact prompt targets ~700 tokens leaving ~1300 for chat.
   static const _maxTokens    = 2048;
 
   static const _prefToken          = 'hf_token_ai_chat';
@@ -29,7 +28,9 @@ class OnDeviceAiService extends ChangeNotifier {
   String       _error      = '';
   String       _hfToken    = '';
   bool         _installed  = false;
-  bool         _autoLoad   = true; // cached from prefs; true = load at app start
+  bool         _autoLoad   = true;
+  bool         _sending    = false;    // prevents concurrent sendMessage() calls
+  int          _lastNotifiedPct = -1; // throttles download progress notifications
 
   InferenceModel? _model;
   InferenceChat?  _chat;
@@ -43,6 +44,7 @@ class OnDeviceAiService extends ChangeNotifier {
   bool         get hasToken     => _hfToken.isNotEmpty;
   bool         get isInstalled  => _installed;
   bool         get autoLoad     => _autoLoad;
+  bool         get isSending    => _sending;
   String       get modelName    => _modelName;
   String       get modelSize    => _modelSize;
 
@@ -55,8 +57,6 @@ class OnDeviceAiService extends ChangeNotifier {
   }
 
   // ── Init — called at app start (lazy:false) ──────────────────────────────────
-  // Respects the ai_auto_load setting: if disabled, skips loading entirely.
-  // The guard also prevents double-loading if init() is called more than once.
   Future<void> init() async {
     if (_state == AiModelState.ready    ||
         _state == AiModelState.loading  ||
@@ -65,7 +65,6 @@ class OnDeviceAiService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _autoLoad = prefs.getBool(_prefAutoLoad) ?? true;
 
-    // Auto-load disabled — don't touch the model until user opens AI Coach.
     if (!_autoLoad) {
       _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
       notifyListeners();
@@ -75,8 +74,7 @@ class OnDeviceAiService extends ChangeNotifier {
     await _doInit(prefs);
   }
 
-  // ── initForChat — always loads, ignores the auto-load setting ───────────────
-  // Called by ChatScreen when the user explicitly opens AI Coach.
+  // ── initForChat — always loads, ignores auto-load setting ───────────────────
   Future<void> initForChat() async {
     if (_state == AiModelState.ready    ||
         _state == AiModelState.loading  ||
@@ -97,34 +95,34 @@ class OnDeviceAiService extends ChangeNotifier {
     try {
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
 
-      // KEY FIX: installModel().install() is idempotent per flutter_gemma docs:
-      // "calling install() on an already-installed model will skip download and
-      //  just set it as active." This calls manager.setActiveModel() which is
-      // required before getActiveModel() can succeed. On plain app restart
-      // (model file on disk) this completes in milliseconds with no download.
-      // The progress callback only fires when an actual download happens (e.g.
-      // after a reinstall that wiped internal storage). In that case we surface
-      // the download progress UI automatically.
+      // installModel().install() is idempotent: skips download if file exists on disk,
+      // just calls manager.setActiveModel() (fast). This is required before
+      // getActiveModel() can succeed in a new session.
+      // foreground:true = Android foreground service → OS won't kill 600MB download.
       bool redownloading = false;
+      _lastNotifiedPct = -1;
       await FlutterGemma.installModel(
         modelType: _modelType,
         fileType:  _modelFile,
       )
-          .fromNetwork(_modelUrl, token: _enterpriseToken)
+          .fromNetwork(_modelUrl, token: _enterpriseToken, foreground: true)
           .withProgress((pct) {
+            // Only fire if actually downloading AND pct changed by ≥1%
+            final intPct = pct.clamp(0, 100);
+            if (intPct == _lastNotifiedPct) return;
+            _lastNotifiedPct = intPct;
             if (!redownloading) {
               redownloading = true;
               _dlProgress = 0;
               _setState(AiModelState.downloading);
             }
-            _dlProgress = (pct / 100.0).clamp(0.0, 1.0);
+            _dlProgress = (intPct / 100.0).clamp(0.0, 1.0);
             notifyListeners();
           })
           .install();
 
       await _loadModel();
     } catch (e) {
-      // File gone and re-download failed, or model corrupt → show Download.
       _installed = false;
       await prefs.remove(_prefInstalledModel);
       _setState(AiModelState.notInstalled);
@@ -143,6 +141,7 @@ class OnDeviceAiService extends ChangeNotifier {
     if (_state == AiModelState.downloading || _state == AiModelState.loading) return;
     try {
       _dlProgress = 0;
+      _lastNotifiedPct = -1;
       _setState(AiModelState.downloading);
 
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
@@ -150,9 +149,13 @@ class OnDeviceAiService extends ChangeNotifier {
         modelType: _modelType,
         fileType:  _modelFile,
       )
-          .fromNetwork(_modelUrl, token: _enterpriseToken)
+          .fromNetwork(_modelUrl, token: _enterpriseToken, foreground: true)
           .withProgress((pct) {
-            _dlProgress = (pct / 100.0).clamp(0.0, 1.0);
+            // Throttle: only notify when integer percentage changes
+            final intPct = pct.clamp(0, 100);
+            if (intPct == _lastNotifiedPct) return;
+            _lastNotifiedPct = intPct;
+            _dlProgress = (intPct / 100.0).clamp(0.0, 1.0);
             notifyListeners();
           })
           .install();
@@ -169,20 +172,28 @@ class OnDeviceAiService extends ChangeNotifier {
     }
   }
 
+  // NPU → GPU → CPU fallback so the model loads even on devices without a
+  // qualified NPU. The first backend that succeeds wins.
   Future<void> _loadModel() async {
-    // Already in memory — no reload needed (guard for navigate-back scenario).
     if (_model != null) {
       _setState(AiModelState.ready);
       return;
     }
     _setState(AiModelState.loading);
-    // No try-catch here: exceptions propagate to _doInit() / downloadAndLoad()
-    // which have the right recovery logic (clear pref, show Download button).
-    _model = await FlutterGemma.getActiveModel(
-      maxTokens:        _maxTokens,
-      preferredBackend: PreferredBackend.npu,
-    );
-    _setState(AiModelState.ready);
+    final backends = [PreferredBackend.npu, PreferredBackend.gpu, PreferredBackend.cpu];
+    for (int i = 0; i < backends.length; i++) {
+      try {
+        _model = await FlutterGemma.getActiveModel(
+          maxTokens:        _maxTokens,
+          preferredBackend: backends[i],
+        );
+        _setState(AiModelState.ready);
+        return;
+      } catch (e) {
+        if (i == backends.length - 1) rethrow; // all backends failed
+        // else try next backend
+      }
+    }
   }
 
   void resetConversation() {
@@ -193,32 +204,30 @@ class OnDeviceAiService extends ChangeNotifier {
   // ── Chat ────────────────────────────────────────────────────────────────────
   /// Sends [userMessage] to the model.
   ///
-  /// On the FIRST message of a conversation, context-relevant history is
-  /// injected into the SYSTEM PROMPT (not the user message). This keeps the
-  /// KV-cache stable across turns and prevents token overflow.
+  /// On the FIRST message, context-relevant history is injected into the system
+  /// prompt (not the user message) so the KV-cache stays stable across turns.
   ///
-  /// On subsequent messages, plain text is sent — no per-turn context
-  /// injection. This is the key fix for the "exceeded maximum tokens" error.
+  /// A `_sending` guard prevents concurrent calls — only one stream at a time.
   Stream<String> sendMessage(String userMessage, FitnessProvider provider) async* {
     if (_model == null) {
       yield 'Model not loaded. Please go back and reopen the chat.';
       return;
     }
+    // Service-layer guard: prevents concurrent sendMessage calls even if the UI
+    // guard (_thinking) somehow fails.
+    if (_sending) return;
+    _sending = true;
     try {
       if (_chat == null) {
-        // First message — build context-enriched system prompt for this topic.
-        // Context is injected ONCE here and stays in the system instruction.
-        // Never injected per-turn so conversation tokens stay bounded.
         final sysPrompt = _buildRichSystemPrompt(userMessage, provider);
         _chat = await _model!.createChat(
           systemInstruction: sysPrompt,
-          temperature:  0.7,
+          temperature:  0.3,  // lower = more reliable number citation (was 0.7)
           topK:         40,
-          randomSeed:   42,
-          tokenBuffer:  256, // tokens reserved for model output per turn
+          // No fixed seed — allow natural variation per session
+          tokenBuffer:  256,
         );
       }
-      // Plain user message — no context appended (it's already in the system prompt).
       await _chat!.addQueryChunk(Message(text: userMessage, isUser: true));
       await for (final r in _chat!.generateChatResponseAsync()) {
         if (r is TextResponse) yield r.token;
@@ -226,43 +235,39 @@ class OnDeviceAiService extends ChangeNotifier {
     } catch (e) {
       final msg = e.toString().toLowerCase();
       if (msg.contains('token') || msg.contains('exceed') || msg.contains('context length')) {
-        // Conversation hit the token limit — reset so next message starts fresh.
         _chat = null;
         yield '\n\n⚠️ Conversation got too long. Starting fresh — please ask your question again.';
       } else {
         yield '\n\n[Error: $e]';
       }
+    } finally {
+      _sending = false;
     }
   }
 
-  /// Builds the system prompt for a new conversation, injecting only the
-  /// context sections relevant to [firstMessage] keywords.
-  /// Sections are strictly capped to stay within the 2048-token KV cache.
+  // ── Prompt builders ─────────────────────────────────────────────────────────
+
   String _buildRichSystemPrompt(String firstMessage, FitnessProvider p) {
     final q    = firstMessage.toLowerCase();
-    final base = _systemPrompt(p); // ~500-700 tokens
-    final ctx  = _buildContextForQuery(q, p); // 0-400 tokens, keyword-gated
+    final base = _systemPrompt(p);
+    final ctx  = _buildContextForQuery(q, p);
     if (ctx.isEmpty) return base;
-    // Inject deeper history just before the final "Now answer" line.
-    const anchor = 'Now answer the user\'s question:';
+    const anchor = 'Start your reply immediately with specific advice using the actual numbers above.';
     return base.replaceFirst(
       anchor,
-      'EXTRA DATA (deeper history):\n$ctx\n\n$anchor',
+      'EXTRA DATA (deeper history — reference only):\n$ctx\n\n$anchor',
     );
   }
 
-  /// Builds keyword-triggered context for injection into the system prompt.
-  /// STRICT token caps per section — total must stay under ~400 tokens so the
-  /// full system prompt (base ~600t + context ~400t = ~1000t) leaves ~800t
-  /// for conversation turns before hitting the 2048 KV-cache limit.
   String _buildContextForQuery(String query, FitnessProvider p) {
     final mo = ['Jan','Feb','Mar','Apr','May','Jun',
                 'Jul','Aug','Sep','Oct','Nov','Dec'];
-    String fd(DateTime dt) => '${dt.day} ${mo[dt.month - 1]}';
+    // Include year so the model can tell "3 months ago" from "last week"
+    String fd(DateTime dt) => '${dt.day} ${mo[dt.month - 1]} ${dt.year}';
 
     final parts = <String>[];
 
-    // ── Weight (last 14 entries, 1-line CSV) — ~60 tokens ─────────────────
+    // Weight (last 14 entries, 1-line CSV) — ~70 tokens
     if (_has(query, ['weight', 'kg', 'progress', 'trend', 'losing', 'gaining'])) {
       final entries = p.getRecentBodyEntries(days: 60);
       final slice   = entries.length > 14 ? entries.sublist(entries.length - 14) : entries;
@@ -271,10 +276,11 @@ class OnDeviceAiService extends ChangeNotifier {
       }
     }
 
-    // ── Food (last 5 days, max 2 items/meal, totals only for older) — ~120t ─
+    // Food (last 5 days, max 2 items/meal) — ~130 tokens
     if (_has(query, ['food', 'eat', 'diet', 'calorie', 'protein', 'carb', 'meal', 'breakfast', 'lunch', 'dinner', 'snack', 'what did'])) {
       final hist  = p.foodHistory;
       final lines = <String>[];
+      const mealAbbr = {'breakfast': 'Breakfast', 'lunch': 'Lunch', 'dinner': 'Dinner', 'snack': 'Snack', 'other': 'Other'};
       for (int i = 0; i < 5; i++) {
         final day  = DateTime.now().subtract(Duration(days: i));
         final key  = '${day.year}-${day.month.toString().padLeft(2,'0')}-${day.day.toString().padLeft(2,'0')}';
@@ -282,9 +288,8 @@ class OnDeviceAiService extends ChangeNotifier {
         if (ents == null || ents.isEmpty) continue;
         final cal  = ents.fold(0.0, (s, e) => s + e.calories).round();
         final prot = ents.fold(0.0, (s, e) => s + e.protein).round();
-        // Compact: show 2 items max, then "..." if more
         final items = ents.take(2).map((e) {
-          final ml = e.mealType.toString().split('.').last[0].toUpperCase();
+          final ml = mealAbbr[e.mealType.toString().split('.').last] ?? 'Other';
           return '$ml:${e.name}(${e.calories.round()})';
         }).join(' ');
         final extra = ents.length > 2 ? '+${ents.length - 2}more' : '';
@@ -293,7 +298,7 @@ class OnDeviceAiService extends ChangeNotifier {
       if (lines.isNotEmpty) parts.add('FoodLog:\n${lines.join('\n')}');
     }
 
-    // ── Workouts (last 5, best-set only) — ~80 tokens ─────────────────────
+    // Workouts (last 5, best-set only) — ~80 tokens
     if (_has(query, ['workout', 'exercise', 'lift', 'bench', 'deadlift', 'squat', 'gym', 'train', 'strength', 'muscle', 'reps', 'sets'])) {
       final all  = [...p.workoutHistory]..sort((a, b) => b.date.compareTo(a.date));
       final last = all.take(5);
@@ -302,7 +307,7 @@ class OnDeviceAiService extends ChangeNotifier {
           final exs = w.exercises.map((ex) {
             if (ex.sets.isEmpty) return ex.name;
             final best = ex.sets.reduce((a, b) => a.weight >= b.weight ? a : b);
-            return '${ex.name} ${best.weight.toStringAsFixed(0)}×${best.reps}';
+            return '${ex.name} ${best.weight.toStringAsFixed(0)}kg×${best.reps}';
           }).join(', ');
           return '${fd(w.date)}:${w.name}—$exs';
         }).join('\n');
@@ -310,7 +315,7 @@ class OnDeviceAiService extends ChangeNotifier {
       }
     }
 
-    // ── Measurements (latest entry only) — ~30 tokens ─────────────────────
+    // Measurements (latest entry only) — ~30 tokens
     if (_has(query, ['measurement', 'waist', 'chest', 'arm', 'thigh', 'hip', 'size'])) {
       final latest = p.latestMeasurements;
       if (latest != null) {
@@ -324,8 +329,8 @@ class OnDeviceAiService extends ChangeNotifier {
       }
     }
 
-    // ── Scale / body composition (last 3) — ~60 tokens ────────────────────
-    if (_has(query, ['body fat', 'fat%', 'lean', 'muscle mass', 'body comp', 'scale', 'visceral', 'bmr', 'composition'])) {
+    // Scale / body composition (last 3) — ~60 tokens
+    if (_has(query, ['body fat', 'lean', 'muscle mass', 'body comp', 'scale', 'visceral', 'composition'])) {
       final scales = p.scaleHistory;
       final last3  = scales.length > 3 ? scales.sublist(scales.length - 3) : scales;
       if (last3.isNotEmpty) {
@@ -336,7 +341,7 @@ class OnDeviceAiService extends ChangeNotifier {
       }
     }
 
-    // ── Water/supplements (last 7 days, 1-line) — ~50 tokens ──────────────
+    // Water / supplements (last 7 days) — ~50 tokens
     if (_has(query, ['water', 'hydrat', 'supplement', 'whey', 'creatine', 'multi'])) {
       final waterH = p.waterHistory;
       final suppH  = p.supplementHistory;
@@ -360,23 +365,32 @@ class OnDeviceAiService extends ChangeNotifier {
     return parts.join('\n');
   }
 
-  static bool _has(String query, List<String> keywords) =>
-      keywords.any((k) => query.contains(k));
+  /// Word-boundary keyword matching — prevents false positives like "seafood"
+  /// matching the "food" keyword or "reps" missing "repetitions".
+  static bool _has(String query, List<String> keywords) {
+    return keywords.any((k) {
+      try {
+        return RegExp(r'\b' + RegExp.escape(k) + r'\b', caseSensitive: false)
+            .hasMatch(query);
+      } catch (_) {
+        return query.contains(k); // fallback if regex construction fails
+      }
+    });
+  }
 
-  // ── Compact system prompt — targets ~700 tokens for Gemma 3 1B (2048 limit) ─
-  // Leaves ~1300 tokens for multi-turn conversation.
   String _systemPrompt(FitnessProvider p) {
     final now = DateTime.now();
     final mo  = ['Jan','Feb','Mar','Apr','May','Jun',
                  'Jul','Aug','Sep','Oct','Nov','Dec'];
-    String d(DateTime dt) => '${dt.day} ${mo[dt.month - 1]}';
+    // Include year in all dates so the model can reason about recency
+    String d(DateTime dt) => '${dt.day} ${mo[dt.month - 1]} ${dt.year}';
 
     final wt     = p.latestWeightKg?.toStringAsFixed(1) ?? '?';
     final trend  = p.weeklyWeightChange != null
         ? '${p.weeklyWeightChange!.toStringAsFixed(2)}kg/wk'
         : 'no data';
     final eta    = p.estimatedGoalDate != null
-        ? '${d(p.estimatedGoalDate!)} ${p.estimatedGoalDate!.year}'
+        ? '${d(p.estimatedGoalDate!)}'
         : 'N/A';
     final tdee   = p.bestTdee != null
         ? '${p.bestTdee!.round()}${p.isTdeeCalibrated ? "*" : ""}kcal'
@@ -387,10 +401,10 @@ class OnDeviceAiService extends ChangeNotifier {
 
     final buf = StringBuffer();
 
-    // ── BODY COMPOSITION (only when scale data exists) ─────────────────────
+    // Body composition (only when data exists)
     final sc = p.latestScaleEntry;
     if (sc != null || p.bmi != null) {
-      buf.write('BODY:');
+      buf.write('Body:');
       if (p.bmi != null) buf.write(' BMI ${p.bmi!.toStringAsFixed(1)}(${p.bmiCategory})');
       if (sc != null) {
         buf.write(' | Fat ${sc.bodyFatPercent.toStringAsFixed(1)}%'
@@ -402,9 +416,9 @@ class OnDeviceAiService extends ChangeNotifier {
       buf.writeln();
     }
 
-    // ── FOOD — last 3 days with individual items ───────────────────────────
-    buf.writeln('FOOD (3d):');
-    final mealLabel = {'breakfast': 'B', 'lunch': 'L', 'dinner': 'D', 'snack': 'S', 'other': 'O'};
+    // Food — last 3 days with individual items (spelled-out meal names)
+    buf.writeln('Recent food (3 days):');
+    const mealLabel = {'breakfast': 'Breakfast', 'lunch': 'Lunch', 'dinner': 'Dinner', 'snack': 'Snack', 'other': 'Other'};
     final foodHist  = p.foodHistory;
     bool anyFood = false;
     for (int i = 0; i < 3; i++) {
@@ -415,7 +429,7 @@ class OnDeviceAiService extends ChangeNotifier {
       anyFood = true;
       final cal  = entries.fold(0.0, (s, e) => s + e.calories).round();
       final prot = entries.fold(0.0, (s, e) => s + e.protein).round();
-      buf.write('${d(day)}: ${cal}kcal ${prot}g');
+      buf.write('${d(day)}: ${cal}kcal ${prot}g protein');
       final byMeal = <String, List<dynamic>>{};
       for (final e in entries) {
         byMeal.putIfAbsent(e.mealType.toString().split('.').last, () => []).add(e);
@@ -424,26 +438,23 @@ class OnDeviceAiService extends ChangeNotifier {
         final items = byMeal[ml];
         if (items == null) continue;
         final tag   = mealLabel[ml]!;
-        // Limit to 3 items per meal to keep prompt short
         final shown = items.take(3).map((e) => '${e.name}(${e.calories.round()}kcal)').join(' ');
-        buf.write(' $tag:$shown');
+        buf.write(' | $tag: $shown');
       }
       buf.writeln();
     }
     if (!anyFood) buf.writeln('No food logged in last 3 days.');
 
-    // ── WORKOUTS — last 5 ─────────────────────────────────────────────────
-    buf.writeln('WORKOUTS (5):');
+    // Workouts — last 5
+    buf.writeln('Recent workouts (last 5):');
     final allW = [...p.workoutHistory]..sort((a, b) => b.date.compareTo(a.date));
     final rw   = allW.take(5).toList();
     if (rw.isEmpty) {
       buf.writeln('None logged.');
     } else {
       for (final w in rw) {
-        // Show exercise name + best set only (most compact)
         final exStr = w.exercises.map((ex) {
           if (ex.sets.isEmpty) return ex.name;
-          // Best set = highest weight
           final best = ex.sets.reduce((a, b) => a.weight >= b.weight ? a : b);
           return '${ex.name} ${best.weight.toStringAsFixed(0)}kg×${best.reps}';
         }).join(', ');
@@ -451,34 +462,21 @@ class OnDeviceAiService extends ChangeNotifier {
       }
     }
 
-    // ── WEIGHT — last 5 entries ────────────────────────────────────────────
+    // Weight — last 5 entries
     final bodyEntries = p.getRecentBodyEntries(days: 60);
     final last5w = bodyEntries.length > 5 ? bodyEntries.sublist(bodyEntries.length - 5) : bodyEntries;
     if (last5w.isNotEmpty) {
-      buf.write('WEIGHT: ');
+      buf.write('Weight log: ');
       buf.writeln(last5w.map((e) => '${d(e.date)} ${e.weightKg.toStringAsFixed(1)}kg').join(', '));
     }
 
-    // ── TOP LIFTS 1RM ─────────────────────────────────────────────────────
-    const bigLifts = ['Deadlift', 'Squats', 'Bench Press', 'Overhead Press', 'Barbell Rows'];
-    final oneRm = <String>[];
-    for (final lift in bigLifts) {
-      double best = 0;
-      for (final w in p.workoutHistory) {
-        for (final ex in w.exercises) {
-          if (ex.name == lift) {
-            for (final s in ex.sets) {
-              final est = s.reps == 1 ? s.weight : s.weight * (1 + s.reps / 30.0);
-              if (est > best) best = est;
-            }
-          }
-        }
-      }
-      if (best > 0) oneRm.add('$lift~${best.toStringAsFixed(0)}kg');
-    }
-    if (oneRm.isNotEmpty) buf.writeln('1RM: ${oneRm.join(' ')}');
+    // Top lifts 1RM — uses cached getter (O(1) after first call)
+    final oneRm = p.topLiftsOneRm.entries
+        .map((e) => '${e.key} ~${e.value.toStringAsFixed(0)}kg')
+        .toList();
+    if (oneRm.isNotEmpty) buf.writeln('Best lifts (estimated 1RM): ${oneRm.join(' | ')}');
 
-    // ── WATER & SUPPLEMENTS — last 7 days (compact) ───────────────────────
+    // Water & supplements — last 7 days
     final waterH = p.waterHistory;
     final suppH  = p.supplementHistory;
     final wsLines = <String>[];
@@ -488,32 +486,31 @@ class OnDeviceAiService extends ChangeNotifier {
       final ml   = waterH[key] ?? 0;
       final supp = suppH[key];
       if (ml == 0 && supp == null) continue;
-      final w  = supp?.whey        == true ? 'W✓' : 'W✗';
-      final cr = supp?.creatine    == true ? 'Cr✓' : 'Cr✗';
-      final mv = supp?.multivitamin == true ? 'M✓' : 'M✗';
-      wsLines.add('${d(day)}:${ml}ml $w$cr$mv');
+      final w  = supp?.whey        == true ? 'Whey✓' : 'Whey✗';
+      final cr = supp?.creatine    == true ? 'Creatine✓' : 'Creatine✗';
+      final mv = supp?.multivitamin == true ? 'Multivit✓' : 'Multivit✗';
+      wsLines.add('${d(day)}:${ml}ml $w $cr $mv');
     }
-    if (wsLines.isNotEmpty) buf.writeln('WATER/SUPPS: ${wsLines.join(' | ')}');
+    if (wsLines.isNotEmpty) buf.writeln('Water & supplements: ${wsLines.join(' | ')}');
 
-    final sex = p.isMale ? 'M' : 'F';
+    final sex = p.isMale ? 'Male' : 'Female';
 
-// Rules-first layout: Gemma 3 1B reads top-to-bottom. Putting rules at the
-// top prevents the model from "continuing" the data block instead of answering.
-return '''You are ${p.userName}'s personal fitness AI coach. Answer ONLY the user's question. Do NOT repeat or list any data from below. Respond in 2-4 short sentences using ${p.userName}'s actual numbers.
+// ── Prompt: rules-first, positive framing, no trailing fragments ──────────
+return '''You are ${p.userName}'s personal fitness AI coach. Give specific, data-driven advice using the numbers from the reference section below. Start your answer directly — cite ${p.userName}'s actual numbers. Keep it concise (2-4 sentences).
 
-=== ${p.userName.toUpperCase()}'S DATA (reference only — do not recite) ===
-Profile: ${p.age}y $sex ${p.heightCm.toInt()}cm | Goal: ${p.goalWeightKg.toStringAsFixed(1)}kg | Indian diet
-Today(${d(now)}): Cal ${p.todayCaloriesTotal.round()}/${p.calorieGoal}kcal Prot ${p.todayProteinTotal.round()}/${p.proteinGoal}g Water ${p.todayWaterMl}/${p.waterGoalMl}ml Steps ${p.todaySteps}/${p.stepGoal} Gym:${p.todayWorkout != null ? 'done' : 'none'}
-Weight: ${wt}kg→${p.goalWeightKg.toStringAsFixed(1)}kg ($pct% done, ${kgLeft}kg left) | Trend: $trend | ETA: $eta
-TDEE: $tdee | Cut: ${cut}kcal/d | Habit score: ${p.habitScore}/100 | WorkoutStreak: ${p.workoutStreak}d
+=== ${p.userName.toUpperCase()}'S REFERENCE DATA (reference only — use to personalise your advice) ===
+Profile: ${p.age}y $sex ${p.heightCm.toInt()}cm | Goal weight: ${p.goalWeightKg.toStringAsFixed(1)}kg | Indian diet
+Today (${d(now)}): Calories ${p.todayCaloriesTotal.round()}/${p.calorieGoal}kcal | Protein ${p.todayProteinTotal.round()}/${p.proteinGoal}g | Water ${p.todayWaterMl}/${p.waterGoalMl}ml | Steps ${p.todaySteps}/${p.stepGoal} | Gym today: ${p.todayWorkout != null ? 'done' : 'not yet'}
+Weight journey: ${wt}kg → ${p.goalWeightKg.toStringAsFixed(1)}kg ($pct% done, ${kgLeft}kg remaining) | Weekly trend: $trend | ETA: $eta
+Metabolism: TDEE $tdee | Daily cut target: ${cut}kcal | Habit score: ${p.habitScore}/100 | Workout streak: ${p.workoutStreak}d
 ${buf.toString().trim()}
-=== END DATA ===
+=== END REFERENCE DATA ===
 
-Food suggestions: use Indian foods (roti, dal, paneer, eggs, curd, chicken, fish, whey).
-Now answer the user's question:''';
+Food suggestions: prioritise Indian foods — roti, dal, paneer, eggs, curd, chicken, fish, whey protein.
+Start your reply immediately with specific advice using the actual numbers above.''';
   }
 
-  /// Exposed for unit tests only.
+  // ── Test hooks ──────────────────────────────────────────────────────────────
   @visibleForTesting
   String buildSystemPromptForTest(FitnessProvider p) => _systemPrompt(p);
 
@@ -524,6 +521,10 @@ Now answer the user's question:''';
   @visibleForTesting
   String buildRichPromptForTest(String firstMessage, FitnessProvider p) =>
       _buildRichSystemPrompt(firstMessage, p);
+
+  @visibleForTesting
+  static bool hasKeywordTest(String query, List<String> keywords) =>
+      _has(query, keywords);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   void _setState(AiModelState s, {String error = ''}) {

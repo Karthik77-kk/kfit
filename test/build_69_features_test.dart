@@ -353,22 +353,22 @@ void main() {
       final ai = OnDeviceAiService();
       final mPrompt = ai.buildSystemPromptForTest(pm);
       final fPrompt = ai.buildSystemPromptForTest(pf);
-      expect(mPrompt, contains(' M '));
-      expect(fPrompt, contains(' F '));
+      expect(mPrompt, contains('Male'));
+      expect(fPrompt, contains('Female'));
     });
 
     test('compact prompt contains GOALS section', () async {
       final p = await _loaded();
       final ai = OnDeviceAiService();
       final prompt = ai.buildSystemPromptForTest(p);
-      expect(prompt, contains('Goal:'));
+      expect(prompt, contains('Goal weight'));
     });
 
     test('compact prompt contains RULES section', () async {
       final p = await _loaded();
       final ai = OnDeviceAiService();
       final prompt = ai.buildSystemPromptForTest(p);
-      expect(prompt, contains('answer the user'));
+      expect(prompt, contains('Start your reply'));
     });
 
     test('compact prompt handles empty user (no food, no workouts)', () async {

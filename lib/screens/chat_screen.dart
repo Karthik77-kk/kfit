@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -36,6 +37,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
   final _scroll     = ScrollController();
   bool  _thinking   = false;
+  bool  _cancelled  = false;  // set to true by cancel button; checked in send loop
+  Timer? _scrollTimer;         // debounce scroll-to-bottom calls
   late  ChatSession _session;
 
   @override
@@ -76,6 +79,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _scrollTimer?.cancel();
     _controller.dispose();
     _scroll.dispose();
     super.dispose();
@@ -107,37 +111,50 @@ class _ChatScreenState extends State<ChatScreen> {
       _session.title = ChatSessionService.titleFromFirstMessage(text);
     }
 
+    _cancelled = false;
     setState(() {
       _messages.add(_ChatMessage(text: text, isUser: true));
       _controller.clear();
       _thinking = true;
     });
+
+    // Persist user message IMMEDIATELY — don't lose it if the app crashes
+    // or if the user navigates away before the AI finishes responding.
+    await _persistSession();
     _scrollBottom();
 
-    // Placeholder for streaming response
+    // Placeholder bubble for streaming AI response
     final aiMsg = _ChatMessage(text: '', isUser: false);
     setState(() => _messages.add(aiMsg));
 
     await for (final token in ai.sendMessage(text, provider)) {
-      if (!mounted) break;
+      if (!mounted || _cancelled) break;
       setState(() => aiMsg.text += token);
       _scrollBottom();
     }
+
     if (mounted) {
-      setState(() => _thinking = false);
-      _persistSession(); // save after AI responds
+      // If user cancelled with an empty AI bubble, remove it cleanly
+      if (_cancelled && aiMsg.text.isEmpty) {
+        setState(() => _messages.removeLast());
+      }
+      setState(() { _thinking = false; _cancelled = false; });
+      _persistSession(); // persist final (complete or partial) AI response
     }
   }
 
+  /// Debounced scroll-to-bottom — fires at most once per 80ms.
+  /// Scheduling one postFrameCallback per token (200+ callbacks for a long
+  /// response) was causing jank; this throttles to ~12 scrolls per second max.
   void _scrollBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
-        );
-      }
+    _scrollTimer?.cancel();
+    _scrollTimer = Timer(const Duration(milliseconds: 80), () {
+      if (!mounted || !_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -161,7 +178,15 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: const EdgeInsets.only(right: 4),
             child: _ModelChip(ai.state),
           ),
-          if (ai.isReady)
+          // Stop button — shown only while AI is generating
+          if (_thinking)
+            IconButton(
+              icon: const Icon(Icons.stop_circle_outlined,
+                  color: Color(0xFFFF9F0A), size: 22),
+              tooltip: 'Stop generation',
+              onPressed: () => setState(() => _cancelled = true),
+            ),
+          if (ai.isReady && !_thinking)
             IconButton(
               icon: const Icon(Icons.refresh_rounded, size: 20),
               tooltip: 'New conversation',
@@ -179,40 +204,40 @@ class _ChatScreenState extends State<ChatScreen> {
                 });
               },
             ),
-          // Delete this chat session
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 20),
-            tooltip: 'Delete this chat',
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  backgroundColor: const Color(0xFF1C1C1E),
-                  title: const Text('Delete chat?'),
-                  content: const Text(
-                    'This conversation will be permanently removed.',
-                    style: TextStyle(color: Color(0xFF8E8E93)),
+          if (!_thinking)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 20),
+              tooltip: 'Delete this chat',
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    backgroundColor: const Color(0xFF1C1C1E),
+                    title: const Text('Delete chat?'),
+                    content: const Text(
+                      'This conversation will be permanently removed.',
+                      style: TextStyle(color: Color(0xFF8E8E93)),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel',
+                            style: TextStyle(color: Color(0xFF8E8E93))),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Delete',
+                            style: TextStyle(color: Color(0xFFFF453A))),
+                      ),
+                    ],
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel',
-                          style: TextStyle(color: Color(0xFF8E8E93))),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Delete',
-                          style: TextStyle(color: Color(0xFFFF453A))),
-                    ),
-                  ],
-                ),
-              );
-              if (confirm == true && mounted) {
-                await ChatSessionService.deleteSession(_session.id);
-                if (mounted) Navigator.pop(context); // back to sessions list
-              }
-            },
-          ),
+                );
+                if (confirm == true && mounted) {
+                  await ChatSessionService.deleteSession(_session.id);
+                  if (mounted) Navigator.pop(context);
+                }
+              },
+            ),
         ],
       ),
       body: switch (ai.state) {
@@ -221,11 +246,13 @@ class _ChatScreenState extends State<ChatScreen> {
         AiModelState.loading      => _LoadingView(),
         AiModelState.error        => _ErrorView(errorMessage: ai.errorMessage, ai: ai),
         AiModelState.ready        => _ChatView(
-            messages:   _messages,
-            thinking:   _thinking,
-            scroll:     _scroll,
-            controller: _controller,
-            onSend:     _send,
+            messages:        _messages,
+            thinking:        _thinking,
+            scroll:          _scroll,
+            controller:      _controller,
+            onSend:          _send,
+            // Show memory indicator when we restored an existing session
+            showMemoryNote:  widget.session != null && _messages.isNotEmpty,
           ),
       },
     );
@@ -389,6 +416,7 @@ class _ErrorView extends StatelessWidget {
 class _ChatView extends StatelessWidget {
   final List<_ChatMessage> messages;
   final bool               thinking;
+  final bool               showMemoryNote; // true when restored existing session
   final ScrollController   scroll;
   final TextEditingController controller;
   final VoidCallback       onSend;
@@ -399,11 +427,26 @@ class _ChatView extends StatelessWidget {
     required this.scroll,
     required this.controller,
     required this.onSend,
+    this.showMemoryNote = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(children: [
+      // Session memory indicator — shown when resuming an existing session
+      // so the user understands the AI starts fresh, not resuming the prior context
+      if (showMemoryNote)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: const Color(0xFF1C1C1E),
+          child: const Text(
+            '📝 History shown above. AI starts fresh — it does not remember prior turns.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11),
+          ),
+        ),
+
       // Message list
       Expanded(
         child: messages.isEmpty
