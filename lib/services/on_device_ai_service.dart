@@ -123,9 +123,17 @@ class OnDeviceAiService extends ChangeNotifier {
 
       await _loadModel();
     } catch (e) {
+      // Model was marked installed but file is gone (e.g. fresh reinstall with
+      // imported backup that had the installed flag). Clear the stale flag and
+      // auto-trigger a fresh download so the user doesn't have to tap anything.
       _installed = false;
       await prefs.remove(_prefInstalledModel);
-      _setState(AiModelState.notInstalled);
+      if (_autoLoad) {
+        // Auto-download: show progress bar, no user action needed
+        await downloadAndLoad();
+      } else {
+        _setState(AiModelState.notInstalled);
+      }
     }
   }
 
@@ -169,8 +177,18 @@ class OnDeviceAiService extends ChangeNotifier {
       await _loadModel();
     } catch (e) {
       final msg = e.toString();
-      _setState(AiModelState.error,
-          error: msg.length > 200 ? '${msg.substring(0, 200)}…' : msg);
+      // "no longer installed" / "modelManager" errors mean the model registry is
+      // out of sync with the actual file on disk. Clear the flag so the next
+      // download starts fresh rather than getting stuck in a bad state.
+      _installed = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefInstalledModel);
+      if (msg.contains('no longer installed') || msg.contains('modelManager')) {
+        _setState(AiModelState.notInstalled);
+      } else {
+        _setState(AiModelState.error,
+            error: msg.length > 200 ? '${msg.substring(0, 200)}…' : msg);
+      }
     }
   }
 
