@@ -100,6 +100,33 @@ git push origin --delete fix/build-N-description
 - Verify GitHub Actions run succeeds
 - APK artifact appears under Actions → latest run
 
+### Rule 9 — NEVER change applicationId
+The `applicationId` in the CI workflow (`build_apk.yml` line ~114) is **permanently fixed** at `com.example.karthik_fitness`.
+- **Changing applicationId = different app on the device.** Android treats it as a brand-new app, not an update. Every user must uninstall and lose their data.
+- The original "can't install" error (Builds 74–75) was caused by **decimal versionCodes**, NOT by applicationId. Changing applicationId was the wrong fix.
+- Current value: `applicationId "com.example.karthik_fitness"` — do not touch, ever.
+- If this rule is ever broken in error: **immediately revert** before any user installs the bad APK.
+
+### Rule 10 — namespace ≠ applicationId (they are different)
+In Android, these two fields serve completely different purposes:
+- `namespace` = Java/Kotlin source package for R class generation. **Must match the package declarations in committed .kt files** (`com.example.karthik_fitness`). Changing this breaks compilation.
+- `applicationId` = The app's identity on the device and Play Store. Changing this breaks updates for existing users.
+- They are set separately in the CI-generated `build.gradle`. Current correct values:
+  ```
+  namespace  "com.example.karthik_fitness"   ← matches .kt source files
+  applicationId "com.example.karthik_fitness" ← matches what's installed on device
+  ```
+- Never conflate the two. Never change either without understanding the consequences.
+
+### Rule 11 — versionCode must be a whole integer, always
+- `pubspec.yaml` version format: `versionName+versionCode` (e.g. `2.3.0+82`)
+- **versionCode MUST be a plain integer** — Flutter/Android truncates decimals silently.
+  - ✅ `2.3.0+82` → versionCode 82
+  - ❌ `2.3.0+81.1` → versionCode 81 (same as previous, Android rejects the update)
+- Every merge to master — feature OR fix — increments the integer by 1.
+- Branch names and commit messages may use "Build 81.1" notation for human readability, but `pubspec.yaml` must always have `+82` (the next integer).
+- Lesson: Builds 72.1, 74.1, 74.4, 75.1 all shipped with duplicate versionCodes, causing "can't install" errors for users. Never again.
+
 ---
 
 ## Build & Run Commands
