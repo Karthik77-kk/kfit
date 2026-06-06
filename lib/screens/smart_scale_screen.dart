@@ -158,6 +158,15 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
     final subtitle = latest != null
         ? 'Pre-filled from ${latest.date.day}/${latest.date.month}/${latest.date.year} — update changed values'
         : 'Enter today\'s scale readings';
+
+    // Handle data arriving after screen was open (e.g. after import on fresh install).
+    // When latestScaleEntry goes from null → non-null while the screen is alive,
+    // build() re-runs but initState doesn't — schedule a prefill for next frame.
+    if (latest != null && _weight.text.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _weight.text.isEmpty) _prefill();
+      });
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
