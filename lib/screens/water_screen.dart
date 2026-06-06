@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
-import '../services/notification_service.dart';
 
 class WaterScreen extends StatefulWidget {
-  const WaterScreen({super.key});
+  final bool embedded;
+  const WaterScreen({super.key, this.embedded = false});
 
   @override
   State<WaterScreen> createState() => _WaterScreenState();
@@ -38,36 +38,27 @@ class _WaterScreenState extends State<WaterScreen>
     HapticFeedback.lightImpact();
     _animController.forward().then((_) => _animController.reverse());
     await context.read<FitnessProvider>().addWater(ml);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('+$ml ml added'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: const Color(0xFF40C8E0),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
-    final pct = (p.todayWaterMl / FitnessProvider.kWaterGoalMl).clamp(0.0, 1.0);
-    final remaining = (FitnessProvider.kWaterGoalMl - p.todayWaterMl).clamp(0, 99999);
-    final goalMet = p.todayWaterMl >= FitnessProvider.kWaterGoalMl;
+    final pct = p.waterGoalMl > 0 ? (p.todayWaterMl / p.waterGoalMl).clamp(0.0, 1.0) : 0.0;
+    final remaining = (p.waterGoalMl - p.todayWaterMl).clamp(0, 99999);
+    final goalMet = p.todayWaterMl >= p.waterGoalMl;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Water Tracker 💧'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            tooltip: 'Set water reminders',
-            onPressed: () async {
-              await NotificationService().scheduleWaterReminders();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('💧 Water reminders set (9am–6pm)'),
-                  backgroundColor: Color(0xFF40C8E0),
-                ));
-              }
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
+    final body = Column(
+      children: [
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -136,7 +127,7 @@ class _WaterScreenState extends State<WaterScreen>
                         ),
                       )
                     : Text(
-                        '${remaining}ml left to reach 2.5L',
+                        '${remaining}ml left to reach goal',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.6),
                           fontSize: 16,
@@ -144,7 +135,7 @@ class _WaterScreenState extends State<WaterScreen>
                       ),
                 const SizedBox(height: 6),
                 Text(
-                  'Goal: ${FitnessProvider.kWaterGoalMl}ml · ${(pct * 100).toInt()}% done',
+                  'Goal: ${p.waterGoalMl}ml · ${(pct * 100).toInt()}% done',
                   style: TextStyle(
                       color: Colors.white.withOpacity(0.35), fontSize: 13),
                 ),
@@ -244,7 +235,15 @@ class _WaterScreenState extends State<WaterScreen>
             ),
           ),
         ],
+    );
+
+    if (widget.embedded) return body;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Water Tracker 💧'),
       ),
+      body: body,
     );
   }
 }
@@ -270,7 +269,7 @@ class _WaterButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
           color: color.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withOpacity(0.5), width: 1.5),
         ),
         child: Column(

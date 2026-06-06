@@ -1,39 +1,76 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
+import 'services/on_device_ai_service.dart';
 import 'screens/home_screen.dart';
-import 'screens/food_screen.dart';
-import 'screens/water_screen.dart';
+import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
-import 'screens/supplements_screen.dart';
-import 'screens/stats_screen.dart';
+import 'screens/body_screen.dart';
 import 'screens/history_screen.dart';
-import 'services/notification_service.dart';
+import 'screens/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Color(0xFF000000),
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
-  // Initialize notifications and request permission (Android 13+)
-  try {
-    final ns = NotificationService();
-    await ns.initialize();
-    final granted = await ns.requestPermission();
-    if (granted) {
-      await ns.scheduleMorningSummary();
-    }
-  } catch (_) {}
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => FitnessProvider()..loadData(),
-      child: const KarthikFitnessApp(),
-    ),
+
+  // Capture Flutter framework errors (widget build errors, assertion failures)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details); // show red screen in debug
+    _appendCrashLog('FlutterError', details.exceptionAsString(),
+        details.stack?.toString() ?? '');
+  };
+
+  // Capture uncaught async errors (Future exceptions, stream errors)
+  runZonedGuarded(
+    () async {
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Color(0xFF000000),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ));
+
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => FitnessProvider()..loadData()),
+            // lazy:false → service created at app start, not at first chat open.
+            // Model loading begins immediately in background so it's ready
+            // (or nearly ready) by the time the user taps Ask AI.
+            ChangeNotifierProvider(
+              lazy: false,
+              create: (_) => OnDeviceAiService()..init(),
+            ),
+          ],
+          child: const KarthikFitnessApp(),
+        ),
+      );
+    },
+    (error, stack) {
+      _appendCrashLog('DartError', error.toString(), stack.toString());
+    },
   );
+}
+
+/// Appends a crash entry to crash_log.txt in the app documents directory.
+/// Exported via "Export Data" so users can share it when reporting bugs.
+/// Fire-and-forget — never rethrows or crashes the app itself.
+void _appendCrashLog(String type, String error, String stack) {
+  getApplicationDocumentsDirectory().then((dir) {
+    try {
+      final file = File('${dir.path}/crash_log.txt');
+      final ts   = DateTime.now().toIso8601String();
+      file.writeAsStringSync(
+        '[$ts] [$type]\n$error\n$stack\n---\n',
+        mode: FileMode.append,
+      );
+    } catch (_) {
+      // If log write fails, swallow — never crash inside an error handler.
+    }
+  }).catchError((_) {});
 }
 
 class KarthikFitnessApp extends StatelessWidget {
@@ -42,7 +79,7 @@ class KarthikFitnessApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Karthik Fitness',
+      title: 'K Fitness',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -80,10 +117,7 @@ class KarthikFitnessApp extends StatelessWidget {
           unselectedItemColor: Color(0xFF8E8E93),
           type: BottomNavigationBarType.fixed,
           elevation: 0,
-          selectedLabelStyle: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
+          selectedLabelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
           unselectedLabelStyle: TextStyle(fontSize: 10),
         ),
         snackBarTheme: const SnackBarThemeData(
@@ -94,15 +128,15 @@ class KarthikFitnessApp extends StatelessWidget {
           filled: true,
           fillColor: const Color(0xFF2C2C2E),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: Color(0xFF30D158), width: 1.5),
           ),
           hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
@@ -115,7 +149,13 @@ class KarthikFitnessApp extends StatelessWidget {
           thickness: 0.5,
         ),
       ),
-      home: const MainNavigationScreen(),
+      home: Consumer<FitnessProvider>(
+        builder: (context, p, _) {
+          if (!p.isLoaded) return const _SplashScreen();
+          if (!p.onboardingDone) return const OnboardingScreen();
+          return const MainNavigationScreen();
+        },
+      ),
     );
   }
 }
@@ -127,18 +167,51 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Text('💪', style: TextStyle(fontSize: 72)),
+      ),
+    );
+  }
+}
+
+class _MainNavigationScreenState extends State<MainNavigationScreen>
+    with WidgetsBindingObserver {
   int _index = 0;
 
   final List<Widget> _screens = const [
     HomeScreen(),
-    FoodScreen(),
-    WaterScreen(),
+    NutritionScreen(),
     WorkoutScreen(),
-    StatsScreen(),
-    SupplementsScreen(),
+    BodyScreen(),
     HistoryScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Refresh all data whenever the app returns to the foreground so the
+  /// summary (and every screen) is always current — same as pull-to-refresh.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<FitnessProvider>().loadData();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,12 +238,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.restaurant_menu_outlined, size: 24),
               activeIcon: Icon(Icons.restaurant_menu_rounded, size: 24),
-              label: 'Food',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.water_drop_outlined, size: 24),
-              activeIcon: Icon(Icons.water_drop_rounded, size: 24),
-              label: 'Water',
+              label: 'Nutrition',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.fitness_center_outlined, size: 24),
@@ -178,14 +246,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               label: 'Workout',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_outlined, size: 24),
-              activeIcon: Icon(Icons.bar_chart_rounded, size: 24),
-              label: 'Stats',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.medication_liquid_outlined, size: 24),
-              activeIcon: Icon(Icons.medication_liquid_rounded, size: 24),
-              label: 'Supps',
+              icon: Icon(Icons.person_outline_rounded, size: 24),
+              activeIcon: Icon(Icons.person_rounded, size: 24),
+              label: 'Body',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history_outlined, size: 24),

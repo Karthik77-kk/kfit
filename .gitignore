@@ -1,0 +1,34 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.lock
+
+# Android signing — NEVER commit these
+android/key.properties
+*.keystore
+*.jks
+
+# Android local
+android/local.properties
+android/.gradle/
+android/captures/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings (contains GITHUB_TOKEN)
+.claude/settings.local.json
+
+# Website (Astro)
+website/node_modules/
+website/dist/
+website/.astro/

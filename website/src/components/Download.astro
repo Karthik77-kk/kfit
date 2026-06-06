@@ -1,0 +1,290 @@
+---
+const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/download/v2.3.0%2B83/kfit.apk';
+const VERSION = 'v2.3.0 · Build 82';
+---
+
+<section class="section download-section" id="download">
+  <!-- Background glow -->
+  <div class="dl-glow" aria-hidden="true"></div>
+
+  <div class="container">
+    <div class="dl-card">
+      <div class="dl-top">
+        <span class="section-label">Download</span>
+        <div class="dl-version">{VERSION}</div>
+      </div>
+
+      <h2 class="dl-title">
+        Built for you.<br/>
+        <span class="gradient-text">Free forever.</span>
+      </h2>
+
+      <p class="dl-sub">
+        No Play Store approval. No subscription. No account.
+        Download the APK, install it, and start tracking in under two minutes.
+      </p>
+
+      <div class="dl-requirements">
+        <div class="req-item">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Android 8.0+
+        </div>
+        <div class="req-item">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          ~45 MB install size
+        </div>
+        <div class="req-item">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Extra 600 MB for AI model (optional)
+        </div>
+        <div class="req-item">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          No internet required
+        </div>
+      </div>
+
+      <div class="dl-actions">
+        <a href={APK_URL} class="btn btn-primary btn-download" download id="downloadBtn">
+          <svg id="dlIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          <span id="dlTxt">Download APK — Free</span>
+        </a>
+        <a
+          href="https://github.com/Karthik77-kk/karthik-fitness/releases"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn btn-ghost"
+        >
+          View all releases
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="dl-install-steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">Download the APK</div>
+            <div class="step-desc">Tap the button above</div>
+          </div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <div class="step-title">Allow unknown sources</div>
+            <div class="step-desc">Settings → Install unknown apps</div>
+          </div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <div class="step-title">Install &amp; launch</div>
+            <div class="step-desc">Tap the downloaded file</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  gsap.registerPlugin(ScrollTrigger);
+
+  gsap.from('.dl-card', {
+    y: 40, opacity: 0, duration: 0.9, ease: 'power2.out',
+    scrollTrigger: { trigger: '.download-section', start: 'top 75%' },
+  });
+
+  const dlBtn = document.getElementById('downloadBtn');
+  const dlTxt = document.getElementById('dlTxt');
+  const dlIcon = document.getElementById('dlIcon');
+
+  if (dlBtn) {
+    // Pulse glow
+    gsap.to(dlBtn, {
+      boxShadow: '0 0 55px rgba(48,209,88,0.65)',
+      duration: 1.5, repeat: -1, yoyo: true, ease: 'sine.inOut',
+    });
+
+    // Click feedback
+    dlBtn.addEventListener('click', () => {
+      if (!dlTxt || !dlIcon) return;
+      dlTxt.textContent = 'Downloading…';
+      dlIcon.innerHTML = `<path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm3.5-9.5-3.5 3.5-3.5-3.5L9.88 12l1.62 1.63V8h1v5.63L14.12 12z"/>`;
+      (dlBtn as HTMLElement).style.background = '#27b349';
+      setTimeout(() => {
+        dlTxt.textContent = 'Download APK — Free';
+        dlIcon.innerHTML = `<path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>`;
+        (dlBtn as HTMLElement).style.background = '';
+      }, 3500);
+    });
+  }
+</script>
+
+<style>
+  .download-section {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dl-glow {
+    position: absolute;
+    bottom: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 800px; height: 500px;
+    background: radial-gradient(ellipse, rgba(48,209,88,0.12) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* ── Card ─────────────────────────────────────────────────────────────────── */
+  .dl-card {
+    max-width: 720px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 52px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dl-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+  }
+
+  .dl-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .dl-version {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 4px 12px;
+  }
+
+  .dl-title {
+    font-size: clamp(2.2rem, 4vw, 3rem);
+    line-height: 1.1;
+  }
+
+  .dl-sub {
+    font-size: 17px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 500px;
+  }
+
+  /* Requirements */
+  .dl-requirements {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .req-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .req-item svg { color: var(--green); flex-shrink: 0; }
+
+  /* Actions */
+  .dl-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn-download {
+    font-size: 16px;
+    padding: 16px 32px;
+    box-shadow: 0 0 30px rgba(48,209,88,0.3);
+  }
+
+  /* Install steps */
+  .dl-install-steps {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--green-dim);
+    border: 1px solid rgba(48,209,88,0.25);
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .step-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .step-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .step-arrow {
+    font-size: 18px;
+    color: var(--muted2);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 700px) {
+    .dl-card { padding: 32px 24px; }
+    .dl-install-steps { flex-direction: column; align-items: flex-start; }
+    .step-arrow { display: none; }
+  }
+</style>

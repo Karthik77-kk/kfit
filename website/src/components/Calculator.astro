@@ -1,0 +1,504 @@
+---
+---
+
+<section class="section calc-section" id="calculator">
+  <div class="container">
+    <div class="section-header" style="text-align:center; margin-bottom:56px;">
+      <span class="section-label">Calculator</span>
+      <h2>Know your numbers.<br/><span class="gradient-text">Hit your targets.</span></h2>
+      <p class="section-sub">Same formulas the app uses — Mifflin-St Jeor BMR, TDEE, and protein targets for fat loss with muscle retention.</p>
+    </div>
+
+    <div class="calc-card">
+      <!-- Inputs -->
+      <div class="calc-inputs">
+
+        <!-- Gender toggle — first, affects formula -->
+        <div class="input-group input-group-full">
+          <label>Biological sex</label>
+          <div class="gender-toggle" id="genderToggle">
+            <button class="gender-btn active" data-gender="m">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M12 12v9M8 17h8"/></svg>
+              Male
+            </button>
+            <button class="gender-btn" data-gender="f">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M12 12v9M9 15h6"/></svg>
+              Female
+            </button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="inp-weight">Weight</label>
+          <div class="input-row">
+            <input id="inp-weight" type="number" value="75" min="30" max="200" step="0.5" />
+            <span class="unit">kg</span>
+          </div>
+          <input id="sl-weight" type="range" min="30" max="200" value="75" step="0.5" class="slider" />
+        </div>
+
+        <div class="input-group">
+          <label for="inp-height">Height</label>
+          <div class="input-row">
+            <input id="inp-height" type="number" value="175" min="140" max="220" step="1" />
+            <span class="unit">cm</span>
+          </div>
+          <input id="sl-height" type="range" min="140" max="220" value="175" step="1" class="slider" />
+        </div>
+
+        <div class="input-group">
+          <label for="inp-age">Age</label>
+          <div class="input-row">
+            <input id="inp-age" type="number" value="25" min="15" max="80" step="1" />
+            <span class="unit">yrs</span>
+          </div>
+          <input id="sl-age" type="range" min="15" max="80" value="25" step="1" class="slider" />
+        </div>
+
+        <div class="input-group input-group-full">
+          <label>Activity level</label>
+          <div class="activity-pills" id="activityPills">
+            <button class="activity-pill" data-val="1.2">Sedentary</button>
+            <button class="activity-pill active" data-val="1.375">Light</button>
+            <button class="activity-pill" data-val="1.55">Moderate</button>
+            <button class="activity-pill" data-val="1.725">Active</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="calc-divider" aria-hidden="true"></div>
+
+      <!-- Results -->
+      <div class="calc-results">
+        <div class="result-card rc-main">
+          <div class="rc-label">Daily target for fat loss</div>
+          <div class="rc-value" id="res-target">1,450</div>
+          <div class="rc-unit">kcal / day</div>
+          <div class="rc-note">≈ 0.5 kg fat loss per week</div>
+        </div>
+
+        <div class="result-grid">
+          <div class="result-item">
+            <div class="ri-label">BMR</div>
+            <div class="ri-value" id="res-bmr">1,850</div>
+            <div class="ri-unit">kcal</div>
+          </div>
+          <div class="result-item">
+            <div class="ri-label">TDEE</div>
+            <div class="ri-value" id="res-tdee">2,544</div>
+            <div class="ri-unit">kcal</div>
+          </div>
+          <div class="result-item">
+            <div class="ri-label">Protein</div>
+            <div class="ri-value" id="res-protein">135</div>
+            <div class="ri-unit">g / day</div>
+          </div>
+          <div class="result-item">
+            <div class="ri-label">Deficit</div>
+            <div class="ri-value" id="res-deficit">-400</div>
+            <div class="ri-unit">kcal</div>
+          </div>
+        </div>
+
+        <a
+          href="https://github.com/Karthik77-kk/karthik-fitness/releases/latest/download/app-release.apk"
+          class="btn btn-primary calc-cta"
+          download
+        >
+          Track this in the app
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  gsap.registerPlugin(ScrollTrigger);
+
+  let activityFactor = 1.375;
+  let gender = 'm'; // 'm' | 'f'
+
+  function calculate() {
+    const weight = parseFloat((document.getElementById('inp-weight') as HTMLInputElement)?.value) || 75;
+    const height = parseFloat((document.getElementById('inp-height') as HTMLInputElement)?.value) || 175;
+    const age    = parseInt((document.getElementById('inp-age') as HTMLInputElement)?.value) || 25;
+
+    // Mifflin-St Jeor: male +5, female -161
+    const sexConstant = gender === 'm' ? 5 : -161;
+    const bmr    = Math.round((10 * weight) + (6.25 * height) - (5 * age) + sexConstant);
+    const tdee   = Math.round(bmr * activityFactor);
+    const target = Math.round(tdee - 400);
+    const protein= Math.round(weight * 1.8);
+    const deficit = -400;
+
+    animateNum('res-bmr',     bmr);
+    animateNum('res-tdee',    tdee);
+    animateNum('res-target',  target);
+    animateNum('res-protein', protein);
+    setNum('res-deficit', deficit);
+  }
+
+  function animateNum(id: string, to: number) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const from = { val: parseFloat(el.textContent?.replace(/,/g, '') || '0') || 0 };
+    gsap.to(from, {
+      val: to,
+      duration: 0.6,
+      ease: 'power2.out',
+      onUpdate() {
+        el.textContent = Math.round(from.val).toLocaleString();
+      },
+    });
+  }
+
+  function setNum(id: string, val: number) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val.toLocaleString();
+  }
+
+  // ── Sync sliders ↔ number inputs ─────────────────────────────────────────────
+  const pairs: [string, string][] = [
+    ['inp-weight', 'sl-weight'],
+    ['inp-height', 'sl-height'],
+    ['inp-age',    'sl-age'],
+  ];
+
+  pairs.forEach(([inpId, slId]) => {
+    const inp = document.getElementById(inpId) as HTMLInputElement | null;
+    const sl  = document.getElementById(slId)  as HTMLInputElement | null;
+    if (!inp || !sl) return;
+
+    inp.addEventListener('input', () => { sl.value = inp.value; calculate(); });
+    sl.addEventListener('input',  () => { inp.value = sl.value; calculate(); });
+  });
+
+  // ── Gender toggle ─────────────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLElement>('.gender-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      gender = btn.dataset.gender || 'm';
+      calculate();
+    });
+  });
+
+  // ── Activity pills ────────────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLElement>('.activity-pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.activity-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      activityFactor = parseFloat(pill.dataset.val || '1.375');
+      calculate();
+    });
+  });
+
+  // ── Scroll reveal ─────────────────────────────────────────────────────────────
+  gsap.from('.calc-card', {
+    y: 40, opacity: 0, duration: 0.9, ease: 'power2.out',
+    scrollTrigger: { trigger: '.calc-section', start: 'top 75%' },
+  });
+
+  // Initial calculation
+  calculate();
+</script>
+
+<style>
+  .calc-section {
+    position: relative;
+  }
+
+  .section-sub {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 480px;
+    margin: 16px auto 0;
+  }
+
+  /* ── Card ─────────────────────────────────────────────────────────────────── */
+  .calc-card {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow:
+      0 40px 80px rgba(0,0,0,0.4),
+      0 0 0 1px rgba(48,209,88,0.06);
+  }
+
+  /* ── Inputs side ──────────────────────────────────────────────────────────── */
+  .calc-inputs {
+    padding: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .input-group { display: flex; flex-direction: column; gap: 8px; }
+
+  .input-group-full { grid-column: span 1; }
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2px 12px 2px 2px;
+  }
+
+  .input-row input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--font);
+    letter-spacing: -0.03em;
+    padding: 8px 10px;
+    width: 100%;
+    -moz-appearance: textfield;
+  }
+
+  .input-row input::-webkit-inner-spin-button,
+  .input-row input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  .unit {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  /* Slider */
+  .slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(48,209,88,0.2);
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+  }
+
+  .slider::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 0 6px rgba(48,209,88,0.2);
+  }
+
+  .slider::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--green);
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Gender toggle */
+  .gender-toggle {
+    display: flex; gap: 8px;
+  }
+
+  .gender-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px; color: var(--muted);
+    font-size: 14px; font-weight: 600; font-family: var(--font);
+    cursor: pointer; transition: all 0.2s;
+  }
+
+  .gender-btn:hover { color: white; border-color: var(--border-hi); }
+
+  .gender-btn.active {
+    background: var(--green-dim);
+    border-color: rgba(48,209,88,0.4);
+    color: var(--green);
+  }
+
+  /* Activity pills */
+  .activity-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .activity-pill {
+    flex: 1;
+    padding: 8px 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: fit-content;
+  }
+
+  .activity-pill:hover {
+    color: white;
+    border-color: var(--border-hi);
+  }
+
+  .activity-pill.active {
+    background: var(--green-dim);
+    border-color: rgba(48,209,88,0.35);
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  /* ── Divider ──────────────────────────────────────────────────────────────── */
+  .calc-divider {
+    width: 1px;
+    background: var(--border);
+    margin: 24px 0;
+  }
+
+  /* ── Results side ─────────────────────────────────────────────────────────── */
+  .calc-results {
+    padding: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    background: rgba(0,0,0,0.25);
+  }
+
+  /* Main result */
+  .result-card {
+    background: var(--green-dim);
+    border: 1px solid rgba(48,209,88,0.2);
+    border-radius: 16px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .result-card::before {
+    content: '';
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(48,209,88,0.2) 0%, transparent 70%);
+  }
+
+  .rc-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 6px;
+  }
+
+  .rc-value {
+    font-size: 48px;
+    font-weight: 900;
+    color: white;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rc-unit {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .rc-note {
+    font-size: 12px;
+    color: var(--green);
+    margin-top: 8px;
+    font-weight: 500;
+  }
+
+  /* Grid of 4 stats */
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .result-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .ri-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .ri-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ri-unit {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .calc-cta {
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  /* ── Responsive ───────────────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .calc-card {
+      grid-template-columns: 1fr;
+    }
+
+    .calc-divider {
+      width: auto;
+      height: 1px;
+      margin: 0 24px;
+    }
+  }
+</style>

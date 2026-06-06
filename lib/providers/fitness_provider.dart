@@ -1,33 +1,114 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:uuid/uuid.dart';
+import 'package:pedometer/pedometer.dart';
+import 'package:home_widget/home_widget.dart';
+
 import '../models/models.dart';
+import '../services/smart_insight_engine.dart' show topInsight, topInsights;
+import '../services/notification_center.dart';
+import '../services/chat_session_service.dart';
 
 class FitnessProvider extends ChangeNotifier {
-  // ── Daily targets ──────────────────────────────────────────────────────────
-  static const int kCalorieGoal = 1700;
-  static const int kProteinGoal = 100;
-  static const int kWaterGoalMl = 2500;
-  static const int kStepGoal = 8000;
+  // ── Daily targets (defaults — overridden by user settings) ────────────────
+  static const int kDefaultCalorieGoal = 1700;
+  static const int kDefaultProteinGoal = 100;
+  static const int kDefaultWaterGoalMl = 2500;
+  static const int kDefaultStepGoal = 8000;
+
+  // Mutable goals (loaded from prefs, fallback to defaults)
+  int _calorieGoal = kDefaultCalorieGoal;
+  int _proteinGoal = kDefaultProteinGoal;
+  int _waterGoalMl = kDefaultWaterGoalMl;
+  int _stepGoal = kDefaultStepGoal;
+
+  int get calorieGoal => _calorieGoal;
+  int get proteinGoal => _proteinGoal;
+  int get waterGoalMl => _waterGoalMl;
+  int get stepGoal => _stepGoal;
+
+  // Keep static consts as aliases so old static references compile
+  static const int kCalorieGoal = kDefaultCalorieGoal;
+  static const int kProteinGoal = kDefaultProteinGoal;
+  static const int kWaterGoalMl = kDefaultWaterGoalMl;
+  static const int kStepGoal = kDefaultStepGoal;
+
+  Future<void> saveCalorieGoal(int kcal) async {
+    _calorieGoal = kcal.clamp(800, 5000);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('calorie_goal', _calorieGoal);
+    notifyListeners();
+  }
+
+  Future<void> saveProteinGoal(int g) async {
+    _proteinGoal = g.clamp(20, 300);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('protein_goal', _proteinGoal);
+    notifyListeners();
+  }
+
+  Future<void> saveWaterGoal(int ml) async {
+    _waterGoalMl = ml.clamp(500, 8000);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('water_goal_ml', _waterGoalMl);
+    notifyListeners();
+  }
+
+  Future<void> saveStepGoal(int steps) async {
+    _stepGoal = steps.clamp(1000, 30000);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('step_goal', _stepGoal);
+    notifyListeners();
+  }
 
   // ── User profile ───────────────────────────────────────────────────────────
   double _heightCm = 170.0;
   double get heightCm => _heightCm;
 
-  int _age = 24; // Karthik's age
+  int _age = 24;
   int get age => _age;
+
+  bool _isMale = true;
+  bool get isMale => _isMale;
+  bool get isFemale => !_isMale;
 
   double _goalWeightKg = 70.0;
   double get goalWeightKg => _goalWeightKg;
+
+  String _userName = 'Friend';
+  String get userName => _userName;
+
+  bool _onboardingDone = false;
+  bool get onboardingDone => _onboardingDone;
+
+  Future<void> markOnboardingDone() async {
+    _onboardingDone = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_done', true);
+    notifyListeners();
+  }
+
+  Future<void> saveUserName(String name) async {
+    _userName = name.trim().isEmpty ? 'Friend' : name.trim();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', _userName);
+    notifyListeners();
+  }
 
   // ── State ──────────────────────────────────────────────────────────────────
   List<FoodEntry> _todayFood = [];
   int _todayWaterMl = 0;
   SupplementStatus _supplements = SupplementStatus();
   List<WorkoutLog> _workoutHistory = [];
+  Map<String, double>? _oneRmCache; // invalidated on logWorkout / loadData
   List<BodyEntry> _bodyHistory = [];
+  List<SmartScaleEntry> _scaleHistory = [];
+  List<MeasurementEntry> _measurementHistory = [];
   bool _isLoaded = false;
 
   // ── Historical data (last 30 days, loaded at startup) ──────────────────────
@@ -35,12 +116,53 @@ class FitnessProvider extends ChangeNotifier {
   Map<String, int> _waterHistory = {};
   Map<String, SupplementStatus> _supplementHistory = {};
 
+  // ── Pedometer ──────────────────────────────────────────────────────────────
+  StreamSubscription<StepCount>? _stepSubscription;
+  int _livePedometerTotal = 0;   // cumulative total from sensor
+  int _pedometerDayBaseline = -1; // sensor total at start of today
+  String _pedometerBaselineDate = '';
+
+  // ── Day-reset detection ────────────────────────────────────────────────────
+  String _loadedForDate = '';
+  Timer? _dayResetTimer;
+
   // ── Getters ────────────────────────────────────────────────────────────────
   List<FoodEntry> get todayFood => _todayFood;
   int get todayWaterMl => _todayWaterMl;
   SupplementStatus get supplements => _supplements;
   List<WorkoutLog> get workoutHistory => _workoutHistory;
+
+  /// Estimated 1-rep maxes for the 5 major lifts.
+  /// Cached — invalidated when workout history changes.
+  static const _bigLifts = ['Deadlift', 'Squats', 'Bench Press', 'Overhead Press', 'Barbell Rows'];
+
+  Map<String, double> get topLiftsOneRm => _oneRmCache ??= _computeOneRm();
+
+  Map<String, double> _computeOneRm() {
+    final result = <String, double>{};
+    for (final lift in _bigLifts) {
+      double best = 0;
+      for (final w in _workoutHistory) {
+        for (final ex in w.exercises) {
+          if (ex.name == lift) {
+            for (final s in ex.sets) {
+              final est = s.reps == 1 ? s.weight : s.weight * (1 + s.reps / 30.0);
+              if (est > best) best = est;
+            }
+          }
+        }
+      }
+      if (best > 0) result[lift] = best;
+    }
+    return result;
+  }
   List<BodyEntry> get bodyHistory => _bodyHistory;
+  List<SmartScaleEntry> get scaleHistory => _scaleHistory;
+  SmartScaleEntry? get latestScaleEntry =>
+      _scaleHistory.isEmpty ? null : _scaleHistory.last;
+  List<MeasurementEntry> get measurementHistory => _measurementHistory;
+  MeasurementEntry? get latestMeasurements =>
+      _measurementHistory.isEmpty ? null : _measurementHistory.last;
   bool get isLoaded => _isLoaded;
 
   /// All food entries keyed by 'YYYY-MM-DD', including today's.
@@ -63,31 +185,100 @@ class FitnessProvider extends ChangeNotifier {
   double get todayProtein =>
       _todayFood.fold(0.0, (sum, e) => sum + e.protein);
 
+  /// Calories from checked supplements (whey protein = 120 kcal per scoop)
+  double get supplementCalories => _supplements.whey ? 120.0 : 0.0;
+
+  /// Protein from checked supplements (whey = 25g)
+  double get supplementProtein => _supplements.whey ? 25.0 : 0.0;
+
+  /// Total calories including supplements
+  double get todayCaloriesTotal => todayCalories + supplementCalories;
+
+  /// Total protein including supplements
+  double get todayProteinTotal => todayProtein + supplementProtein;
+
+  /// Estimated carbs today (Indian diet approximation):
+  /// protein_cal = protein*4, fat_cal = remaining*35%, carb_cal = remaining*65%
+  double get todayCarbsEstimate {
+    final proteinCal = todayProteinTotal * 4.0;
+    final remaining = (todayCaloriesTotal - proteinCal).clamp(0.0, double.infinity);
+    return (remaining * 0.65) / 4.0; // convert kcal → grams
+  }
+
+  /// Estimated fat today (Indian diet approximation)
+  double get todayFatEstimate {
+    final proteinCal = todayProteinTotal * 4.0;
+    final remaining = (todayCaloriesTotal - proteinCal).clamp(0.0, double.infinity);
+    return (remaining * 0.35) / 9.0; // convert kcal → grams
+  }
+
+  /// Last 7 days of calorie data for bar chart.
+  /// Returns list of [dayLabel, calories] pairs, oldest→newest.
+  List<Map<String, dynamic>> get weeklyCalorieData {
+    final result = <Map<String, dynamic>>[];
+    final today = DateTime.now();
+    for (int i = 6; i >= 0; i--) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      double cal;
+      if (i == 0) {
+        cal = todayCaloriesTotal;
+      } else {
+        final foods = _foodHistory[key];
+        final supp = _supplementHistory[key];
+        final foodCal = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
+        final suppCal = (supp?.whey ?? false) ? 120.0 : 0.0;
+        cal = foodCal + suppCal;
+      }
+      final label = i == 0
+          ? 'Today'
+          : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday - 1];
+      result.add({'label': label, 'calories': cal, 'date': key});
+    }
+    return result;
+  }
+
   double get calorieProgress =>
-      (todayCalories / kCalorieGoal).clamp(0.0, 1.0);
+      calorieGoal > 0 ? (todayCaloriesTotal / calorieGoal).clamp(0.0, 1.0) : 0.0;
   double get proteinProgress =>
-      (todayProtein / kProteinGoal).clamp(0.0, 1.0);
+      proteinGoal > 0 ? (todayProteinTotal / proteinGoal).clamp(0.0, 1.0) : 0.0;
   double get waterProgress =>
-      (_todayWaterMl / kWaterGoalMl).clamp(0.0, 1.0);
+      waterGoalMl > 0 ? (_todayWaterMl / waterGoalMl).clamp(0.0, 1.0) : 0.0;
 
   // ── Net calories & deficit ─────────────────────────────────────────────────
-  /// Calories eaten minus calories burned from workout
-  int get netCalories => (todayCalories - todayCaloriesBurned).round();
+  /// Calories eaten minus ALL calories burned today (resting + walking + workout).
+  int get netCalories => (todayCaloriesTotal - totalCaloriesBurned).round();
 
-  /// Positive = deficit (good for fat loss), Negative = surplus
-  int get calorieDeficit => kCalorieGoal - netCalories;
+  /// Positive = deficit (good for fat loss), Negative = surplus.
+  /// Uses totalCaloriesBurned (resting + walking + workout) for accuracy.
+  int get calorieDeficit => calorieGoal - (todayCaloriesTotal - totalCaloriesBurned).round();
 
-  /// True if currently in a calorie deficit
-  bool get inDeficit => netCalories < kCalorieGoal;
+  /// True if currently in a calorie deficit.
+  ///
+  /// Logic:
+  ///  • When real burn data exists (BMR + steps + workout > 0): uses true
+  ///    energy-balance — eating < burning.
+  ///  • When no burn data (no weight logged) AND no food: returns false —
+  ///    there is no signal to evaluate.
+  ///  • When no burn data but food was logged: compares against the calorie
+  ///    goal as a proxy for real deficit.
+  bool get inDeficit {
+    final burned = totalCaloriesBurned;
+    if (burned > 0) return todayCaloriesTotal < burned;
+    if (todayCaloriesTotal <= 0 && burned <= 0) return false;
+    return todayCaloriesTotal < calorieGoal;
+  }
 
   /// Remaining calories left to eat (vs goal). Can be negative if over.
-  int get caloriesRemaining => kCalorieGoal - todayCalories.round();
+  int get caloriesRemaining => calorieGoal - todayCaloriesTotal.round();
 
   // ── Body / weight ──────────────────────────────────────────────────────────
   BodyEntry? get latestBodyEntry =>
       _bodyHistory.isEmpty ? null : _bodyHistory.last;
 
-  double? get latestWeightKg => latestBodyEntry?.weightKg;
+  double? get latestWeightKg =>
+      latestScaleEntry?.weightKg ?? latestBodyEntry?.weightKg;
 
   double? get bmi {
     final w = latestWeightKg;
@@ -114,29 +305,130 @@ class FitnessProvider extends ChangeNotifier {
     return const Color(0xFFFF453A);
   }
 
-  /// BMR using Mifflin-St Jeor equation (male)
-  /// BMR = 10×weight + 6.25×height − 5×age + 5
+  /// BMR — prefer scale BMR if available (scale's measurement is more accurate)
   double? get bmr {
+    final scaleBmr = latestScaleEntry?.bmr;
+    if (scaleBmr != null && scaleBmr > 0) return scaleBmr;
     final w = latestWeightKg;
-    if (w == null) return null;
-    return 10 * w + 6.25 * _heightCm - 5 * _age + 5;
+    if (w == null || w <= 0) return null;
+    // Mifflin-St Jeor: male +5, female −161
+    return 10 * w + 6.25 * _heightCm - 5 * _age + (_isMale ? 5.0 : -161.0);
   }
 
-  /// TDEE = BMR × activity multiplier
-  /// 1.375 = lightly active (1-3 days/week)
-  /// 1.55  = moderately active (3-5 days/week)
+  /// TDEE = BMR × activity multiplier (standard Harris-Benedict activity factors)
   double? get tdee {
     final b = bmr;
     if (b == null) return null;
-    final multiplier = weeklyWorkoutDays >= 4 ? 1.55 : 1.375;
+    final days = weeklyWorkoutDays;
+    final multiplier = days >= 6 ? 1.725   // very active
+        : days >= 4 ? 1.55                 // moderately active
+        : days >= 2 ? 1.375                // lightly active
+        : 1.2;                             // sedentary
     return b * multiplier;
   }
 
-  /// Suggested calorie deficit for fat loss (500 below TDEE)
+  // ── Adaptive (data-calibrated) TDEE ────────────────────────────────────────
+  //
+  // The BMR×activity-factor `tdee` above is only an ESTIMATE — it overstates or
+  // understates real maintenance because activity level is guessed from logged
+  // workout days. When we have enough real data we can do far better: back-
+  // calculate the user's TRUE maintenance from how their weight actually moved
+  // against what they actually ate. This is the same energy-balance method
+  // MacroFactor/RP use:  TDEE = avgIntake − (weeklyWeightChangeKg × 7700 ÷ 7).
+  //
+  // 7700 kcal ≈ energy in 1 kg of body mass. Losing 0.5 kg/wk while eating 1500
+  // ⇒ TDEE = 1500 − (−0.5 × 1100) = 2050. Gaining works the same in reverse.
+
+  /// Real maintenance calories calibrated from the user's own weight trend and
+  /// logged intake. Null until there's a trustworthy signal: a weight trend
+  /// spanning ≥7 days (≥3 logs) AND logged calories over that window.
+  /// 7 days is the practical minimum for an energy-balance TDEE estimate; the
+  /// linear-regression slope smooths day-to-day water-weight noise, and the
+  /// estimate sharpens automatically as more history accrues.
+  /// Clamped to a believable human range [1200, 4500] to reject bad data.
+  double? get adaptiveTdee {
+    final weekly = weeklyWeightChange; // kg/week, negative = losing
+    if (weekly == null) return null;
+    final entries = getRecentBodyEntries(days: 60);
+    if (entries.length < 3) return null;
+    final spanDays = entries.last.date.difference(entries.first.date).inDays;
+    if (spanDays < 7) return null;
+    // Average daily intake over a comparable recent window (skips empty days).
+    final avgIntake = avgCaloriesForDays(0, spanDays.clamp(7, 30));
+    if (avgIntake <= 0) return null;
+    final energyFromWeight = weekly * 7700 / 7; // kcal/day stored(+)/released(−)
+    final t = avgIntake - energyFromWeight;
+    return t.clamp(1200.0, 4500.0);
+  }
+
+  /// The TDEE we trust most: data-calibrated [adaptiveTdee] when available,
+  /// otherwise the BMR×activity estimate [tdee]. Use THIS for any calorie goal
+  /// math so the user gets accurate, personalised targets.
+  double? get bestTdee => adaptiveTdee ?? tdee;
+
+  /// True when [bestTdee] is the data-calibrated value (for "calibrated" UI badges).
+  bool get isTdeeCalibrated => adaptiveTdee != null;
+
+  /// Suggested calorie target for fat loss (500 below maintenance).
+  /// Uses [bestTdee] so it reflects real maintenance once data is available.
   double? get fatLossCalorieTarget {
-    final t = tdee;
+    final t = bestTdee;
     if (t == null) return null;
-    return (t - 500).clamp(1200, 3500);
+    return (t - 500).clamp(1200.0, 2800.0);
+  }
+
+  // ── Smart goal recommendations ─────────────────────────────────────────────
+  //
+  // Auto-calculated from body data so the user has science-backed targets
+  // instead of fixed defaults. Shown in Settings as suggestions the user can
+  // apply with one tap.
+
+  /// Recommended daily calorie intake for ~0.5 kg/week fat loss.
+  /// = bestTdee − 500, clamped to the safe range [1200, 2800].
+  /// Prefers the data-calibrated [adaptiveTdee] so it won't recommend
+  /// overeating when the activity-factor estimate is too high.
+  /// Returns null when weight/height/age haven't been logged yet.
+  double? get recommendedCalorieGoal {
+    final t = bestTdee;
+    if (t == null) return null;
+    return (t - 500).clamp(1200.0, 2800.0);
+  }
+
+  /// Recommended daily protein for fat loss + muscle retention.
+  /// Uses 2.0 g/kg lean body mass when scale data is available,
+  /// otherwise 1.8 g/kg total body weight.
+  /// Science: at least 1.6 g/kg lean mass protects muscle in a deficit.
+  int get recommendedProteinGoal {
+    final lean = leanMassKg;
+    if (lean != null && lean > 10) {
+      return (lean * 2.0).round().clamp(60, 300);
+    }
+    final w = latestWeightKg;
+    if (w != null) {
+      return (w * 1.8).round().clamp(60, 300);
+    }
+    return kDefaultProteinGoal;
+  }
+
+  /// Recommended daily water intake: 35 ml per kg body weight.
+  /// 35 ml/kg is widely recommended for active adults aiming for fat loss.
+  int get recommendedWaterGoal {
+    final w = latestWeightKg;
+    if (w == null) return kDefaultWaterGoalMl;
+    return ((w * 35).round()).clamp(1500, 4500);
+  }
+
+  /// True when the user's manually-set goals differ meaningfully from
+  /// what the body data recommends (triggers a nudge in Settings).
+  bool get hasGoalRecommendations {
+    final rCal  = recommendedCalorieGoal;
+    final rProt = recommendedProteinGoal;
+    final rWat  = recommendedWaterGoal;
+    if (rCal == null) return false;
+    final calDiff  = (rCal.round() - _calorieGoal).abs() > 50;
+    final protDiff = (rProt        - _proteinGoal).abs() > 5;
+    final watDiff  = (rWat         - _waterGoalMl).abs() > 150;
+    return calDiff || protDiff || watDiff;
   }
 
   /// kg remaining to reach goal weight (negative = already below goal)
@@ -146,22 +438,233 @@ class FitnessProvider extends ChangeNotifier {
     return w - _goalWeightKg;
   }
 
-  /// Estimated weeks to reach goal at current deficit
+  /// Estimated weeks to reach goal, based on your ACTUAL measured rate of loss.
+  ///
+  /// Prefers the 7-day regression trend (`weeklyWeightChange`); this avoids the
+  /// old bug where today's instantaneous calorie deficit (huge early in the day,
+  /// before you've eaten) produced absurd ETAs like "2 weeks to lose 4 kg".
+  /// Falls back to a sustainable rate (a 500 kcal/day cut ≈ 0.45 kg/week) only
+  /// when there isn't enough weight history yet.
   double? get weeksToGoal {
     final kg = kgToGoal;
-    final deficit = calorieDeficit;
-    if (kg == null || kg <= 0 || deficit <= 0) return null;
-    // 1 kg fat ≈ 7700 kcal deficit
-    final daysPerKg = 7700 / deficit;
-    return (kg * daysPerKg / 7).clamp(0, 999);
+    if (kg == null || kg <= 0) return null;
+
+    // 1) Measured trend (most accurate) — needs ≥3 weight logs for a regression.
+    final trend = weeklyWeightChange; // kg/week, negative = losing
+    if (trend != null && trend < -0.05) {
+      return (kg / trend.abs()).clamp(1, 999);
+    }
+
+    // 2) Sustainable projection from a 500 kcal/day deficit (0.45 kg/week).
+    final target = fatLossCalorieTarget;
+    final t = tdee;
+    if (target != null && t != null && t > target) {
+      final dailyDeficit = (t - target).clamp(0, 1000); // capped, realistic
+      if (dailyDeficit <= 0) return null;
+      final kgPerWeek = dailyDeficit * 7 / 7700;
+      if (kgPerWeek <= 0) return null;
+      return (kg / kgPerWeek).clamp(1, 999);
+    }
+    return null;
   }
 
-  int get todaySteps => latestBodyEntry?.steps ?? 0;
-  double get stepProgress => (todaySteps / kStepGoal).clamp(0.0, 1.0);
+  // ── Body-composition analytics (uses ALL scale + measurement data) ──────────
+  static const _bcGreen = Color(0xFF30D158);
+  static const _bcOrange = Color(0xFFFF9F0A);
+  static const _bcRed = Color(0xFFFF453A);
+  static const _bcBlue = Color(0xFF40C8E0);
+  static const _bcMuted = Color(0xFF8E8E93);
+
+  /// Earliest logged weight across body + scale history — the baseline for goal progress.
+  double? get startWeightKg {
+    DateTime? earliest;
+    double? weight;
+    void consider(DateTime d, double w) {
+      if (w <= 0) return;
+      if (earliest == null || d.isBefore(earliest!)) {
+        earliest = d;
+        weight = w;
+      }
+    }
+    if (_bodyHistory.isNotEmpty) consider(_bodyHistory.first.date, _bodyHistory.first.weightKg);
+    if (_scaleHistory.isNotEmpty) consider(_scaleHistory.first.date, _scaleHistory.first.weightKg);
+    return weight;
+  }
+
+  /// Fraction (0–1) of the start→goal journey completed. Handles loss and gain goals.
+  double get goalProgress {
+    final start = startWeightKg;
+    final current = latestWeightKg;
+    if (start == null || current == null) return 0;
+    final span = start - _goalWeightKg;
+    if (span.abs() < 0.05) return 1; // already at goal / no meaningful span
+    return ((start - current) / span).clamp(0.0, 1.0);
+  }
+
+  /// Waist-to-hip ratio (fat-distribution / health-risk indicator).
+  double? get waistToHipRatio {
+    final m = latestMeasurements;
+    final waist = m?.waistCm;
+    final hips = m?.hipsCm;
+    if (waist == null || hips == null || hips <= 0) return null;
+    return waist / hips;
+  }
+
+  ({String label, Color color})? get whrRisk {
+    final r = waistToHipRatio;
+    if (r == null) return null;
+    if (r < 0.90) return (label: 'Low risk', color: _bcGreen);
+    if (r < 1.00) return (label: 'Moderate risk', color: _bcOrange);
+    return (label: 'High risk', color: _bcRed);
+  }
+
+  /// Waist-to-height ratio — a stronger central-obesity signal than BMI.
+  double? get waistToHeightRatio {
+    final waist = latestMeasurements?.waistCm;
+    if (waist == null || _heightCm <= 0) return null;
+    return waist / _heightCm;
+  }
+
+  ({String label, Color color}) get whtrStatus {
+    final r = waistToHeightRatio;
+    if (r == null) return (label: '—', color: _bcMuted);
+    if (r < 0.5) return (label: 'Healthy', color: _bcGreen);
+    if (r < 0.6) return (label: 'Raised', color: _bcOrange);
+    return (label: 'High', color: _bcRed);
+  }
+
+  /// Normalized Fat-Free Mass Index — your actual muscle-development score.
+  double? get ffmi {
+    final lean = latestScaleEntry?.leanBodyMassKg;
+    if (lean == null || lean <= 0 || _heightCm <= 0) return null;
+    final h = _heightCm / 100.0;
+    return lean / (h * h) + 6.1 * (1.8 - h);
+  }
+
+  ({String label, Color color}) get ffmiStatus {
+    final f = ffmi;
+    if (f == null) return (label: '—', color: _bcMuted);
+    if (f < 18) return (label: 'Below average', color: _bcOrange);
+    if (f < 20) return (label: 'Average', color: _bcBlue);
+    if (f < 22) return (label: 'Athletic', color: _bcGreen);
+    if (f < 25) return (label: 'Excellent', color: _bcGreen);
+    return (label: 'Very high', color: _bcBlue);
+  }
+
+  double? get fatMassKg {
+    final v = latestScaleEntry?.bodyFatKg;
+    return (v != null && v > 0) ? v : null;
+  }
+
+  double? get leanMassKg {
+    final v = latestScaleEntry?.leanBodyMassKg;
+    return (v != null && v > 0) ? v : null;
+  }
+
+  /// Fat / lean change from the earliest to latest scale reading — the real recomp story.
+  ({double fatChange, double leanChange, String verdict, Color color})? get bodyCompTrajectory {
+    if (_scaleHistory.length < 2) return null;
+    final first = _scaleHistory.first;
+    final last = _scaleHistory.last;
+    if (first.bodyFatKg <= 0 || last.bodyFatKg <= 0) return null;
+    final fatChange = last.bodyFatKg - first.bodyFatKg;
+    final leanChange = last.leanBodyMassKg - first.leanBodyMassKg;
+    String verdict;
+    Color color;
+    if (fatChange < -0.3 && leanChange > 0.3) {
+      verdict = 'Recomp — fat down, muscle up';
+      color = _bcGreen;
+    } else if (fatChange < -0.3 && leanChange >= -0.3) {
+      verdict = 'Losing fat, holding muscle';
+      color = _bcGreen;
+    } else if (fatChange < -0.3 && leanChange < -0.3) {
+      verdict = 'Losing fat and some muscle';
+      color = _bcOrange;
+    } else if (fatChange > 0.3 && leanChange > 0.3) {
+      verdict = 'Gaining both fat and muscle';
+      color = _bcOrange;
+    } else if (fatChange > 0.3) {
+      verdict = 'Fat trending up';
+      color = _bcRed;
+    } else {
+      verdict = 'Holding steady';
+      color = _bcMuted;
+    }
+    return (fatChange: fatChange, leanChange: leanChange, verdict: verdict, color: color);
+  }
+
+  /// Smart-scale biological age minus real age (negative = younger than your years).
+  int? get bioAgeDelta {
+    final b = latestScaleEntry?.biologicalAge;
+    if (b == null || b <= 0) return null;
+    return b - _age;
+  }
+
+  ({String label, Color color})? get hydrationStatus {
+    final w = latestScaleEntry?.bodyWaterPercent;
+    if (w == null || w <= 0) return null;
+    if (w < 50) return (label: 'Low', color: _bcOrange);
+    if (w <= 65) return (label: 'Healthy', color: _bcGreen);
+    return (label: 'High', color: _bcBlue);
+  }
+
+  /// Headline body-composition classification from BMI + body-fat% + FFMI.
+  ({String label, Color color, String detail}) get bodyCompositionStatus {
+    final bf = latestScaleEntry?.bodyFatPercent;
+    final f = ffmi;
+    final b = bmi;
+    if (bf == null && b == null) {
+      return (label: 'Log data', color: _bcMuted, detail: 'Log weight (and scale) to assess.');
+    }
+    if (bf != null && bf > 0) {
+      if (bf >= 25) {
+        return (label: 'Overfat', color: _bcRed,
+            detail: 'Body fat ${bf.toStringAsFixed(0)}% is high — prioritise the deficit + protein.');
+      }
+      if (bf < 15 && (f == null || f >= 20)) {
+        return (label: 'Athletic', color: _bcGreen,
+            detail: 'Lean and muscular — maintain protein and training.');
+      }
+      if (bf < 20 && (f == null || f >= 19)) {
+        return (label: 'Lean', color: _bcGreen,
+            detail: 'Good composition — keep protein high to hold muscle.');
+      }
+      if (f != null && f < 18) {
+        return (label: 'Recomp needed', color: _bcOrange,
+            detail: 'Lowish muscle (FFMI ${f.toStringAsFixed(1)}) — lift heavy while holding the deficit.');
+      }
+      return (label: 'Average', color: _bcBlue,
+          detail: 'Solid base — small deficit + strength work moves you toward lean.');
+    }
+    // Fall back to BMI category when no body-fat reading.
+    return (label: bmiCategory, color: _bcBlue, detail: 'Log smart-scale data for a full composition read.');
+  }
+
+  /// True when pedometer is actively delivering data
+  bool get hasPedometerData =>
+      _pedometerDayBaseline >= 0 && _livePedometerTotal >= _pedometerDayBaseline;
+
+  /// Live steps if pedometer available, otherwise last manually-logged steps.
+  int get todaySteps {
+    if (hasPedometerData) {
+      return math.max(0, _livePedometerTotal - _pedometerDayBaseline);
+    }
+    return latestBodyEntry?.steps ?? 0;
+  }
+
+  double get stepProgress => stepGoal > 0 ? (todaySteps / stepGoal).clamp(0.0, 1.0) : 0.0;
 
   List<BodyEntry> getRecentBodyEntries({int days = 30}) {
     final cutoff = DateTime.now().subtract(Duration(days: days));
     return _bodyHistory
+        .where((e) => e.date.isAfter(cutoff))
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+  }
+
+  List<MeasurementEntry> getRecentMeasurements({int days = 90}) {
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    return _measurementHistory
         .where((e) => e.date.isAfter(cutoff))
         .toList()
       ..sort((a, b) => a.date.compareTo(b.date));
@@ -184,16 +687,19 @@ class FitnessProvider extends ChangeNotifier {
       _todayFood.where((e) => e.mealType == MealType.snack).toList();
 
   // ── Workout ────────────────────────────────────────────────────────────────
-  WorkoutLog? get todayWorkout {
+  /// All WorkoutLog entries saved today (may be multiple if user saved in batches).
+  List<WorkoutLog> get todayWorkouts {
     final now = DateTime.now();
-    try {
-      return _workoutHistory.lastWhere((w) =>
-          w.date.year == now.year &&
-          w.date.month == now.month &&
-          w.date.day == now.day);
-    } catch (_) {
-      return null;
-    }
+    return _workoutHistory.where((w) =>
+        w.date.year == now.year &&
+        w.date.month == now.month &&
+        w.date.day == now.day).toList();
+  }
+
+  /// Last workout logged today — kept for backward compatibility with home screen.
+  WorkoutLog? get todayWorkout {
+    final list = todayWorkouts;
+    return list.isEmpty ? null : list.last;
   }
 
   List<WorkoutLog> getRecentWorkouts({int days = 14}) {
@@ -205,17 +711,20 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   int get workoutStreak {
+    // Build a Set of date strings first (O(n)) then check each day (O(1)) — was O(n²)
+    final doneKeys = <String>{};
+    for (final w in _workoutHistory) {
+      doneKeys.add('${w.date.year}-${w.date.month.toString().padLeft(2,'0')}-${w.date.day.toString().padLeft(2,'0')}');
+    }
     int streak = 0;
     DateTime check = DateTime.now();
     for (int i = 0; i < 60; i++) {
-      final hasWorkout = _workoutHistory.any((w) =>
-          w.date.year == check.year &&
-          w.date.month == check.month &&
-          w.date.day == check.day);
-      if (hasWorkout) {
+      final key = '${check.year}-${check.month.toString().padLeft(2,'0')}-${check.day.toString().padLeft(2,'0')}';
+      if (doneKeys.contains(key)) {
         streak++;
         check = check.subtract(const Duration(days: 1));
       } else if (i == 0) {
+        // today has no workout yet — still counting, try yesterday
         check = check.subtract(const Duration(days: 1));
       } else {
         break;
@@ -224,13 +733,347 @@ class FitnessProvider extends ChangeNotifier {
     return streak;
   }
 
-  int get todayCaloriesBurned => todayWorkout?.caloriesBurned ?? 0;
+  /// Consecutive days (including today) where ≥500 kcal was logged.
+  /// Simple threshold — rewards logging, not perfection.
+  int get calorieStreak {
+    int streak = 0;
+    final today = DateTime.now();
+
+    // Check today first (include supplement calories in threshold)
+    final todayCals = _todayFood.fold(0.0, (s, e) => s + e.calories) + supplementCalories;
+    if (todayCals >= 500) streak++;
+
+    // Walk backwards through history (include supplement calories for past days too)
+    for (int i = 1; i <= 60; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final foods = _foodHistory[key];
+      final supp = _supplementHistory[key];
+      final dayFoodCals = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
+      final daySuppCals = (supp?.whey ?? false) ? 120.0 : 0.0;
+      final dayCals = dayFoodCals + daySuppCals;
+      if (dayCals >= 500) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  /// Consecutive days where all 3 supplements were taken.
+  int get supplementStreak {
+    int streak = 0;
+    final today = DateTime.now();
+    // Check today
+    final s = supplements;
+    if (s.whey && s.creatine && s.multivitamin) streak++;
+    // Walk backwards through history
+    for (int i = 1; i <= 60; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key = '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+      final hist = _supplementHistory[key];
+      if (hist != null && hist.whey && hist.creatine && hist.multivitamin) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  /// MET values per exercise (metabolic equivalent of task).
+  /// Compound/cardio values are research-backed; strength defaults to 5.0.
+  static const Map<String, double> _exerciseMet = {
+    // Cardio
+    'Running': 9.8, 'Cycling': 8.0, 'Jump Rope': 12.3, 'Swimming': 8.0,
+    'HIIT': 10.0, 'Burpees': 8.0, 'Walking': 3.5, 'Jumping Jacks': 8.0,
+    'Sprinting': 13.5, 'Sprints': 13.5, 'Stair Climbing': 8.0, 'Elliptical': 5.5,
+    'Rowing': 7.0, 'Rowing Machine': 7.0, 'Boxing': 9.8, 'Kickboxing': 9.0,
+    'Yoga': 3.0, 'Pilates': 3.5, 'Stretching': 2.5,
+    'Rock Climbing': 8.0, 'Hiking': 6.0, 'Dancing': 5.0,
+    // Compound lifts
+    'Deadlift': 6.0, 'Romanian Deadlift': 6.0, 'Sumo Deadlift': 6.0,
+    'Squats': 6.5, 'Front Squat': 6.5, 'Goblet Squat': 6.0,
+    'Bench Press': 5.5, 'Incline Bench Press': 5.5, 'Decline Bench Press': 5.5,
+    'Overhead Press': 5.5, 'Shoulder Press': 5.5, 'Military Press': 5.5,
+    'Barbell Rows': 6.0, 'Dumbbell Rows': 5.5, 'Cable Rows': 5.5,
+    'Pull-ups': 8.0, 'Chin-ups': 8.0, 'Lat Pulldown': 5.5,
+    'Dips': 6.5, 'Push-ups': 5.0,
+    'Lunges': 5.5, 'Leg Press': 5.5, 'Leg Curl': 4.5, 'Leg Extension': 4.5,
+    'Hip Thrust': 5.5, 'Glute Bridge': 4.5, 'Calf Raises': 4.0,
+    // Isolation
+    'Bicep Curls': 4.5, 'Hammer Curls': 4.5, 'Preacher Curls': 4.5,
+    'Tricep Extensions': 4.5, 'Tricep Pushdown': 4.5, 'Skull Crushers': 4.5,
+    'Lateral Raises': 4.0, 'Front Raises': 4.0, 'Face Pulls': 4.0,
+    'Chest Flyes': 4.5, 'Cable Flyes': 4.5,
+    'Plank': 4.0, 'Abs': 4.0, 'Crunches': 4.0, 'Sit-ups': 4.5,
+    'Default': 5.0, // generic strength training
+  };
+
+  /// Calculates calories burned for a workout using MET × user weight × duration.
+  /// Duration is rep-weighted: heavy low-rep sets are shorter per set than high-rep sets.
+  /// Formula: sets × (avgReps × 0.05 + 1.5) minutes per exercise.
+  int calculateWorkoutCalories(WorkoutLog w) {
+    final weight = latestWeightKg ?? 70.0;
+    int total = 0;
+    for (final ex in w.exercises) {
+      final met  = _exerciseMet[ex.name] ?? _exerciseMet['Default']!;
+      final sets = ex.sets.length;
+      if (sets == 0) continue;
+      // Rep-weighted duration: low-rep heavy sets (5 reps → 1.75 min/set),
+      // high-rep light sets (15 reps → 2.25 min/set), bodyweight (20 reps → 2.5 min/set)
+      final avgReps       = ex.sets.fold(0, (s, e) => s + e.reps) / sets;
+      final minPerSet     = (avgReps * 0.05 + 1.5).clamp(1.5, 4.0);
+      final durationMin   = sets * minPerSet;
+      total += (met * weight * durationMin / 60).round();
+    }
+    return total;
+  }
+
+  /// Sum of calories burned across ALL workouts logged today.
+  int get todayCaloriesBurned {
+    return todayWorkouts.fold(0, (sum, w) => sum + calculateWorkoutCalories(w));
+  }
+
+  /// Calories burned from resting (BMR prorated to time of day)
+  double get restingCaloriesBurned {
+    final b = bmr;
+    if (b == null) return 0;
+    final now = DateTime.now();
+    final minutesElapsed = now.hour * 60 + now.minute;
+    return b * (minutesElapsed / 1440.0);
+  }
+
+  /// Calories burned from steps (walking).
+  /// Returns 0 when no valid weight is logged (weight=0 is treated as "no data",
+  /// consistent with the BMR guard — we never estimate calories from an invalid weight).
+  double get walkingCaloriesBurned {
+    final w = latestWeightKg;
+    if (w == null || w <= 0) return 0;
+    return todaySteps * 0.04 * (w / 70.0);
+  }
+
+  /// Total calories burned today = resting + walking + workout
+  double get totalCaloriesBurned =>
+      restingCaloriesBurned + walkingCaloriesBurned + todayCaloriesBurned;
 
   int get weeklyCaloriesBurned {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     return _workoutHistory
         .where((w) => w.date.isAfter(cutoff))
-        .fold(0, (sum, w) => sum + w.caloriesBurned);
+        .fold(0, (sum, w) => sum + calculateWorkoutCalories(w));
+  }
+
+  /// Average daily calories (incl. supplements) over the last 7 days
+  double get weeklyAvgCalories {
+    final data = weeklyCalorieData; // already computed, 7 entries
+    if (data.isEmpty) return 0;
+    final total = data.fold(0.0, (sum, d) => sum + (d['calories'] as double));
+    return total / data.length;
+  }
+
+  /// Average daily protein (incl. whey) over the last 7 days
+  double get weeklyAvgProtein {
+    double total = 0;
+    final today = DateTime.now();
+    for (int i = 0; i < 7; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      if (i == 0) {
+        total += todayProteinTotal;
+      } else {
+        final foods = _foodHistory[key];
+        final supp = _supplementHistory[key];
+        final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
+        final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+        total += foodProt + suppProt;
+      }
+    }
+    return total / 7;
+  }
+
+  /// Days in the last 7 where water intake met the daily goal
+  int get weeklyWaterGoalHitDays {
+    int count = 0;
+    final today = DateTime.now();
+    for (int i = 0; i < 7; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final ml = i == 0 ? _todayWaterMl : (_waterHistory[key] ?? 0);
+      if (ml >= _waterGoalMl) count++;
+    }
+    return count;
+  }
+
+  /// Days in the last 7 where protein met the daily goal
+  int get weeklyProteinGoalHitDays {
+    int count = 0;
+    final today = DateTime.now();
+    for (int i = 0; i < 7; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      double prot;
+      if (i == 0) {
+        prot = todayProteinTotal;
+      } else {
+        final foods = _foodHistory[key];
+        final supp = _supplementHistory[key];
+        final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
+        final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+        prot = foodProt + suppProt;
+      }
+      if (prot >= _proteinGoal) count++;
+    }
+    return count;
+  }
+
+  // ── Historical aggregates (for the smart insight engine) ────────────────────
+  /// Returns a 'YYYY-MM-DD' key for [d].
+  String _keyFor(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Total calories logged on [d] (incl. whey). Uses live data for today.
+  double caloriesForDate(DateTime d) {
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return todayCaloriesTotal;
+    }
+    final key = _keyFor(d);
+    final foods = _foodHistory[key];
+    final supp = _supplementHistory[key];
+    final foodCal = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
+    final suppCal = (supp?.whey ?? false) ? 120.0 : 0.0;
+    return foodCal + suppCal;
+  }
+
+  /// Total protein logged on [d] (incl. whey). Uses live data for today.
+  double proteinForDate(DateTime d) {
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return todayProteinTotal;
+    }
+    final key = _keyFor(d);
+    final foods = _foodHistory[key];
+    final supp = _supplementHistory[key];
+    final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
+    final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+    return foodProt + suppProt;
+  }
+
+  /// Water (mL) logged on [d]. Uses live data for today.
+  int waterForDate(DateTime d) {
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return _todayWaterMl;
+    }
+    return _waterHistory[_keyFor(d)] ?? 0;
+  }
+
+  /// Mean daily calories over days [startAgo..endAgo] inclusive (0 = today).
+  /// Only counts days that have any logged data, so a partial history isn't diluted by zeros.
+  double avgCaloriesForDays(int startAgo, int endAgo) =>
+      _avgForDays(startAgo, endAgo, caloriesForDate);
+  double avgProteinForDays(int startAgo, int endAgo) =>
+      _avgForDays(startAgo, endAgo, (d) => proteinForDate(d));
+  double avgWaterForDays(int startAgo, int endAgo) =>
+      _avgForDays(startAgo, endAgo, (d) => waterForDate(d).toDouble());
+
+  double _avgForDays(int startAgo, int endAgo, double Function(DateTime) value) {
+    final now = DateTime.now();
+    double total = 0;
+    int counted = 0;
+    for (int i = startAgo; i <= endAgo; i++) {
+      final v = value(now.subtract(Duration(days: i)));
+      if (v > 0) {
+        total += v;
+        counted++;
+      }
+    }
+    return counted == 0 ? 0 : total / counted;
+  }
+
+  /// Mean protein for a given [weekday] (1=Mon..7=Sun) across loaded history (60d).
+  /// Returns null if no data for that weekday.
+  double? proteinAvgForWeekday(int weekday) => _avgForWeekday(weekday, proteinForDate);
+  double? waterAvgForWeekday(int weekday) =>
+      _avgForWeekday(weekday, (d) => waterForDate(d).toDouble());
+  double? caloriesAvgForWeekday(int weekday) => _avgForWeekday(weekday, caloriesForDate);
+
+  /// Fraction of the day's eating window (≈6 AM–9 PM) elapsed — used to project
+  /// where today is heading from the current pace.
+  double get _eatingFraction {
+    final now = DateTime.now();
+    final mins = now.hour * 60 + now.minute;
+    const start = 6 * 60, end = 21 * 60;
+    return ((mins - start) / (end - start)).clamp(0.05, 1.0);
+  }
+
+  /// Predicted end-of-day calories, blending today's pace with the user's own
+  /// historical average for this weekday. Null before ~11 AM or with no intake
+  /// (too early/insufficient signal). Adaptive: improves as history grows.
+  double? get projectedEodCalories {
+    final now = DateTime.now();
+    if (now.hour < 11 || todayCaloriesTotal <= 0) return null;
+    final pace = todayCaloriesTotal / _eatingFraction;
+    final wd = caloriesAvgForWeekday(now.weekday);
+    if (wd != null && wd > 0) return 0.5 * pace + 0.5 * wd;
+    return pace;
+  }
+
+  /// Predicted end-of-day protein, same model as calories.
+  double? get projectedEodProtein {
+    final now = DateTime.now();
+    if (now.hour < 11 || todayProteinTotal <= 0) return null;
+    final pace = todayProteinTotal / _eatingFraction;
+    final wd = proteinAvgForWeekday(now.weekday);
+    if (wd != null && wd > 0) return 0.5 * pace + 0.5 * wd;
+    return pace;
+  }
+
+  /// True when the user historically eats meaningfully more on weekends than weekdays.
+  bool get overeatsOnWeekends {
+    final wkndDays = [DateTime.saturday, DateTime.sunday];
+    final wkdayDays = [1, 2, 3, 4, 5];
+    final wknd = wkndDays.map(caloriesAvgForWeekday).whereType<double>().toList();
+    final wkday = wkdayDays.map(caloriesAvgForWeekday).whereType<double>().toList();
+    if (wknd.isEmpty || wkday.isEmpty) return false;
+    final wkndAvg = wknd.reduce((a, b) => a + b) / wknd.length;
+    final wkdayAvg = wkday.reduce((a, b) => a + b) / wkday.length;
+    return wkndAvg > wkdayAvg + 250;
+  }
+
+  double? _avgForWeekday(int weekday, double Function(DateTime) value) {
+    final now = DateTime.now();
+    double total = 0;
+    int counted = 0;
+    for (int i = 0; i <= 60; i++) {
+      final d = now.subtract(Duration(days: i));
+      if (d.weekday != weekday) continue;
+      final v = value(d);
+      if (v > 0) {
+        total += v;
+        counted++;
+      }
+    }
+    return counted == 0 ? null : total / counted;
+  }
+
+  /// Days since the most recent workout (0 = today). Returns 999 if none ever.
+  int get daysSinceLastWorkout {
+    if (_workoutHistory.isEmpty) return 999;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime latest = _workoutHistory.first.date;
+    for (final w in _workoutHistory) {
+      if (w.date.isAfter(latest)) latest = w.date;
+    }
+    final latestDay = DateTime(latest.year, latest.month, latest.day);
+    return today.difference(latestDay).inDays;
   }
 
   /// Number of distinct days with a workout in the last 7 days
@@ -245,7 +1088,6 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   /// Get the last logged weight (kg) for a given exercise name.
-  /// Returns null if never logged.
   double? getLastExerciseWeight(String exerciseName) {
     for (final workout in _workoutHistory.reversed) {
       for (final ex in workout.exercises) {
@@ -290,8 +1132,7 @@ class FitnessProvider extends ChangeNotifier {
   /// Days of the current week (Mon-Sun) with workout done
   List<bool> get weeklyWorkoutMap {
     final now = DateTime.now();
-    // Monday = 1, Sunday = 7
-    final weekday = now.weekday; // 1=Mon ... 7=Sun
+    final weekday = now.weekday;
     final result = List<bool>.filled(7, false);
     for (int i = 0; i < 7; i++) {
       final day = now.subtract(Duration(days: weekday - 1 - i));
@@ -303,6 +1144,136 @@ class FitnessProvider extends ChangeNotifier {
     return result;
   }
 
+  /// Rolling last 7 days (oldest first, today last) — each entry is the
+  /// single-letter weekday label + whether a workout was logged that day.
+  /// Matches [weeklyWorkoutDays] so the "LAST 7 DAYS" grid and the "X/7"
+  /// stat always agree (the calendar-week [weeklyWorkoutMap] did not).
+  List<({String label, bool done})> get rolling7DayWorkouts {
+    const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // weekday 1..7
+    final now = DateTime.now();
+    return List.generate(7, (i) {
+      final day = now.subtract(Duration(days: 6 - i));
+      final done = _workoutHistory.any((w) =>
+          w.date.year == day.year &&
+          w.date.month == day.month &&
+          w.date.day == day.day);
+      return (label: letters[day.weekday - 1], done: done);
+    });
+  }
+
+  // ── Habit pattern analysis ─────────────────────────────────────────────────
+
+  /// % of past 30 logged days where calories were within ±15% of goal.
+  double get calorieAdherenceRate {
+    int count = 0, met = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 30; i++) {
+      final d = now.subtract(Duration(days: i));
+      final cal = caloriesForDate(d);
+      if (cal == 0) continue;
+      count++;
+      if (cal >= calorieGoal * 0.85 && cal <= calorieGoal * 1.15) met++;
+    }
+    return count > 0 ? met / count : 0.0;
+  }
+
+  /// % of past 30 logged days where protein met ≥ 90% of goal.
+  double get proteinAdherenceRate {
+    int count = 0, met = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 30; i++) {
+      final d = now.subtract(Duration(days: i));
+      final prot = proteinForDate(d);
+      if (prot == 0) continue;
+      count++;
+      if (prot >= proteinGoal * 0.9) met++;
+    }
+    return count > 0 ? met / count : 0.0;
+  }
+
+  /// % of past 30 logged days where water reached ≥ 90% of goal.
+  double get waterAdherenceRate {
+    int count = 0, met = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 30; i++) {
+      final d = now.subtract(Duration(days: i));
+      final water = waterForDate(d);
+      if (water == 0) continue;
+      count++;
+      if (water >= waterGoalMl * 0.9) met++;
+    }
+    return count > 0 ? met / count : 0.0;
+  }
+
+  /// Consecutive days (before today) that ended in a calorie deficit.
+  int get deficitStreak {
+    int streak = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 30; i++) {
+      final d = now.subtract(Duration(days: i));
+      final cal = caloriesForDate(d);
+      if (cal == 0) break;
+      if (cal < calorieGoal * 0.99) streak++;
+      else break;
+    }
+    return streak;
+  }
+
+  /// True when > 25% of logged meals in the past 14 days were after 9 PM.
+  bool get hasLateNightEatingPattern {
+    int late = 0, total = 0;
+    final now = DateTime.now();
+    for (int i = 1; i <= 14; i++) {
+      final key = _keyFor(now.subtract(Duration(days: i)));
+      final entries = _foodHistory[key];
+      if (entries == null) continue;
+      for (final e in entries) {
+        if (e.calories > 50) {
+          total++;
+          if (e.timestamp.hour >= 21) late++;
+        }
+      }
+    }
+    return total >= 6 && late / total > 0.25;
+  }
+
+  /// Weighted habit score 0–100 based on adherence + workout + eating patterns.
+  int get habitScore {
+    if (_foodHistory.isEmpty) return 0;
+    double score = 0;
+    double maxScore = 0;
+    final calAdh = calorieAdherenceRate;
+    final protAdh = proteinAdherenceRate;
+    final watAdh = waterAdherenceRate;
+    if (calAdh > 0) { score += calAdh * 30; maxScore += 30; }
+    if (protAdh > 0) { score += protAdh * 25; maxScore += 25; }
+    if (watAdh > 0) { score += watAdh * 15; maxScore += 15; }
+    score += (weeklyWorkoutDays / 4.0).clamp(0.0, 1.0) * 20; maxScore += 20;
+    if (!hasLateNightEatingPattern) score += 10; maxScore += 10;
+    return maxScore > 0 ? (score / maxScore * 100).round().clamp(0, 100) : 0;
+  }
+
+  /// Yesterday's calories (0 if no data).
+  double get yesterdayCal =>
+      caloriesForDate(DateTime.now().subtract(const Duration(days: 1)));
+
+  /// Yesterday's protein (0 if no data).
+  double get yesterdayProtein =>
+      proteinForDate(DateTime.now().subtract(const Duration(days: 1)));
+
+  /// Yesterday's water in mL (0 if no data).
+  int get yesterdayWater =>
+      waterForDate(DateTime.now().subtract(const Duration(days: 1)));
+
+  /// True if any workout was logged yesterday.
+  bool get workedOutYesterday {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    return _workoutHistory.any((w) =>
+        w.date.year == yesterday.year &&
+        w.date.month == yesterday.month &&
+        w.date.day == yesterday.day);
+  }
+
   // ── Persistence ────────────────────────────────────────────────────────────
   String get _todayKey {
     final n = DateTime.now();
@@ -310,51 +1281,105 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   Future<void> loadData() async {
+    _oneRmCache = null; // invalidate on every reload (import, app start, etc.)
     final prefs = await SharedPreferences.getInstance();
 
     // User profile
     _heightCm = prefs.getDouble('height_cm') ?? 170.0;
     _age = prefs.getInt('age') ?? 24;
+    _isMale = prefs.getBool('is_male') ?? true;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
+    _userName = prefs.getString('user_name') ?? 'Friend';
+    _onboardingDone = prefs.getBool('onboarding_done') ?? false;
 
-    // Food
-    final foodJson = prefs.getString('food_$_todayKey');
-    if (foodJson != null) {
-      final list = jsonDecode(foodJson) as List;
-      _todayFood = list.map((e) => FoodEntry.fromJson(e)).toList();
-    }
+    // User-defined goals
+    _calorieGoal = prefs.getInt('calorie_goal') ?? kDefaultCalorieGoal;
+    _proteinGoal = prefs.getInt('protein_goal') ?? kDefaultProteinGoal;
+    _waterGoalMl = prefs.getInt('water_goal_ml') ?? kDefaultWaterGoalMl;
+    _stepGoal = prefs.getInt('step_goal') ?? kDefaultStepGoal;
+
+    // Ensure profile + goals are always persisted so they appear in backups
+    // even when the user has never opened Settings to change them from defaults.
+    if (!prefs.containsKey('user_name'))    await prefs.setString('user_name',    _userName);
+    if (!prefs.containsKey('height_cm'))    await prefs.setDouble('height_cm',    _heightCm);
+    if (!prefs.containsKey('age'))          await prefs.setInt('age',             _age);
+    if (!prefs.containsKey('is_male'))      await prefs.setBool('is_male',        _isMale);
+    if (!prefs.containsKey('goal_weight_kg')) await prefs.setDouble('goal_weight_kg', _goalWeightKg);
+    if (!prefs.containsKey('calorie_goal')) await prefs.setInt('calorie_goal',    _calorieGoal);
+    if (!prefs.containsKey('protein_goal')) await prefs.setInt('protein_goal',    _proteinGoal);
+    if (!prefs.containsKey('water_goal_ml')) await prefs.setInt('water_goal_ml', _waterGoalMl);
+    if (!prefs.containsKey('step_goal'))    await prefs.setInt('step_goal',       _stepGoal);
+
+    // Always reset today's data first (handles midnight day-change case)
+    _todayFood = [];
+    _todayWaterMl = 0;
+    _supplements = SupplementStatus();
+
+    // Food — wrapped in try/catch: corrupt JSON must not crash loadData()
+    try {
+      final foodJson = prefs.getString('food_$_todayKey');
+      if (foodJson != null) {
+        final list = jsonDecode(foodJson) as List;
+        _todayFood = list.map((e) => FoodEntry.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) { _todayFood = []; }
 
     // Water
     _todayWaterMl = prefs.getInt('water_$_todayKey') ?? 0;
 
     // Supplements
-    final suppJson = prefs.getString('supp_$_todayKey');
-    if (suppJson != null) {
-      _supplements = SupplementStatus.fromJson(jsonDecode(suppJson));
-    } else {
-      _supplements = SupplementStatus();
-    }
+    try {
+      final suppJson = prefs.getString('supp_$_todayKey');
+      if (suppJson != null) {
+        _supplements = SupplementStatus.fromJson(jsonDecode(suppJson) as Map<String, dynamic>);
+      }
+    } catch (_) { _supplements = SupplementStatus(); }
 
     // Workouts
-    final workoutJson = prefs.getString('workouts');
-    if (workoutJson != null) {
-      final list = jsonDecode(workoutJson) as List;
-      _workoutHistory = list.map((e) => WorkoutLog.fromJson(e)).toList();
-    }
+    try {
+      final workoutJson = prefs.getString('workouts');
+      if (workoutJson != null) {
+        final list = jsonDecode(workoutJson) as List;
+        _workoutHistory = list.map((e) => WorkoutLog.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) { _workoutHistory = []; }
 
     // Body history
-    final bodyJson = prefs.getString('body_history');
-    if (bodyJson != null) {
-      final list = jsonDecode(bodyJson) as List;
-      _bodyHistory = list.map((e) => BodyEntry.fromJson(e)).toList();
-      _bodyHistory.sort((a, b) => a.date.compareTo(b.date));
-    }
+    try {
+      final bodyJson = prefs.getString('body_history');
+      if (bodyJson != null) {
+        final list = jsonDecode(bodyJson) as List;
+        _bodyHistory = list.map((e) => BodyEntry.fromJson(e as Map<String, dynamic>)).toList();
+        _bodyHistory.sort((a, b) => a.date.compareTo(b.date));
+      }
+    } catch (_) { _bodyHistory = []; }
 
-    // Historical food, water, supplement for last 30 days
+    // Smart scale history
+    try {
+      final scaleJson = prefs.getString('scale_history');
+      if (scaleJson != null) {
+        final list = jsonDecode(scaleJson) as List;
+        _scaleHistory = list.map((e) => SmartScaleEntry.fromJson(e as Map<String, dynamic>)).toList();
+        _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
+      }
+    } catch (_) { _scaleHistory = []; }
+
+    // Body measurements history
+    try {
+      final measureJson = prefs.getString('measurements_history');
+      if (measureJson != null) {
+        final list = jsonDecode(measureJson) as List;
+        _measurementHistory = list.map((e) => MeasurementEntry.fromJson(e as Map<String, dynamic>)).toList();
+        _measurementHistory.sort((a, b) => a.date.compareTo(b.date));
+      }
+    } catch (_) { _measurementHistory = []; }
+
+    // Historical food, water, supplement for last 60 days
+    // (60 matches the calorieStreak look-back window)
     _foodHistory = {};
     _waterHistory = {};
     _supplementHistory = {};
-    for (int i = 1; i <= 30; i++) {
+    for (int i = 1; i <= 60; i++) {
       final date = DateTime.now().subtract(Duration(days: i));
       final key =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -380,7 +1405,171 @@ class FitnessProvider extends ChangeNotifier {
     }
 
     _isLoaded = true;
+    _loadedForDate = _todayKey;
+
+    // Purge food/water/supp keys older than 60 days from SharedPreferences.
+    // These keys accumulate indefinitely otherwise, bloating storage and exports.
+    _purgeStaleDailyKeys(prefs);
+
+    // Issue #14: Prune chat sessions older than 30 days on app startup
+    await ChatSessionService.pruneOldSessions();
+
     notifyListeners();
+    _updateWidget();
+
+    // Populate the in-app notification center (insights snapshot + milestones).
+    _populateNotifications();
+
+    // Start pedometer after data is loaded (non-blocking)
+    startPedometer();
+
+    // Start day-reset watcher (detects midnight crossover while app is open)
+    _startDayResetTimer();
+  }
+
+  // ── In-app notification center ──────────────────────────────────────────────
+  // The feed is two parts:
+  //  • LIVE insights — recomputed from current state, so an item like "steps not
+  //    yet hit" auto-disappears the moment the target is met (never persisted).
+  //  • MILESTONES — achievements that persist (streaks, goal reached, recomp wins).
+  List<AppNotification> _milestones = [];
+  Set<String> _seenInsightTitles = {};
+
+  /// Live AI Coach insights as feed items (deduped by category, top 6).
+  List<AppNotification> get liveInsightFeed {
+    final insights = topInsights(this, DateTime.now(), count: 6);
+    return insights
+        .map((ins) => AppNotification(
+              id: 'insight_${ins.category.name}',
+              emoji: ins.emoji,
+              title: ins.title,
+              body: ins.body,
+              accent: ins.accent.value,
+              category: 'insight',
+              timestamp: DateTime.now(),
+              read: _seenInsightTitles.contains(ins.title),
+            ))
+        .toList();
+  }
+
+  /// Persisted milestone achievements (newest first).
+  List<AppNotification> get milestoneFeed => _milestones;
+
+  /// Badge count: unseen live insights + unread milestones.
+  int get unreadNotifications {
+    final unseenInsights =
+        liveInsightFeed.where((n) => !n.read).length;
+    final unreadMilestones = _milestones.where((n) => !n.read).length;
+    return unseenInsights + unreadMilestones;
+  }
+
+  Future<void> _refreshNotifications() async {
+    _milestones = await NotificationCenter.all();
+    notifyListeners();
+  }
+
+  Future<void> markNotificationsRead() async {
+    // Mark milestones read and remember the insight titles currently shown so
+    // they stop contributing to the badge until a NEW scenario appears.
+    await NotificationCenter.markAllRead();
+    final titles = liveInsightFeed.map((n) => n.title).toSet();
+    _seenInsightTitles = {..._seenInsightTitles, ...titles};
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('seen_insight_titles', _seenInsightTitles.toList());
+    await _refreshNotifications();
+  }
+
+  Future<void> clearNotifications() async {
+    await NotificationCenter.clear();
+    await _refreshNotifications();
+  }
+
+  Future<void> _populateNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _seenInsightTitles =
+          (prefs.getStringList('seen_insight_titles') ?? const []).toSet();
+      // Prune seen titles that are no longer active insights (so a recurring
+      // scenario re-badges next time it appears).
+      final active = liveInsightFeed.map((n) => n.title).toSet();
+      _seenInsightTitles = _seenInsightTitles.intersection(active);
+      await prefs.setStringList('seen_insight_titles', _seenInsightTitles.toList());
+
+      await _detectMilestones();
+      await _refreshNotifications();
+    } catch (_) {}
+  }
+
+  Future<void> _detectMilestones() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Workout-streak milestones (fire once per threshold crossing).
+    final ws = workoutStreak;
+    final lastWs = prefs.getInt('ms_workout_streak') ?? 0;
+    for (final m in [7, 14, 30, 60, 100]) {
+      if (ws >= m && lastWs < m) {
+        await NotificationCenter.add(AppNotification(
+          id: const Uuid().v4(), emoji: '🏋️',
+          title: '$m-day workout streak!',
+          body: '$m days in a row — elite consistency. Keep the chain unbroken.',
+          accent: 0xFFFF9F0A, category: 'milestone', timestamp: DateTime.now(),
+        ));
+      }
+    }
+    await prefs.setInt('ms_workout_streak', ws);
+
+    // Diet-streak milestones.
+    final cs = calorieStreak;
+    final lastCs = prefs.getInt('ms_calorie_streak') ?? 0;
+    for (final m in [7, 30]) {
+      if (cs >= m && lastCs < m) {
+        await NotificationCenter.add(AppNotification(
+          id: const Uuid().v4(), emoji: '🥗',
+          title: '$m-day diet logging streak!',
+          body: 'Logged your food $m days straight. Awareness is half the battle.',
+          accent: 0xFF40C8E0, category: 'milestone', timestamp: DateTime.now(),
+        ));
+      }
+    }
+    await prefs.setInt('ms_calorie_streak', cs);
+
+    // Goal reached.
+    final reached = startWeightKg != null && goalProgress >= 1.0;
+    final wasReached = prefs.getBool('ms_goal_reached') ?? false;
+    if (reached && !wasReached) {
+      await NotificationCenter.add(AppNotification(
+        id: const Uuid().v4(), emoji: '🎯',
+        title: 'Goal weight reached! 🎉',
+        body: 'You hit ${_goalWeightKg.toStringAsFixed(1)} kg. Time to set a new '
+            'target or shift to maintenance.',
+        accent: 0xFF30D158, category: 'milestone', timestamp: DateTime.now(),
+      ));
+    }
+    await prefs.setBool('ms_goal_reached', reached);
+  }
+
+  /// Adds a notification to the in-app center (used by reminders/foreground service).
+  Future<void> pushNotification(AppNotification n) async {
+    await NotificationCenter.add(n);
+    await _refreshNotifications();
+  }
+
+  void _purgeStaleDailyKeys(SharedPreferences prefs) {
+    // Keep exactly 60 days of daily food/water/supplement keys.
+    // cutoff = 60 days ago; remove keys strictly older than that date.
+    final cutoff = DateTime.now().subtract(const Duration(days: 60));
+    final cutoffKey =
+        '${cutoff.year}-${cutoff.month.toString().padLeft(2, '0')}-${cutoff.day.toString().padLeft(2, '0')}';
+    final toRemove = prefs.getKeys().where((k) {
+      if (!k.startsWith('food_') &&
+          !k.startsWith('water_') &&
+          !k.startsWith('supp_')) return false;
+      final datePart = k.substring(k.indexOf('_') + 1);
+      return datePart.compareTo(cutoffKey) < 0;
+    }).toList();
+    for (final k in toRemove) {
+      prefs.remove(k);
+    }
   }
 
   // ── Food actions ───────────────────────────────────────────────────────────
@@ -388,12 +1577,14 @@ class FitnessProvider extends ChangeNotifier {
     _todayFood.add(entry);
     await _saveFoodEntries();
     notifyListeners();
+    _updateWidget();
   }
 
   Future<void> removeFoodEntry(String id) async {
     _todayFood.removeWhere((e) => e.id == id);
     await _saveFoodEntries();
     notifyListeners();
+    _updateWidget();
   }
 
   Future<void> _saveFoodEntries() async {
@@ -409,12 +1600,14 @@ class FitnessProvider extends ChangeNotifier {
     _todayWaterMl += ml;
     await _saveWater();
     notifyListeners();
+    _updateWidget();
   }
 
   Future<void> removeWater(int ml) async {
     _todayWaterMl = (_todayWaterMl - ml).clamp(0, 99999);
     await _saveWater();
     notifyListeners();
+    _updateWidget();
   }
 
   Future<void> _saveWater() async {
@@ -434,11 +1627,15 @@ class FitnessProvider extends ChangeNotifier {
       case 'multivitamin':
         _supplements.multivitamin = value;
         break;
+      default:
+        assert(false, 'updateSupplement: unknown key "$key"');
+        return;
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
         'supp_$_todayKey', jsonEncode(_supplements.toJson()));
     notifyListeners();
+    _updateWidget();
   }
 
   // ── Workout actions ────────────────────────────────────────────────────────
@@ -446,6 +1643,7 @@ class FitnessProvider extends ChangeNotifier {
     _workoutHistory.add(workout);
     final cutoff = DateTime.now().subtract(const Duration(days: 90));
     _workoutHistory.removeWhere((w) => w.date.isBefore(cutoff));
+    _oneRmCache = null; // invalidate cached 1RM estimates
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -526,8 +1724,117 @@ class FitnessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Smart Scale actions ────────────────────────────────────────────────────
+  Future<void> logScaleEntry(SmartScaleEntry entry) async {
+    final now = DateTime.now();
+    _scaleHistory.removeWhere((e) =>
+        e.date.year == now.year &&
+        e.date.month == now.month &&
+        e.date.day == now.day);
+    _scaleHistory.add(entry);
+    _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
+    final cutoff = now.subtract(const Duration(days: 365));
+    _scaleHistory.removeWhere((e) => e.date.isBefore(cutoff));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'scale_history',
+      jsonEncode(_scaleHistory.map((e) => e.toJson()).toList()),
+    );
+    // Preserve today's manually-logged steps — logBodyEntry defaults steps to 0
+    // which would wipe any steps the user entered before logging the scale.
+    final todayBody = _bodyHistory.where((e) =>
+        e.date.year == now.year &&
+        e.date.month == now.month &&
+        e.date.day == now.day).toList();
+    final existingSteps = todayBody.isNotEmpty ? todayBody.first.steps : 0;
+    await logBodyEntry(weightKg: entry.weightKg, steps: existingSteps);
+    notifyListeners();
+  }
+
+  // ── Measurement actions ────────────────────────────────────────────────────
+  Future<void> logMeasurement(MeasurementEntry entry) async {
+    if (entry.isEmpty) return;
+    final now = DateTime.now();
+    _measurementHistory.removeWhere((e) =>
+        e.date.year == now.year &&
+        e.date.month == now.month &&
+        e.date.day == now.day);
+    _measurementHistory.add(entry);
+    _measurementHistory.sort((a, b) => a.date.compareTo(b.date));
+    final cutoff = now.subtract(const Duration(days: 180));
+    _measurementHistory.removeWhere((e) => e.date.isBefore(cutoff));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'measurements_history',
+      jsonEncode(_measurementHistory.map((e) => e.toJson()).toList()),
+    );
+    notifyListeners();
+  }
+
+  // ── Export / Import ────────────────────────────────────────────────────────
+  // Keys that are device-specific and must not be exported/imported.
+  // Keys excluded from export: device-specific state that must not be restored
+  // on a different device or fresh install.
+  // ai_installed_model_id: model file lives in device storage — restoring this flag
+  // on a fresh install makes the app think the model is installed when it isn't,
+  // causing "Active model is no longer installed" errors.
+  static const _exportExcludeKeys = {
+    'pedometer_baseline',
+    'pedometer_date',
+    'ai_installed_model_id',
+    'hf_token_ai_chat',   // device-specific HuggingFace token — never exported
+    'chat_sessions_v1',   // health conversation history — too sensitive for backup files
+  };
+
+  Future<String> exportAllData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final allKeys = prefs.getKeys();
+    final Map<String, dynamic> data = {};
+    for (final key in allKeys) {
+      if (_exportExcludeKeys.contains(key)) continue;
+      final val = prefs.get(key);
+      data[key] = val;
+    }
+    // Write to app documents directory
+    final dir = await getApplicationDocumentsDirectory();
+    final timestamp = DateTime.now().toIso8601String()
+        .replaceAll(':', '-').replaceAll('.', '-').substring(0, 19);
+    final fileName = 'kfitness_backup_$timestamp.json';
+    final file = File('${dir.path}/$fileName');
+    try {
+      await file.writeAsString(jsonEncode(data));
+    } on FileSystemException catch (e) {
+      throw Exception('Export failed — check storage space. (${e.message})');
+    } catch (e) {
+      throw Exception('Export failed: $e');
+    }
+    return file.path;
+  }
+
+  Future<bool> importAllData(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+      final content = await file.readAsString();
+      final Map<String, dynamic> data = jsonDecode(content);
+      final prefs = await SharedPreferences.getInstance();
+      for (final entry in data.entries) {
+        // Never restore device-specific or sensitive keys from a backup
+        if (_exportExcludeKeys.contains(entry.key)) continue;
+        final val = entry.value;
+        if (val is String) await prefs.setString(entry.key, val);
+        else if (val is int) await prefs.setInt(entry.key, val);
+        else if (val is double) await prefs.setDouble(entry.key, val);
+        else if (val is bool) await prefs.setBool(entry.key, val);
+      }
+      await loadData(); // reload everything
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ── Weight Prediction (Linear Regression) ─────────────────────────────────
-  /// Returns (slope_per_day, intercept) for weight trend, or null if < 3 entries.
   ({double slope, double intercept})? get _weightRegression {
     final entries = getRecentBodyEntries(days: 90);
     if (entries.length < 3) return null;
@@ -550,7 +1857,6 @@ class FitnessProvider extends ChangeNotifier {
     return (slope: slope, intercept: intercept);
   }
 
-  /// Predicted weight N days from today based on current trend.
   double? predictedWeightInDays(int days) {
     final reg = _weightRegression;
     if (reg == null) return null;
@@ -562,14 +1868,12 @@ class FitnessProvider extends ChangeNotifier {
     return reg.intercept + reg.slope * x;
   }
 
-  /// kg per week based on trend (negative = losing)
   double? get weeklyWeightChange {
     final reg = _weightRegression;
     if (reg == null) return null;
     return reg.slope * 7;
   }
 
-  /// List of (date, predictedWeight) for the next N days
   List<(DateTime, double)> weightForecast({int days = 30}) {
     final reg = _weightRegression;
     if (reg == null) return [];
@@ -584,18 +1888,16 @@ class FitnessProvider extends ChangeNotifier {
     });
   }
 
-  /// Estimated date to reach goal weight (null if trend is wrong direction)
   DateTime? get estimatedGoalDate {
     final reg = _weightRegression;
     final w = latestWeightKg;
     if (reg == null || w == null) return null;
-    if (reg.slope >= 0 && w > _goalWeightKg) return null; // Gaining, not losing
+    if (reg.slope >= 0 && w > _goalWeightKg) return null;
     final entries = getRecentBodyEntries(days: 90);
     if (entries.isEmpty) return null;
     final first = entries.first.date.millisecondsSinceEpoch.toDouble();
     final today = DateTime.now().millisecondsSinceEpoch.toDouble();
     final x0 = (today - first) / 86400000.0;
-    // intercept + slope * x = goalWeight → x = (goal - intercept) / slope
     if (reg.slope == 0) return null;
     final xGoal = (_goalWeightKg - reg.intercept) / reg.slope;
     final daysToGoal = xGoal - x0;
@@ -615,6 +1917,129 @@ class FitnessProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('goal_weight_kg', _goalWeightKg);
     notifyListeners();
+  }
+
+  Future<void> saveSex(bool isMale) async {
+    _isMale = isMale;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_male', _isMale);
+    notifyListeners();
+  }
+
+  // ── Day-reset timer ────────────────────────────────────────────────────────
+  /// Fires every minute. If the calendar date has changed since last load,
+  /// saves the current live step count as the new day's baseline (so steps
+  /// walked before midnight are preserved), then calls loadData().
+  void _startDayResetTimer() {
+    _dayResetTimer?.cancel();
+    // Issue #13: Change from 1-minute to 1-hour polling to reduce battery drain
+    _dayResetTimer = Timer.periodic(const Duration(hours: 1), (_) async {
+      if (_loadedForDate.isNotEmpty && _loadedForDate != _todayKey) {
+        // Before reloading, anchor the step baseline at the midnight crossover.
+        // This ensures steps walked before first app-open of the new day are kept.
+        if (_livePedometerTotal > 0) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('pedometer_baseline', _livePedometerTotal);
+          await prefs.setString('pedometer_date', _todayKey);
+          _pedometerDayBaseline = _livePedometerTotal;
+          _pedometerBaselineDate = _todayKey;
+        }
+        await loadData(); // new day detected
+      }
+    });
+  }
+
+  // ── Pedometer ──────────────────────────────────────────────────────────────
+  Future<void> startPedometer() async {
+    final prefs = await SharedPreferences.getInstance();
+    _pedometerBaselineDate = prefs.getString('pedometer_date') ?? '';
+    _pedometerDayBaseline  = prefs.getInt('pedometer_baseline') ?? -1;
+
+    if (_pedometerBaselineDate != _todayKey) {
+      _pedometerDayBaseline = -1;
+      _pedometerBaselineDate = '';
+    }
+
+    _stepSubscription?.cancel();
+    try {
+      _stepSubscription = Pedometer.stepCountStream.listen(
+        (StepCount event) async {
+          final prefs = await SharedPreferences.getInstance();
+
+          if (_livePedometerTotal > 0) {
+            if (event.steps < _livePedometerTotal) {
+              // Sensor reset to a lower value (device reboot, counter rollover).
+              // Start a fresh baseline at this new value so today's count
+              // continues from the steps already walked since the reset.
+              _pedometerDayBaseline = event.steps;
+              _pedometerBaselineDate = _todayKey;
+              await prefs.setInt('pedometer_baseline', _pedometerDayBaseline);
+              await prefs.setString('pedometer_date', _pedometerBaselineDate);
+            } else if (event.steps > _livePedometerTotal + 50000) {
+              // Huge forward jump — adjust baseline to preserve today's count.
+              _pedometerDayBaseline = event.steps - (_livePedometerTotal - _pedometerDayBaseline);
+              await prefs.setInt('pedometer_baseline', _pedometerDayBaseline);
+            }
+          }
+
+          _livePedometerTotal = event.steps;
+
+          if (_pedometerDayBaseline < 0) {
+            _pedometerDayBaseline = event.steps;
+            _pedometerBaselineDate = _todayKey;
+            await prefs.setInt('pedometer_baseline', _pedometerDayBaseline);
+            await prefs.setString('pedometer_date', _pedometerBaselineDate);
+          }
+
+          notifyListeners();
+        },
+        onError: (_) {},
+        cancelOnError: false,
+      );
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _dayResetTimer?.cancel();
+    _stepSubscription?.cancel();
+    super.dispose();
+  }
+
+  // ── Home widget ────────────────────────────────────────────────────────────
+  // The Android side (KFitnessWidgetProvider.kt) draws the concentric rings to a
+  // Bitmap natively from these values — no Flutter engine / renderFlutterWidget
+  // (that crashed at cold start) and no file URIs.
+  Future<void> _updateWidget() async {
+    try {
+      await HomeWidget.saveWidgetData<int>('calories', todayCaloriesTotal.round());
+      await HomeWidget.saveWidgetData<int>('calorieGoal', calorieGoal);
+      await HomeWidget.saveWidgetData<int>('protein', todayProteinTotal.round());
+      await HomeWidget.saveWidgetData<int>('proteinGoal', proteinGoal);
+      await HomeWidget.saveWidgetData<int>('water', todayWaterMl);
+      await HomeWidget.saveWidgetData<int>('waterGoal', waterGoalMl);
+      // Raw unclamped percentages (can be >100) so the widget can draw overflow laps.
+      await HomeWidget.saveWidgetData<int>('calPct',
+          calorieGoal  > 0 ? (todayCaloriesTotal / calorieGoal  * 100).round() : 0);
+      await HomeWidget.saveWidgetData<int>('protPct',
+          proteinGoal  > 0 ? (todayProteinTotal  / proteinGoal  * 100).round() : 0);
+      await HomeWidget.saveWidgetData<int>('waterPct',
+          waterGoalMl  > 0 ? (todayWaterMl       / waterGoalMl  * 100).round() : 0);
+      await HomeWidget.saveWidgetData<int>('steps', todaySteps);
+      await HomeWidget.saveWidgetData<int>('stepGoal', stepGoal);
+      await HomeWidget.saveWidgetData<int>('stepPct',
+          stepGoal > 0 ? (todaySteps / stepGoal * 100).round() : 0);
+
+      final insight = topInsight(this, DateTime.now());
+      await HomeWidget.saveWidgetData<String>('insightEmoji', insight.emoji);
+      await HomeWidget.saveWidgetData<String>('insightTitle', insight.title);
+
+      await HomeWidget.updateWidget(
+        name: 'KFitnessWidgetProvider',
+        androidName: 'KFitnessWidgetProvider',
+        qualifiedAndroidName: 'com.example.karthik_fitness.KFitnessWidgetProvider',
+      );
+    } catch (_) {}
   }
 
   // Helper

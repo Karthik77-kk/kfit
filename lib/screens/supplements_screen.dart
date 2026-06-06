@@ -2,39 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
-import '../services/notification_service.dart';
 
 class SupplementsScreen extends StatelessWidget {
-  const SupplementsScreen({super.key});
+  final bool embedded;
+  const SupplementsScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Supplements 💊'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.alarm_add_outlined),
-            tooltip: 'Set supplement reminders',
-            onPressed: () async {
-              await NotificationService().scheduleSupplementReminders();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('⏰ Supplement reminders set!'),
-                  backgroundColor: Color(0xFF40C8E0),
-                ));
-              }
-            },
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+    final body = ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
           // ── Progress summary ──────────────────────────────────────────────
-          _ProgressHeader(taken: p.supplements.takenCount),
+          _ProgressHeader(taken: p.supplements.takenCount, streak: p.supplementStreak),
           const SizedBox(height: 20),
 
           // ── Supplement cards ──────────────────────────────────────────────
@@ -47,6 +28,12 @@ class SupplementsScreen extends StatelessWidget {
             tip: 'Mix with 200ml water or milk. 2 scoops only if dietary protein is low.',
             color: const Color(0xFF30D158),
             taken: p.supplements.whey,
+            nutritionSubtitle: p.supplements.whey
+                ? '120 kcal · 25g protein counted ✓'
+                : '120 kcal · 25g protein',
+            nutritionColor: p.supplements.whey
+                ? const Color(0xFF30D158)
+                : const Color(0xFF8E8E93),
             onToggle: (val) {
               HapticFeedback.selectionClick();
               p.updateSupplement('whey', val);
@@ -63,6 +50,8 @@ class SupplementsScreen extends StatelessWidget {
             tip: 'No loading phase needed. Can mix with whey or plain water. Take it consistently.',
             color: const Color(0xFF40C8E0),
             taken: p.supplements.creatine,
+            nutritionSubtitle: '3–5g · 0 kcal · performance',
+            nutritionColor: const Color(0xFF8E8E93),
             onToggle: (val) {
               HapticFeedback.selectionClick();
               p.updateSupplement('creatine', val);
@@ -79,6 +68,8 @@ class SupplementsScreen extends StatelessWidget {
             tip: 'Covers micronutrient gaps. Not a substitute for a good diet, but great as backup.',
             color: const Color(0xFF40C8E0),
             taken: p.supplements.multivitamin,
+            nutritionSubtitle: 'Micronutrients · 0 kcal',
+            nutritionColor: const Color(0xFF8E8E93),
             onToggle: (val) {
               HapticFeedback.selectionClick();
               p.updateSupplement('multivitamin', val);
@@ -93,7 +84,15 @@ class SupplementsScreen extends StatelessWidget {
           // ── Avoid section ─────────────────────────────────────────────────
           _AvoidSection(),
         ],
+    );
+
+    if (embedded) return body;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Supplements 💊'),
       ),
+      body: body,
     );
   }
 }
@@ -102,7 +101,8 @@ class SupplementsScreen extends StatelessWidget {
 
 class _ProgressHeader extends StatelessWidget {
   final int taken;
-  const _ProgressHeader({required this.taken});
+  final int streak; // consecutive days all 3 taken
+  const _ProgressHeader({required this.taken, this.streak = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -118,16 +118,10 @@ class _ProgressHeader extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: taken == 3
-              ? [
-                  const Color(0xFF30D158).withOpacity(0.25),
-                  const Color(0xFF30D158).withOpacity(0.10),
-                ]
-              : [
-                  const Color(0xFF40C8E0).withOpacity(0.2),
-                  const Color(0xFF40C8E0).withOpacity(0.08),
-                ],
+              ? [const Color(0xFF30D158).withOpacity(0.25), const Color(0xFF30D158).withOpacity(0.10)]
+              : [const Color(0xFF40C8E0).withOpacity(0.2), const Color(0xFF40C8E0).withOpacity(0.08)],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: taken == 3
               ? const Color(0xFF30D158).withOpacity(0.4)
@@ -147,19 +141,13 @@ class _ProgressHeader extends StatelessWidget {
                   strokeWidth: 6,
                   backgroundColor: Colors.white.withOpacity(0.1),
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    taken == 3
-                        ? const Color(0xFF30D158)
-                        : const Color(0xFF40C8E0),
+                    taken == 3 ? const Color(0xFF30D158) : const Color(0xFF40C8E0),
                   ),
                 ),
-                Text(
-                  '$taken/3',
+                Text('$taken/3',
                   style: TextStyle(
-                    color: taken == 3
-                        ? const Color(0xFF30D158)
-                        : Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    color: taken == 3 ? const Color(0xFF30D158) : Colors.white,
+                    fontSize: 14, fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -170,19 +158,17 @@ class _ProgressHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  messages[taken],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Text(messages[taken],
+                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Consistency is key — take these daily for best results.',
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.45), fontSize: 11),
+                  streak >= 7
+                      ? '🔥 $streak-day supplement streak! Keep it going.'
+                      : streak >= 2
+                          ? 'On a $streak-day streak — consistency builds results!'
+                          : 'Consistency is key — take these daily for best results.',
+                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11),
                 ),
               ],
             ),
@@ -196,14 +182,11 @@ class _ProgressHeader extends StatelessWidget {
 // ── Supplement card ────────────────────────────────────────────────────────────
 
 class _SupplementCard extends StatelessWidget {
-  final String emoji;
-  final String name;
-  final String brand;
-  final String amount;
-  final String timing;
-  final String tip;
+  final String emoji, name, brand, amount, timing, tip;
   final Color color;
   final bool taken;
+  final String nutritionSubtitle;
+  final Color nutritionColor;
   final ValueChanged<bool> onToggle;
 
   const _SupplementCard({
@@ -215,6 +198,8 @@ class _SupplementCard extends StatelessWidget {
     required this.tip,
     required this.color,
     required this.taken,
+    required this.nutritionSubtitle,
+    required this.nutritionColor,
     required this.onToggle,
   });
 
@@ -224,10 +209,8 @@ class _SupplementCard extends StatelessWidget {
       duration: const Duration(milliseconds: 250),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: taken
-            ? color.withOpacity(0.12)
-            : const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(16),
+        color: taken ? color.withOpacity(0.12) : const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: taken ? color.withOpacity(0.5) : color.withOpacity(0.2),
           width: taken ? 1.5 : 1,
@@ -244,20 +227,18 @@ class _SupplementCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
+                    Text(name,
                       style: TextStyle(
                         color: taken ? color : Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 16, fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Text(
-                      brand,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
-                        fontSize: 11,
-                      ),
+                    Text(brand,
+                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(nutritionSubtitle,
+                      style: TextStyle(color: nutritionColor, fontSize: 12),
                     ),
                   ],
                 ),
@@ -270,9 +251,7 @@ class _SupplementCard extends StatelessWidget {
                   activeColor: color,
                   checkColor: Colors.white,
                   side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ],
@@ -293,13 +272,8 @@ class _SupplementCard extends StatelessWidget {
               children: [
                 const Text('💡 ', style: TextStyle(fontSize: 13)),
                 Expanded(
-                  child: Text(
-                    tip,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
+                  child: Text(tip,
+                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, height: 1.4),
                   ),
                 ),
               ],
@@ -323,11 +297,7 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, size: 13, color: color.withOpacity(0.7)),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-              color: Colors.white.withOpacity(0.6), fontSize: 12),
-        ),
+        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
       ],
     );
   }
@@ -342,7 +312,7 @@ class _ReminderTip extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Row(
@@ -353,17 +323,12 @@ class _ReminderTip extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Set daily reminders',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13),
+                const Text('Set daily reminders',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 Text(
-                  'Tap the 🔔 icon above to get reminded for multivitamin (8:30am) and creatine (10am) daily.',
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.4),
+                  'Daily reminders fire at 8:30 AM (multivitamin) and 10 AM (creatine) automatically.',
+                  style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.4),
                 ),
               ],
             ),
@@ -391,28 +356,20 @@ class _AvoidSection extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.red.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.red.withOpacity(0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '🚫 Supplements to avoid',
-            style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.bold,
-                fontSize: 13),
+          const Text('🚫 Supplements to avoid',
+            style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 8),
           ...avoid.map((s) => Padding(
                 padding: const EdgeInsets.only(bottom: 5),
-                child: Text(
-                  s,
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 12,
-                      height: 1.3),
+                child: Text(s,
+                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, height: 1.3),
                 ),
               )),
         ],

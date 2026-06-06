@@ -8,9 +8,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Extract version from pubspec
+        id: ver
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//')
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "label=v${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -21,12 +32,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.27.0"
+          flutter-version: "3.44.0"
           channel: stable
           cache: true
 
-      - name: Generate Android scaffold
+      - name: Generate Android scaffold (preserving committed android/)
         run: |
+          # Back up our committed android/ (has correct manifest, BootReceiver, and build config)
+          cp -r android android_committed
           cp pubspec.yaml pubspec_backup.yaml
           cp -r lib lib_backup
           flutter create --project-name karthik_fitness --no-pub .
@@ -34,6 +47,255 @@ jobs:
           rm -rf lib
           cp -r lib_backup lib
           rm -rf lib_backup pubspec_backup.yaml
+          # Restore committed files that flutter create overwrites
+          cp android_committed/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          # Replace flutter-create kotlin sources entirely to avoid duplicate BootReceiver.kt.
+          # flutter create does not delete non-template files, so BootReceiver.kt survives
+          # at its committed path while the bash one-liner also placed a copy at the wrong
+          # path (com/BootReceiver.kt) — causing a Kotlin Redeclaration error at compile time.
+          rm -rf android/app/src/main/kotlin/
+          cp -r android_committed/app/src/main/kotlin/ android/app/src/main/kotlin/
+          # Restore committed Gradle/Kotlin/AGP versions (already at 9.1, 9.0.1, 2.3.20)
+          cp android_committed/settings.gradle.kts android/settings.gradle.kts
+          cp android_committed/build.gradle.kts android/build.gradle.kts
+          cp android_committed/gradle/wrapper/gradle-wrapper.properties android/gradle/wrapper/gradle-wrapper.properties
+          rm -rf android_committed
+          echo "=== settings.gradle.kts ==="
+          cat android/settings.gradle.kts
+          echo "=== gradle-wrapper.properties ==="
+          cat android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Configure app signing + patch app name
+        run: |
+          # Decode persistent keystore (same key every build = APK updates in place)
+          echo "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" | base64 -d > android/app/kfitness.jks
+
+          # Create key.properties
+          printf 'storePassword=kfitness2024\nkeyPassword=kfitness2024\nkeyAlias=kfitness\nstoreFile=kfitness.jks\n' > android/key.properties
+
+          # Write complete known-good build.gradle using a list of lines (no triple-quote
+          # block that would violate YAML indentation rules for run: | blocks).
+          python3 - << 'PYEOF'
+          import os
+          kts = 'android/app/build.gradle.kts'
+          groovy = 'android/app/build.gradle'
+          if os.path.exists(kts):
+              os.remove(kts)
+              print('Removed build.gradle.kts')
+          lines = [
+              'plugins {',
+              '    id "com.android.application"',
+              '    id "kotlin-android"',
+              '    id "dev.flutter.flutter-gradle-plugin"',
+              '}',
+              '',
+              'def keystoreProperties = new Properties()',
+              "def keystorePropertiesFile = rootProject.file('key.properties')",
+              'if (keystorePropertiesFile.exists()) {',
+              '    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))',
+              '}',
+              '',
+              'android {',
+              '    namespace "com.example.karthik_fitness"',
+              '    compileSdk flutter.compileSdkVersion',
+              '    ndkVersion flutter.ndkVersion',
+              '',
+              '    compileOptions {',
+              '        coreLibraryDesugaringEnabled true',
+              '        sourceCompatibility JavaVersion.VERSION_11',
+              '        targetCompatibility JavaVersion.VERSION_11',
+              '    }',
+              '',
+              '    kotlinOptions {',
+              '        jvmTarget = "11"',
+              '    }',
+              '',
+              '    defaultConfig {',
+              '        applicationId "com.example.karthik_fitness"',
+              '        minSdk flutter.minSdkVersion',
+              '        targetSdk flutter.targetSdkVersion',
+              '        versionCode flutter.versionCode',
+              '        versionName flutter.versionName',
+              '    }',
+              '',
+              '    signingConfigs {',
+              '        release {',
+              "            keyAlias keystoreProperties['keyAlias']",
+              "            keyPassword keystoreProperties['keyPassword']",
+              "            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null",
+              "            storePassword keystoreProperties['storePassword']",
+              '        }',
+              '    }',
+              '',
+              '    buildTypes {',
+              '        release {',
+              '            signingConfig signingConfigs.release',
+              '            minifyEnabled false',
+              '            shrinkResources false',
+              '        }',
+              '    }',
+              '}',
+              '',
+              'flutter {',
+              '    source "../.."',
+              '}',
+              '',
+              'dependencies {',
+              '    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"',
+              '}',
+          ]
+          open(groovy, 'w').write('\n'.join(lines) + '\n')
+          print('build.gradle written with release signing + desugaring')
+          PYEOF
+
+          # Patch app label to "K"
+          sed -i 's/android:label="[^"]*"/android:label="K"/' android/app/src/main/AndroidManifest.xml
+
+          # Patch AndroidManifest with required permissions (pedometer only).
+          python3 - << 'PYEOF'
+          path = 'android/app/src/main/AndroidManifest.xml'
+          txt = open(path).read()
+          needed = [
+              'android.permission.ACTIVITY_RECOGNITION',
+          ]
+          anchor = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+          perms = anchor
+          for p in needed:
+              if p not in txt:
+                  perms += f'\n    <uses-permission android:name="{p}"/>'
+          txt = txt.replace(anchor, perms, 1)
+          open(path, 'w').write(txt)
+          print('Manifest patched with pedometer permission')
+          PYEOF
+
+          echo "=== Signing + label + permissions configured ==="
+
+      - name: Patch MainActivity for battery optimization method channel
+        run: |
+          # Find and replace the generated MainActivity.kt with one that exposes
+          # battery optimization and notification settings via method channel
+          python3 - << 'PYEOF'
+          import os, glob
+          # Find MainActivity.kt
+          matches = glob.glob('android/app/src/main/kotlin/**/*.kt', recursive=True)
+          main_activity = next((f for f in matches if 'MainActivity' in f), None)
+          if not main_activity:
+              print('MainActivity.kt not found, skipping')
+          else:
+              pkg_line = open(main_activity).readline().strip()  # package com.example.xxx
+              lines = [
+                  pkg_line,
+                  '',
+                  'import android.content.Intent',
+                  'import android.net.Uri',
+                  'import android.os.Build',
+                  'import android.os.PowerManager',
+                  'import android.provider.Settings',
+                  'import io.flutter.embedding.android.FlutterActivity',
+                  'import io.flutter.embedding.engine.FlutterEngine',
+                  'import io.flutter.plugin.common.MethodChannel',
+                  '',
+                  'class MainActivity: FlutterActivity() {',
+                  '    private val CHANNEL = "com.kfitness/battery"',
+                  '',
+                  '    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {',
+                  '        super.configureFlutterEngine(flutterEngine)',
+                  '        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)',
+                  '            .setMethodCallHandler { call, result ->',
+                  '                when (call.method) {',
+                  '                    "requestIgnoreBatteryOptimizations" -> {',
+                  '                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
+                  '                            val pm = getSystemService(POWER_SERVICE) as PowerManager',
+                  '                            if (!pm.isIgnoringBatteryOptimizations(packageName)) {',
+                  '                                val intent = Intent(',
+                  '                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+                  '                                )',
+                  '                                intent.data = Uri.parse("package:$packageName")',
+                  '                                startActivity(intent)',
+                  '                            }',
+                  '                        }',
+                  '                        result.success(true)',
+                  '                    }',
+                  '                    "isIgnoringBatteryOptimizations" -> {',
+                  '                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
+                  '                            val pm = getSystemService(POWER_SERVICE) as PowerManager',
+                  '                            result.success(pm.isIgnoringBatteryOptimizations(packageName))',
+                  '                        } else {',
+                  '                            result.success(true)',
+                  '                        }',
+                  '                    }',
+                  '                    "openNotificationSettings" -> {',
+                  '                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)',
+                  '                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)',
+                  '                        startActivity(intent)',
+                  '                        result.success(true)',
+                  '                    }',
+                  '                    "openExactAlarmSettings" -> {',
+                  '                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {',
+                  '                            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)',
+                  '                            intent.data = Uri.parse("package:$packageName")',
+                  '                            startActivity(intent)',
+                  '                        }',
+                  '                        result.success(true)',
+                  '                    }',
+                  '                    else -> result.notImplemented()',
+                  '                }',
+                  '            }',
+                  '    }',
+                  '}',
+              ]
+              content = '\n'.join(lines) + '\n'
+              open(main_activity, 'w').write(content)
+              print(f'Patched {main_activity}')
+          PYEOF
+
+      - name: Verify build.gradle signing config
+        run: |
+          echo "=== app/build.gradle (must contain release signingConfig) ==="
+          cat android/app/build.gradle
+          grep -q "signingConfigs.release" android/app/build.gradle && echo "✅ Release signing confirmed" || (echo "❌ Release signing MISSING — build will use debug key!" && exit 1)
+
+      - name: Generate app icon (grey background, black K)
+        run: |
+          pip install Pillow --break-system-packages -q
+          python3 - << 'PYEOF'
+          import os
+          from PIL import Image, ImageDraw, ImageFont
+          def create_k_icon(size):
+              bg = (90, 90, 90, 255)
+              fg = (0, 0, 0, 255)
+              img = Image.new('RGBA', (size, size), bg)
+              draw = ImageDraw.Draw(img)
+              font = None
+              for fpath in [
+                  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+                  '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+              ]:
+                  if os.path.exists(fpath):
+                      font = ImageFont.truetype(fpath, int(size * 0.62))
+                      break
+              if font:
+                  bbox = draw.textbbox((0, 0), 'K', font=font)
+                  tw = bbox[2] - bbox[0]
+                  th = bbox[3] - bbox[1]
+                  draw.text(((size - tw) / 2 - bbox[0], (size - th) / 2 - bbox[1]), 'K', fill=fg, font=font)
+              else:
+                  m, s = size * 0.18, max(size * 0.13, 3)
+                  cx = size * 0.46
+                  draw.rectangle([m, m, m+s, size-m], fill=fg)
+                  draw.polygon([(cx, size*0.5), (cx+s*0.6, size*0.5), (size-m, m), (size-m-s, m)], fill=fg)
+                  draw.polygon([(cx, size*0.5), (cx+s*0.6, size*0.5), (size-m, size-m), (size-m-s, size-m)], fill=fg)
+              return img
+          sizes = {'mipmap-mdpi': 48, 'mipmap-hdpi': 72, 'mipmap-xhdpi': 96, 'mipmap-xxhdpi': 144, 'mipmap-xxxhdpi': 192}
+          for dirname, sz in sizes.items():
+              dpath = 'android/app/src/main/res/' + dirname
+              os.makedirs(dpath, exist_ok=True)
+              icon = create_k_icon(sz).convert('RGB')
+              icon.save(dpath + '/ic_launcher.png')
+              icon.save(dpath + '/ic_launcher_round.png')
+          print('App icons generated for all densities')
+          PYEOF
 
       - name: Flutter pub get
         run: flutter pub get
@@ -41,9 +303,31 @@ jobs:
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      - name: Upload APK
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/kfit.apk
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: karthik-fitness-app
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: kfit
+          path: build/app/outputs/flutter-apk/kfit.apk
           retention-days: 30
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.label }}
+          body: |
+            **K Fitness** · Private AI Fitness Tracker for Android
+
+            ### Install
+            1. Download `kfit.apk` below
+            2. Android Settings → Install unknown apps → Allow
+            3. Tap the downloaded file to install
+
+            Requires Android 8.0+ · ~45 MB · Optional +600 MB for on-device AI (Gemma 3)
+          files: build/app/outputs/flutter-apk/kfit.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

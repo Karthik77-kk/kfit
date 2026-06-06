@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 
@@ -12,22 +13,22 @@ const _kCard   = Color(0xFF1C1C1E);
 const _kSecond = Color(0xFF8E8E93);
 
 class StatsScreen extends StatefulWidget {
-  const StatsScreen({super.key});
+  final bool embedded;
+  const StatsScreen({super.key, this.embedded = false});
   @override
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends State<StatsScreen> {
+class _StatsScreenState extends State<StatsScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _weightCtrl  = TextEditingController();
   final _stepsCtrl   = TextEditingController();
   final _heightCtrl  = TextEditingController();
   final _ageCtrl     = TextEditingController();
   final _goalWtCtrl  = TextEditingController();
 
-  // 1RM calculator state
-  double _ormWeight   = 60;
-  int    _ormReps     = 8;
-  String _ormExercise = 'Bench Press';
 
   // Prevents re-populating fields after user edits them
   bool _fieldsPopulated = false;
@@ -96,7 +97,8 @@ class _StatsScreenState extends State<StatsScreen> {
     final p = context.read<FitnessProvider>();
 
     final weight = double.tryParse(_weightCtrl.text.trim());
-    final steps  = int.tryParse(_stepsCtrl.text.trim()) ?? 0;
+    final stepsText = _stepsCtrl.text.trim();
+    final stepsRaw  = stepsText.isEmpty ? 0 : int.tryParse(stepsText);
     final height = double.tryParse(_heightCtrl.text.trim());
     final age    = int.tryParse(_ageCtrl.text.trim());
     final goalWt = double.tryParse(_goalWtCtrl.text.trim());
@@ -106,21 +108,42 @@ class _StatsScreenState extends State<StatsScreen> {
       _showError('Enter a valid weight (10–500 kg)');
       return;
     }
+    if (stepsRaw == null) {
+      _showError('Steps must be a whole number (e.g. 6000)');
+      return;
+    }
+    final steps = stepsRaw;
 
     final futures = <Future>[];
+    final skipped = <String>[];
     futures.add(p.logBodyEntry(weightKg: weight, steps: steps.clamp(0, 100000)));
-    if (height != null && height > 50 && height < 300) {
-      futures.add(p.saveHeight(height));
+
+    // Each optional field: save if valid, flag if the user typed something invalid.
+    if (_heightCtrl.text.trim().isNotEmpty) {
+      if (height != null && height > 50 && height < 300) {
+        futures.add(p.saveHeight(height));
+      } else {
+        skipped.add('height (50–300 cm)');
+      }
     }
-    if (age != null && age >= 10 && age <= 100) {
-      futures.add(p.saveAge(age));
+    if (_ageCtrl.text.trim().isNotEmpty) {
+      if (age != null && age >= 10 && age <= 100) {
+        futures.add(p.saveAge(age));
+      } else {
+        skipped.add('age (10–100)');
+      }
     }
-    if (goalWt != null && goalWt > 10 && goalWt < 500) {
-      futures.add(p.saveGoalWeight(goalWt));
+    if (_goalWtCtrl.text.trim().isNotEmpty) {
+      if (goalWt != null && goalWt > 10 && goalWt < 500) {
+        futures.add(p.saveGoalWeight(goalWt));
+      } else {
+        skipped.add('goal weight (10–500 kg)');
+      }
     }
 
     await Future.wait(futures);
-    if (mounted) {
+    if (!mounted) return;
+    if (skipped.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Stats saved ✓'),
@@ -128,6 +151,9 @@ class _StatsScreenState extends State<StatsScreen> {
           duration: Duration(seconds: 1),
         ),
       );
+    } else {
+      // Honest feedback: weight saved, but flag what was out of range.
+      _showError('Weight saved. Skipped invalid: ${skipped.join(', ')}');
     }
   }
 
@@ -142,26 +168,23 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  // Epley 1RM formula: weight × (1 + reps/30)
-  double get _oneRM => _ormWeight * (1 + _ormReps / 30);
-
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required for AutomaticKeepAliveClientMixin
     final p      = context.watch<FitnessProvider>();
     final recent = p.getRecentBodyEntries(days: 30);
     final bottom = MediaQuery.of(context).padding.bottom;
 
-    return GestureDetector(
+    final scrollView = GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: CustomScrollView(
-          slivers: [
+      child: CustomScrollView(
+        slivers: [
+          if (!widget.embedded)
             SliverAppBar(
               pinned: true,
               backgroundColor: Colors.black,
               surfaceTintColor: Colors.transparent,
-              title: const Text('Stats & Body'),
+              title: const Text('Stats'),
             ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottom),
@@ -179,7 +202,6 @@ class _StatsScreenState extends State<StatsScreen> {
                           iconColor: _kGreen,
                           unit: 'kg',
                           ctrl: _weightCtrl,
-                          nextFocus: FocusNode(),
                         ),
                         _HDivider(),
                         _FieldRow(
@@ -208,6 +230,9 @@ class _StatsScreenState extends State<StatsScreen> {
                           keyboard: TextInputType.number,
                         ),
                         _HDivider(),
+                        // Sex toggle — affects BMR formula (male +5 / female −161)
+                        _SexToggleRow(),
+                        _HDivider(),
                         _FieldRow(
                           label: 'Goal Weight',
                           icon: Icons.flag_outlined,
@@ -221,6 +246,11 @@ class _StatsScreenState extends State<StatsScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 24),
+
+                  // ── Body Measurements ──────────────────────────────────
+                  const _SectionLabel('BODY MEASUREMENTS (cm)'),
+                  _MeasurementsSection(provider: p),
                   const SizedBox(height: 24),
 
                   // ── Overview ───────────────────────────────────────────
@@ -246,8 +276,8 @@ class _StatsScreenState extends State<StatsScreen> {
                       label: 'Today\'s Steps',
                       value: p.todaySteps > 0 ? _fmtNum(p.todaySteps) : '—',
                       sub: p.todaySteps > 0
-                          ? '${(p.stepProgress * 100).round()}% of 8k'
-                          : '8,000 goal',
+                          ? '${p.stepGoal > 0 ? (p.todaySteps / p.stepGoal * 100).round() : 0}% of ${(p.stepGoal / 1000).round()}k'
+                          : '${p.stepGoal} goal',
                       color: _kBlue,
                       icon: Icons.directions_walk_outlined,
                     ),
@@ -257,6 +287,22 @@ class _StatsScreenState extends State<StatsScreen> {
                       sub: p.workoutStreak > 0 ? 'Keep going! 🔥' : 'Start today',
                       color: _kOrange,
                       icon: Icons.local_fire_department_outlined,
+                    ),
+                    _StatCard(
+                      label: 'Diet Streak',
+                      value: '${p.calorieStreak}d',
+                      sub: p.calorieStreak > 0 ? 'On target! 🥗' : 'Log meals daily',
+                      color: _kBlue,
+                      icon: Icons.restaurant_menu_outlined,
+                    ),
+                    _StatCard(
+                      label: 'Water Today',
+                      value: p.todayWaterMl >= 1000
+                          ? '${(p.todayWaterMl / 1000).toStringAsFixed(1)}L'
+                          : '${p.todayWaterMl}ml',
+                      sub: '/ ${(p.waterGoalMl / 1000).toStringAsFixed(1)}L goal',
+                      color: _kBlue,
+                      icon: Icons.water_drop_outlined,
                     ),
                   ]),
                   const SizedBox(height: 12),
@@ -281,7 +327,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     ),
                     _StatCard(
                       label: 'Net Cal Today',
-                      value: p.todayCalories > 0
+                      value: p.todayCaloriesTotal > 0
                           ? '${p.netCalories} kcal'
                           : '—',
                       sub: p.inDeficit ? '🎯 In deficit' : 'Over goal',
@@ -290,10 +336,10 @@ class _StatsScreenState extends State<StatsScreen> {
                     ),
                     _StatCard(
                       label: 'Protein Today',
-                      value: p.todayProtein > 0
-                          ? '${p.todayProtein.round()}g'
+                      value: p.todayProteinTotal > 0
+                          ? '${p.todayProteinTotal.round()}g'
                           : '—',
-                      sub: '/ ${FitnessProvider.kProteinGoal}g goal',
+                      sub: '/ ${p.proteinGoal}g goal',
                       color: _kGreen,
                       icon: Icons.egg_alt_outlined,
                     ),
@@ -301,8 +347,15 @@ class _StatsScreenState extends State<StatsScreen> {
                   const SizedBox(height: 24),
 
                   // ── BMR / TDEE ─────────────────────────────────────────
-                  const _SectionLabel('METABOLISM (MIFFLIN–ST JEOR)'),
+                  _SectionLabel(p.latestScaleEntry?.bmr != null
+                      ? 'METABOLISM (SMART SCALE)'
+                      : 'METABOLISM (MIFFLIN–ST JEOR)'),
                   _BmrTdeeCard(provider: p),
+                  const SizedBox(height: 24),
+
+                  // ── Body Composition ───────────────────────────────────
+                  const _SectionLabel('BODY COMPOSITION'),
+                  _BodyCompositionCard(provider: p),
                   const SizedBox(height: 24),
 
                   // ── Goal Progress ──────────────────────────────────────
@@ -362,38 +415,221 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // ── 1RM Calculator ─────────────────────────────────────
-                  const _SectionLabel('1RM ESTIMATOR (EPLEY FORMULA)'),
-                  _OrmCalc(
-                    weight: _ormWeight,
-                    reps: _ormReps,
-                    exercise: _ormExercise,
-                    oneRM: _oneRM,
-                    onWeightChanged: (v) => setState(() => _ormWeight = v),
-                    onRepsChanged: (v) => setState(() => _ormReps = v),
-                    onExerciseChanged: (v) => setState(() => _ormExercise = v),
-                  ),
+                  // ── AI Predictions ────────────────────────────────────
+                  const _SectionLabel('AI PREDICTIONS'),
+                  _AiPredictionsCard(provider: p),
+                  const SizedBox(height: 24),
+
+                  // ── 1RM Estimator from history ─────────────────────────
+                  const _SectionLabel('1RM ESTIMATOR (FROM YOUR LOGS)'),
+                  const _OneRMSection(),
                   const SizedBox(height: 16),
                 ]),
               ),
             ),
           ],
         ),
-      ),
     );
+
+    if (widget.embedded) return scrollView;
+    return Scaffold(backgroundColor: Colors.black, body: scrollView);
   }
 
   String _weightChangeLine(FitnessProvider p) {
     final change = p.weightChangeKg;
     if (change == null) return 'Log daily to track';
     final sign = change > 0 ? '+' : '';
-    return '$sign${change.toStringAsFixed(1)} kg this month';
+    return '$sign${change.toStringAsFixed(1)} kg last 30 days';
   }
 }
 
 String _fmtNum(int n) {
   if (n >= 1000) return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k';
   return '$n';
+}
+
+// ─── AI Predictions Card ───────────────────────────────────────────────────────
+class _AiPredictionsCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _AiPredictionsCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = provider;
+    final entries = p.getRecentBodyEntries(days: 90);
+
+    if (entries.length < 3) {
+      return _Card(
+        child: Row(children: const [
+          Text('🤖', style: TextStyle(fontSize: 22)),
+          SizedBox(width: 12),
+          Expanded(child: Text(
+            'Log your weight for at least 3 days to unlock AI predictions.',
+            style: TextStyle(color: _kSecond, fontSize: 13, height: 1.4),
+          )),
+        ]),
+      );
+    }
+
+    final weekly  = p.weeklyWeightChange;
+    final pred30  = p.predictedWeightInDays(30);
+    final pred90  = p.predictedWeightInDays(90);
+    final goalDate = p.estimatedGoalDate;
+    final tdee     = p.bestTdee;
+    final target   = p.fatLossCalorieTarget;
+
+    // Smart calorie suggestion based on weight trend
+    String calSuggestion;
+    Color  calColor = _kGreen;
+    if (weekly == null || tdee == null) {
+      calSuggestion = 'Log weight + height for calorie suggestion';
+      calColor = _kSecond;
+    } else if (weekly < -0.8) {
+      calSuggestion =
+          'Losing ${weekly.abs().toStringAsFixed(2)} kg/wk — too fast! '
+          'Eat ~${((weekly.abs() - 0.5) * 7700 / 7).round()} kcal more/day.';
+      calColor = _kOrange;
+    } else if (weekly < -0.1) {
+      calSuggestion =
+          'Losing ${weekly.abs().toStringAsFixed(2)} kg/wk — perfect pace! '
+          'Stay at ~${target?.round() ?? p.calorieGoal} kcal/day.';
+      calColor = _kGreen;
+    } else if (weekly > 0.2) {
+      calSuggestion =
+          'Gaining ${weekly.toStringAsFixed(2)} kg/wk. '
+          'Cut ~${((weekly - 0.1) * 7700 / 7).round()} kcal/day to reverse trend.';
+      calColor = _kRed;
+    } else {
+      calSuggestion =
+          'Weight is stable. Reduce by 200–300 kcal/day for fat loss.';
+      calColor = _kBlue;
+    }
+
+    return _Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Row(children: [
+          const Text('🤖', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 8),
+          const Text('AI Weight Forecast',
+              style: TextStyle(color: Colors.white, fontSize: 14,
+                  fontWeight: FontWeight.w700)),
+          const Spacer(),
+          if (weekly != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (weekly < 0 ? _kGreen : _kRed).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${weekly >= 0 ? '+' : ''}${weekly.toStringAsFixed(2)} kg/wk',
+                style: TextStyle(
+                  color: weekly < 0 ? _kGreen : _kRed,
+                  fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 14),
+
+        // Prediction row
+        Row(children: [
+          _PredChip('Now',
+              '${p.latestWeightKg?.toStringAsFixed(1) ?? '—'} kg', Colors.white),
+          const SizedBox(width: 8),
+          _PredChip('30 days',
+              pred30 != null ? '${pred30.toStringAsFixed(1)} kg' : '—',
+              weekly != null && weekly < 0 ? _kGreen : _kRed),
+          const SizedBox(width: 8),
+          _PredChip('90 days',
+              pred90 != null ? '${pred90.toStringAsFixed(1)} kg' : '—',
+              _kBlue),
+          const SizedBox(width: 8),
+          _PredChip('Goal by',
+              goalDate != null
+                  ? '${goalDate.day}/${goalDate.month}/${goalDate.year % 100}'
+                  : '—',
+              _kOrange),
+        ]),
+        const SizedBox(height: 14),
+
+        // Smart calorie suggestion
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: calColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: calColor.withOpacity(0.25)),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('💡', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(calSuggestion,
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 12, height: 1.4))),
+          ]),
+        ),
+
+        if (tdee != null && target != null) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            _MetaChip2(p.isTdeeCalibrated ? 'TDEE ✓' : 'TDEE', '${tdee.round()} kcal', _kOrange),
+            const SizedBox(width: 8),
+            _MetaChip2('Fat Loss Target', '${target.round()} kcal', _kGreen),
+            const SizedBox(width: 8),
+            _MetaChip2('Current Goal', '${p.calorieGoal} kcal', _kBlue),
+          ]),
+          if (p.isTdeeCalibrated) ...[
+            const SizedBox(height: 6),
+            const Text('✓ TDEE calibrated from your real weight trend + intake',
+                style: TextStyle(color: _kGreen, fontSize: 10)),
+          ],
+        ],
+      ]),
+    );
+  }
+}
+
+class _PredChip extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  const _PredChip(this.label, this.value, this.color);
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(children: [
+        Text(value, style: TextStyle(
+            color: color, fontSize: 13, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 9)),
+      ]),
+    ),
+  );
+}
+
+class _MetaChip2 extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  const _MetaChip2(this.label, this.value, this.color);
+  @override
+  Widget build(BuildContext context) => Expanded(child: Container(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(value, style: TextStyle(
+          color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+      Text(label, style: const TextStyle(color: _kSecond, fontSize: 9)),
+    ]),
+  ));
 }
 
 // ─── BMR / TDEE Card ───────────────────────────────────────────────────────────
@@ -403,10 +639,12 @@ class _BmrTdeeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p     = provider;
-    final bmr   = p.bmr;
-    final tdee  = p.tdee;
-    final target = p.fatLossCalorieTarget;
+    final p          = provider;
+    final bmr        = p.bmr;
+    final tdee       = p.bestTdee;          // calibrated when data allows
+    final estTdee    = p.tdee;              // raw BMR×activity estimate
+    final target     = p.fatLossCalorieTarget;
+    final calibrated = p.isTdeeCalibrated;
 
     if (bmr == null) {
       return _Card(
@@ -439,11 +677,13 @@ class _BmrTdeeCard extends StatelessWidget {
               )),
               const SizedBox(width: 10),
               Expanded(child: _MetaChip(
-                label: 'TDEE',
+                label: calibrated ? 'TDEE ✓' : 'TDEE',
                 value: '${tdee?.round() ?? '—'}',
                 unit: 'kcal/day',
                 color: _kOrange,
-                tooltip: 'Total daily energy expenditure',
+                tooltip: calibrated
+                    ? 'Calibrated from your real weight trend + intake'
+                    : 'Estimated from BMR × activity level',
               )),
               const SizedBox(width: 10),
               Expanded(child: _MetaChip(
@@ -451,7 +691,7 @@ class _BmrTdeeCard extends StatelessWidget {
                 value: '${target?.round() ?? '—'}',
                 unit: 'kcal/day',
                 color: _kGreen,
-                tooltip: '500 kcal below TDEE for fat loss',
+                tooltip: '500 kcal below maintenance for fat loss',
               )),
             ],
           ),
@@ -459,19 +699,25 @@ class _BmrTdeeCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _kGreen.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
+              color: (calibrated ? _kGreen : _kOrange).withOpacity(0.08),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
-                const Text('💡', style: TextStyle(fontSize: 14)),
+                Text(calibrated ? '🎯' : '💡', style: const TextStyle(fontSize: 14)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    target != null
-                        ? 'Your fat-loss target is ~${target.round()} kcal/day. '
-                          'Your current goal is set to ${FitnessProvider.kCalorieGoal} kcal.'
-                        : 'Enter weight, height and age to compute your targets.',
+                    target == null
+                        ? 'Enter weight, height and age to compute your targets.'
+                        : calibrated
+                            ? 'Calibrated from YOUR data: you actually maintain at '
+                              '~${tdee!.round()} kcal/day (the BMR estimate was '
+                              '${estTdee?.round() ?? '—'}). For steady fat loss aim '
+                              '~${target.round()} kcal — your goal is ${p.calorieGoal} kcal.'
+                            : 'Estimated fat-loss target ~${target.round()} kcal/day '
+                              '(goal: ${p.calorieGoal} kcal). Keep logging weight + food '
+                              'for ~2 weeks and this calibrates to your real metabolism.',
                     style: const TextStyle(
                         color: Colors.white70, fontSize: 12, height: 1.4),
                   ),
@@ -481,6 +727,130 @@ class _BmrTdeeCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Body Composition Card ─────────────────────────────────────────────────────
+class _BodyCompositionCard extends StatelessWidget {
+  final FitnessProvider provider;
+  const _BodyCompositionCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = provider;
+    final status = p.bodyCompositionStatus;
+    final whr = p.waistToHipRatio;
+    final whtr = p.waistToHeightRatio;
+    final ffmi = p.ffmi;
+    final fat = p.fatMassKg;
+    final lean = p.leanMassKg;
+    final traj = p.bodyCompTrajectory;
+    final bioDelta = p.bioAgeDelta;
+    final hydration = p.hydrationStatus;
+
+    final hasAny = whr != null || whtr != null || ffmi != null ||
+        fat != null || traj != null || bioDelta != null;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Headline status
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: status.color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(status.label,
+                  style: TextStyle(color: status.color, fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Text(status.detail,
+              style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4)),
+
+          if (!hasAny) ...[
+            const SizedBox(height: 10),
+            const Text('Log waist + hips in Measurements and a smart-scale reading to unlock '
+                'WHR, waist-to-height, FFMI and your fat-vs-muscle trajectory.',
+                style: TextStyle(color: _kSecond, fontSize: 12, height: 1.4)),
+          ] else ...[
+            const SizedBox(height: 14),
+            // Metric grid
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              if (whr != null)
+                _BcChip('Waist:Hip', whr.toStringAsFixed(2),
+                    p.whrRisk?.label ?? '', p.whrRisk?.color ?? _kSecond),
+              if (whtr != null)
+                _BcChip('Waist:Height', whtr.toStringAsFixed(2),
+                    p.whtrStatus.label, p.whtrStatus.color),
+              if (ffmi != null)
+                _BcChip('FFMI', ffmi.toStringAsFixed(1),
+                    p.ffmiStatus.label, p.ffmiStatus.color),
+              if (fat != null)
+                _BcChip('Fat mass', '${fat.toStringAsFixed(1)} kg', 'body fat', _kOrange),
+              if (lean != null)
+                _BcChip('Lean mass', '${lean.toStringAsFixed(1)} kg', 'fat-free', _kGreen),
+              if (hydration != null)
+                _BcChip('Body water', hydration.label, 'hydration', hydration.color),
+              if (bioDelta != null)
+                _BcChip('Body age',
+                    bioDelta == 0 ? 'On par' : bioDelta < 0 ? '${bioDelta.abs()}y younger' : '$bioDelta y older',
+                    'vs real age', bioDelta <= 0 ? _kGreen : _kOrange),
+            ]),
+            // Trajectory banner
+            if (traj != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: traj.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: traj.color.withOpacity(0.3)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.swap_vert_rounded, color: traj.color, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(traj.verdict,
+                        style: TextStyle(color: traj.color, fontSize: 13, fontWeight: FontWeight.w700)),
+                    Text('Fat ${traj.fatChange >= 0 ? '+' : ''}${traj.fatChange.toStringAsFixed(1)} kg · '
+                        'Muscle ${traj.leanChange >= 0 ? '+' : ''}${traj.leanChange.toStringAsFixed(1)} kg since first scan',
+                        style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  ])),
+                ]),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BcChip extends StatelessWidget {
+  final String label, value, sub;
+  final Color color;
+  const _BcChip(this.label, this.value, this.sub, this.color);
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 104,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C2C2E),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w700)),
+        Text(sub, style: TextStyle(color: color.withOpacity(0.8), fontSize: 9)),
+      ]),
     );
   }
 }
@@ -502,7 +872,7 @@ class _MetaChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
@@ -529,21 +899,17 @@ class _GoalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p        = provider;
-    final current  = p.latestWeightKg!;
+    // Guard: parent checks non-null but provider can update mid-frame
+    final current  = p.latestWeightKg ?? 0.0;
     final goal     = p.goalWeightKg;
-    final kg       = p.kgToGoal!;
+    final kg       = p.kgToGoal ?? 0.0;
     final isLosing = kg > 0;
     final color    = isLosing ? _kOrange : _kGreen;
     final weeks    = p.weeksToGoal;
 
-    // Progress 0–1: how close to goal
-    final startEstimate = current + (isLosing ? 10.0 : -10.0);
-    double progress = 0;
-    if (isLosing) {
-      progress = 1 - (current - goal).clamp(0.0, 10.0) / 10.0;
-    } else {
-      progress = 1.0; // Already at or below goal
-    }
+    // Real progress along the start→goal journey (start = earliest logged weight).
+    final progress = p.goalProgress;
+    final start    = p.startWeightKg;
 
     return _Card(
       child: Column(
@@ -562,20 +928,13 @@ class _GoalCard extends StatelessWidget {
                     color: color, fontSize: 15, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('${current.toStringAsFixed(1)} kg',
-                      style: const TextStyle(color: Colors.white, fontSize: 13)),
-                  Text('→ ${goal.toStringAsFixed(1)} kg',
-                      style: const TextStyle(color: _kSecond, fontSize: 11)),
-                ],
-              ),
+              Text('${(progress * 100).round()}%',
+                  style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0),
               backgroundColor: color.withOpacity(0.15),
@@ -583,10 +942,24 @@ class _GoalCard extends StatelessWidget {
               minHeight: 6,
             ),
           ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(start != null ? 'Start ${start.toStringAsFixed(1)}' : 'Start —',
+                  style: const TextStyle(color: _kSecond, fontSize: 11)),
+              Text('Now ${current.toStringAsFixed(1)} kg',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text('Goal ${goal.toStringAsFixed(1)}',
+                  style: const TextStyle(color: _kSecond, fontSize: 11)),
+            ],
+          ),
           if (weeks != null && weeks > 0) ...[
             const SizedBox(height: 8),
             Text(
-              '⏱ At current deficit: ~${weeks.toStringAsFixed(0)} weeks to reach goal',
+              p.weeklyWeightChange != null
+                  ? '⏱ At your current trend: ~${weeks.toStringAsFixed(0)} weeks to reach goal'
+                  : '⏱ At a sustainable pace: ~${weeks.toStringAsFixed(0)} weeks to reach goal',
               style: const TextStyle(color: _kSecond, fontSize: 12),
             ),
           ],
@@ -596,180 +969,122 @@ class _GoalCard extends StatelessWidget {
   }
 }
 
-// ─── 1RM Calculator ────────────────────────────────────────────────────────────
-class _OrmCalc extends StatelessWidget {
-  final double weight;
-  final int reps;
-  final String exercise;
-  final double oneRM;
-  final ValueChanged<double> onWeightChanged;
-  final ValueChanged<int> onRepsChanged;
-  final ValueChanged<String> onExerciseChanged;
+// ─── 1RM Section (from logged history) ────────────────────────────────────────
+class _OneRMSection extends StatelessWidget {
+  const _OneRMSection();
 
-  const _OrmCalc({
-    required this.weight, required this.reps, required this.exercise,
-    required this.oneRM, required this.onWeightChanged,
-    required this.onRepsChanged, required this.onExerciseChanged,
-  });
-
-  static const _exercises = [
-    'Bench Press', 'Squat', 'Deadlift', 'Overhead Press',
-    'Barbell Row', 'Incline Press', 'Romanian Deadlift',
-  ];
+  double _epley(double weight, int reps) {
+    if (weight <= 0 || reps <= 0) return 0;
+    if (reps == 1) return weight;
+    return weight * (1 + reps / 30.0);
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Training zones based on % of 1RM
-    final zones = [
-      ('Strength', '85–100%', '${(oneRM * 0.85).round()}–${oneRM.round()} kg', _kRed),
-      ('Hypertrophy', '67–85%', '${(oneRM * 0.67).round()}–${(oneRM * 0.85).round()} kg', _kGreen),
-      ('Endurance', '50–67%', '${(oneRM * 0.5).round()}–${(oneRM * 0.67).round()} kg', _kBlue),
-    ];
+    final p = context.watch<FitnessProvider>();
+    final bigLifts = ['Deadlift', 'Squats', 'Bench Press', 'Overhead Press',
+        'Barbell Rows', 'Pull-ups', 'Romanian Deadlift'];
 
-    return _Card(
+    final Map<String, ({double weight, int reps, double oneRM})> liftData = {};
+    for (final lift in bigLifts) {
+      double bestOneRM = 0;
+      double bestWeight = 0;
+      int bestReps = 0;
+      for (final w in p.workoutHistory) {
+        for (final ex in w.exercises) {
+          if (ex.name == lift) {
+            for (final s in ex.sets) {
+              final estimated = _epley(s.weight, s.reps);
+              if (estimated > bestOneRM) {
+                bestOneRM = estimated;
+                bestWeight = s.weight;
+                bestReps = s.reps;
+              }
+            }
+          }
+        }
+      }
+      if (bestOneRM > 0) {
+        liftData[lift] = (weight: bestWeight, reps: bestReps, oneRM: bestOneRM);
+      }
+    }
+
+    if (liftData.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: _kCard,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Column(children: [
+          Text('1RM Estimator', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          SizedBox(height: 12),
+          Text('Log compound lifts (Deadlift, Squats, Bench Press, etc.) in the Workout tab to see your estimated 1-rep maxes here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _kSecond, fontSize: 13)),
+        ]),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Exercise picker
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _exercises.map((ex) {
-                final sel = ex == exercise;
-                return GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    onExerciseChanged(ex);
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: sel ? _kGreen : Colors.white.withOpacity(0.07),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      ex,
-                      style: TextStyle(
-                        color: sel ? Colors.black : _kSecond,
-                        fontSize: 12,
-                        fontWeight: sel ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+          Row(children: [
+            const Text('1RM Estimator',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                  color: _kOrange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8)),
+              child: const Text('Epley Formula',
+                  style: TextStyle(color: _kOrange, fontSize: 10)),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Weight slider
-          Row(
-            children: [
-              const SizedBox(width: 4),
-              Text('Weight: ', style: const TextStyle(color: _kSecond, fontSize: 13)),
-              Text('${weight.round()} kg',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-            ],
-          ),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: _kGreen,
-              inactiveTrackColor: _kGreen.withOpacity(0.2),
-              thumbColor: _kGreen,
-              overlayColor: _kGreen.withOpacity(0.15),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-            ),
-            child: Slider(
-              value: weight.clamp(5, 200),
-              min: 5, max: 200,
-              divisions: 195,
-              onChanged: (v) => onWeightChanged(v.roundToDouble()),
-            ),
-          ),
-
-          // Reps slider
-          Row(
-            children: [
-              const SizedBox(width: 4),
-              Text('Reps: ', style: const TextStyle(color: _kSecond, fontSize: 13)),
-              Text('$reps',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(width: 8),
-              if (reps > 12)
-                const Text('(use ≤12 for accuracy)',
-                    style: TextStyle(color: _kOrange, fontSize: 11)),
-            ],
-          ),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: _kBlue,
-              inactiveTrackColor: _kBlue.withOpacity(0.2),
-              thumbColor: _kBlue,
-              overlayColor: _kBlue.withOpacity(0.15),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-            ),
-            child: Slider(
-              value: reps.toDouble().clamp(1, 20),
-              min: 1, max: 20,
-              divisions: 19,
-              onChanged: (v) => onRepsChanged(v.round()),
-            ),
-          ),
-
-          // 1RM result
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-            decoration: BoxDecoration(
-              color: _kOrange.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _kOrange.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Estimated 1RM',
-                        style: TextStyle(color: _kSecond, fontSize: 12)),
-                    Text('${oneRM.round()} kg',
-                        style: const TextStyle(
-                            color: _kOrange, fontSize: 28,
-                            fontWeight: FontWeight.w800, height: 1.1)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('${weight.round()}kg × $reps reps',
+          ]),
+          const SizedBox(height: 4),
+          const Text('Estimated from your best logged sets',
+              style: TextStyle(color: _kSecond, fontSize: 12)),
+          const SizedBox(height: 14),
+          ...liftData.entries.map((e) {
+            final name = e.key;
+            final d = e.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    Text('Best: ${d.weight.toStringAsFixed(1)} kg × ${d.reps} reps',
                         style: const TextStyle(color: _kSecond, fontSize: 11)),
-                    Text('Epley formula', style: const TextStyle(color: _kSecond, fontSize: 10)),
-                  ],
+                  ]),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Training zones
-          ...zones.map((z) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                Container(width: 10, height: 10,
-                    decoration: BoxDecoration(color: z.$4, shape: BoxShape.circle)),
-                const SizedBox(width: 8),
-                Text('${z.$1} (${z.$2})',
-                    style: TextStyle(color: z.$4, fontSize: 12, fontWeight: FontWeight.w600)),
-                const Spacer(),
-                Text(z.$3,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-              ],
-            ),
-          )),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _kGreen.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _kGreen.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '${d.oneRM.toStringAsFixed(1)} kg',
+                    style: const TextStyle(
+                        color: _kGreen,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14),
+                  ),
+                ),
+              ]),
+            );
+          }),
         ],
       ),
     );
@@ -798,7 +1113,7 @@ class _Card extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: _kCard, borderRadius: BorderRadius.circular(16),
+      color: _kCard, borderRadius: BorderRadius.circular(14),
     ),
     child: child,
   );
@@ -832,13 +1147,12 @@ class _FieldRow extends StatelessWidget {
   final TextEditingController ctrl;
   final TextInputType keyboard;
   final bool isLast;
-  final FocusNode? nextFocus;
 
   const _FieldRow({
     required this.label, required this.icon, required this.iconColor,
     required this.unit, required this.ctrl,
     this.keyboard = const TextInputType.numberWithOptions(decimal: true),
-    this.isLast = false, this.nextFocus,
+    this.isLast = false,
   });
 
   @override
@@ -893,6 +1207,62 @@ class _HDivider extends StatelessWidget {
   );
 }
 
+/// Sex toggle — sets Mifflin-St Jeor constant (male: +5, female: −161).
+/// Affects BMR → TDEE → recommended calorie goal.
+class _SexToggleRow extends StatelessWidget {
+  static const _kCard = Color(0xFF2C2C2E);
+
+  @override
+  Widget build(BuildContext context) {
+    final p      = context.watch<FitnessProvider>();
+    final isMale = p.isMale;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      child: Row(children: [
+        const Icon(Icons.person_outline, color: Color(0xFF40C8E0), size: 20),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text('Biological Sex',
+              style: TextStyle(color: Colors.white, fontSize: 15,
+                  fontWeight: FontWeight.w500)),
+        ),
+        // Toggle between Male / Female
+        Container(
+          decoration: BoxDecoration(
+            color: _kCard, borderRadius: BorderRadius.circular(14)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            _SexBtn(label: '♂ Male',   selected: isMale,  onTap: () => context.read<FitnessProvider>().saveSex(true)),
+            _SexBtn(label: '♀ Female', selected: !isMale, onTap: () => context.read<FitnessProvider>().saveSex(false)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _SexBtn extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SexBtn({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFF30D158) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: selected ? Colors.black : const Color(0xFF8E8E93),
+              fontSize: 13, fontWeight: FontWeight.w600)),
+    ),
+  );
+}
+
 class _SaveBtn extends StatelessWidget {
   final VoidCallback onPressed;
   const _SaveBtn({required this.onPressed});
@@ -904,7 +1274,7 @@ class _SaveBtn extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: _kGreen, foregroundColor: Colors.black,
         padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         elevation: 0,
       ),
       child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -921,7 +1291,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+    decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(icon, color: color, size: 20),
       const SizedBox(height: 8),
@@ -1036,8 +1406,8 @@ class _BmiBar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: segs[i],
                 borderRadius: BorderRadius.horizontal(
-                  left: i == 0 ? const Radius.circular(9) : Radius.zero,
-                  right: i == 3 ? const Radius.circular(9) : Radius.zero,
+                  left: i == 0 ? const Radius.circular(8) : Radius.zero,
+                  right: i == 3 ? const Radius.circular(8) : Radius.zero,
                 ),
               ),
             )),
@@ -1050,7 +1420,7 @@ class _BmiBar extends StatelessWidget {
               width: 12, height: 16,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(8),
                 boxShadow: [BoxShadow(
                   color: Colors.black.withOpacity(0.5),
                   blurRadius: 4, offset: const Offset(0, 2),
@@ -1061,4 +1431,212 @@ class _BmiBar extends StatelessWidget {
       ]);
     }),
   );
+}
+
+// ─── Body Measurements Section ────────────────────────────────────────────────
+class _MeasurementsSection extends StatefulWidget {
+  final FitnessProvider provider;
+  const _MeasurementsSection({required this.provider});
+  @override
+  State<_MeasurementsSection> createState() => _MeasurementsSectionState();
+}
+
+class _MeasurementsSectionState extends State<_MeasurementsSection> {
+  final _chestCtrl  = TextEditingController();
+  final _waistCtrl  = TextEditingController();
+  final _hipsCtrl   = TextEditingController();
+  final _armCtrl    = TextEditingController();
+  final _thighCtrl  = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prefill());
+  }
+
+  void _prefill() {
+    final m = widget.provider.latestMeasurements;
+    if (m == null) {
+      if (mounted) setState(() {}); // force label update
+      return;
+    }
+    if (_chestCtrl.text.isEmpty && m.chestCm != null)     _chestCtrl.text  = m.chestCm!.toStringAsFixed(1);
+    if (_waistCtrl.text.isEmpty && m.waistCm != null)     _waistCtrl.text  = m.waistCm!.toStringAsFixed(1);
+    if (_hipsCtrl.text.isEmpty && m.hipsCm != null)       _hipsCtrl.text   = m.hipsCm!.toStringAsFixed(1);
+    if (_armCtrl.text.isEmpty && m.leftArmCm != null)     _armCtrl.text    = m.leftArmCm!.toStringAsFixed(1);
+    if (_thighCtrl.text.isEmpty && m.leftThighCm != null) _thighCtrl.text  = m.leftThighCm!.toStringAsFixed(1);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_chestCtrl, _waistCtrl, _hipsCtrl, _armCtrl, _thighCtrl]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    FocusScope.of(context).unfocus();
+    final p = context.read<FitnessProvider>();
+    final entry = MeasurementEntry(
+      id: const Uuid().v4(),
+      date: DateTime.now(),
+      chestCm:   double.tryParse(_chestCtrl.text.trim()),
+      waistCm:   double.tryParse(_waistCtrl.text.trim()),
+      hipsCm:    double.tryParse(_hipsCtrl.text.trim()),
+      leftArmCm: double.tryParse(_armCtrl.text.trim()),
+      leftThighCm: double.tryParse(_thighCtrl.text.trim()),
+    );
+    if (entry.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Enter at least one measurement'),
+        backgroundColor: _kRed,
+      ));
+      return;
+    }
+    await p.logMeasurement(entry);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Measurements saved ✓'),
+        backgroundColor: _kGreen,
+        duration: Duration(seconds: 1),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    final recent = p.getRecentMeasurements(days: 90);
+    final latest = widget.provider.latestMeasurements;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (latest != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Pre-filled from ${latest.date.day}/${latest.date.month}/${latest.date.year} — update changed values only',
+            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+          ),
+        ),
+      _Card(child: Column(children: [
+        _FieldRow(label: 'Chest',      icon: Icons.straighten_outlined,    iconColor: _kGreen,  unit: 'cm', ctrl: _chestCtrl),
+        _HDivider(),
+        _FieldRow(label: 'Waist',      icon: Icons.straighten_outlined,    iconColor: _kGreen,  unit: 'cm', ctrl: _waistCtrl),
+        _HDivider(),
+        _FieldRow(label: 'Hips',       icon: Icons.straighten_outlined,    iconColor: _kBlue,   unit: 'cm', ctrl: _hipsCtrl),
+        _HDivider(),
+        _FieldRow(label: 'Left Arm',   icon: Icons.fitness_center_outlined, iconColor: _kBlue,  unit: 'cm', ctrl: _armCtrl),
+        _HDivider(),
+        _FieldRow(label: 'Left Thigh', icon: Icons.directions_run_outlined, iconColor: _kOrange, unit: 'cm', ctrl: _thighCtrl, isLast: true),
+        const SizedBox(height: 14),
+        _SaveBtn(onPressed: _save),
+      ])),
+      if (recent.length >= 2) ...[
+        const SizedBox(height: 12),
+        _Card(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Trend (last 5 logs)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
+            _MeasurementTrendRow('Chest',  recent.map((e) => e.chestCm).toList()),
+            _MeasurementTrendRow('Waist',  recent.map((e) => e.waistCm).toList()),
+            _MeasurementTrendRow('Hips',   recent.map((e) => e.hipsCm).toList()),
+            _MeasurementTrendRow('Arm',    recent.map((e) => e.leftArmCm).toList()),
+            _MeasurementTrendRow('Thigh',  recent.map((e) => e.leftThighCm).toList()),
+          ],
+        )),
+      ],
+    ]);
+  }
+}
+
+class _MeasurementTrendRow extends StatelessWidget {
+  final String label;
+  final List<double?> values;
+  const _MeasurementTrendRow(this.label, this.values);
+
+  @override
+  Widget build(BuildContext context) {
+    final nonNull = values.where((v) => v != null).cast<double>().toList();
+    if (nonNull.isEmpty) return const SizedBox.shrink();
+    final latest = nonNull.last;
+    final prev   = nonNull.length >= 2 ? nonNull[nonNull.length - 2] : null;
+    final delta  = prev != null ? latest - prev : null;
+    final deltaStr = delta == null
+        ? ''
+        : delta < 0
+            ? '  ▼ ${delta.abs().toStringAsFixed(1)} cm'
+            : delta > 0
+                ? '  ▲ +${delta.toStringAsFixed(1)} cm'
+                : '  — no change';
+    final deltaColor = delta == null
+        ? _kSecond
+        : label == 'Chest' || label == 'Arm' || label == 'Thigh'
+            ? (delta < 0 ? _kSecond : _kGreen)
+            : (delta < 0 ? _kGreen : _kRed);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(children: [
+        SizedBox(width: 52, child: Text(label, style: const TextStyle(color: _kSecond, fontSize: 12))),
+        Text('${latest.toStringAsFixed(1)} cm',
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+        if (delta != null)
+          Text(deltaStr, style: TextStyle(color: deltaColor, fontSize: 11)),
+        const Spacer(),
+        // Sparkline: show last 5 values as a mini line chart
+        if (nonNull.length >= 2)
+          SizedBox(
+            width: 60, height: 24,
+            child: CustomPaint(painter: _SparklinePainter(nonNull.takeLast(5), deltaColor)),
+          ),
+      ]),
+    );
+  }
+}
+
+extension _TakeLast<T> on List<T> {
+  List<T> takeLast(int n) => length > n ? sublist(length - n) : this;
+}
+
+class _SparklinePainter extends CustomPainter {
+  final List<double> values;
+  final Color color;
+  const _SparklinePainter(this.values, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final range = (maxV - minV).abs();
+
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.8)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    for (int i = 0; i < values.length; i++) {
+      final x = i / (values.length - 1) * size.width;
+      final norm = range < 0.01 ? 0.5 : (values[i] - minV) / range;
+      // Invert: lower value = lower on chart (naturally for waist = good going down)
+      final y = size.height - norm * size.height;
+      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    canvas.drawPath(path, paint);
+
+    // Dot at latest value
+    final lx = size.width;
+    final ln = range < 0.01 ? 0.5 : (values.last - minV) / range;
+    final ly = size.height - ln * size.height;
+    canvas.drawCircle(Offset(lx, ly), 3,
+        Paint()..color = color..style = PaintingStyle.fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter old) =>
+      old.values != values || old.color != color;
 }
