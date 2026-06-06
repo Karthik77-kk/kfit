@@ -276,7 +276,7 @@ class _StatsScreenState extends State<StatsScreen>
                       label: 'Today\'s Steps',
                       value: p.todaySteps > 0 ? _fmtNum(p.todaySteps) : '—',
                       sub: p.todaySteps > 0
-                          ? '${(p.stepProgress * 100).round()}% of ${(p.stepGoal / 1000).round()}k'
+                          ? '${p.stepGoal > 0 ? (p.todaySteps / p.stepGoal * 100).round() : 0}% of ${(p.stepGoal / 1000).round()}k'
                           : '${p.stepGoal} goal',
                       color: _kBlue,
                       icon: Icons.directions_walk_outlined,
@@ -974,6 +974,7 @@ class _OneRMSection extends StatelessWidget {
   const _OneRMSection();
 
   double _epley(double weight, int reps) {
+    if (weight <= 0 || reps <= 0) return 0;
     if (reps == 1) return weight;
     return weight * (1 + reps / 30.0);
   }

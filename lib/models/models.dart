@@ -61,15 +61,25 @@ class FoodEntry {
         'servingNote': servingNote,
       };
 
-  factory FoodEntry.fromJson(Map<String, dynamic> j) => FoodEntry(
-        id: j['id'],
-        name: j['name'],
-        calories: (j['calories'] as num).toDouble(),
-        protein: (j['protein'] as num).toDouble(),
-        mealType: MealType.values[j['mealType']],
-        timestamp: DateTime.parse(j['timestamp']),
-        servingNote: j['servingNote'] as String? ?? '',
-      );
+  factory FoodEntry.fromJson(Map<String, dynamic> j) {
+    final mealIdx = (j['mealType'] as int? ?? 0)
+        .clamp(0, MealType.values.length - 1);
+    DateTime ts;
+    try {
+      ts = DateTime.parse(j['timestamp'] as String? ?? '');
+    } catch (_) {
+      ts = DateTime.now();
+    }
+    return FoodEntry(
+      id: (j['id'] as String?) ?? '',
+      name: (j['name'] as String?) ?? 'Unknown',
+      calories: ((j['calories'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
+      protein: ((j['protein'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
+      mealType: MealType.values[mealIdx],
+      timestamp: ts,
+      servingNote: (j['servingNote'] as String?) ?? '',
+    );
+  }
 }
 
 // ─── Workout ──────────────────────────────────────────────────────────────────
@@ -82,8 +92,10 @@ class SetData {
 
   Map<String, dynamic> toJson() => {'reps': reps, 'weight': weight};
 
-  factory SetData.fromJson(Map<String, dynamic> j) =>
-      SetData(reps: j['reps'], weight: (j['weight'] as num).toDouble());
+  factory SetData.fromJson(Map<String, dynamic> j) => SetData(
+        reps: (j['reps'] as int? ?? 0).clamp(0, 9999),
+        weight: ((j['weight'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
+      );
 }
 
 class ExerciseLog {
@@ -98,8 +110,10 @@ class ExerciseLog {
       };
 
   factory ExerciseLog.fromJson(Map<String, dynamic> j) => ExerciseLog(
-        name: j['name'],
-        sets: (j['sets'] as List).map((s) => SetData.fromJson(s)).toList(),
+        name: (j['name'] as String?) ?? '',
+        sets: ((j['sets'] as List?) ?? [])
+            .map((s) => SetData.fromJson(s as Map<String, dynamic>))
+            .toList(),
       );
 }
 
@@ -139,16 +153,27 @@ class WorkoutLog {
         'caloriesBurned': caloriesBurned,
       };
 
-  factory WorkoutLog.fromJson(Map<String, dynamic> j) => WorkoutLog(
-        id: j['id'],
-        date: DateTime.parse(j['date']),
-        workoutType: WorkoutType.values[j['workoutType'] ?? 2],
-        name: j['name'] as String?,
-        exercises:
-            (j['exercises'] as List).map((e) => ExerciseLog.fromJson(e)).toList(),
-        durationMinutes: j['durationMinutes'] ?? 0,
-        caloriesBurned: j['caloriesBurned'] ?? 0,
-      );
+  factory WorkoutLog.fromJson(Map<String, dynamic> j) {
+    final wtIdx = ((j['workoutType'] as int?) ?? 2)
+        .clamp(0, WorkoutType.values.length - 1);
+    DateTime dt;
+    try {
+      dt = DateTime.parse(j['date'] as String? ?? '');
+    } catch (_) {
+      dt = DateTime.now();
+    }
+    return WorkoutLog(
+      id: (j['id'] as String?) ?? '',
+      date: dt,
+      workoutType: WorkoutType.values[wtIdx],
+      name: j['name'] as String?,
+      exercises: ((j['exercises'] as List?) ?? [])
+          .map((e) => ExerciseLog.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      durationMinutes: (j['durationMinutes'] as int?) ?? 0,
+      caloriesBurned: (j['caloriesBurned'] as int?) ?? 0,
+    );
+  }
 }
 
 // ─── Body Entry ───────────────────────────────────────────────────────────────
@@ -173,12 +198,20 @@ class BodyEntry {
         'steps': steps,
       };
 
-  factory BodyEntry.fromJson(Map<String, dynamic> j) => BodyEntry(
-        id: j['id'],
-        date: DateTime.parse(j['date']),
-        weightKg: (j['weightKg'] as num).toDouble(),
-        steps: j['steps'] ?? 0,
-      );
+  factory BodyEntry.fromJson(Map<String, dynamic> j) {
+    DateTime dt;
+    try {
+      dt = DateTime.parse(j['date'] as String? ?? '');
+    } catch (_) {
+      dt = DateTime.now();
+    }
+    return BodyEntry(
+      id: (j['id'] as String?) ?? '',
+      date: dt,
+      weightKg: ((j['weightKg'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
+      steps: (j['steps'] as int?) ?? 0,
+    );
+  }
 }
 
 // ─── App Notification (in-app notification center) ────────────────────────────

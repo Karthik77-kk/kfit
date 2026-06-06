@@ -172,9 +172,9 @@ void main() {
       expect(p.userName, 'Karthik');
     });
 
-    test('saveUserName empty string resets to Karthik', () async {
+    test('saveUserName empty string resets to generic fallback', () async {
       await p.saveUserName('');
-      expect(p.userName, 'Karthik');
+      expect(p.userName, 'Friend');
     });
 
     test('saveHeight persists', () async {

@@ -38,12 +38,22 @@ class _WaterScreenState extends State<WaterScreen>
     HapticFeedback.lightImpact();
     _animController.forward().then((_) => _animController.reverse());
     await context.read<FitnessProvider>().addWater(ml);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('+$ml ml added'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: const Color(0xFF40C8E0),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
-    final pct = (p.todayWaterMl / p.waterGoalMl).clamp(0.0, 1.0);
+    final pct = p.waterGoalMl > 0 ? (p.todayWaterMl / p.waterGoalMl).clamp(0.0, 1.0) : 0.0;
     final remaining = (p.waterGoalMl - p.todayWaterMl).clamp(0, 99999);
     final goalMet = p.todayWaterMl >= p.waterGoalMl;
 

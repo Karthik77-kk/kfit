@@ -159,7 +159,7 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
   if (scales.length >= 2) {
     final latest = scales.last;
     final prev = scales[scales.length - 2];
-    if (latest.visceralFatIndex >= 13) {
+    if (latest.visceralFatIndex > 0 && latest.visceralFatIndex >= 13) {
       out.add(Insight(
         emoji: '🫀',
         title: 'Visceral fat is high (${latest.visceralFatIndex})',
