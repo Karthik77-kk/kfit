@@ -52,10 +52,11 @@ Keep branches focused. If adding 3 features, use 3 branches.
 ### Rule 4 — Bump build number before merging
 Every merge to `master` that ships a new APK must bump `pubspec.yaml` version:
 - `versionName` (e.g. `1.0.0`) — bump for significant releases
-- `versionCode` (`+N`) — bump on EVERY merge
-- **New features** → increment build integer: `68` → `69`
-- **Fixes/patches to an existing build** → add sub-version: `68` → `68.1`, `68.1` → `68.2`
-Current build: **72**. Next feature build: **73**. Next patch build: **72.1**.
+- `versionCode` (`+N`) — bump on EVERY merge — **MUST be a whole integer** (Android requires it)
+- **New features** → next integer: `76` → `77`
+- **Patches/fixes** → also next integer: `77` → `78` (do NOT use `77.1` — decimals break Android versionCode)
+- The branch name and commit message can say "Build 77.1" for human readability, but pubspec must have `+78`
+Current build: **77**. Next build: **78**.
 
 ### Rule 5 — Commit message format
 ```
