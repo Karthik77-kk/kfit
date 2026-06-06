@@ -111,7 +111,7 @@ jobs:
               '    }',
               '',
               '    defaultConfig {',
-              '        applicationId "com.karthik.fitness"',
+              '        applicationId "com.example.karthik_fitness"',
               '        minSdk flutter.minSdkVersion',
               '        targetSdk flutter.targetSdkVersion',
               '        versionCode flutter.versionCode',
