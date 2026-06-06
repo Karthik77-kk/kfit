@@ -97,7 +97,8 @@ class _StatsScreenState extends State<StatsScreen>
     final p = context.read<FitnessProvider>();
 
     final weight = double.tryParse(_weightCtrl.text.trim());
-    final steps  = int.tryParse(_stepsCtrl.text.trim()) ?? 0;
+    final stepsText = _stepsCtrl.text.trim();
+    final stepsRaw  = stepsText.isEmpty ? 0 : int.tryParse(stepsText);
     final height = double.tryParse(_heightCtrl.text.trim());
     final age    = int.tryParse(_ageCtrl.text.trim());
     final goalWt = double.tryParse(_goalWtCtrl.text.trim());
@@ -107,6 +108,11 @@ class _StatsScreenState extends State<StatsScreen>
       _showError('Enter a valid weight (10–500 kg)');
       return;
     }
+    if (stepsRaw == null) {
+      _showError('Steps must be a whole number (e.g. 6000)');
+      return;
+    }
+    final steps = stepsRaw;
 
     final futures = <Future>[];
     final skipped = <String>[];
@@ -433,7 +439,7 @@ class _StatsScreenState extends State<StatsScreen>
     final change = p.weightChangeKg;
     if (change == null) return 'Log daily to track';
     final sign = change > 0 ? '+' : '';
-    return '$sign${change.toStringAsFixed(1)} kg this month';
+    return '$sign${change.toStringAsFixed(1)} kg last 30 days';
   }
 }
 

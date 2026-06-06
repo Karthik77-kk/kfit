@@ -160,9 +160,11 @@ class OnDeviceAiService extends ChangeNotifier {
           })
           .install();
 
-      _installed = true;
+      // Persist FIRST — if the app crashes between write and flag, the flag
+      // stays false and the download retries cleanly on next launch.
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefInstalledModel, _installedId);
+      _installed = true;
 
       await _loadModel();
     } catch (e) {
