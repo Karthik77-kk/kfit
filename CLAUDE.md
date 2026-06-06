@@ -127,6 +127,36 @@ In Android, these two fields serve completely different purposes:
 - Branch names and commit messages may use "Build 81.1" notation for human readability, but `pubspec.yaml` must always have `+82` (the next integer).
 - Lesson: Builds 72.1, 74.1, 74.4, 75.1 all shipped with duplicate versionCodes, causing "can't install" errors for users. Never again.
 
+### Rule 12 — Mandatory agent approval before merge to main
+**NO feature branch merges to main WITHOUT explicit approval from both Review Agent and Testing Agent.**
+
+This is a quality gate requirement:
+- **Review Agent**: Comprehensive code review (syntax, conventions, no breaks, security, design)
+- **Testing Agent**: Full test execution (unit tests, integration tests, edge cases, regressions)
+
+Both agents must explicitly approve (PASS verdict) before merge is allowed. This prevents bugs, regressions, and breaks from reaching production.
+
+**Merge workflow (MANDATORY):**
+1. Push feature branch to remote (Rule 8)
+2. Deploy Review Agent → comprehensive code audit → await PASS verdict
+3. Deploy Testing Agent → run full test suite → await PASS verdict
+4. **ONLY if both approve:** Merge to main via `git merge --no-ff`
+5. If either rejects: Fix issues, recommit, re-review, re-test until both PASS
+
+### Rule 13 — Agent approval signatures in commit messages
+When merging after agent approval, the merge commit message MUST include approval signatures:
+
+```
+Build N: description
+
+✅ Review Agent: PASS — [summary of code review findings]
+✅ Testing Agent: PASS — [summary of test results: X/X passing, 0 failures]
+
+Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+```
+
+This creates an audit trail showing quality gate approval history.
+
 ---
 
 ## Build & Run Commands
