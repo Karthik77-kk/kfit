@@ -19,7 +19,8 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = context.payload.pull_request;
+            // Handle both pull_request and issue_comment events
+            const pr = context.payload.pull_request || context.issue;
             if (!pr) {
               console.log('No PR found');
               return;
@@ -63,7 +64,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = context.payload.pull_request;
+            const pr = context.payload.pull_request || context.issue;
             if (!pr) return;
 
             console.log('✅ Both agents approved - enabling auto-merge');
@@ -86,7 +87,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = context.payload.pull_request;
+            const pr = context.payload.pull_request || context.issue;
             if (!pr) return;
 
             const codeReviewApproved = '${{ steps.check-approvals.outputs.code-review-approved }}' === 'true';
