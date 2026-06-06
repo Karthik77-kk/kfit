@@ -35,6 +35,36 @@ Personal Flutter fitness tracker for Karthik (Bangalore, India) focused on fat l
 
 ## ⚡ Development Workflow (MANDATORY)
 
+### Rule 0 — 🚫🚫🚫 UNBREAKABLE: NEVER DISABLE BRANCH PROTECTION 🚫🚫🚫
+**Branch protection MUST STAY ENABLED AT ALL TIMES. THIS IS ABSOLUTE. NO EXCEPTIONS.**
+
+- ❌ NEVER disable without explicit user permission
+- ❌ NEVER bypass it
+- ❌ NEVER work around it
+- ❌ NEVER use admin privileges to force merge
+
+**IF PROTECTION BLOCKS A PUSH:**
+1. Create feature branch: `feature/build-X-*` or `fix/build-X-*`
+2. Push to feature branch
+3. Let dual-agent system approve and auto-merge
+4. NEVER disable protection as a workaround
+
+**TO DISABLE PROTECTION (REQUIRES EXPLICIT USER PERMISSION):**
+
+Claude may ONLY disable protection if user explicitly requests it. Process:
+1. User types: "disable branch protection" (explicit request)
+2. Claude responds: "⚠️ Are you sure? Disabling protection breaks the entire automation system. Type 'yes, disable it' to confirm."
+3. User confirms: "yes, disable it"
+4. ONLY THEN: Claude disables protection
+5. Claude immediately re-enables after task completes
+6. Claude logs the disable/enable in commit message
+
+**Why:** Branch protection IS the system. Disabling it breaks automation, enforcement, and trust. All changes go through feature branches and dual-approval. No shortcuts. Ever.
+
+**See:** [rule_never_disable_branch_protection.md](../memory/rule_never_disable_branch_protection.md)
+
+---
+
 ### Rule 1 — Never commit directly to `main`
 All changes go in a feature branch. `main` is protected — only merged via PR or fast-forward after full review.
 
