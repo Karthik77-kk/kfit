@@ -111,18 +111,20 @@ void main() {
       final ai = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('Hello, how are you?', p);
       expect(prompt, isNot(contains('EXTRA DATA')));
-      expect(prompt, contains('answer the user'));
+      expect(prompt, contains('Start your reply'));
     });
 
-    test('weight keyword → EXTRA DATA section appears before RULES', () async {
+    test('weight keyword → EXTRA DATA section appears before closing instruction', () async {
       final p = await _loaded();
       await p.logBodyEntry(weightKg: 80.0, steps: 0);
       final ai     = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('What is my weight trend?', p);
       expect(prompt, contains('EXTRA DATA'));
-      expect(prompt, contains('answer the user'));
-      // EXTRA DATA must appear before RULES
-      expect(prompt.indexOf('EXTRA DATA'), lessThan(prompt.indexOf('answer')));
+      expect(prompt, contains('Start your reply immediately'));
+      // EXTRA DATA must appear before the closing "Start your reply" instruction
+      final extraIdx   = prompt.indexOf('EXTRA DATA');
+      final closingIdx = prompt.lastIndexOf('Start your reply immediately');
+      expect(extraIdx, lessThan(closingIdx));
     });
 
     test('food keyword → EXTRA DATA section appears before RULES', () async {
@@ -152,18 +154,18 @@ void main() {
       final p  = await _loaded();
       final ai = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('Random question', p);
-      expect(prompt, contains('answer the user'));
+      expect(prompt, contains('Start your reply'));
       expect(prompt, contains('Profile:'));
-      expect(prompt, contains('Today('));
+      expect(prompt, contains('Today ('));
     });
 
-    test('prompt does not duplicate RULES when context injected', () async {
+    test('prompt does not duplicate closing instruction when context injected', () async {
       final p = await _loaded();
       await p.logBodyEntry(weightKg: 79.0, steps: 0);
       final ai     = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('How am I losing weight?', p);
-      // RULES: should appear exactly once
-      final count = 'Now answer'.allMatches(prompt).length;
+      // Closing instruction should appear exactly once
+      final count = 'Start your reply immediately'.allMatches(prompt).length;
       expect(count, 1);
     });
   });
@@ -744,7 +746,7 @@ void main() {
       final ai = OnDeviceAiService();
       final s  = ai.buildSystemPromptForTest(p);
       expect(s, isNotEmpty);
-      expect(s, contains('answer the user'));
+      expect(s, contains('Start your reply'));
     });
 
     test('buildRichPromptForTest returns non-empty string', () async {

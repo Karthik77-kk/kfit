@@ -40,32 +40,40 @@ class _ChatSessionsScreenState extends State<ChatSessionsScreen> {
     _load(); // refresh after returning
   }
 
-  Future<void> _deleteSession(ChatSession session) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: _kCard,
-        title: const Text('Delete Chat?'),
-        content: Text(
-          'Delete "${session.title}"? This cannot be undone.',
-          style: const TextStyle(color: _kSecond),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: _kSecond)),
+  /// Called by swipe-to-dismiss. Removes from UI immediately and shows an Undo
+  /// SnackBar. Only writes to storage after the SnackBar times out (4s).
+  void _deleteSession(ChatSession session) {
+    // Remove from in-memory list right away for instant UI response
+    setState(() => _sessions.removeWhere((s) => s.id == session.id));
+
+    bool undone = false;
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(
+          content: Text('Chat "${session.title}" deleted'),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: _kGreen,
+            onPressed: () {
+              undone = true;
+              // Re-insert the session and re-sort by updatedAt
+              setState(() {
+                _sessions.add(session);
+                _sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+              });
+            },
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Color(0xFFFF453A))),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await ChatSessionService.deleteSession(session.id);
-      _load();
-    }
+        ))
+        .closed
+        .then((_) {
+          // SnackBar dismissed (timeout or tapped outside) — permanently delete
+          // only if the user did NOT tap Undo
+          if (!undone) {
+            ChatSessionService.deleteSession(session.id);
+          }
+        });
   }
 
   @override

@@ -104,6 +104,7 @@ class FitnessProvider extends ChangeNotifier {
   int _todayWaterMl = 0;
   SupplementStatus _supplements = SupplementStatus();
   List<WorkoutLog> _workoutHistory = [];
+  Map<String, double>? _oneRmCache; // invalidated on logWorkout / loadData
   List<BodyEntry> _bodyHistory = [];
   List<SmartScaleEntry> _scaleHistory = [];
   List<MeasurementEntry> _measurementHistory = [];
@@ -129,6 +130,31 @@ class FitnessProvider extends ChangeNotifier {
   int get todayWaterMl => _todayWaterMl;
   SupplementStatus get supplements => _supplements;
   List<WorkoutLog> get workoutHistory => _workoutHistory;
+
+  /// Estimated 1-rep maxes for the 5 major lifts.
+  /// Cached — invalidated when workout history changes.
+  static const _bigLifts = ['Deadlift', 'Squats', 'Bench Press', 'Overhead Press', 'Barbell Rows'];
+
+  Map<String, double> get topLiftsOneRm => _oneRmCache ??= _computeOneRm();
+
+  Map<String, double> _computeOneRm() {
+    final result = <String, double>{};
+    for (final lift in _bigLifts) {
+      double best = 0;
+      for (final w in _workoutHistory) {
+        for (final ex in w.exercises) {
+          if (ex.name == lift) {
+            for (final s in ex.sets) {
+              final est = s.reps == 1 ? s.weight : s.weight * (1 + s.reps / 30.0);
+              if (est > best) best = est;
+            }
+          }
+        }
+      }
+      if (best > 0) result[lift] = best;
+    }
+    return result;
+  }
   List<BodyEntry> get bodyHistory => _bodyHistory;
   List<SmartScaleEntry> get scaleHistory => _scaleHistory;
   SmartScaleEntry? get latestScaleEntry =>
@@ -1235,6 +1261,7 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   Future<void> loadData() async {
+    _oneRmCache = null; // invalidate on every reload (import, app start, etc.)
     final prefs = await SharedPreferences.getInstance();
 
     // User profile
@@ -1579,6 +1606,7 @@ class FitnessProvider extends ChangeNotifier {
     _workoutHistory.add(workout);
     final cutoff = DateTime.now().subtract(const Duration(days: 90));
     _workoutHistory.removeWhere((w) => w.date.isBefore(cutoff));
+    _oneRmCache = null; // invalidate cached 1RM estimates
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(

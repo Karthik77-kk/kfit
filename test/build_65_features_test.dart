@@ -474,21 +474,21 @@ group('AI system prompt history coverage', () {
   test('prompt contains FOOD section header', () async {
     final p = await _loaded();
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('FOOD'), isTrue); // compact: "FOOD (3d):"
+    expect(prompt.contains('food'), isTrue); // compact: "FOOD (3d):"
   });
 
   test('prompt contains WEIGHT section', () async {
     final p = await _loaded();
     await p.logBodyEntry(weightKg: 75.0, steps: 0);
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('WEIGHT'), isTrue); // compact: "WEIGHT:"
+    expect(prompt.contains('Weight log'), isTrue); // compact: "WEIGHT:"
   });
 
   test('prompt contains BODY section when scale logged', () async {
     final p = await _loaded();
     await p.logScaleEntry(_scale(weight: 77.0));
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('BODY'), isTrue); // compact: "BODY:" for composition
+    expect(prompt.contains('Body:'), isTrue); // compact: "BODY:" for composition
   });
 
   test('prompt contains HABITS section', () async {
@@ -500,7 +500,7 @@ group('AI system prompt history coverage', () {
   test('prompt contains WORKOUTS section header', () async {
     final p = await _loaded();
     final prompt = OnDeviceAiService().buildSystemPromptForTest(p);
-    expect(prompt.contains('WORKOUTS'), isTrue); // compact: "WORKOUTS (5):"
+    expect(prompt.contains('workouts'), isTrue); // compact: "WORKOUTS (5):"
   });
 
   test('prompt contains today food calories when food logged', () async {
