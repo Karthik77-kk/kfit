@@ -259,7 +259,7 @@ class _WaterButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
           color: color.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withOpacity(0.5), width: 1.5),
         ),
         child: Column(

@@ -162,7 +162,7 @@ class _MorningBriefSection extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(
             color: _kGreen.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _kGreen.withValues(alpha: 0.25)),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -179,7 +179,7 @@ class _MorningBriefSection extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(
             color: _kCard,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -203,7 +203,7 @@ class _MorningBriefSection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
               color: _kCard,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -343,7 +343,7 @@ class _NightCheckSection extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: accentColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: accentColor.withValues(alpha: 0.22)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -443,7 +443,7 @@ class _ReminderCard extends StatelessWidget {
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
               color: r.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Text(r.emoji, style: const TextStyle(fontSize: 16)),
           ),
@@ -523,7 +523,7 @@ class _NotificationTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _kCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: accent.withValues(alpha: 0.2)),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -531,7 +531,7 @@ class _NotificationTile extends StatelessWidget {
           padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
             color: accent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Text(n.emoji, style: const TextStyle(fontSize: 18)),
         ),

@@ -32,14 +32,14 @@ void main() {
     expect(find.byType(MaterialApp), findsOneWidget);
   });
 
-  testWidgets('Bottom nav has 6 tabs', (tester) async {
+  testWidgets('Bottom nav has 5 tabs (Stats merged into Body)', (tester) async {
     await tester.pumpWidget(_appWithProvider());
     await tester.pumpAndSettle();
     expect(find.byType(BottomNavigationBar), findsOneWidget);
 
     final nav = tester.widget<BottomNavigationBar>(
         find.byType(BottomNavigationBar));
-    expect(nav.items.length, 6);
+    expect(nav.items.length, 5);
   });
 
   testWidgets('Bottom nav labels are correct', (tester) async {
@@ -49,9 +49,9 @@ void main() {
     expect(find.text('Summary'),   findsWidgets);
     expect(find.text('Nutrition'), findsWidgets);
     expect(find.text('Workout'),   findsWidgets);
-    expect(find.text('Body'),      findsWidgets);
-    expect(find.text('Stats'),     findsWidgets);
+    expect(find.text('Body'),      findsWidgets);   // merged tab
     expect(find.text('History'),   findsWidgets);
+    // Stats is now a sub-tab inside Body, not a bottom nav tab
   });
 
   testWidgets('Tapping Nutrition tab navigates to nutrition screen',

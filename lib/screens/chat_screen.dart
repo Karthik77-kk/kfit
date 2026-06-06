@@ -389,7 +389,7 @@ class _ErrorView extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: _kCard,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Text(errorMessage,
                   style: const TextStyle(
@@ -402,7 +402,7 @@ class _ErrorView extends StatelessWidget {
                 backgroundColor: _kGreen,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: const Text('Retry'),
             ),
@@ -578,8 +578,8 @@ class _BubbleTile extends StatelessWidget {
                 borderRadius: BorderRadius.only(
                   topLeft:     Radius.circular(isUser ? 16 : 4),
                   topRight:    Radius.circular(isUser ? 4 : 16),
-                  bottomLeft:  const Radius.circular(16),
-                  bottomRight: const Radius.circular(16),
+                  bottomLeft:  const Radius.circular(14),
+                  bottomRight: const Radius.circular(14),
                 ),
                 border: Border.all(
                   color: isUser
@@ -747,7 +747,7 @@ class _InputBar extends StatelessWidget {
                     foregroundColor: Colors.black,
                     minimumSize:     const Size(40, 40),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
         ),
@@ -919,7 +919,7 @@ class _NutritionLookupSheetState extends State<_NutritionLookupSheet> {
                     filled: true,
                     fillColor: Colors.black.withValues(alpha: 0.4),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
@@ -935,7 +935,7 @@ class _NutritionLookupSheetState extends State<_NutritionLookupSheet> {
                   backgroundColor: _kGreen,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 14),
                 ),
@@ -1027,7 +1027,7 @@ class _NutritionLookupSheetState extends State<_NutritionLookupSheet> {
                                     foregroundColor: _kGreen,
                                     shape: RoundedRectangleBorder(
                                         borderRadius:
-                                            BorderRadius.circular(10)),
+                                            BorderRadius.circular(14)),
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 12, vertical: 6),
                                     minimumSize: Size.zero,

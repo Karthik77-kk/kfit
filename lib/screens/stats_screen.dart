@@ -13,12 +13,16 @@ const _kCard   = Color(0xFF1C1C1E);
 const _kSecond = Color(0xFF8E8E93);
 
 class StatsScreen extends StatefulWidget {
-  const StatsScreen({super.key});
+  final bool embedded;
+  const StatsScreen({super.key, this.embedded = false});
   @override
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends State<StatsScreen> {
+class _StatsScreenState extends State<StatsScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _weightCtrl  = TextEditingController();
   final _stepsCtrl   = TextEditingController();
   final _heightCtrl  = TextEditingController();
@@ -160,21 +164,21 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required for AutomaticKeepAliveClientMixin
     final p      = context.watch<FitnessProvider>();
     final recent = p.getRecentBodyEntries(days: 30);
     final bottom = MediaQuery.of(context).padding.bottom;
 
-    return GestureDetector(
+    final scrollView = GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: CustomScrollView(
-          slivers: [
+      child: CustomScrollView(
+        slivers: [
+          if (!widget.embedded)
             SliverAppBar(
               pinned: true,
               backgroundColor: Colors.black,
               surfaceTintColor: Colors.transparent,
-              title: const Text('Stats & Body'),
+              title: const Text('Stats'),
             ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottom),
@@ -419,8 +423,10 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
           ],
         ),
-      ),
     );
+
+    if (widget.embedded) return scrollView;
+    return Scaffold(backgroundColor: Colors.black, body: scrollView);
   }
 
   String _weightChangeLine(FitnessProvider p) {
@@ -547,7 +553,7 @@ class _AiPredictionsCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: calColor.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: calColor.withOpacity(0.25)),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -688,7 +694,7 @@ class _BmrTdeeCard extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: (calibrated ? _kGreen : _kOrange).withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
@@ -797,7 +803,7 @@ class _BodyCompositionCard extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: traj.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: traj.color.withOpacity(0.3)),
                 ),
                 child: Row(children: [
@@ -831,7 +837,7 @@ class _BcChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
@@ -860,7 +866,7 @@ class _MetaChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
@@ -922,7 +928,7 @@ class _GoalCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0),
               backgroundColor: color.withOpacity(0.15),
@@ -1002,7 +1008,7 @@ class _OneRMSection extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: _kCard,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: const Column(children: [
           Text('1RM Estimator', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
@@ -1019,7 +1025,7 @@ class _OneRMSection extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _kCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1058,7 +1064,7 @@ class _OneRMSection extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: _kGreen.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: _kGreen.withOpacity(0.3)),
                   ),
                   child: Text(
@@ -1100,7 +1106,7 @@ class _Card extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: _kCard, borderRadius: BorderRadius.circular(16),
+      color: _kCard, borderRadius: BorderRadius.circular(14),
     ),
     child: child,
   );
@@ -1216,7 +1222,7 @@ class _SexToggleRow extends StatelessWidget {
         // Toggle between Male / Female
         Container(
           decoration: BoxDecoration(
-            color: _kCard, borderRadius: BorderRadius.circular(10)),
+            color: _kCard, borderRadius: BorderRadius.circular(14)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             _SexBtn(label: '♂ Male',   selected: isMale,  onTap: () => context.read<FitnessProvider>().saveSex(true)),
             _SexBtn(label: '♀ Female', selected: !isMale, onTap: () => context.read<FitnessProvider>().saveSex(false)),
@@ -1240,7 +1246,7 @@ class _SexBtn extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: selected ? const Color(0xFF30D158) : Colors.transparent,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(label,
           style: TextStyle(
@@ -1261,7 +1267,7 @@ class _SaveBtn extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: _kGreen, foregroundColor: Colors.black,
         padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         elevation: 0,
       ),
       child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -1278,7 +1284,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+    decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(icon, color: color, size: 20),
       const SizedBox(height: 8),
@@ -1393,8 +1399,8 @@ class _BmiBar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: segs[i],
                 borderRadius: BorderRadius.horizontal(
-                  left: i == 0 ? const Radius.circular(9) : Radius.zero,
-                  right: i == 3 ? const Radius.circular(9) : Radius.zero,
+                  left: i == 0 ? const Radius.circular(8) : Radius.zero,
+                  right: i == 3 ? const Radius.circular(8) : Radius.zero,
                 ),
               ),
             )),
@@ -1407,7 +1413,7 @@ class _BmiBar extends StatelessWidget {
               width: 12, height: 16,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(8),
                 boxShadow: [BoxShadow(
                   color: Colors.black.withOpacity(0.5),
                   blurRadius: 4, offset: const Offset(0, 2),

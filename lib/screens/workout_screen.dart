@@ -149,7 +149,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF30D158),
               foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             onPressed: () {
               final sets = int.tryParse(setsCtrl.text) ?? 3;
@@ -418,14 +418,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       final alreadyAdded = _exercises.any((e) => e.name == name);
                       return InkWell(
                         onTap: () => _addExercise(name),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                           decoration: BoxDecoration(
                             color: alreadyAdded
                                 ? const Color(0xFF30D158).withOpacity(0.12)
                                 : const Color(0xFF1C1C1E),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: alreadyAdded
                                   ? const Color(0xFF30D158).withOpacity(0.4)
@@ -492,7 +492,7 @@ class _TodayWorkoutSummary extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
       ),
       child: Column(

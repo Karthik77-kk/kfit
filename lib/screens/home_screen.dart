@@ -28,6 +28,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Timer _refreshTimer;
+  bool _showEmptySections = false;
 
   @override
   void initState() {
@@ -41,6 +42,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _refreshTimer.cancel();
     super.dispose();
+  }
+
+  int _hiddenCount(FitnessProvider p) {
+    int n = 0;
+    if (p.weeklyAvgCalories == 0) n++; // 7-day chart
+    if (p.todayFood.isEmpty) n++;       // macro donut
+    return n;
   }
 
   String _greeting() {
@@ -141,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                         ),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
                       ),
                       child: Row(children: [
@@ -149,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.all(9),
                           decoration: BoxDecoration(
                             color: _kGreen.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(11),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Text('🤖', style: TextStyle(fontSize: 22)),
                         ),
@@ -196,17 +204,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   const _MacroRow(),
                   const SizedBox(height: 20),
 
-                  // ── Weekly calorie bar chart ──────────────────────────────
-                  const _SectionHdr('7-DAY CALORIES'),
-                  const SizedBox(height: 10),
-                  _WeeklyCalorieChart(provider: p),
-                  const SizedBox(height: 20),
+                  // ── Weekly calorie bar chart (hidden when no data logged yet) ──
+                  if (_showEmptySections || p.weeklyAvgCalories > 0) ...[
+                    const _SectionHdr('7-DAY CALORIES'),
+                    const SizedBox(height: 10),
+                    _WeeklyCalorieChart(provider: p),
+                    const SizedBox(height: 20),
+                  ],
 
-                  // ── Macro donut ───────────────────────────────────────────
-                  const _SectionHdr('TODAY\'S MACROS'),
-                  const SizedBox(height: 10),
-                  _MacroDonutCard(provider: p),
-                  const SizedBox(height: 20),
+                  // ── Macro donut (hidden when no food logged today) ────────
+                  if (_showEmptySections || p.todayFood.isNotEmpty) ...[
+                    const _SectionHdr('TODAY\'S MACROS'),
+                    const SizedBox(height: 10),
+                    _MacroDonutCard(provider: p),
+                    const SizedBox(height: 20),
+                  ],
 
                   // ── Burn breakdown ────────────────────────────────────────
                   const _SectionHdr('BURN BREAKDOWN'),
@@ -248,12 +260,63 @@ class _HomeScreenState extends State<HomeScreen> {
                   const _SectionHdr('LAST 7 DAYS'),
                   const SizedBox(height: 10),
                   _WeeklyReportCard(provider: p),
+                  const SizedBox(height: 20),
+
+                  // ── Progressive-disclosure toggle ─────────────────────────
+                  if (!_showEmptySections && _hiddenCount(p) > 0)
+                    _ShowMoreSections(
+                      count: _hiddenCount(p),
+                      onTap: () => setState(() => _showEmptySections = true),
+                    ),
+                  if (_showEmptySections && _hiddenCount(p) > 0)
+                    _ShowMoreSections(
+                      count: 0,
+                      onTap: () => setState(() => _showEmptySections = false),
+                    ),
                   const SizedBox(height: 8),
                 ]),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Show-more toggle ─────────────────────────────────────────────────────────
+class _ShowMoreSections extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+  const _ShowMoreSections({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isCollapsed = count > 0;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF38383A)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(
+            isCollapsed ? Icons.expand_more_rounded : Icons.expand_less_rounded,
+            color: const Color(0xFF8E8E93),
+            size: 18,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isCollapsed
+                ? '$count section${count == 1 ? '' : 's'} hidden — no data yet'
+                : 'Collapse empty sections',
+            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+          ),
+        ]),
       ),
     );
   }
@@ -361,7 +424,7 @@ class _ActivityRingsCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(20)),
       child: Row(children: [
         SizedBox(
           width: 110, height: 110,
@@ -410,7 +473,7 @@ class _RingRow extends StatelessWidget {
             style: TextStyle(color: displayColor, fontSize: 11, fontWeight: FontWeight.w600)),
       ]),
       const SizedBox(height: 4),
-      ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(
+      ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(
         value: isOver ? 1.0 : progress,
         backgroundColor: color.withOpacity(0.15),
         valueColor: AlwaysStoppedAnimation<Color>(displayColor),
@@ -643,7 +706,7 @@ class _MacroRow extends StatelessWidget {
     final proteinGoal = p.proteinGoal;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
           Expanded(child: _MacroChip(
@@ -689,7 +752,7 @@ class _MacroChip extends StatelessWidget {
       Text(goal, style: const TextStyle(color: _kSecond, fontSize: 10)),
       const SizedBox(height: 6),
       ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
         child: LinearProgressIndicator(
           value: progress,
           backgroundColor: const Color(0xFF2C2C2E),
@@ -709,7 +772,7 @@ class _BurnBreakdownTile extends StatelessWidget {
     final p = context.watch<FitnessProvider>();
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -775,7 +838,7 @@ class _BurnBreakdownTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFF2C2C2E),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -803,7 +866,7 @@ class _BurnChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(children: [
@@ -860,7 +923,7 @@ class _MiniRingCard extends StatelessWidget {
     final progress = (current / goal).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(icon, style: const TextStyle(fontSize: 18)),
@@ -872,7 +935,7 @@ class _MiniRingCard extends StatelessWidget {
         Text(goalText, style: const TextStyle(color: _kSecond, fontSize: 11)),
         const SizedBox(height: 8),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
             value: progress,
             backgroundColor: const Color(0xFF2C2C2E),
@@ -897,7 +960,7 @@ class _BodyStatsTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 0),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           const Text('Body Stats', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
@@ -940,7 +1003,7 @@ class _StatChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(emoji, style: const TextStyle(fontSize: 14)),
@@ -973,7 +1036,7 @@ class _WeightPredictionCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(20)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           const Text('🤖', style: TextStyle(fontSize: 18)),
@@ -1027,7 +1090,7 @@ class _WeightPredictionCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: _kGreen.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(children: [
               const Text('🎯', style: TextStyle(fontSize: 14)),
@@ -1146,7 +1209,7 @@ class _WorkoutCard extends StatelessWidget {
     if (workouts.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
           Container(padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: _kGreen.withOpacity(0.1), shape: BoxShape.circle),
@@ -1169,7 +1232,7 @@ class _WorkoutCard extends StatelessWidget {
         : '$totalExercises exercises across ${workouts.length} sessions';
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _kGreen.withOpacity(0.3))),
       child: Row(children: [
         const Icon(Icons.check_circle_rounded, color: _kGreen, size: 26),
@@ -1196,7 +1259,7 @@ class _SupplementsCard extends StatelessWidget {
     final done = items.where((e) => e.$2).length;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text('$done/${items.length} taken', style: const TextStyle(color: _kSecond, fontSize: 12)),
@@ -1211,7 +1274,7 @@ class _SupplementsCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
               color: item.$2 ? _kGreen.withOpacity(0.15) : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: item.$2 ? _kGreen.withOpacity(0.4) : Colors.transparent),
             ),
             child: Column(children: [
@@ -1244,7 +1307,7 @@ class _WeeklyReportCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(20)),
       child: Column(children: [
         // ── 7-day workout grid (rolling, today = last) ──────────────────
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1338,7 +1401,7 @@ class _WeekStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(child: Container(
     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-    decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+    decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(14)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (icon != null) ...[Icon(icon, color: color, size: 14), const SizedBox(height: 4)],
       Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
@@ -1380,7 +1443,7 @@ class _InsightCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: tip.accent.withOpacity(rank == 0 ? 0.10 : 0.06),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
             color: tip.accent.withOpacity(rank == 0 ? 0.3 : 0.18), width: 1),
       ),
@@ -1389,7 +1452,7 @@ class _InsightCard extends StatelessWidget {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: tip.accent.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Text(tip.emoji, style: const TextStyle(fontSize: 18)),
         ),
@@ -1429,7 +1492,7 @@ class _WeeklyCalorieChart extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
       decoration: BoxDecoration(
         color: _kCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
       height: 190,
       child: BarChart(
@@ -1510,7 +1573,7 @@ class _WeeklyCalorieChart extends StatelessWidget {
                   toY: cal,
                   color: barColor,
                   width: 22,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                 ),
               ],
             );
@@ -1554,7 +1617,7 @@ class _MacroDonutCard extends StatelessWidget {
     if (total < 1) {
       return Container(
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
         child: const Center(
           child: Text('Log food to see macro breakdown',
               style: TextStyle(color: _kSecond, fontSize: 13)),
@@ -1585,7 +1648,7 @@ class _MacroDonutCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
           SizedBox(
@@ -1698,7 +1761,7 @@ class _GettingStartedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const steps = [
-      ('⚖️', 'Log your weight',    'Stats tab → Log Today'),
+      ('⚖️', 'Log your weight',    'Body tab → Stats → Log Today'),
       ('🍽️', 'Log your first meal', 'Nutrition tab → + Add Food'),
       ('💪', 'Log a workout',       'Workout tab → pick an exercise'),
     ];
@@ -1706,7 +1769,7 @@ class _GettingStartedCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _kCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
