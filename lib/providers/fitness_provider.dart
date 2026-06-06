@@ -12,6 +12,7 @@ import 'package:home_widget/home_widget.dart';
 import '../models/models.dart';
 import '../services/smart_insight_engine.dart' show topInsight, topInsights;
 import '../services/notification_center.dart';
+import '../services/chat_session_service.dart';
 
 class FitnessProvider extends ChangeNotifier {
   // ── Daily targets (defaults — overridden by user settings) ────────────────
@@ -1410,6 +1411,9 @@ class FitnessProvider extends ChangeNotifier {
     // These keys accumulate indefinitely otherwise, bloating storage and exports.
     _purgeStaleDailyKeys(prefs);
 
+    // Issue #14: Prune chat sessions older than 30 days on app startup
+    await ChatSessionService.pruneOldSessions();
+
     notifyListeners();
     _updateWidget();
 
@@ -1928,7 +1932,8 @@ class FitnessProvider extends ChangeNotifier {
   /// walked before midnight are preserved), then calls loadData().
   void _startDayResetTimer() {
     _dayResetTimer?.cancel();
-    _dayResetTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
+    // Issue #13: Change from 1-minute to 1-hour polling to reduce battery drain
+    _dayResetTimer = Timer.periodic(const Duration(hours: 1), (_) async {
       if (_loadedForDate.isNotEmpty && _loadedForDate != _todayKey) {
         // Before reloading, anchor the step baseline at the midnight crossover.
         // This ensures steps walked before first app-open of the new day are kept.

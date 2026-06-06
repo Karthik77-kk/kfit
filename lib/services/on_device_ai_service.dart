@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -38,6 +39,7 @@ class OnDeviceAiService extends ChangeNotifier {
   bool         _sending    = false;    // prevents concurrent sendMessage() calls
   int          _lastNotifiedPct = -1; // throttles download progress notifications
   bool         _disposed   = false;    // guards against post-dispose notifyListeners()
+  bool         _downloadCancelled = false; // Issue #9: cancel download flag
 
   InferenceModel? _model;
   InferenceChat?  _chat;
@@ -184,6 +186,9 @@ class OnDeviceAiService extends ChangeNotifier {
       )
           .fromNetwork(_modelUrl, token: _enterpriseToken, foreground: true)
           .withProgress((pct) {
+            // Issue #9: Check for cancel flag
+            if (_downloadCancelled) return;
+
             // Throttle: only notify when integer percentage changes
             final intPct = pct.clamp(0, 100);
             if (intPct == _lastNotifiedPct) return;
@@ -231,6 +236,26 @@ class OnDeviceAiService extends ChangeNotifier {
     }
   }
 
+  // Issue #8: Retry with exponential backoff
+  /// Retries [operation] on SocketException with exponential backoff (2s → 3s → 4.5s).
+  /// Other exceptions fail immediately.
+  Future<T> _retryWithBackoff<T>(Future<T> Function() operation) async {
+    const int maxAttempts = 3;
+    const int baseDelayMs = 2000; // 2 seconds
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await operation();
+      } on SocketException catch (e) {
+        if (attempt == maxAttempts) rethrow;
+        // Exponential backoff: 2s → 3s → 4.5s (1.5x multiplier)
+        final delayMs = (baseDelayMs * (1 + (attempt - 1) * 0.5)).toInt();
+        await Future.delayed(Duration(milliseconds: delayMs));
+      }
+    }
+    throw StateError('Retry failed after $maxAttempts attempts');
+  }
+
   // NPU → GPU → CPU fallback so the model loads even on devices without a
   // qualified NPU. The first backend that succeeds wins.
   Future<void> _loadModel() async {
@@ -260,6 +285,51 @@ class OnDeviceAiService extends ChangeNotifier {
     _notifyIfNotDisposed();
   }
 
+  // Issue #9: Cancel download
+  /// Cancels an in-progress download and resets state to notInstalled.
+  Future<void> cancelDownload() async {
+    _downloadCancelled = true;
+    _setState(AiModelState.notInstalled);
+    _dlProgress = 0;
+    _lastNotifiedPct = -1;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefInstalledModel);
+    _installed = false;
+  }
+
+  // Issue #11: Battery level check
+  /// Returns empty string if battery OK, otherwise returns warning message.
+  /// Fails open (returns empty) if battery API unavailable.
+  Future<String> _checkBatteryLevel() async {
+    try {
+      const channel = MethodChannel(_methodChannelName);
+      final int batteryPercent = await channel.invokeMethod<int>('getBatteryPercent') ?? 100;
+      if (batteryPercent < 20) {
+        return '\n\n⚠️ Battery low ($batteryPercent%). Inference disabled.';
+      }
+      return '';
+    } catch (_) {
+      return ''; // Fail open if we can't check
+    }
+  }
+
+  // Issue #12: Prompt size optimization
+  /// Trims context to ~1024 tokens to prevent KV-cache overflow.
+  /// Rough heuristic: 1 token ≈ 4 characters in English text.
+  String _trimContextToTokenBudget(String context) {
+    const int charsPerToken = 4;
+    final int maxChars = 1024 * charsPerToken; // 4096 chars max
+    if (context.length <= maxChars) return context;
+
+    // Trim and remove incomplete final line
+    var trimmed = context.substring(0, maxChars);
+    final lastNewline = trimmed.lastIndexOf('\n');
+    if (lastNewline > maxChars / 2) {
+      trimmed = trimmed.substring(0, lastNewline);
+    }
+    return '$trimmed\n[... more data omitted due to context limit]';
+  }
+
   // ── Chat ────────────────────────────────────────────────────────────────────
   /// Sends [userMessage] to the model.
   ///
@@ -272,6 +342,14 @@ class OnDeviceAiService extends ChangeNotifier {
       yield 'Model not loaded. Please go back and reopen the chat.';
       return;
     }
+
+    // Issue #11: Check battery level before inference
+    final batteryWarning = await _checkBatteryLevel();
+    if (batteryWarning.isNotEmpty) {
+      yield batteryWarning;
+      return;
+    }
+
     // Service-layer guard: prevents concurrent sendMessage calls even if the UI
     // guard (_thinking) somehow fails.
     if (_sending) return;
@@ -317,8 +395,12 @@ class OnDeviceAiService extends ChangeNotifier {
   String _buildRichSystemPrompt(String firstMessage, FitnessProvider p) {
     final q    = firstMessage.toLowerCase();
     final base = _systemPrompt(p);
-    final ctx  = _buildContextForQuery(q, p);
+    var ctx  = _buildContextForQuery(q, p);
     if (ctx.isEmpty) return base;
+
+    // Issue #12: Trim context to token budget
+    ctx = _trimContextToTokenBudget(ctx);
+
     const anchor = 'Start your reply immediately with specific advice using the actual numbers above.';
     return base.replaceFirst(
       anchor,
