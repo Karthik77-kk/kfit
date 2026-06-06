@@ -45,6 +45,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   String? _selectedCategory;
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  bool _isSaving = false; // guard against double-tap duplicate save
 
   @override
   void initState() {
@@ -210,12 +211,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _saveWorkout() async {
+    if (_isSaving) return; // prevent double-tap duplicate workout
     if (_exercises.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Add at least one exercise first')),
       );
       return;
     }
+    _isSaving = true;
+    try {
     final provider = context.read<FitnessProvider>();
     final workout = WorkoutLog(
       id: const Uuid().v4(),
@@ -238,6 +242,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         _searchCtrl.clear();
         _searchQuery = '';
       });
+    }
+    } finally {
+      _isSaving = false;
     }
   }
 

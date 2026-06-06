@@ -697,17 +697,20 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   int get workoutStreak {
+    // Build a Set of date strings first (O(n)) then check each day (O(1)) — was O(n²)
+    final doneKeys = <String>{};
+    for (final w in _workoutHistory) {
+      doneKeys.add('${w.date.year}-${w.date.month.toString().padLeft(2,'0')}-${w.date.day.toString().padLeft(2,'0')}');
+    }
     int streak = 0;
     DateTime check = DateTime.now();
     for (int i = 0; i < 60; i++) {
-      final hasWorkout = _workoutHistory.any((w) =>
-          w.date.year == check.year &&
-          w.date.month == check.month &&
-          w.date.day == check.day);
-      if (hasWorkout) {
+      final key = '${check.year}-${check.month.toString().padLeft(2,'0')}-${check.day.toString().padLeft(2,'0')}';
+      if (doneKeys.contains(key)) {
         streak++;
         check = check.subtract(const Duration(days: 1));
       } else if (i == 0) {
+        // today has no workout yet — still counting, try yesterday
         check = check.subtract(const Duration(days: 1));
       } else {
         break;
@@ -1295,52 +1298,64 @@ class FitnessProvider extends ChangeNotifier {
     _todayWaterMl = 0;
     _supplements = SupplementStatus();
 
-    // Food
-    final foodJson = prefs.getString('food_$_todayKey');
-    if (foodJson != null) {
-      final list = jsonDecode(foodJson) as List;
-      _todayFood = list.map((e) => FoodEntry.fromJson(e)).toList();
-    }
+    // Food — wrapped in try/catch: corrupt JSON must not crash loadData()
+    try {
+      final foodJson = prefs.getString('food_$_todayKey');
+      if (foodJson != null) {
+        final list = jsonDecode(foodJson) as List;
+        _todayFood = list.map((e) => FoodEntry.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) { _todayFood = []; }
 
     // Water
     _todayWaterMl = prefs.getInt('water_$_todayKey') ?? 0;
 
     // Supplements
-    final suppJson = prefs.getString('supp_$_todayKey');
-    if (suppJson != null) {
-      _supplements = SupplementStatus.fromJson(jsonDecode(suppJson));
-    }
+    try {
+      final suppJson = prefs.getString('supp_$_todayKey');
+      if (suppJson != null) {
+        _supplements = SupplementStatus.fromJson(jsonDecode(suppJson) as Map<String, dynamic>);
+      }
+    } catch (_) { _supplements = SupplementStatus(); }
 
     // Workouts
-    final workoutJson = prefs.getString('workouts');
-    if (workoutJson != null) {
-      final list = jsonDecode(workoutJson) as List;
-      _workoutHistory = list.map((e) => WorkoutLog.fromJson(e)).toList();
-    }
+    try {
+      final workoutJson = prefs.getString('workouts');
+      if (workoutJson != null) {
+        final list = jsonDecode(workoutJson) as List;
+        _workoutHistory = list.map((e) => WorkoutLog.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) { _workoutHistory = []; }
 
     // Body history
-    final bodyJson = prefs.getString('body_history');
-    if (bodyJson != null) {
-      final list = jsonDecode(bodyJson) as List;
-      _bodyHistory = list.map((e) => BodyEntry.fromJson(e)).toList();
-      _bodyHistory.sort((a, b) => a.date.compareTo(b.date));
-    }
+    try {
+      final bodyJson = prefs.getString('body_history');
+      if (bodyJson != null) {
+        final list = jsonDecode(bodyJson) as List;
+        _bodyHistory = list.map((e) => BodyEntry.fromJson(e as Map<String, dynamic>)).toList();
+        _bodyHistory.sort((a, b) => a.date.compareTo(b.date));
+      }
+    } catch (_) { _bodyHistory = []; }
 
     // Smart scale history
-    final scaleJson = prefs.getString('scale_history');
-    if (scaleJson != null) {
-      final list = jsonDecode(scaleJson) as List;
-      _scaleHistory = list.map((e) => SmartScaleEntry.fromJson(e)).toList();
-      _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
-    }
+    try {
+      final scaleJson = prefs.getString('scale_history');
+      if (scaleJson != null) {
+        final list = jsonDecode(scaleJson) as List;
+        _scaleHistory = list.map((e) => SmartScaleEntry.fromJson(e as Map<String, dynamic>)).toList();
+        _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
+      }
+    } catch (_) { _scaleHistory = []; }
 
     // Body measurements history
-    final measureJson = prefs.getString('measurements_history');
-    if (measureJson != null) {
-      final list = jsonDecode(measureJson) as List;
-      _measurementHistory = list.map((e) => MeasurementEntry.fromJson(e)).toList();
-      _measurementHistory.sort((a, b) => a.date.compareTo(b.date));
-    }
+    try {
+      final measureJson = prefs.getString('measurements_history');
+      if (measureJson != null) {
+        final list = jsonDecode(measureJson) as List;
+        _measurementHistory = list.map((e) => MeasurementEntry.fromJson(e as Map<String, dynamic>)).toList();
+        _measurementHistory.sort((a, b) => a.date.compareTo(b.date));
+      }
+    } catch (_) { _measurementHistory = []; }
 
     // Historical food, water, supplement for last 60 days
     // (60 matches the calorieStreak look-back window)
