@@ -315,6 +315,15 @@ jobs:
           path: build/app/outputs/flutter-apk/kfit.apk
           retention-days: 30
 
+      - name: Verify APK exists
+        run: |
+          if [ ! -f build/app/outputs/flutter-apk/kfit.apk ]; then
+            echo "ERROR: kfit.apk not found!"
+            ls -lh build/app/outputs/flutter-apk/
+            exit 1
+          fi
+          echo "✅ APK found: $(ls -lh build/app/outputs/flutter-apk/kfit.apk)"
+
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
@@ -329,8 +338,7 @@ jobs:
             3. Tap the downloaded file to install
 
             Requires Android 8.0+ · ~295 MB · Includes on-device Gemma 3 AI model
-          files: |
-            build/app/outputs/flutter-apk/kfit.apk
+          files: build/app/outputs/flutter-apk/kfit.apk
           make_latest: true
           draft: false
           prerelease: false
