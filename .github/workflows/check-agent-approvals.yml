@@ -1,0 +1,106 @@
+name: Check Agent Approvals
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  check-approvals:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR Comments
+        id: get-comments
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request || context.issue;
+            if (!pr) {
+              console.log('No PR found');
+              return;
+            }
+
+            // Get all comments on this PR
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+            });
+
+            console.log(`Found ${comments.length} comments`);
+
+            // Check for code review agent approval
+            let codeReviewApproved = false;
+            let testingApproved = false;
+
+            for (const comment of comments) {
+              console.log(`Comment by ${comment.user.login}: ${comment.body.substring(0, 100)}`);
+
+              if (comment.body.includes('✅ Code Review Agent: APPROVED') ||
+                  comment.body.includes('✅ APPROVED') && comment.user.login === 'github-actions') {
+                codeReviewApproved = true;
+                console.log('✅ Code review agent approval found');
+              }
+
+              if (comment.body.includes('✅ Testing Agent: VERIFIED') ||
+                  comment.body.includes('✅ VERIFIED') && comment.user.login === 'github-actions') {
+                testingApproved = true;
+                console.log('✅ Testing agent approval found');
+              }
+            }
+
+            core.setOutput('code-review-approved', codeReviewApproved);
+            core.setOutput('testing-approved', testingApproved);
+            core.setOutput('both-approved', codeReviewApproved && testingApproved);
+
+      - name: Update Status Check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const codeReviewApproved = '${{ steps.get-comments.outputs.code-review-approved }}' === 'true';
+            const testingApproved = '${{ steps.get-comments.outputs.testing-approved }}' === 'true';
+            const bothApproved = '${{ steps.get-comments.outputs.both-approved }}' === 'true';
+
+            const pr = context.payload.pull_request || context.issue;
+            if (!pr) {
+              console.log('No PR found');
+              return;
+            }
+
+            const state = bothApproved ? 'success' : 'pending';
+            const description = bothApproved
+              ? '✅ Both agents approved - ready to merge'
+              : `⏳ Waiting for approvals: Code Review ${codeReviewApproved ? '✅' : '⏳'} | Testing ${testingApproved ? '✅' : '⏳'}`;
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: pr.head.sha,
+              state: state,
+              description: description,
+              context: 'dual-agent-approval',
+            });
+
+            console.log(`Status set to: ${state}`);
+            console.log(`Description: ${description}`);
+
+      - name: Comment Status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const codeReviewApproved = '${{ steps.get-comments.outputs.code-review-approved }}' === 'true';
+            const testingApproved = '${{ steps.get-comments.outputs.testing-approved }}' === 'true';
+            const bothApproved = '${{ steps.get-comments.outputs.both-approved }}' === 'true';
+
+            const pr = context.payload.pull_request || context.issue;
+            if (!pr) return;
+
+            if (bothApproved) {
+              console.log('✅ Both agents have approved - merge is allowed');
+            } else {
+              console.log(`⏳ Waiting for approvals:`);
+              console.log(`  Code Review: ${codeReviewApproved ? '✅' : '⏳'}`);
+              console.log(`  Testing: ${testingApproved ? '✅' : '⏳'}`);
+            }
