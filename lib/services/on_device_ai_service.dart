@@ -67,7 +67,7 @@ class OnDeviceAiService extends ChangeNotifier {
 
     if (!_autoLoad) {
       _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
-      notifyListeners();
+      _setState(AiModelState.notInstalled);
       return;
     }
 
@@ -313,7 +313,8 @@ class OnDeviceAiService extends ChangeNotifier {
         final prot = ents.fold(0.0, (s, e) => s + e.protein).round();
         final items = ents.take(2).map((e) {
           final ml = mealAbbr[e.mealType.toString().split('.').last] ?? 'Other';
-          return '$ml:${e.name}(${e.calories.round()})';
+          final safeFoodName = _sanitizeInput(e.name);
+          return '$ml:$safeFoodName(${e.calories.round()})';
         }).join(' ');
         final extra = ents.length > 2 ? '+${ents.length - 2}more' : '';
         lines.add('${fd(day)}:${cal}kcal ${prot}g $items$extra');
@@ -327,12 +328,14 @@ class OnDeviceAiService extends ChangeNotifier {
       final last = all.take(5);
       if (last.isNotEmpty) {
         final lines = last.map((w) {
+          final safeWorkoutName = _sanitizeInput(w.name);
           final exs = w.exercises.map((ex) {
-            if (ex.sets.isEmpty) return ex.name;
+            final safeExName = _sanitizeInput(ex.name);
+            if (ex.sets.isEmpty) return safeExName;
             final best = ex.sets.reduce((a, b) => a.weight >= b.weight ? a : b);
-            return '${ex.name} ${best.weight.toStringAsFixed(0)}kg×${best.reps}';
+            return '$safeExName ${best.weight.toStringAsFixed(0)}kg×${best.reps}';
           }).join(', ');
-          return '${fd(w.date)}:${w.name}—$exs';
+          return '${fd(w.date)}:$safeWorkoutName—$exs';
         }).join('\n');
         parts.add('Workouts:\n$lines');
       }
@@ -399,6 +402,18 @@ class OnDeviceAiService extends ChangeNotifier {
         return query.contains(k); // fallback if regex construction fails
       }
     });
+  }
+
+  /// Sanitize user input to prevent prompt injection attacks.
+  /// Removes/escapes special markers and delimiters that could be used for jailbreaks.
+  static String _sanitizeInput(String input) {
+    return input
+        .replaceAll(RegExp(r'===+'), '==')  // Collapse markers like === or ====
+        .replaceAll(RegExp(r'\[SYSTEM:', caseSensitive: false), '[system:')
+        .replaceAll(RegExp(r'\[INSTRUCTIONS', caseSensitive: false), '[note')
+        .replaceAll(RegExp(r'Ignore all previous'), 'ignore prior')
+        .replaceAll('\n\n', '\n')  // Remove blank lines (common jailbreak separator)
+        .trim();
   }
 
   String _systemPrompt(FitnessProvider p) {
@@ -517,11 +532,12 @@ class OnDeviceAiService extends ChangeNotifier {
     if (wsLines.isNotEmpty) buf.writeln('Water & supplements: ${wsLines.join(' | ')}');
 
     final sex = p.isMale ? 'Male' : 'Female';
+    final safeName = _sanitizeInput(p.userName);
 
 // ── Prompt: rules-first, positive framing, no trailing fragments ──────────
-return '''You are ${p.userName}'s personal fitness AI coach. Give specific, data-driven advice using the numbers from the reference section below. Start your answer directly — cite ${p.userName}'s actual numbers. Keep it concise (2-4 sentences).
+return '''You are $safeName's personal fitness AI coach. Give specific, data-driven advice using the numbers from the reference section below. Start your answer directly — cite $safeName's actual numbers. Keep it concise (2-4 sentences).
 
-=== ${p.userName.toUpperCase()}'S REFERENCE DATA (reference only — use to personalise your advice) ===
+=== ${safeName.toUpperCase()}'S REFERENCE DATA (reference only — use to personalise your advice) ===
 Profile: ${p.age}y $sex ${p.heightCm.toInt()}cm | Goal weight: ${p.goalWeightKg.toStringAsFixed(1)}kg | Indian diet
 Today (${d(now)}): Calories ${p.todayCaloriesTotal.round()}/${p.calorieGoal}kcal | Protein ${p.todayProteinTotal.round()}/${p.proteinGoal}g | Water ${p.todayWaterMl}/${p.waterGoalMl}ml | Steps ${p.todaySteps}/${p.stepGoal} | Gym today: ${p.todayWorkout != null ? 'done' : 'not yet'}
 Weight journey: ${wt}kg → ${p.goalWeightKg.toStringAsFixed(1)}kg ($pct% done, ${kgLeft}kg remaining) | Weekly trend: $trend | ETA: $eta
