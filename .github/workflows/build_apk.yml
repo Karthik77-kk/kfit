@@ -20,8 +20,10 @@ jobs:
         id: ver
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//')
-          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
-          echo "label=v${VERSION}" >> $GITHUB_OUTPUT
+          # Convert 2.3.0+85 to v2.3.0-build-85 (+ causes GitHub CDN 404 errors)
+          TAG="v${VERSION%+*}-build-${VERSION#*+}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "label=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Set up Java
         uses: actions/setup-java@v4
