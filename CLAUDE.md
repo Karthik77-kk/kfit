@@ -130,23 +130,60 @@ git push origin --delete fix/build-N-description
    - Create feature branch: `feature/build-X-*` or `fix/build-X-*`
    - All changes ONLY via branches
 
-2. **Code Review Agent MUST approve before merge**
-   - Run: `/code-review` or `/review-branch`
-   - Wait for ✅ APPROVED
-   - Fix any issues, re-review
-   - **Cannot merge without approval**
+2. **Code Review Agent MUST approve before merge (Haiku model ONLY)**
+   - Model: `claude-haiku-4-5` (mandatory, fastest, sufficient for review)
+   - Effort: `medium` (3+4 angles, 6 candidates each)
+   - Coverage: **7-angle analysis**
+     1. **Correctness (3 angles)**: line-by-line bugs, removed guards, cross-file breakage
+     2. **Cleanup (3 angles)**: reuse, simplification, efficiency
+     3. **Altitude (1 angle)**: is fix deep or a bandaid?
+   - **Required checks**:
+     - ✅ No syntax errors, type violations, or compile breaks
+     - ✅ No logic bugs, off-by-one, null deref, missing await
+     - ✅ No removed safety guards or dropped error paths
+     - ✅ No breaking changes to call sites (cross-file tracer)
+     - ✅ No code duplication (reuse check)
+     - ✅ No unnecessary complexity
+     - ✅ Fix is correct, complete, no hidden bugs
+     - ✅ No unintended changes (files, whitespace, config)
+     - ✅ No regressions in adjacent code
+     - ✅ No edge case failures
+   - **Verdict format**: `✅ Code Review Agent: APPROVED — [3-5 specific findings or "clean"]`
+   - **Cannot merge without this approval**
 
-3. **Testing Agent MUST approve before merge**
-   - Run: `/verify` (flutter test + flutter analyze)
-   - All tests must PASS: ✅ 100%
-   - Zero errors, zero warnings
-   - **Cannot merge without approval**
+3. **Testing Agent MUST approve before merge (Haiku model ONLY)**
+   - Model: `claude-haiku-4-5` (mandatory, sufficient for CI/testing)
+   - Coverage: **Comprehensive test verification**
+     1. **Build verification**: `flutter build apk --release` succeeds
+     2. **Static analysis**: `flutter analyze` → zero errors, zero warnings
+     3. **Unit tests**: `flutter test` → 100% pass rate
+     4. **Test coverage**: all code paths tested (boundaries, zero, all branches)
+     5. **Edge cases**: null inputs, empty lists, concurrent access
+     6. **Regression checks**: existing tests still pass
+     7. **Integration checks**: all dependencies correct, no breaking changes
+     8. **Performance**: no new slow operations (network, I/O in hot paths)
+   - **Required checks**:
+     - ✅ All tests pass (0 failures)
+     - ✅ Zero build errors
+     - ✅ Zero warnings (info-level lints OK)
+     - ✅ Code coverage acceptable for changed code
+     - ✅ No regressions in other tests
+     - ✅ No new performance bottlenecks
+     - ✅ APK builds for release (if Android files changed)
+   - **Verdict format**: `✅ Testing Agent: VERIFIED — [X/X tests passing] [0 build errors] [specific findings]`
+   - **Cannot merge without this approval**
 
 4. **Merge sequence (cannot skip steps)**
-   - Feature branch complete
-   - Invoke code review agent → ✅ APPROVED
-   - Invoke testing agent → ✅ ALL TESTS PASS
-   - ONLY THEN: `git merge ... && git push origin main`
+   - Feature branch pushed to remote
+   - Invoke code review agent → ✅ APPROVED (Haiku model)
+   - Invoke testing agent → ✅ VERIFIED (Haiku model)
+   - **Auto-merge enabled**: Once BOTH agents approve via PR comments:
+     - GitHub Action detects both ✅ approvals
+     - Status check "dual-agent-approval" → SUCCESS
+     - Auto-merge bot squash-merges PR to main
+     - Deletes feature branch automatically
+   - **Manual merge fallback**: If auto-merge fails:
+     - `git merge --squash origin/feature/build-X-* && git push origin main`
 
 5. **Violations = immediate rollback**
    - Direct commit to main → REVERT
