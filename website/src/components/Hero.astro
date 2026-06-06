@@ -1,5 +1,6 @@
 ---
-const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/download/v2.3.0%2B83/kfit.apk';
+// APK URL will be set dynamically via JavaScript from latest GitHub release
+const APK_URL = '#'; // Placeholder, set by JS
 ---
 
 <section class="hero" id="hero">
@@ -304,6 +305,23 @@ const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/downlo
         gsap.to(aiMsg, { opacity: 1, y: 0, duration: 0.3 });
       } });
   }, 3200);
+
+  // ── Fetch latest GitHub release dynamically ────────────────────────────────────
+  const dlBtn = document.getElementById('dlBtn') as HTMLAnchorElement | null;
+  if (dlBtn) {
+    fetch('https://api.github.com/repos/Karthik77-kk/karthik-fitness/releases/latest')
+      .then(r => r.json())
+      .then(release => {
+        const apkAsset = release.assets?.find((a: any) => a.name === 'kfit.apk');
+        if (apkAsset?.browser_download_url) {
+          dlBtn.href = apkAsset.browser_download_url;
+        }
+      })
+      .catch(() => {
+        // Fallback: use a reasonable default if API fails
+        dlBtn.href = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest';
+      });
+  }
 
   // ── Scroll hint fade ──────────────────────────────────────────────────────────
   window.addEventListener('scroll', () => {

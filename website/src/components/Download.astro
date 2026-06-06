@@ -1,6 +1,7 @@
 ---
-const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/download/v2.3.0%2B83/kfit.apk';
-const VERSION = 'v2.3.0 · Build 82';
+// APK URL will be set dynamically via JavaScript from latest GitHub release
+const APK_URL = '#';
+const VERSION = 'Latest Build';
 ---
 
 <section class="section download-section" id="download">
@@ -133,6 +134,19 @@ const VERSION = 'v2.3.0 · Build 82';
         (dlBtn as HTMLElement).style.background = '';
       }, 3500);
     });
+
+    // Fetch latest GitHub release dynamically
+    fetch('https://api.github.com/repos/Karthik77-kk/karthik-fitness/releases/latest')
+      .then(r => r.json())
+      .then(release => {
+        const apkAsset = release.assets?.find((a: any) => a.name === 'kfit.apk');
+        if (apkAsset?.browser_download_url) {
+          dlBtn.href = apkAsset.browser_download_url;
+        }
+      })
+      .catch(() => {
+        dlBtn.href = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest';
+      });
   }
 </script>
 
