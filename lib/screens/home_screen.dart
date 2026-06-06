@@ -263,16 +263,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 20),
 
                   // ── Progressive-disclosure toggle ─────────────────────────
-                  if (!_showEmptySections && _hiddenCount(p) > 0)
-                    _ShowMoreSections(
-                      count: _hiddenCount(p),
-                      onTap: () => setState(() => _showEmptySections = true),
-                    ),
-                  if (_showEmptySections && _hiddenCount(p) > 0)
-                    _ShowMoreSections(
-                      count: 0,
-                      onTap: () => setState(() => _showEmptySections = false),
-                    ),
+                  Builder(builder: (ctx) {
+                    final hidden = _hiddenCount(p); // computed once per build
+                    if (hidden == 0) return const SizedBox.shrink();
+                    return _ShowMoreSections(
+                      count: _showEmptySections ? 0 : hidden,
+                      onTap: () => setState(() => _showEmptySections = !_showEmptySections),
+                    );
+                  }),
                   const SizedBox(height: 8),
                 ]),
               ),

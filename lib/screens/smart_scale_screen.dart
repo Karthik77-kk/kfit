@@ -35,41 +35,34 @@ class _SmartScaleScreenState extends State<SmartScaleScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    const tabBar = TabBar(
-      tabs: [Tab(text: 'Log Today'), Tab(text: 'History')],
-      indicatorColor: Color(0xFF30D158),
-      labelColor: Color(0xFF30D158),
-      unselectedLabelColor: Color(0xFF8E8E93),
+    // Always use _tab explicitly — prevents the TabBar from accidentally binding
+    // to an outer DefaultTabController (e.g. BodyScreen's Stats|Scale controller)
+    // when embedded inside another DefaultTabController scope.
+    final tabBar = TabBar(
+      controller: _tab,
+      tabs: const [Tab(text: 'Log Today'), Tab(text: 'History')],
+      indicatorColor: const Color(0xFF30D158),
+      labelColor: const Color(0xFF30D158),
+      unselectedLabelColor: const Color(0xFF8E8E93),
     );
-    const tabView = TabBarView(
-      children: [_LogTab(), _HistoryTab()],
+    final tabView = TabBarView(
+      controller: _tab,
+      children: const [_LogTab(), _HistoryTab()],
     );
 
     if (widget.embedded) {
-      return DefaultTabController(
-        length: 2,
-        child: Column(children: [
-          tabBar,
-          const Expanded(child: tabView),
-        ]),
-      );
+      return Column(children: [
+        tabBar,
+        Expanded(child: tabView),
+      ]);
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Smart Scale'),
-        bottom: TabBar(
-          controller: _tab,
-          tabs: const [Tab(text: 'Log Today'), Tab(text: 'History')],
-          indicatorColor: const Color(0xFF30D158),
-          labelColor: const Color(0xFF30D158),
-          unselectedLabelColor: const Color(0xFF8E8E93),
-        ),
+        bottom: tabBar,
       ),
-      body: TabBarView(
-        controller: _tab,
-        children: const [_LogTab(), _HistoryTab()],
-      ),
+      body: tabView,
     );
   }
 }
