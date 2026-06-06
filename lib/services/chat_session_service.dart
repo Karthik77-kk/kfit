@@ -100,6 +100,24 @@ class ChatSessionService {
     await _persist(sessions);
   }
 
+  // Issue #14: Remove sessions older than 30 days to prevent unbounded growth.
+  /// Called during app startup (loadData) to keep storage lean.
+  static Future<void> pruneOldSessions() async {
+    try {
+      final sessions = await loadSessions();
+      final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+      final beforePrune = sessions.length;
+
+      sessions.removeWhere((s) => s.updatedAt.isBefore(thirtyDaysAgo));
+
+      if (sessions.length < beforePrune) {
+        await _persist(sessions);
+      }
+    } catch (_) {
+      // Silently fail if prune encounters an error
+    }
+  }
+
   static Future<void> deleteSession(String id) async {
     final sessions = await loadSessions();
     sessions.removeWhere((s) => s.id == id);

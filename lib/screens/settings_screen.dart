@@ -541,7 +541,41 @@ class _AiStatusTile extends StatelessWidget {
         ],
 
         // Action buttons
-        if (!isDownloading) ...[
+        if (isDownloading) ...[
+          // Issue #9: Cancel button (visible only when downloading)
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.read<OnDeviceAiService>().cancelDownload(),
+              icon: const Icon(Icons.close, size: 16, color: Color(0xFFFF453A)),
+              label: const Text('Cancel Download'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFF453A),
+                side: const BorderSide(color: Color(0xFFFF453A)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+              ),
+            ),
+          ),
+        ] else if (ai.state == AiModelState.error) ...[
+          // Issue #10: Retry button (visible only when error)
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => context.read<OnDeviceAiService>().downloadAndLoad(),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Retry Download'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _kGreen,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+              ),
+            ),
+          ),
+        ] else ...[
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
