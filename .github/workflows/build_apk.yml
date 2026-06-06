@@ -328,8 +328,11 @@ jobs:
             2. Android Settings → Install unknown apps → Allow
             3. Tap the downloaded file to install
 
-            Requires Android 8.0+ · ~45 MB · Optional +600 MB for on-device AI (Gemma 3)
-          files: build/app/outputs/flutter-apk/kfit.apk
+            Requires Android 8.0+ · ~295 MB · Includes on-device Gemma 3 AI model
+          files: |
+            build/app/outputs/flutter-apk/kfit.apk
           make_latest: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
