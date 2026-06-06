@@ -125,7 +125,7 @@ void main() {
       expect(p.todayProteinTotal, 0.0);
     });
     test('isLoaded is true after loadData', () => expect(p.isLoaded, isTrue));
-    test('userName defaults to Karthik', () => expect(p.userName, 'Karthik'));
+    test('userName defaults to generic fallback', () => expect(p.userName, 'Friend'));
     test('height defaults to 170cm', () => expect(p.heightCm, 170.0));
     test('age defaults to 24', () => expect(p.age, 24));
     test('goalWeight defaults to 70kg', () => expect(p.goalWeightKg, 70.0));
@@ -143,7 +143,7 @@ void main() {
       expect(prefs.containsKey('water_goal_ml'), isTrue,  reason: 'water_goal_ml missing from backup');
       expect(prefs.containsKey('step_goal'),     isTrue,  reason: 'step_goal missing from backup');
       // Values must match the loaded defaults
-      expect(prefs.getString('user_name'),     'Karthik');
+      expect(prefs.getString('user_name'),     'Friend');
       expect(prefs.getDouble('height_cm'),     170.0);
       expect(prefs.getInt('age'),              24);
       expect(prefs.getDouble('goal_weight_kg'),70.0);
@@ -172,9 +172,9 @@ void main() {
       expect(p.userName, 'Karthik');
     });
 
-    test('saveUserName empty string resets to Karthik', () async {
+    test('saveUserName empty string resets to generic fallback', () async {
       await p.saveUserName('');
-      expect(p.userName, 'Karthik');
+      expect(p.userName, 'Friend');
     });
 
     test('saveHeight persists', () async {

@@ -37,8 +37,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
   final _scroll     = ScrollController();
   bool  _thinking   = false;
-  bool  _cancelled  = false;  // set to true by cancel button; checked in send loop
-  Timer? _scrollTimer;         // debounce scroll-to-bottom calls
+  bool  _cancelled  = false;
+  Timer? _scrollTimer;
   late  ChatSession _session;
 
   @override
@@ -47,9 +47,9 @@ class _ChatScreenState extends State<ChatScreen> {
     // Initialise or restore session
     if (widget.session != null) {
       _session = widget.session!;
-      // Restore messages from persisted session
+      // Restore messages from persisted session, preserving original timestamps
       for (final m in _session.messages) {
-        _messages.add(_ChatMessage(text: m.text, isUser: m.isUser));
+        _messages.add(_ChatMessage(text: m.text, isUser: m.isUser, timestamp: m.timestamp));
       }
     } else {
       _session = ChatSession(
@@ -92,7 +92,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _session.messages
       ..clear()
       ..addAll(_messages.map((m) => ChatSessionMessage(
-        text: m.text, isUser: m.isUser, timestamp: DateTime.now())));
+        text: m.text, isUser: m.isUser, timestamp: m.timestamp)));
     await ChatSessionService.saveSession(_session);
   }
 
@@ -761,7 +761,9 @@ class _InputBar extends StatelessWidget {
 class _ChatMessage {
   String text;
   final bool isUser;
-  _ChatMessage({required this.text, required this.isUser});
+  final DateTime timestamp;
+  _ChatMessage({required this.text, required this.isUser, DateTime? timestamp})
+      : timestamp = timestamp ?? DateTime.now();
 }
 
 

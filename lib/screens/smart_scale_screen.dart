@@ -192,23 +192,23 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
             ),
             const SizedBox(height: 16),
             _Section('Essential', [
-              _Field('Weight (kg)', _weight, required: true),
-              _Field('Body Fat (%)', _bodyFatPct),
-              _Field('Body Fat (kg)', _bodyFatKg),
-              _Field('BMR (kcal)', _bmr, isDecimal: false),
+              _Field('Weight (kg)', _weight, required: true, min: 10, max: 500),
+              _Field('Body Fat (%)', _bodyFatPct, min: 2, max: 60),
+              _Field('Body Fat (kg)', _bodyFatKg, min: 0.5, max: 200),
+              _Field('BMR (kcal)', _bmr, isDecimal: false, min: 500, max: 5000),
             ]),
             _Section('Muscle & Lean Mass', [
-              _Field('Muscle Mass (kg)', _muscleMassKg),
-              _Field('Muscle Mass (%)', _muscleMassPct),
-              _Field('Lean Body Mass (kg)', _leanBodyMass),
-              _Field('Skeletal Muscle (kg)', _skeletalMuscle),
+              _Field('Muscle Mass (kg)', _muscleMassKg, min: 5, max: 200),
+              _Field('Muscle Mass (%)', _muscleMassPct, min: 10, max: 70),
+              _Field('Lean Body Mass (kg)', _leanBodyMass, min: 5, max: 200),
+              _Field('Skeletal Muscle (kg)', _skeletalMuscle, min: 5, max: 150),
             ]),
             _Section('Other Metrics', [
-              _Field('Body Water (%)', _bodyWater),
-              _Field('Bone Mass (kg)', _boneMass),
-              _Field('Protein (%)', _proteinPct),
-              _Field('Visceral Fat Index', _visceralFat, isDecimal: false),
-              _Field('Biological Age (yrs)', _bioAge, isDecimal: false),
+              _Field('Body Water (%)', _bodyWater, min: 30, max: 80),
+              _Field('Bone Mass (kg)', _boneMass, min: 0.5, max: 10),
+              _Field('Protein (%)', _proteinPct, min: 5, max: 30),
+              _Field('Visceral Fat Index', _visceralFat, isDecimal: false, min: 1, max: 59),
+              _Field('Biological Age (yrs)', _bioAge, isDecimal: false, min: 10, max: 120),
             ]),
             const SizedBox(height: 16),
             SizedBox(
@@ -263,7 +263,8 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _Field(String label, TextEditingController ctrl,
-      {bool required = false, bool isDecimal = true}) {
+      {bool required = false, bool isDecimal = true,
+       double? min, double? max}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(children: [
@@ -282,7 +283,7 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
         const SizedBox(width: 12),
         Expanded(
           flex: 1,
-          child: TextField(
+          child: TextFormField(
             controller: ctrl,
             keyboardType: isDecimal
                 ? const TextInputType.numberWithOptions(decimal: true)
@@ -291,7 +292,7 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
                 fontWeight: FontWeight.w600),
             textAlign: TextAlign.right,
             decoration: InputDecoration(
-              hintText: '—',  // neutral dash; NOT a numeric value so it can't be mistaken for real data
+              hintText: '—',
               hintStyle: const TextStyle(color: Color(0xFF48484A), fontSize: 15),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,
@@ -300,7 +301,18 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
+              errorStyle: const TextStyle(fontSize: 10, height: 0.8),
             ),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) {
+                return required ? 'Required' : null;
+              }
+              final parsed = double.tryParse(v.trim());
+              if (parsed == null) return 'Invalid';
+              if (min != null && parsed < min) return '< $min';
+              if (max != null && parsed > max) return '> $max';
+              return null;
+            },
           ),
         ),
       ]),

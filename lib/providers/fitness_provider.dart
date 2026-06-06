@@ -79,7 +79,7 @@ class FitnessProvider extends ChangeNotifier {
   double _goalWeightKg = 70.0;
   double get goalWeightKg => _goalWeightKg;
 
-  String _userName = 'Karthik';
+  String _userName = 'Friend';
   String get userName => _userName;
 
   bool _onboardingDone = false;
@@ -93,7 +93,7 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   Future<void> saveUserName(String name) async {
-    _userName = name.trim().isEmpty ? 'Karthik' : name.trim();
+    _userName = name.trim().isEmpty ? 'Friend' : name.trim();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_name', _userName);
     notifyListeners();
@@ -239,11 +239,11 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   double get calorieProgress =>
-      (todayCaloriesTotal / calorieGoal).clamp(0.0, 1.0);
+      calorieGoal > 0 ? (todayCaloriesTotal / calorieGoal).clamp(0.0, 1.0) : 0.0;
   double get proteinProgress =>
-      (todayProteinTotal / proteinGoal).clamp(0.0, 1.0);
+      proteinGoal > 0 ? (todayProteinTotal / proteinGoal).clamp(0.0, 1.0) : 0.0;
   double get waterProgress =>
-      (_todayWaterMl / waterGoalMl).clamp(0.0, 1.0);
+      waterGoalMl > 0 ? (_todayWaterMl / waterGoalMl).clamp(0.0, 1.0) : 0.0;
 
   // ── Net calories & deficit ─────────────────────────────────────────────────
   /// Calories eaten minus ALL calories burned today (resting + walking + workout).
@@ -253,8 +253,21 @@ class FitnessProvider extends ChangeNotifier {
   /// Uses totalCaloriesBurned (resting + walking + workout) for accuracy.
   int get calorieDeficit => calorieGoal - (todayCaloriesTotal - totalCaloriesBurned).round();
 
-  /// True if currently in a calorie deficit
-  bool get inDeficit => (todayCaloriesTotal - totalCaloriesBurned) < calorieGoal;
+  /// True if currently in a calorie deficit.
+  ///
+  /// Logic:
+  ///  • When real burn data exists (BMR + steps + workout > 0): uses true
+  ///    energy-balance — eating < burning.
+  ///  • When no burn data (no weight logged) AND no food: returns false —
+  ///    there is no signal to evaluate.
+  ///  • When no burn data but food was logged: compares against the calorie
+  ///    goal as a proxy for real deficit.
+  bool get inDeficit {
+    final burned = totalCaloriesBurned;
+    if (burned > 0) return todayCaloriesTotal < burned;
+    if (todayCaloriesTotal <= 0 && burned <= 0) return false;
+    return todayCaloriesTotal < calorieGoal;
+  }
 
   /// Remaining calories left to eat (vs goal). Can be negative if over.
   int get caloriesRemaining => calorieGoal - todayCaloriesTotal.round();
@@ -296,7 +309,7 @@ class FitnessProvider extends ChangeNotifier {
     final scaleBmr = latestScaleEntry?.bmr;
     if (scaleBmr != null && scaleBmr > 0) return scaleBmr;
     final w = latestWeightKg;
-    if (w == null) return null;
+    if (w == null || w <= 0) return null;
     // Mifflin-St Jeor: male +5, female −161
     return 10 * w + 6.25 * _heightCm - 5 * _age + (_isMale ? 5.0 : -161.0);
   }
@@ -638,7 +651,7 @@ class FitnessProvider extends ChangeNotifier {
     return latestBodyEntry?.steps ?? 0;
   }
 
-  double get stepProgress => (todaySteps / stepGoal).clamp(0.0, 1.0);
+  double get stepProgress => stepGoal > 0 ? (todaySteps / stepGoal).clamp(0.0, 1.0) : 0.0;
 
   List<BodyEntry> getRecentBodyEntries({int days = 30}) {
     final cutoff = DateTime.now().subtract(Duration(days: days));
@@ -832,9 +845,12 @@ class FitnessProvider extends ChangeNotifier {
     return b * (minutesElapsed / 1440.0);
   }
 
-  /// Calories burned from steps (walking)
+  /// Calories burned from steps (walking).
+  /// Returns 0 when no valid weight is logged (weight=0 is treated as "no data",
+  /// consistent with the BMR guard — we never estimate calories from an invalid weight).
   double get walkingCaloriesBurned {
-    final w = latestWeightKg ?? 70.0;
+    final w = latestWeightKg;
+    if (w == null || w <= 0) return 0;
     return todaySteps * 0.04 * (w / 70.0);
   }
 
@@ -1272,7 +1288,7 @@ class FitnessProvider extends ChangeNotifier {
     _age = prefs.getInt('age') ?? 24;
     _isMale = prefs.getBool('is_male') ?? true;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
-    _userName = prefs.getString('user_name') ?? 'Karthik';
+    _userName = prefs.getString('user_name') ?? 'Friend';
     _onboardingDone = prefs.getBool('onboarding_done') ?? false;
 
     // User-defined goals
@@ -1535,7 +1551,9 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   void _purgeStaleDailyKeys(SharedPreferences prefs) {
-    final cutoff = DateTime.now().subtract(const Duration(days: 61));
+    // Keep exactly 60 days of daily food/water/supplement keys.
+    // cutoff = 60 days ago; remove keys strictly older than that date.
+    final cutoff = DateTime.now().subtract(const Duration(days: 60));
     final cutoffKey =
         '${cutoff.year}-${cutoff.month.toString().padLeft(2, '0')}-${cutoff.day.toString().padLeft(2, '0')}';
     final toRemove = prefs.getKeys().where((k) {
@@ -1760,6 +1778,8 @@ class FitnessProvider extends ChangeNotifier {
     'pedometer_baseline',
     'pedometer_date',
     'ai_installed_model_id',
+    'hf_token_ai_chat',   // device-specific HuggingFace token — never exported
+    'chat_sessions_v1',   // health conversation history — too sensitive for backup files
   };
 
   Future<String> exportAllData() async {
@@ -1795,6 +1815,8 @@ class FitnessProvider extends ChangeNotifier {
       final Map<String, dynamic> data = jsonDecode(content);
       final prefs = await SharedPreferences.getInstance();
       for (final entry in data.entries) {
+        // Never restore device-specific or sensitive keys from a backup
+        if (_exportExcludeKeys.contains(entry.key)) continue;
         final val = entry.value;
         if (val is String) await prefs.setString(entry.key, val);
         else if (val is int) await prefs.setInt(entry.key, val);
@@ -1937,19 +1959,31 @@ class FitnessProvider extends ChangeNotifier {
     try {
       _stepSubscription = Pedometer.stepCountStream.listen(
         (StepCount event) async {
-          if (_livePedometerTotal > 0 && event.steps > _livePedometerTotal + 50000) {
-            _pedometerDayBaseline = event.steps - (_livePedometerTotal - _pedometerDayBaseline);
-            final p = await SharedPreferences.getInstance();
-            await p.setInt('pedometer_baseline', _pedometerDayBaseline);
+          final prefs = await SharedPreferences.getInstance();
+
+          if (_livePedometerTotal > 0) {
+            if (event.steps < _livePedometerTotal) {
+              // Sensor reset to a lower value (device reboot, counter rollover).
+              // Start a fresh baseline at this new value so today's count
+              // continues from the steps already walked since the reset.
+              _pedometerDayBaseline = event.steps;
+              _pedometerBaselineDate = _todayKey;
+              await prefs.setInt('pedometer_baseline', _pedometerDayBaseline);
+              await prefs.setString('pedometer_date', _pedometerBaselineDate);
+            } else if (event.steps > _livePedometerTotal + 50000) {
+              // Huge forward jump — adjust baseline to preserve today's count.
+              _pedometerDayBaseline = event.steps - (_livePedometerTotal - _pedometerDayBaseline);
+              await prefs.setInt('pedometer_baseline', _pedometerDayBaseline);
+            }
           }
+
           _livePedometerTotal = event.steps;
 
           if (_pedometerDayBaseline < 0) {
             _pedometerDayBaseline = event.steps;
             _pedometerBaselineDate = _todayKey;
-            final p = await SharedPreferences.getInstance();
-            await p.setInt('pedometer_baseline', _pedometerDayBaseline);
-            await p.setString('pedometer_date', _pedometerBaselineDate);
+            await prefs.setInt('pedometer_baseline', _pedometerDayBaseline);
+            await prefs.setString('pedometer_date', _pedometerBaselineDate);
           }
 
           notifyListeners();

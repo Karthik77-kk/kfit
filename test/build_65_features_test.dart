@@ -181,16 +181,16 @@ group('Onboarding flag', () {
     expect(p.userName, 'Amit');
   });
 
-  test('saveUserName falls back to Karthik for blank input', () async {
+  test('saveUserName falls back to generic name for blank input', () async {
     final p = await _loaded();
     await p.saveUserName('');
-    expect(p.userName, 'Karthik');
+    expect(p.userName, 'Friend');
   });
 
   test('saveUserName falls back for whitespace-only input', () async {
     final p = await _loaded();
     await p.saveUserName('   ');
-    expect(p.userName, 'Karthik');
+    expect(p.userName, 'Friend');
   });
 
   test('userName persists across reloads', () async {

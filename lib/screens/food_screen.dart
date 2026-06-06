@@ -54,9 +54,9 @@ class FoodScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${p.todayCalories.toInt()} / ${p.calorieGoal} kcal',
+                  '${p.todayCaloriesTotal.toInt()} / ${p.calorieGoal} kcal',
                   style: TextStyle(
-                    color: p.todayCalories > p.calorieGoal
+                    color: p.todayCaloriesTotal > p.calorieGoal
                         ? Colors.redAccent
                         : const Color(0xFF30D158),
                     fontSize: 12,
@@ -64,7 +64,7 @@ class FoodScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${p.todayProtein.toInt()}g protein',
+                  '${p.todayProteinTotal.toInt()}g protein',
                   style: TextStyle(
                       color: Colors.white.withOpacity(0.5), fontSize: 11),
                 ),
