@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/food_api_service.dart';
+import '../widgets/app_empty_state.dart';
 
 /// Call this from any context (standalone or embedded) to open the Add Food sheet.
 void showAddFoodSheet(BuildContext context) {
@@ -124,32 +125,20 @@ class _EmptyState extends StatelessWidget {
     final key = '${yesterday.year}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
     final hasYesterday = (p.foodHistory[key] ?? []).isNotEmpty;
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('🍽️', style: TextStyle(fontSize: 60)),
-          const SizedBox(height: 16),
-          const Text('No food logged today',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text('Tap + Add Food to start logging',
-              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14)),
-          if (hasYesterday) ...[
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
+    return AppEmptyState(
+      icon: '🍽️',
+      title: 'No food logged today',
+      subtitle: 'Tap + Add Food to start logging',
+      action: hasYesterday ? OutlinedButton.icon(
               onPressed: () => _copyYesterday(context),
               icon: const Icon(Icons.copy_rounded, size: 16),
               label: const Text('Copy yesterday\'s meals'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF30D158),
                 side: const BorderSide(color: Color(0xFF30D158)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-            ),
-          ],
-        ],
-      ),
+            ) : null,
     );
   }
 }
@@ -196,7 +185,7 @@ class _MealSection extends StatelessWidget {
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
@@ -237,7 +226,7 @@ class _FoodEntryTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
       ),
       child: Row(
@@ -395,7 +384,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
 
           return AlertDialog(
             backgroundColor: const Color(0xFF1C1C1E),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             title: Column(
@@ -463,7 +452,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                   suffix: Text('g', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 16)),
                   hintText: '100',
                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                   contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 ),
                 onChanged: (_) => setD(() {}),
@@ -474,7 +463,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
                   _NutCol(label: 'Calories', value: '$cal kcal', color: const Color(0xFF30D158)),
@@ -497,7 +486,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF30D158),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
@@ -544,7 +533,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
         final prot = item.protein * servings;
         return AlertDialog(
           backgroundColor: const Color(0xFF1C1C1E),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(children: [
             Text(item.emoji, style: const TextStyle(fontSize: 22)),
             const SizedBox(width: 8),
@@ -576,7 +565,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(14)),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
                 _NutCol(label: 'Calories', value: '$cal kcal', color: const Color(0xFF30D158)),
                 _NutCol(label: 'Protein', value: '${prot.toStringAsFixed(1)}g', color: const Color(0xFF40C8E0)),
@@ -595,7 +584,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF30D158),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
@@ -751,7 +740,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       : null,
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.07),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
@@ -779,7 +768,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: sel ? const Color(0xFF30D158).withOpacity(0.2) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: sel ? const Color(0xFF30D158) : Colors.white.withOpacity(0.15),
                           ),
@@ -871,7 +860,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF40C8E0),
                                 side: const BorderSide(color: Color(0xFF40C8E0), width: 1),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                 padding: const EdgeInsets.symmetric(vertical: 11),
                               ),
                             ),

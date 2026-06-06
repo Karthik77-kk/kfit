@@ -18,9 +18,6 @@ Future<FitnessProvider> _loaded([Map<String, Object> seed = const {}]) async {
   return p;
 }
 
-String _dateKey(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

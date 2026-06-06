@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/chat_session_service.dart';
 import '../services/on_device_ai_service.dart';
+import '../widgets/app_empty_state.dart';
 import 'package:provider/provider.dart';
 import 'chat_screen.dart';
 
@@ -129,20 +130,11 @@ class _ChatSessionsScreenState extends State<ChatSessionsScreen> {
 
                 // Session list or empty state
                 if (_sessions.isEmpty)
-                  SliverFillRemaining(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('🤖', style: TextStyle(fontSize: 48)),
-                        const SizedBox(height: 16),
-                        const Text('No conversations yet',
-                            style: TextStyle(color: Colors.white, fontSize: 17,
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        const Text('Tap "New Chat" to ask your AI fitness coach anything.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: _kSecond, fontSize: 13)),
-                      ],
+                  const SliverFillRemaining(
+                    child: AppEmptyState(
+                      icon: '🤖',
+                      title: 'No conversations yet',
+                      subtitle: 'Tap "New Chat" to ask your AI fitness coach anything.',
                     ),
                   )
                 else ...[
@@ -277,7 +269,7 @@ class _AiStatusBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _kCard,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: ai.state == AiModelState.error
               ? const Color(0xFFFF453A).withValues(alpha: 0.4)
@@ -311,7 +303,7 @@ class _AiStatusBanner extends StatelessWidget {
         if (isDownloading) ...[
           const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: ai.dlProgress,
               minHeight: 4,

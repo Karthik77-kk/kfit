@@ -9,9 +9,8 @@ import 'services/on_device_ai_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
-import 'screens/stats_screen.dart';
+import 'screens/body_screen.dart';
 import 'screens/history_screen.dart';
-import 'screens/smart_scale_screen.dart';
 import 'screens/onboarding_screen.dart';
 
 void main() async {
@@ -129,15 +128,15 @@ class KarthikFitnessApp extends StatelessWidget {
           filled: true,
           fillColor: const Color(0xFF2C2C2E),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: Color(0xFF30D158), width: 1.5),
           ),
           hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
@@ -189,8 +188,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     HomeScreen(),
     NutritionScreen(),
     WorkoutScreen(),
-    SmartScaleScreen(),
-    StatsScreen(),
+    BodyScreen(),
     HistoryScreen(),
   ];
 
@@ -248,14 +246,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
               label: 'Workout',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.biotech_outlined, size: 24),
-              activeIcon: Icon(Icons.biotech_rounded, size: 24),
-              label: 'Body',  // was "Scale" — Body is clearer (body composition)
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics_outlined, size: 24),
-              activeIcon: Icon(Icons.analytics_rounded, size: 24),
-              label: 'Stats',
+              icon: Icon(Icons.person_outline_rounded, size: 24),
+              activeIcon: Icon(Icons.person_rounded, size: 24),
+              label: 'Body',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history_outlined, size: 24),

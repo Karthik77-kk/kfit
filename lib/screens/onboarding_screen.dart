@@ -89,7 +89,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         height: 8,
                         decoration: BoxDecoration(
                           color: active ? _kGreen : _kSecond.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       );
                     }),
@@ -109,7 +109,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           backgroundColor: _kGreen,
                           foregroundColor: Colors.black,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           elevation: 0,
                         ),
@@ -201,11 +201,11 @@ class _WelcomePage extends StatelessWidget {
                     filled: true,
                     fillColor: const Color(0xFF2C2C2E),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide.none,
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       borderSide: const BorderSide(color: _kGreen, width: 1.5),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
@@ -276,7 +276,7 @@ class _ActivityPermissionPage extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: _kCard,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: const Column(
               children: [
@@ -310,7 +310,7 @@ class _ActivityPermissionPage extends StatelessWidget {
                 backgroundColor: _kGreen,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 elevation: 0,
               ),
@@ -332,7 +332,7 @@ class _ActivityPermissionPage extends StatelessWidget {
               style: TextButton.styleFrom(
                 foregroundColor: _kSecond,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
               child: const Text(

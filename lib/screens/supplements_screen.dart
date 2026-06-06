@@ -121,7 +121,7 @@ class _ProgressHeader extends StatelessWidget {
               ? [const Color(0xFF30D158).withOpacity(0.25), const Color(0xFF30D158).withOpacity(0.10)]
               : [const Color(0xFF40C8E0).withOpacity(0.2), const Color(0xFF40C8E0).withOpacity(0.08)],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: taken == 3
               ? const Color(0xFF30D158).withOpacity(0.4)
@@ -210,7 +210,7 @@ class _SupplementCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: taken ? color.withOpacity(0.12) : const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: taken ? color.withOpacity(0.5) : color.withOpacity(0.2),
           width: taken ? 1.5 : 1,
@@ -251,7 +251,7 @@ class _SupplementCard extends StatelessWidget {
                   activeColor: color,
                   checkColor: Colors.white,
                   side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ],
@@ -312,7 +312,7 @@ class _ReminderTip extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Row(
@@ -356,7 +356,7 @@ class _AvoidSection extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.red.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.red.withOpacity(0.15)),
       ),
       child: Column(

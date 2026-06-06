@@ -4,16 +4,21 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+import '../widgets/app_empty_state.dart';
 
 class SmartScaleScreen extends StatefulWidget {
-  const SmartScaleScreen({super.key});
+  final bool embedded;
+  const SmartScaleScreen({super.key, this.embedded = false});
   @override
   State<SmartScaleScreen> createState() => _SmartScaleScreenState();
 }
 
 class _SmartScaleScreenState extends State<SmartScaleScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tab;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -29,26 +34,41 @@ class _SmartScaleScreenState extends State<SmartScaleScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    const tabBar = TabBar(
+      tabs: [Tab(text: 'Log Today'), Tab(text: 'History')],
+      indicatorColor: Color(0xFF30D158),
+      labelColor: Color(0xFF30D158),
+      unselectedLabelColor: Color(0xFF8E8E93),
+    );
+    const tabView = TabBarView(
+      children: [_LogTab(), _HistoryTab()],
+    );
+
+    if (widget.embedded) {
+      return DefaultTabController(
+        length: 2,
+        child: Column(children: [
+          tabBar,
+          const Expanded(child: tabView),
+        ]),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Smart Scale'),
         bottom: TabBar(
           controller: _tab,
-          tabs: const [
-            Tab(text: 'Log Today'),
-            Tab(text: 'History'),
-          ],
-          indicatorColor: Color(0xFF30D158),
-          labelColor: Color(0xFF30D158),
-          unselectedLabelColor: Color(0xFF8E8E93),
+          tabs: const [Tab(text: 'Log Today'), Tab(text: 'History')],
+          indicatorColor: const Color(0xFF30D158),
+          labelColor: const Color(0xFF30D158),
+          unselectedLabelColor: const Color(0xFF8E8E93),
         ),
       ),
       body: TabBarView(
         controller: _tab,
-        children: const [
-          _LogTab(),
-          _HistoryTab(),
-        ],
+        children: const [_LogTab(), _HistoryTab()],
       ),
     );
   }
@@ -284,7 +304,7 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
               filled: true,
               fillColor: Colors.white.withOpacity(0.06),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -301,14 +321,10 @@ class _HistoryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final history = context.watch<FitnessProvider>().scaleHistory.reversed.toList();
     if (history.isEmpty) {
-      return const Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('⚖️', style: TextStyle(fontSize: 48)),
-          SizedBox(height: 12),
-          Text('No scale data yet', style: TextStyle(color: Color(0xFF8E8E93))),
-          Text('Log your first reading above',
-              style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
-        ]),
+      return const AppEmptyState(
+        icon: '⚖️',
+        title: 'No scale data yet',
+        subtitle: 'Log your first reading in the Log Today tab',
       );
     }
     return ListView.builder(

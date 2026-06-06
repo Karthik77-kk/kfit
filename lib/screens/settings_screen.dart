@@ -311,7 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'v2.3.0 · Build 75 — Personal fitness tracker',
+            subtitle: 'v2.3.0 · Build 76 — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),
@@ -418,7 +418,7 @@ class _SmartGoalsTile extends StatelessWidget {
               backgroundColor: const Color(0xFF30D158),
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(14)),
               padding: const EdgeInsets.symmetric(vertical: 11),
             ),
           ),
@@ -492,7 +492,7 @@ class _AiStatusTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _kCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: ai.isReady
               ? _kGreen.withValues(alpha: 0.4)
@@ -520,7 +520,7 @@ class _AiStatusTile extends StatelessWidget {
         if (isDownloading) ...[
           const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: ai.dlProgress,
               minHeight: 6,
@@ -553,7 +553,7 @@ class _AiStatusTile extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _kGreen,
                       side: const BorderSide(color: _kGreen),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       padding: const EdgeInsets.symmetric(vertical: 11),
                     ),
                   )
@@ -569,7 +569,7 @@ class _AiStatusTile extends StatelessWidget {
                         style: FilledButton.styleFrom(
                           backgroundColor: _kGreen,
                           foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           padding: const EdgeInsets.symmetric(vertical: 11),
                         ),
                       ),

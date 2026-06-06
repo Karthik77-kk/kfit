@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+import '../widgets/app_empty_state.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -89,9 +90,11 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
     final p = context.watch<FitnessProvider>();
     final workouts = p.getRecentWorkouts(days: 60);
     if (workouts.isEmpty) {
-      return const Center(
-        child: Text('No workouts logged yet',
-            style: TextStyle(color: Color(0xFF8E8E93))));
+      return const AppEmptyState(
+        icon: '💪',
+        title: 'No workouts logged yet',
+        subtitle: 'Tap the Workout tab to log your first session',
+      );
     }
 
     // Group by date key
@@ -117,13 +120,13 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: const Color(0xFF1C1C1E),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
             children: [
               // ── Day summary header ──────────────────────────────────────
               InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 onTap: () => setState(() {
                   if (isOpen) _expanded.remove(key); else _expanded.add(key);
                 }),
@@ -135,7 +138,7 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
                         width: 44, height: 44,
                         decoration: BoxDecoration(
                           color: const Color(0xFF30D158).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.fitness_center_rounded,
                             color: Color(0xFF30D158), size: 22),
@@ -272,8 +275,11 @@ class _NutritionHistory extends StatelessWidget {
     final suppHistory = p.supplementHistory;
     final sortedDays = history.keys.toList()..sort((a, b) => b.compareTo(a));
     if (sortedDays.isEmpty) {
-      return const Center(child: Text('No food logged yet',
-          style: TextStyle(color: Color(0xFF8E8E93))));
+      return const AppEmptyState(
+        icon: '🍽️',
+        title: 'No food logged yet',
+        subtitle: 'Tap the Nutrition tab to start logging meals',
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -387,7 +393,7 @@ class _WeightHistory extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
             decoration: BoxDecoration(
               color: const Color(0xFF1C1C1E),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
             ),
             height: 220,
             child: LineChart(
@@ -508,7 +514,7 @@ class _WeightHistory extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF1C1C1E),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
@@ -542,7 +548,7 @@ class _StatBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withOpacity(0.25), width: 1),
         ),
         child: Column(
@@ -571,8 +577,11 @@ class _WaterHistory extends StatelessWidget {
     final history = p.waterHistory;
     final sortedDays = history.keys.toList()..sort((a, b) => b.compareTo(a));
     if (sortedDays.isEmpty) {
-      return const Center(child: Text('No water logged yet',
-          style: TextStyle(color: Color(0xFF8E8E93))));
+      return const AppEmptyState(
+        icon: '💧',
+        title: 'No water logged yet',
+        subtitle: 'Tap the Nutrition tab → Water to log intake',
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -599,7 +608,7 @@ class _WaterHistory extends StatelessWidget {
             ]),
             const SizedBox(height: 8),
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
                 value: progress,
                 backgroundColor: const Color(0xFF2C2C2E),
