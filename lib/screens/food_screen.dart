@@ -119,7 +119,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.read<FitnessProvider>();
+    final p = context.watch<FitnessProvider>();
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final key = '${yesterday.year}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
     final hasYesterday = (p.foodHistory[key] ?? []).isNotEmpty;
@@ -1048,7 +1048,7 @@ class _RecentFoodsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.read<FitnessProvider>();
+    final p = context.watch<FitnessProvider>();
     // Collect unique food names from recent history (newest first)
     final seen  = <String>{};
     final names = <String>[];
