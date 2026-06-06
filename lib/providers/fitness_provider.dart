@@ -1751,7 +1751,16 @@ class FitnessProvider extends ChangeNotifier {
 
   // ── Export / Import ────────────────────────────────────────────────────────
   // Keys that are device-specific and must not be exported/imported.
-  static const _exportExcludeKeys = {'pedometer_baseline', 'pedometer_date'};
+  // Keys excluded from export: device-specific state that must not be restored
+  // on a different device or fresh install.
+  // ai_installed_model_id: model file lives in device storage — restoring this flag
+  // on a fresh install makes the app think the model is installed when it isn't,
+  // causing "Active model is no longer installed" errors.
+  static const _exportExcludeKeys = {
+    'pedometer_baseline',
+    'pedometer_date',
+    'ai_installed_model_id',
+  };
 
   Future<String> exportAllData() async {
     final prefs = await SharedPreferences.getInstance();

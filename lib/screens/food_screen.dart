@@ -195,10 +195,12 @@ class _MealSection extends StatelessWidget {
                   final removed = entry;
                   provider.removeFoodEntry(removed.id);
                   // CRITICAL: capture messenger BEFORE any navigation/pop
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  final messenger = ScaffoldMessenger.of(context);
+                  messenger.clearSnackBars(); // dismiss any previous removal notification
+                  messenger.showSnackBar(SnackBar(
                     content: Text('${removed.name} removed'),
                     backgroundColor: const Color(0xFF2C2C2E),
-                    duration: const Duration(seconds: 4),
+                    duration: const Duration(seconds: 3),
                     action: SnackBarAction(
                       label: 'Undo',
                       textColor: const Color(0xFF30D158),
