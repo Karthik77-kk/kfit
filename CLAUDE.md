@@ -56,7 +56,30 @@ Every merge to `main` that ships a new APK must bump `pubspec.yaml` version:
 - **New features** → next integer: `76` → `77`
 - **Patches/fixes** → also next integer: `77` → `78` (do NOT use `77.1` — decimals break Android versionCode)
 - The branch name and commit message can say "Build 77.1" for human readability, but pubspec must have `+78`
-Current build: **82**. Next build: **83**.
+Current build: **85**. Next build: **86**.
+
+### Rule 4a — CRITICAL: Keep pubspec.yaml version code in sync with commit messages
+**This rule prevents release automation failures, download 404 errors, and website deployment confusion.**
+
+- **EVERY commit with "Build N" in the message MUST have pubspec.yaml with `+N`**
+- Before merging to main, verify: `git diff` shows `pubspec.yaml version: 2.3.0+N` where N matches commit message "Build N"
+- If commit says "Build 85", pubspec MUST say `+85` (not `+83` or `+84`)
+- If pubspec and commit mismatch: GitHub Actions will create the wrong release tag, website won't find the APK, Cloudflare deployment will fail
+- **Pre-merge check**: `grep "version:" pubspec.yaml` and `git log -1 --oneline` — they must align
+
+Example of CORRECT state:
+```
+Commit:    "Build 86: Add feature X"
+pubspec:   version: 2.3.0+86  ✅
+Result:    GitHub creates release v2.3.0+86 with APK asset
+```
+
+Example of BROKEN state (happened June 6, 2026):
+```
+Commit:    "Build 85: Fix duplicate dlBtn..."
+pubspec:   version: 2.3.0+83  ❌
+Result:    GitHub creates release v2.3.0+83 (wrong!), website can't find v2.3.0+85 release
+```
 
 ### Rule 5 — Commit message format
 ```
