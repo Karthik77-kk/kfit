@@ -123,38 +123,169 @@ git push origin --delete fix/build-N-description
 - Verify GitHub Actions run succeeds
 - APK artifact appears under Actions → latest run
 
-### Rule 9 — 🚫 MANDATORY DUAL-APPROVAL WORKFLOW (UNBREAKABLE)
-**This rule cannot be broken. No exceptions. Ever.**
+### Rule 9 — 🚫 MANDATORY FULLY-AUTOMATIC DUAL-APPROVAL WORKFLOW (UNBREAKABLE)
+**This rule cannot be broken. No exceptions. Ever. NO USER PERMISSION NEEDED.**
 
-1. **No direct commits to main**
-   - Create feature branch: `feature/build-X-*` or `fix/build-X-*`
-   - All changes ONLY via branches
+### ⚡⚡⚡ CRITICAL: ZERO USER INPUT — EVERYTHING AUTOMATIC ⚡⚡⚡
 
-2. **Code Review Agent MUST approve before merge**
-   - Run: `/code-review` or `/review-branch`
-   - Wait for ✅ APPROVED
-   - Fix any issues, re-review
-   - **Cannot merge without approval**
+**Claude Code MUST NEVER ask user for permission. FULL AUTONOMY REQUIRED.**
 
-3. **Testing Agent MUST approve before merge**
-   - Run: `/verify` (flutter test + flutter analyze)
-   - All tests must PASS: ✅ 100%
-   - Zero errors, zero warnings
-   - **Cannot merge without approval**
+Forbidden phrases:
+- ❌ "Should I run /code-review?"
+- ❌ "Do you want me to fix this?"
+- ❌ "Should I re-run the agents?"
+- ❌ "Should I merge to main?"
+- ❌ "Do you want me to..."
 
-4. **Merge sequence (cannot skip steps)**
-   - Feature branch complete
-   - Invoke code review agent → ✅ APPROVED
-   - Invoke testing agent → ✅ ALL TESTS PASS
-   - ONLY THEN: `git merge ... && git push origin main`
+**Required behavior:**
+- ✅ Create branches WITHOUT asking
+- ✅ Invoke agents IMMEDIATELY (no prompts)
+- ✅ Fix issues IMMEDIATELY when found
+- ✅ Re-run agents AUTOMATICALLY
+- ✅ Keep fixing until BOTH agents approve
+- ✅ Let GitHub auto-merge automatically
+- ✅ Post status updates (no permission needed)
 
-5. **Violations = immediate rollback**
-   - Direct commit to main → REVERT
-   - Skip code review → REVERT
-   - Skip testing → REVERT
-   - Merge with failing tests → REVERT
+---
 
-**See:** [Mandatory Dual-Approval Workflow](../memory/rule_mandatory_dual_approval_workflow.md) for full details.
+1. **No direct commits to main (ENFORCED BY GIT BRANCH PROTECTION)**
+   - Branch protection blocks ALL direct pushes to main
+   - Cannot be bypassed (even with admin privileges)
+   - All changes MUST go through feature branches + PR workflow
+
+2. **Code Review Agent (Haiku model ONLY) - INVOKED AUTOMATICALLY**
+   - Model: `claude-haiku-4-5` (mandatory, fastest, sufficient)
+   - Effort: `medium` (3+4 angles, 6 candidates each)
+   - **7-angle comprehensive analysis**:
+     1. **Correctness (3 angles)**: Line-by-line scan, removed-behavior audit, cross-file tracer
+     2. **Cleanup (3 angles)**: Reuse check, simplification, efficiency
+     3. **Altitude (1 angle)**: Is this a proper fix or bandaid?
+   - **Must verify ALL**:
+     - No syntax errors, type violations, compile breaks
+     - No logic bugs, off-by-one errors, null dereferences, missing awaits
+     - No removed safety guards or dropped error paths
+     - No breaking changes to call sites
+     - No code duplication (reuse existing helpers)
+     - No unnecessary complexity
+     - Fix is correct, complete, no hidden bugs
+     - No unintended changes to other files
+     - No regressions in adjacent code
+     - No edge case failures
+   - **Verdict**: `✅ Code Review Agent: APPROVED — [findings or "clean"]`
+   - **Posts automatically** to PR comments (no manual action)
+   - **Cannot merge without this** (blocked by branch protection)
+
+3. **Testing Agent (Haiku model ONLY) - INVOKED AUTOMATICALLY**
+   - Model: `claude-haiku-4-5` (mandatory, sufficient for testing)
+   - **8-point comprehensive verification**:
+     1. Build verification: `flutter build apk --release` succeeds
+     2. Static analysis: `flutter analyze` → zero errors, zero warnings
+     3. Unit tests: `flutter test` → 100% pass rate
+     4. Test coverage: all code paths tested (boundaries, zero values, all branches)
+     5. Edge cases: null inputs, empty lists, concurrent access
+     6. Regression checks: existing tests still pass
+     7. Integration checks: all dependencies correct, no breaking changes
+     8. Performance: no new slow operations (network, I/O in hot paths)
+   - **Must verify ALL**:
+     - All tests pass (0 failures)
+     - Zero build errors
+     - Zero warnings (info-level lints OK)
+     - Code coverage acceptable for changed code
+     - No regressions in other tests
+     - No new performance bottlenecks
+     - APK builds for release (if Android files changed)
+   - **Verdict**: `✅ Testing Agent: VERIFIED — [results/findings]`
+   - **Posts automatically** to PR comments (no manual action)
+   - **Cannot merge without this** (blocked by branch protection)
+
+4. **Fully Automatic Workflow (ZERO USER PERMISSION REQUIRED)**
+   ```
+   STEP 1: Create & Push Branch (automatic)
+     git checkout -b feature/build-X-description
+     [make changes]
+     pubspec.yaml: bump version to +X
+     git commit -m "Build X: description"
+     git push origin feature/build-X-description
+   
+   STEP 2: Invoke Code Review (AUTOMATIC - NO ASKING)
+     /code-review runs immediately
+     ↓
+     If REJECTED:
+       → Claude reads issues
+       → Claude fixes code immediately
+       → Claude amends commit
+       → Claude force-pushes to remote
+       → Re-run /code-review AUTOMATICALLY
+       → Repeat until APPROVED
+     ↓
+     If APPROVED:
+       → Agent posts: ✅ Code Review Agent: APPROVED — [findings]
+       → Continue automatically
+   
+   STEP 3: Invoke Testing (AUTOMATIC - NO ASKING)
+     /verify runs immediately
+     ↓
+     If REJECTED:
+       → Claude reads failures
+       → Claude fixes code immediately
+       → Claude amends commit
+       → Claude force-pushes to remote
+       → Re-run /verify AUTOMATICALLY
+       → Repeat until VERIFIED
+     ↓
+     If VERIFIED:
+       → Agent posts: ✅ Testing Agent: VERIFIED — [results]
+       → Continue automatically
+   
+   STEP 4: GitHub Workflows Auto-Detect & Merge (AUTOMATIC)
+     check-agent-approvals.yml monitors PR comments
+     ↓
+     Detects both ✅ approvals
+     ↓
+     Updates status check: dual-agent-approval → SUCCESS
+     ↓
+     auto-merge-on-approval.yml triggers
+     ↓
+     GitHub enables auto-merge (squash strategy)
+     ↓
+     PR merges automatically to main
+     ↓
+     Feature branch deleted automatically
+   
+   STEP 5: Build & Deploy (AUTOMATIC)
+     build_apk.yml triggers on main push
+     ↓
+     Builds APK with gh CLI
+     ↓
+     Verifies APK exists
+     ↓
+     Creates release v2.3.0-build-X
+     ↓
+     Uploads to GitHub CDN
+     ↓
+     Cloudflare auto-deploys website
+     ↓
+     Website fetches /releases/latest
+     ↓
+     Download button works ✅
+   ```
+
+5. **Automatic Issue Resolution (MANDATORY - NO ASKING)**
+   - Agent finds issues? FIX IMMEDIATELY
+   - Version mismatch? FIX IMMEDIATELY
+   - Tests fail? FIX IMMEDIATELY, RE-RUN TESTS
+   - Build fails? FIX IMMEDIATELY, REBUILD
+   - Type errors? FIX IMMEDIATELY
+   - **NEVER ASK PERMISSION**
+
+6. **Violations = Immediate Rollback & Correction**
+   - Direct commit to main detected → REVERT IMMEDIATELY
+   - Skipped code review → REVERT IMMEDIATELY
+   - Skipped testing → REVERT IMMEDIATELY
+   - Merged with failing tests → REVERT IMMEDIATELY
+   - Asked user for permission → FIX AUTONOMY IMMEDIATELY
+
+**See:** [Automated Dual-Approval Workflow](../memory/rule_automated_dual_approval_workflow.md) for full details.
 
 ### Rule 10 — NEVER change applicationId
 The `applicationId` in the CI workflow (`build_apk.yml` line ~114) is **permanently fixed** at `com.example.karthik_fitness`.
