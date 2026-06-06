@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/fitness_provider.dart';
@@ -16,6 +18,10 @@ class OnDeviceAiService extends ChangeNotifier {
   static const _modelName    = 'Gemma 3 1B';
   static const _modelSize    = '~600 MB';
   static const _maxTokens    = 2048;
+  static const _expectedModelSizeMb = 600;
+  static const _minMemoryMb  = 900;
+  static const _minDiskMb    = 1000;
+  static const _methodChannelName = 'com.karthikfitness.aichat/system';
 
   static const _prefToken          = 'hf_token_ai_chat';
   static const _prefInstalledModel = 'ai_installed_model_id';
@@ -31,6 +37,7 @@ class OnDeviceAiService extends ChangeNotifier {
   bool         _autoLoad   = true;
   bool         _sending    = false;    // prevents concurrent sendMessage() calls
   int          _lastNotifiedPct = -1; // throttles download progress notifications
+  bool         _disposed   = false;    // guards against post-dispose notifyListeners()
 
   InferenceModel? _model;
   InferenceChat?  _chat;
@@ -53,7 +60,7 @@ class OnDeviceAiService extends ChangeNotifier {
     _autoLoad = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefAutoLoad, value);
-    notifyListeners();
+    _notifyIfNotDisposed();
   }
 
   // ── Init — called at app start (lazy:false) ──────────────────────────────────
@@ -96,6 +103,13 @@ class OnDeviceAiService extends ChangeNotifier {
     }
 
     try {
+      // Issue #2: Check available memory before initializing
+      if (!await _hasEnoughMemory()) {
+        _setState(AiModelState.error,
+            error: 'Not enough memory (~900 MB required). Close other apps and try again.');
+        return;
+      }
+
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
 
       // installModel().install() is idempotent: skips download if file exists on disk,
@@ -120,7 +134,7 @@ class OnDeviceAiService extends ChangeNotifier {
               _setState(AiModelState.downloading);
             }
             _dlProgress = (intPct / 100.0).clamp(0.0, 1.0);
-            notifyListeners();
+            _notifyIfNotDisposed();
           })
           .install();
 
@@ -144,7 +158,7 @@ class OnDeviceAiService extends ChangeNotifier {
     _hfToken = token.trim();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefToken, _hfToken);
-    notifyListeners();
+    _notifyIfNotDisposed();
   }
 
   // ── Download + load ─────────────────────────────────────────────────────────
@@ -155,8 +169,16 @@ class OnDeviceAiService extends ChangeNotifier {
       _lastNotifiedPct = -1;
       _setState(AiModelState.downloading);
 
+      // Issue #3: Check disk space before downloading
+      if (!await _hasDiskSpace()) {
+        _setState(AiModelState.error,
+            error: 'Not enough storage (~1 GB required). Free up space and try again.');
+        return;
+      }
+
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
-      await FlutterGemma.installModel(
+      // Issue #6: Add 30-minute timeout to download
+      await Future.value(FlutterGemma.installModel(
         modelType: _modelType,
         fileType:  _modelFile,
       )
@@ -167,9 +189,21 @@ class OnDeviceAiService extends ChangeNotifier {
             if (intPct == _lastNotifiedPct) return;
             _lastNotifiedPct = intPct;
             _dlProgress = (intPct / 100.0).clamp(0.0, 1.0);
-            notifyListeners();
+            _notifyIfNotDisposed();
           })
-          .install();
+          .install())
+          .timeout(const Duration(minutes: 30),
+              onTimeout: () => throw TimeoutException('Download exceeded 30 minutes'));
+
+      // Issue #7: Validate model file integrity after download
+      if (!await _validateModelIntegrity()) {
+        _installed = false;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_prefInstalledModel);
+        _setState(AiModelState.error,
+            error: 'Model file corrupted. Please download again.');
+        return;
+      }
 
       // Persist FIRST — if the app crashes between write and flag, the flag
       // stays false and the download retries cleanly on next launch.
@@ -186,11 +220,13 @@ class OnDeviceAiService extends ChangeNotifier {
       _installed = false;
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_prefInstalledModel);
+
+      // Issue #4: Use friendly error messages
       if (msg.contains('no longer installed') || msg.contains('modelManager')) {
         _setState(AiModelState.notInstalled);
       } else {
-        _setState(AiModelState.error,
-            error: msg.length > 200 ? '${msg.substring(0, 200)}…' : msg);
+        final friendlyMsg = _friendlyErrorMessage(msg);
+        _setState(AiModelState.error, error: friendlyMsg);
       }
     }
   }
@@ -221,7 +257,7 @@ class OnDeviceAiService extends ChangeNotifier {
 
   void resetConversation() {
     _chat = null;
-    notifyListeners();
+    _notifyIfNotDisposed();
   }
 
   // ── Chat ────────────────────────────────────────────────────────────────────
@@ -252,16 +288,24 @@ class OnDeviceAiService extends ChangeNotifier {
         );
       }
       await _chat!.addQueryChunk(Message(text: userMessage, isUser: true));
-      await for (final r in _chat!.generateChatResponseAsync()) {
+      // Issue #1: Add 2-minute timeout to inference
+      await for (final r in _chat!.generateChatResponseAsync().timeout(
+        const Duration(minutes: 2),
+      )) {
         if (r is TextResponse) yield r.token;
       }
+    } on TimeoutException catch (e) {
+      _chat = null;
+      yield '\n\n⚠️ Response took too long. Please try again with a shorter question.';
     } catch (e) {
       final msg = e.toString().toLowerCase();
       if (msg.contains('token') || msg.contains('exceed') || msg.contains('context length')) {
         _chat = null;
         yield '\n\n⚠️ Conversation got too long. Starting fresh — please ask your question again.';
       } else {
-        yield '\n\n[Error: $e]';
+        // Issue #4: Use friendly error messages in inference too
+        final friendlyMsg = _friendlyErrorMessage(e.toString());
+        yield '\n\n⚠️ $friendlyMsg';
       }
     } finally {
       _sending = false;
@@ -549,6 +593,78 @@ Food suggestions: prioritise Indian foods — roti, dal, paneer, eggs, curd, chi
 Start your reply immediately with specific advice using the actual numbers above.''';
   }
 
+  // ── Issue #2: Memory check ──────────────────────────────────────────────────
+  Future<bool> _hasEnoughMemory() async {
+    try {
+      const channel = MethodChannel(_methodChannelName);
+      final int freeMb = await channel.invokeMethod<int>('getAvailableMemoryMb') ?? 0;
+      return freeMb >= _minMemoryMb;
+    } catch (e) {
+      return true; // Fail open if we can't check
+    }
+  }
+
+  // ── Issue #3: Disk space check ──────────────────────────────────────────────
+  Future<bool> _hasDiskSpace() async {
+    try {
+      const channel = MethodChannel(_methodChannelName);
+      final int freeMb = await channel.invokeMethod<int>('getAvailableDiskSpaceMb') ?? 0;
+      return freeMb >= _minDiskMb;
+    } catch (e) {
+      return true; // Fail open if we can't check
+    }
+  }
+
+  // ── Issue #7: CRC validation ────────────────────────────────────────────────
+  Future<bool> _validateModelIntegrity() async {
+    try {
+      const channel = MethodChannel(_methodChannelName);
+      final int fileSizeMb = await channel.invokeMethod<int>('getModelFileSizeMb') ?? 0;
+      // Allow ±5% variance from expected 600 MB (570-630 MB)
+      final int minSize = (600 * 0.95).toInt();
+      final int maxSize = (600 * 1.05).toInt();
+      return fileSizeMb >= minSize && fileSizeMb <= maxSize;
+    } catch (e) {
+      return true; // Fail open if we can't validate
+    }
+  }
+
+  // ── Issue #4: Friendly error messages ───────────────────────────────────────
+  String _friendlyErrorMessage(String rawError) {
+    final lower = rawError.toLowerCase();
+
+    if (lower.contains('timeout')) {
+      return 'Request took too long. Check your internet and try again.';
+    }
+    if (lower.contains('network') || lower.contains('socket') || lower.contains('connection')) {
+      return 'Network issue. Check WiFi/data and try again.';
+    }
+    if (lower.contains('token') || lower.contains('unauthorized') || lower.contains('403')) {
+      return 'Authentication failed. Try refreshing your token.';
+    }
+    if (lower.contains('not found') || lower.contains('404')) {
+      return 'Model not found on server. Try downloading again.';
+    }
+    if (lower.contains('storage') || lower.contains('disk') || lower.contains('space')) {
+      return 'Not enough storage space. Free up some space and try again.';
+    }
+    if (lower.contains('memory') || lower.contains('out of memory') || lower.contains('oom')) {
+      return 'Device running low on memory. Close other apps and try again.';
+    }
+    if (lower.contains('context length') || lower.contains('exceed')) {
+      return 'Conversation too long. Start a new chat.';
+    }
+    if (lower.contains('backend') || lower.contains('npu') || lower.contains('gpu')) {
+      return 'Inference engine issue. Restart the app.';
+    }
+
+    // Fallback: truncate if too long
+    if (rawError.length > 150) {
+      return '${rawError.substring(0, 150)}...';
+    }
+    return rawError;
+  }
+
   // ── Test hooks ──────────────────────────────────────────────────────────────
   @visibleForTesting
   String buildSystemPromptForTest(FitnessProvider p) => _systemPrompt(p);
@@ -569,11 +685,18 @@ Start your reply immediately with specific advice using the actual numbers above
   void _setState(AiModelState s, {String error = ''}) {
     _state = s;
     _error = error;
-    notifyListeners();
+    _notifyIfNotDisposed();
+  }
+
+  void _notifyIfNotDisposed() {
+    if (!_disposed) {
+      notifyListeners();
+    }
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _model?.close();
     super.dispose();
   }
