@@ -232,9 +232,9 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
     if (todayProt < expected * 0.6) {
       out.add(Insight(
         emoji: '🥩',
-        title: 'Protein behind pace ($todayProt g)',
-        body: 'By now you\'d expect ~${expected.round()}g. You need '
-            '${(proteinGoal - todayProt).clamp(0, proteinGoal)}g more — '
+        title: 'Protein behind pace today',
+        body: 'At $todayProt g, you\'re below the expected ~${expected.round()}g by now. '
+            'You need ${(proteinGoal - todayProt).clamp(0, proteinGoal)}g more — '
             'grilled chicken (31g/100g), 3 eggs (18g), or a whey shake (25g).',
         accent: _kBlue,
         category: InsightCategory.nutrition,

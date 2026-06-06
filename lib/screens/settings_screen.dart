@@ -101,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Karthik'),
+          decoration: const InputDecoration(hintText: 'Enter your name'),
           textCapitalization: TextCapitalization.words,
         ),
         actions: [

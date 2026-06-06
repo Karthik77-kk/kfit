@@ -79,7 +79,7 @@ class FitnessProvider extends ChangeNotifier {
   double _goalWeightKg = 70.0;
   double get goalWeightKg => _goalWeightKg;
 
-  String _userName = 'Karthik';
+  String _userName = 'Friend';
   String get userName => _userName;
 
   bool _onboardingDone = false;
@@ -845,9 +845,12 @@ class FitnessProvider extends ChangeNotifier {
     return b * (minutesElapsed / 1440.0);
   }
 
-  /// Calories burned from steps (walking)
+  /// Calories burned from steps (walking).
+  /// Returns 0 when no valid weight is logged (weight=0 is treated as "no data",
+  /// consistent with the BMR guard — we never estimate calories from an invalid weight).
   double get walkingCaloriesBurned {
-    final w = latestWeightKg ?? 70.0;
+    final w = latestWeightKg;
+    if (w == null || w <= 0) return 0;
     return todaySteps * 0.04 * (w / 70.0);
   }
 
@@ -1285,7 +1288,7 @@ class FitnessProvider extends ChangeNotifier {
     _age = prefs.getInt('age') ?? 24;
     _isMale = prefs.getBool('is_male') ?? true;
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
-    _userName = prefs.getString('user_name') ?? 'Karthik';
+    _userName = prefs.getString('user_name') ?? 'Friend';
     _onboardingDone = prefs.getBool('onboarding_done') ?? false;
 
     // User-defined goals
@@ -1812,6 +1815,8 @@ class FitnessProvider extends ChangeNotifier {
       final Map<String, dynamic> data = jsonDecode(content);
       final prefs = await SharedPreferences.getInstance();
       for (final entry in data.entries) {
+        // Never restore device-specific or sensitive keys from a backup
+        if (_exportExcludeKeys.contains(entry.key)) continue;
         final val = entry.value;
         if (val is String) await prefs.setString(entry.key, val);
         else if (val is int) await prefs.setInt(entry.key, val);

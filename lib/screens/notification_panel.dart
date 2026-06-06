@@ -72,7 +72,7 @@ class NotificationsScreen extends StatelessWidget {
             ...milestones.map((n) => _NotificationTile(n, showTime: true)),
           ],
 
-          if (insights.isEmpty && milestones.isEmpty && hour >= 13 && hour < 20)
+          if (insights.isEmpty && milestones.isEmpty)
             const _EmptyState(),
         ],
       ),

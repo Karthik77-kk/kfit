@@ -93,7 +93,7 @@ class SetData {
   Map<String, dynamic> toJson() => {'reps': reps, 'weight': weight};
 
   factory SetData.fromJson(Map<String, dynamic> j) => SetData(
-        reps: (j['reps'] as int? ?? 0).clamp(0, 9999),
+        reps: ((j['reps'] as num?) ?? 0).toInt().clamp(0, 9999),
         weight: ((j['weight'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
       );
 }
@@ -154,7 +154,7 @@ class WorkoutLog {
       };
 
   factory WorkoutLog.fromJson(Map<String, dynamic> j) {
-    final wtIdx = ((j['workoutType'] as int?) ?? 2)
+    final wtIdx = ((j['workoutType'] as num?) ?? 2).toInt()
         .clamp(0, WorkoutType.values.length - 1);
     DateTime dt;
     try {
@@ -248,16 +248,24 @@ class AppNotification {
         'read': read,
       };
 
-  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
-        id: j['id'] ?? '',
-        emoji: j['emoji'] ?? '🔔',
-        title: j['title'] ?? '',
-        body: j['body'] ?? '',
-        accent: j['accent'] ?? 0xFF30D158,
-        category: j['category'] ?? 'general',
-        timestamp: DateTime.parse(j['timestamp']),
-        read: j['read'] ?? false,
-      );
+  factory AppNotification.fromJson(Map<String, dynamic> j) {
+    DateTime ts;
+    try {
+      ts = DateTime.parse(j['timestamp'] as String? ?? '');
+    } catch (_) {
+      ts = DateTime.now();
+    }
+    return AppNotification(
+      id: (j['id'] as String?) ?? '',
+      emoji: (j['emoji'] as String?) ?? '🔔',
+      title: (j['title'] as String?) ?? '',
+      body: (j['body'] as String?) ?? '',
+      accent: (j['accent'] as int?) ?? 0xFF30D158,
+      category: (j['category'] as String?) ?? 'general',
+      timestamp: ts,
+      read: (j['read'] as bool?) ?? false,
+    );
+  }
 }
 
 // ─── Measurement Entry ────────────────────────────────────────────────────────
@@ -295,15 +303,23 @@ class MeasurementEntry {
     if (leftThighCm != null) 'leftThighCm': leftThighCm,
   };
 
-  factory MeasurementEntry.fromJson(Map<String, dynamic> j) => MeasurementEntry(
-    id: j['id'] ?? '',
-    date: DateTime.parse(j['date']),
-    chestCm: j['chestCm'] != null ? (j['chestCm'] as num).toDouble() : null,
-    waistCm: j['waistCm'] != null ? (j['waistCm'] as num).toDouble() : null,
-    hipsCm: j['hipsCm'] != null ? (j['hipsCm'] as num).toDouble() : null,
-    leftArmCm: j['leftArmCm'] != null ? (j['leftArmCm'] as num).toDouble() : null,
-    leftThighCm: j['leftThighCm'] != null ? (j['leftThighCm'] as num).toDouble() : null,
-  );
+  factory MeasurementEntry.fromJson(Map<String, dynamic> j) {
+    DateTime dt;
+    try {
+      dt = DateTime.parse(j['date'] as String? ?? '');
+    } catch (_) {
+      dt = DateTime.now();
+    }
+    return MeasurementEntry(
+      id: (j['id'] as String?) ?? '',
+      date: dt,
+      chestCm: j['chestCm'] != null ? (j['chestCm'] as num).toDouble() : null,
+      waistCm: j['waistCm'] != null ? (j['waistCm'] as num).toDouble() : null,
+      hipsCm: j['hipsCm'] != null ? (j['hipsCm'] as num).toDouble() : null,
+      leftArmCm: j['leftArmCm'] != null ? (j['leftArmCm'] as num).toDouble() : null,
+      leftThighCm: j['leftThighCm'] != null ? (j['leftThighCm'] as num).toDouble() : null,
+    );
+  }
 }
 
 // ─── Supplements ─────────────────────────────────────────────────────────────
@@ -1324,21 +1340,29 @@ class SmartScaleEntry {
     'skeletalMuscleMassKg': skeletalMuscleMassKg,
   };
 
-  factory SmartScaleEntry.fromJson(Map<String, dynamic> j) => SmartScaleEntry(
-    id: j['id'] ?? '',
-    date: DateTime.parse(j['date']),
-    weightKg: (j['weightKg'] ?? 0).toDouble(),
-    bodyFatPercent: (j['bodyFatPercent'] ?? 0).toDouble(),
-    bodyFatKg: (j['bodyFatKg'] ?? 0).toDouble(),
-    muscleMassKg: (j['muscleMassKg'] ?? 0).toDouble(),
-    muscleMassPercent: (j['muscleMassPercent'] ?? 0).toDouble(),
-    leanBodyMassKg: (j['leanBodyMassKg'] ?? 0).toDouble(),
-    biologicalAge: (j['biologicalAge'] ?? 0).toInt(),
-    visceralFatIndex: (j['visceralFatIndex'] ?? 0).toInt(),
-    bmr: (j['bmr'] ?? 0).toDouble(),
-    bodyWaterPercent: (j['bodyWaterPercent'] ?? 0).toDouble(),
-    boneMassKg: (j['boneMassKg'] ?? 0).toDouble(),
-    proteinPercent: (j['proteinPercent'] ?? 0).toDouble(),
-    skeletalMuscleMassKg: (j['skeletalMuscleMassKg'] ?? 0).toDouble(),
-  );
+  factory SmartScaleEntry.fromJson(Map<String, dynamic> j) {
+    DateTime dt;
+    try {
+      dt = DateTime.parse(j['date'] as String? ?? '');
+    } catch (_) {
+      dt = DateTime.now();
+    }
+    return SmartScaleEntry(
+      id: (j['id'] as String?) ?? '',
+      date: dt,
+      weightKg: ((j['weightKg'] as num?) ?? 0).toDouble(),
+      bodyFatPercent: ((j['bodyFatPercent'] as num?) ?? 0).toDouble(),
+      bodyFatKg: ((j['bodyFatKg'] as num?) ?? 0).toDouble(),
+      muscleMassKg: ((j['muscleMassKg'] as num?) ?? 0).toDouble(),
+      muscleMassPercent: ((j['muscleMassPercent'] as num?) ?? 0).toDouble(),
+      leanBodyMassKg: ((j['leanBodyMassKg'] as num?) ?? 0).toDouble(),
+      biologicalAge: ((j['biologicalAge'] as num?) ?? 0).toInt(),
+      visceralFatIndex: ((j['visceralFatIndex'] as num?) ?? 0).toInt(),
+      bmr: ((j['bmr'] as num?) ?? 0).toDouble(),
+      bodyWaterPercent: ((j['bodyWaterPercent'] as num?) ?? 0).toDouble(),
+      boneMassKg: ((j['boneMassKg'] as num?) ?? 0).toDouble(),
+      proteinPercent: ((j['proteinPercent'] as num?) ?? 0).toDouble(),
+      skeletalMuscleMassKg: ((j['skeletalMuscleMassKg'] as num?) ?? 0).toDouble(),
+    );
+  }
 }

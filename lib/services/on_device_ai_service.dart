@@ -79,6 +79,9 @@ class OnDeviceAiService extends ChangeNotifier {
     if (_state == AiModelState.ready    ||
         _state == AiModelState.loading  ||
         _state == AiModelState.downloading) return;
+    // Claim the loading slot immediately so a concurrent call that arrives
+    // before the first await doesn't also slip through the guard above.
+    _setState(AiModelState.loading);
     final prefs = await SharedPreferences.getInstance();
     await _doInit(prefs);
   }
