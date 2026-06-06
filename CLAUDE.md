@@ -100,6 +100,45 @@ git push origin --delete fix/build-N-description
 - Verify GitHub Actions run succeeds
 - APK artifact appears under Actions → latest run
 
+### Rule 8 — 🚫 MANDATORY DUAL-APPROVAL WORKFLOW (UNBREAKABLE)
+**This rule cannot be broken. No exceptions. Ever.**
+
+1. **Master + Main must ALWAYS be in sync**
+   - After every merge to master, immediately sync: `git merge master main && git push origin main`
+   - If out of sync, revert to last sync state
+
+2. **No direct commits to master/main**
+   - Create feature branch: `feature/build-X-*` or `fix/build-X-*`
+   - All changes ONLY via branches
+
+3. **Code Review Agent MUST approve before merge**
+   - Run: `/code-review` or `/review-branch`
+   - Wait for ✅ APPROVED
+   - Fix any issues, re-review
+   - **Cannot merge without approval**
+
+4. **Testing Agent MUST approve before merge**
+   - Run: `/verify` (flutter test + flutter analyze)
+   - All tests must PASS: ✅ 100%
+   - Zero errors, zero warnings
+   - **Cannot merge without approval**
+
+5. **Merge sequence (cannot skip steps)**
+   - Feature branch complete
+   - Invoke code review agent → ✅ APPROVED
+   - Invoke testing agent → ✅ ALL TESTS PASS
+   - ONLY THEN: `git merge ... && git push origin master`
+   - IMMEDIATELY: `git merge master main && git push origin main`
+
+6. **Violations = immediate rollback**
+   - Direct commit to master/main → REVERT
+   - Skip code review → REVERT
+   - Skip testing → REVERT
+   - Merge with failing tests → REVERT
+   - Branches out of sync → FORCE SYNC
+
+**See:** [Mandatory Dual-Approval Workflow](../memory/rule_mandatory_dual_approval_workflow.md) for full details.
+
 ### Rule 9 — NEVER change applicationId
 The `applicationId` in the CI workflow (`build_apk.yml` line ~114) is **permanently fixed** at `com.example.karthik_fitness`.
 - **Changing applicationId = different app on the device.** Android treats it as a brand-new app, not an update. Every user must uninstall and lose their data.
