@@ -139,9 +139,10 @@ const VERSION = 'Latest Build';
     fetch('https://api.github.com/repos/Karthik77-kk/karthik-fitness/releases/latest')
       .then(r => r.json())
       .then(release => {
-        const apkAsset = release.assets?.find((a: any) => a.name === 'kfit.apk');
-        if (apkAsset?.browser_download_url) {
-          dlBtn.href = apkAsset.browser_download_url;
+        // Construct direct download URL from tag (more reliable than browser_download_url)
+        // GitHub tag format: v2.3.0-build-91
+        if (release.tag_name && release.assets?.find((a: any) => a.name === 'kfit.apk')) {
+          dlBtn.href = `https://github.com/Karthik77-kk/karthik-fitness/releases/download/${release.tag_name}/kfit.apk`;
         }
       })
       .catch(() => {
