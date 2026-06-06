@@ -311,7 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'v2.3.0 · Build 76.1 — Personal fitness tracker',
+            subtitle: 'v2.3.0 · Build 77 — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),
