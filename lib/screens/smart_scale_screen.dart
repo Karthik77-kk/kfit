@@ -170,23 +170,23 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
             ),
             const SizedBox(height: 16),
             _Section('Essential', [
-              _Field('Weight (kg)', _weight, required: true, hint: '70.0'),
-              _Field('Body Fat (%)', _bodyFatPct, hint: '18.5'),
-              _Field('Body Fat (kg)', _bodyFatKg, hint: '13.0'),
-              _Field('BMR (kcal)', _bmr, hint: '1650'),
+              _Field('Weight (kg)', _weight, required: true),
+              _Field('Body Fat (%)', _bodyFatPct),
+              _Field('Body Fat (kg)', _bodyFatKg),
+              _Field('BMR (kcal)', _bmr, isDecimal: false),
             ]),
             _Section('Muscle & Lean Mass', [
-              _Field('Muscle Mass (kg)', _muscleMassKg, hint: '52.0'),
-              _Field('Muscle Mass (%)', _muscleMassPct, hint: '74.0'),
-              _Field('Lean Body Mass (kg)', _leanBodyMass, hint: '57.0'),
-              _Field('Skeletal Muscle (kg)', _skeletalMuscle, hint: '28.0'),
+              _Field('Muscle Mass (kg)', _muscleMassKg),
+              _Field('Muscle Mass (%)', _muscleMassPct),
+              _Field('Lean Body Mass (kg)', _leanBodyMass),
+              _Field('Skeletal Muscle (kg)', _skeletalMuscle),
             ]),
             _Section('Other Metrics', [
-              _Field('Body Water (%)', _bodyWater, hint: '55.0'),
-              _Field('Bone Mass (kg)', _boneMass, hint: '2.5'),
-              _Field('Protein (%)', _proteinPct, hint: '17.5'),
-              _Field('Visceral Fat Index', _visceralFat, hint: '8', isDecimal: false),
-              _Field('Biological Age (yrs)', _bioAge, hint: '24', isDecimal: false),
+              _Field('Body Water (%)', _bodyWater),
+              _Field('Bone Mass (kg)', _boneMass),
+              _Field('Protein (%)', _proteinPct),
+              _Field('Visceral Fat Index', _visceralFat, isDecimal: false),
+              _Field('Biological Age (yrs)', _bioAge, isDecimal: false),
             ]),
             const SizedBox(height: 16),
             SizedBox(
@@ -241,19 +241,23 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _Field(String label, TextEditingController ctrl,
-      {bool required = false, String hint = '', bool isDecimal = true}) {
-    // Horizontal layout: label on left, input on right
+      {bool required = false, bool isDecimal = true}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(children: [
-        // Label on left (flex 1)
         Expanded(
           flex: 1,
-          child: Text(label,
-              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13)),
+          child: RichText(
+            text: TextSpan(
+              text: label,
+              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+              children: required
+                  ? [const TextSpan(text: ' *', style: TextStyle(color: Color(0xFFFF453A)))]
+                  : [],
+            ),
+          ),
         ),
         const SizedBox(width: 12),
-        // Input on right (flex 1, compact)
         Expanded(
           flex: 1,
           child: TextField(
@@ -265,10 +269,8 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
                 fontWeight: FontWeight.w600),
             textAlign: TextAlign.right,
             decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-              suffixText: required ? '＊' : null,
-              suffixStyle: const TextStyle(color: Color(0xFFFF453A), fontSize: 12),
+              hintText: '—',  // neutral dash; NOT a numeric value so it can't be mistaken for real data
+              hintStyle: const TextStyle(color: Color(0xFF48484A), fontSize: 15),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,
               fillColor: Colors.white.withOpacity(0.06),

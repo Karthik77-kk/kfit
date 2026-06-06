@@ -89,22 +89,42 @@ class OnDeviceAiService extends ChangeNotifier {
     await saveToken(_enterpriseToken);
     _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
 
-    // If our pref says not installed, nothing to do.
     if (!_installed) {
       _setState(AiModelState.notInstalled);
       return;
     }
 
-    // Model is on disk — initialize the runtime and load it into memory.
-    // Do NOT use hasActiveModel(): that returns false on fresh app start because
-    // the model is on disk but hasn't been loaded into the inference engine yet.
-    // Just call getActiveModel() directly; if the file is gone or corrupt it throws
-    // and we clear the installed flag so the user can re-download.
     try {
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
+
+      // KEY FIX: installModel().install() is idempotent per flutter_gemma docs:
+      // "calling install() on an already-installed model will skip download and
+      //  just set it as active." This calls manager.setActiveModel() which is
+      // required before getActiveModel() can succeed. On plain app restart
+      // (model file on disk) this completes in milliseconds with no download.
+      // The progress callback only fires when an actual download happens (e.g.
+      // after a reinstall that wiped internal storage). In that case we surface
+      // the download progress UI automatically.
+      bool redownloading = false;
+      await FlutterGemma.installModel(
+        modelType: _modelType,
+        fileType:  _modelFile,
+      )
+          .fromNetwork(_modelUrl, token: _enterpriseToken)
+          .withProgress((pct) {
+            if (!redownloading) {
+              redownloading = true;
+              _dlProgress = 0;
+              _setState(AiModelState.downloading);
+            }
+            _dlProgress = (pct / 100.0).clamp(0.0, 1.0);
+            notifyListeners();
+          })
+          .install();
+
       await _loadModel();
     } catch (e) {
-      // Model file missing or corrupted — reset so user sees download button.
+      // File gone and re-download failed, or model corrupt → show Download.
       _installed = false;
       await prefs.remove(_prefInstalledModel);
       _setState(AiModelState.notInstalled);
@@ -150,23 +170,19 @@ class OnDeviceAiService extends ChangeNotifier {
   }
 
   Future<void> _loadModel() async {
-    // Model already in memory — just surface the ready state without reloading.
-    // This is the key guard that prevents re-loading when user navigates back
-    // to an existing chat while the app is still running.
+    // Already in memory — no reload needed (guard for navigate-back scenario).
     if (_model != null) {
       _setState(AiModelState.ready);
       return;
     }
     _setState(AiModelState.loading);
-    try {
-      _model = await FlutterGemma.getActiveModel(
-        maxTokens:        _maxTokens,
-        preferredBackend: PreferredBackend.npu,
-      );
-      _setState(AiModelState.ready);
-    } catch (e) {
-      _setState(AiModelState.error, error: 'Failed to load model: $e');
-    }
+    // No try-catch here: exceptions propagate to _doInit() / downloadAndLoad()
+    // which have the right recovery logic (clear pref, show Download button).
+    _model = await FlutterGemma.getActiveModel(
+      maxTokens:        _maxTokens,
+      preferredBackend: PreferredBackend.npu,
+    );
+    _setState(AiModelState.ready);
   }
 
   void resetConversation() {
