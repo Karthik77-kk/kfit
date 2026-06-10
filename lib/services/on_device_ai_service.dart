@@ -11,7 +11,14 @@ enum AiModelState { notInstalled, downloading, loading, ready, error }
 
 class OnDeviceAiService extends ChangeNotifier {
   // ── Single model: Gemma 3 1B INT4 (~600 MB) ────────────────────────────────
-  static const _enterpriseToken = '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';
+  // HuggingFace token is injected at build time, NOT hardcoded — it must never
+  // live in source (this is a public repo + it ships in the APK). Supplied via
+  // `--dart-define=HF_TOKEN=...`, sourced from the GitHub secret HF_TOKEN in
+  // build_apk.yml. Empty in local dev unless you pass your own --dart-define.
+  // The model is gated, so a token from an HF account that has accepted the
+  // Gemma3-1B-IT licence is required to DOWNLOAD it (cached installs still load).
+  static const _enterpriseToken =
+      String.fromEnvironment('HF_TOKEN', defaultValue: '');
   static const _modelUrl =
       'https://huggingface.co/litert-community/Gemma3-1B-IT'
       '/resolve/main/gemma3-1b-it-int4.litertlm';
