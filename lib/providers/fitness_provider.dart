@@ -361,10 +361,37 @@ class FitnessProvider extends ChangeNotifier {
     return t.clamp(1200.0, 4500.0);
   }
 
+  /// Dynamic component maintenance: resting BMR + your typical daily walking
+  /// (average logged steps) + typical daily workout burn (7-day average). Floored
+  /// at the sedentary BMR×1.2 so a quiet day never understates it. This is the
+  /// single energy model the app surfaces — it moves with what you actually do,
+  /// instead of a fixed activity multiplier, so there is no competing "maintenance"
+  /// number anywhere in the UI.
+  double? get componentTdee {
+    final b = bmr;
+    if (b == null) return null;
+    final w           = latestWeightKg ?? 70.0;
+    final walkBurn    = _avgDailySteps() * 0.04 * (w / 70.0);
+    final workoutBurn = weeklyCaloriesBurned / 7.0;
+    final active      = b + walkBurn + workoutBurn;
+    final floor       = b * 1.2; // sedentary baseline (resting + minimal NEAT/TEF)
+    return (active > floor ? active : floor).clamp(1000.0, 6000.0);
+  }
+
+  /// Average daily steps from logged history (days that actually have step data),
+  /// falling back to today's live count. Feeds the walking term of [componentTdee].
+  double _avgDailySteps() {
+    final withSteps =
+        getRecentBodyEntries(days: 7).where((e) => e.steps > 0).toList();
+    if (withSteps.isEmpty) return todaySteps.toDouble();
+    final sum = withSteps.fold<int>(0, (s, e) => s + e.steps);
+    return sum / withSteps.length;
+  }
+
   /// The TDEE we trust most: data-calibrated [adaptiveTdee] when available,
-  /// otherwise the BMR×activity estimate [tdee]. Use THIS for any calorie goal
-  /// math so the user gets accurate, personalised targets.
-  double? get bestTdee => adaptiveTdee ?? tdee;
+  /// otherwise the dynamic [componentTdee] estimate. Use THIS for any calorie
+  /// goal math so the user gets accurate, personalised, activity-aware targets.
+  double? get bestTdee => adaptiveTdee ?? componentTdee;
 
   /// True when [bestTdee] is the data-calibrated value (for "calibrated" UI badges).
   bool get isTdeeCalibrated => adaptiveTdee != null;
