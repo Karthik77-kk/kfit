@@ -368,7 +368,7 @@ void main() {
       final p = await _loaded();
       final ai = OnDeviceAiService();
       final prompt = ai.buildSystemPromptForTest(p);
-      expect(prompt, contains('Start your reply'));
+      expect(prompt, contains('make it personal'));
     });
 
     test('compact prompt handles empty user (no food, no workouts)', () async {
