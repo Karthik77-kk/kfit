@@ -94,6 +94,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final lastWeight = provider.getLastExerciseWeight(exerciseName);
     final lastReps = provider.getLastExerciseReps(exerciseName);
     final pr = provider.getPersonalRecord(exerciseName);
+    // Cardio is logged by minutes (stored in reps), not sets/reps/weight.
+    final isCardio = ExerciseDatabase.isCardio(exerciseName);
 
     final setsCtrl = TextEditingController(text: '3');
     final repsCtrl = TextEditingController(text: (lastReps ?? 10).toString());
@@ -128,15 +130,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   ],
                 ),
               ),
-            Row(children: [
-              Expanded(child: _buildField('Sets', setsCtrl, isDecimal: false)),
-              const SizedBox(width: 8),
-              Expanded(child: _buildField('Reps', repsCtrl, isDecimal: false)),
-              const SizedBox(width: 8),
-              Expanded(child: _buildField('kg', weightCtrl)),
-            ]),
+            if (isCardio)
+              _buildField('Minutes', repsCtrl, isDecimal: false)
+            else
+              Row(children: [
+                Expanded(child: _buildField('Sets', setsCtrl, isDecimal: false)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildField('Reps', repsCtrl, isDecimal: false)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildField('kg', weightCtrl)),
+              ]),
             const SizedBox(height: 8),
-            if (lastWeight != null)
+            if (isCardio && lastReps != null)
+              Text('Last: $lastReps min',
+                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12))
+            else if (!isCardio && lastWeight != null)
               Text('Last session: ${lastWeight.toStringAsFixed(1)} kg × ${lastReps ?? '?'} reps',
                   style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
           ],
@@ -153,12 +161,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             onPressed: () {
-              final sets = int.tryParse(setsCtrl.text) ?? 3;
-              final reps = int.tryParse(repsCtrl.text) ?? 10;
-              final weight = double.tryParse(weightCtrl.text) ?? 0;
-              final tip = ExerciseDatabase.progressiveOverloadTip(
-                  exerciseName, sets, reps, weight, lastReps ?? 10);
-              final setLogs = List.generate(sets, (_) => SetData(reps: reps, weight: weight));
+              final List<SetData> setLogs;
+              final String tip;
+              if (isCardio) {
+                final minutes = int.tryParse(repsCtrl.text) ?? 20;
+                setLogs = [SetData(reps: minutes, weight: 0)];
+                tip = '$minutes min logged 🏃';
+              } else {
+                final sets = int.tryParse(setsCtrl.text) ?? 3;
+                final reps = int.tryParse(repsCtrl.text) ?? 10;
+                final weight = double.tryParse(weightCtrl.text) ?? 0;
+                tip = ExerciseDatabase.progressiveOverloadTip(
+                    exerciseName, sets, reps, weight, lastReps ?? 10);
+                setLogs = List.generate(sets, (_) => SetData(reps: reps, weight: weight));
+              }
               setState(() {
                 final existingIdx = _exercises.indexWhere((e) => e.name == exerciseName);
                 if (existingIdx >= 0) {

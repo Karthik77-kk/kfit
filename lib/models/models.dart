@@ -485,6 +485,11 @@ class ExerciseDatabase {
     return null;
   }
 
+  /// Cardio exercises are logged by DURATION (minutes), not sets×reps×weight.
+  /// Their calorie burn is MET × bodyweight × minutes — a sets/reps model is
+  /// meaningless for running, cycling, etc. Minutes are stored in SetData.reps.
+  static bool isCardio(String exercise) => categoryOf(exercise) == 'Cardio';
+
   /// Suggest next session weight/reps based on completed performance.
   /// Returns a string like "+2.5 kg next session" or "Add 1 more rep"
   static String progressiveOverloadTip(
