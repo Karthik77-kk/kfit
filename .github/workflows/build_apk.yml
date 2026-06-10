@@ -303,10 +303,9 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        # HF_TOKEN is injected here (not committed in source). Set it as a repo
-        # secret to a HuggingFace token whose account has accepted the
-        # Gemma3-1B-IT licence, or the on-device model can't be downloaded.
-        run: flutter build apk --release --no-tree-shake-icons --dart-define=HF_TOKEN=${{ secrets.HF_TOKEN }}
+        # HF model-download token is hardcoded in lib/services/on_device_ai_service.dart
+        # (no secret needed, by design).
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/kfit.apk
