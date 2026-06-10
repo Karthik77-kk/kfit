@@ -53,3 +53,14 @@ Every number shown to the user must be derived from THEIR data, never hardcoded.
 - New logic needs tests covering boundaries, zero values, and every branch.
 - Tests must be deterministic — flag `DateTime.now()` used where a fixed time is
   needed (it causes time-of-day flakiness).
+- A PR that adds logic but no tests should be called out — the gate enforces a
+  coverage floor, so untested code can fail CI.
+
+## 9. Production-safety red flags (the CI gate hard-fails these — call them out early)
+- A hardcoded credential (`hf_…`, `ghp_…`, AWS key, private key) anywhere in `lib/`.
+- Any change to `applicationId` or `namespace` away from `com.example.karthik_fitness`.
+- A `pubspec.yaml` versionCode that is a decimal, unchanged, or not greater than the
+  last shipped build.
+- New `warning`/`error`-level analyzer issues (info-level is fine).
+- A change that removes or weakens a null-guard, await, or error path on a code path
+  that handles user data, parsing, or the on-device model.
