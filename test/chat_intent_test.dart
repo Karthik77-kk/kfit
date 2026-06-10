@@ -110,4 +110,66 @@ void main() {
       }
     });
   });
+
+  group('factualAnswer — more topics', () {
+    test('calorie target cites a kcal figure when data exists', () async {
+      final p = await _seeded();
+      final a = ChatIntent.factualAnswer("what's my calorie target", p)!;
+      expect(a.toLowerCase(), contains('kcal'));
+    });
+
+    test('calorie target with no body data → prompts to log', () async {
+      final p = await _seeded(body: false);
+      final a = ChatIntent.factualAnswer('what is my deficit target', p)!;
+      expect(a.toLowerCase(), contains('log your weight'));
+    });
+
+    test('steps-only today question returns step counts', () async {
+      final p = await _seeded();
+      final a = ChatIntent.factualAnswer('how many steps today', p)!;
+      expect(a, contains('steps'));
+      expect(a, isNot(contains('protein')));
+    });
+
+    test('water-only today question returns ml', () async {
+      final p = await _seeded();
+      final a = ChatIntent.factualAnswer('how much water today', p)!;
+      expect(a.toLowerCase(), contains('water'));
+    });
+
+    test('body composition with no scale → helpful prompt', () async {
+      final p = await _seeded();
+      final a = ChatIntent.factualAnswer("what's my body fat", p)!;
+      expect(a.toLowerCase(), contains('no smart-scale'));
+    });
+
+    test('measurements with none logged → helpful prompt', () async {
+      final p = await _seeded();
+      final a = ChatIntent.factualAnswer('what is my waist size', p)!;
+      expect(a.toLowerCase(), contains('no body measurements'));
+    });
+
+    test('streak question lists streaks', () async {
+      final p = await _seeded();
+      final a = ChatIntent.factualAnswer("what's my streak", p)!;
+      expect(a.toLowerCase(), contains('workout'));
+    });
+
+    test('goal-ETA with insufficient trend → asks for more history', () async {
+      final p = await _seeded(); // single weight entry, no trend
+      final a = ChatIntent.factualAnswer('when will i reach my goal', p)!;
+      expect(a.toLowerCase(), anyOf(contains('weight history'), contains('already')));
+    });
+  });
+
+  group('isGreeting — more cases', () {
+    test('extra greetings → true', () {
+      for (final g in ['good evening', 'thx', 'bye', 'yo', 'gn']) {
+        expect(ChatIntent.isGreeting(g), isTrue, reason: g);
+      }
+    });
+    test('greeting word + coaching word → false', () {
+      expect(ChatIntent.isGreeting('hello can you help me'), isFalse);
+    });
+  });
 }

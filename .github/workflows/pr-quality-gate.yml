@@ -2,21 +2,20 @@ name: PR Quality Gate
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The REAL, hard-to-fool merge gate. One required job: "Verify (analyze + test)".
+# Runs on the real head SHA, resets on every push, cannot be faked by a comment.
 #
-#   - flutter analyze (info-lints allowed; warnings/errors fail)
-#   - flutter test  (full suite, on the actual head commit)
-#   - version integrity:
-#       * versionCode MUST be a whole integer (decimals silently truncate and
-#         cause Android "can't install" — the classic Build 72/74/75 bug)
-#       * when pubspec.yaml changes, the release tag it implies must NOT already
-#         exist (forces a real build-number bump; prevents duplicate-version
-#         "can't install" and duplicate-tag release failures)
+# Hard checks (any failure blocks merge):
+#   1. Secret scan      — no hardcoded tokens/keys in lib/ (the HF-token leak class)
+#   2. App identity     — build_apk.yml keeps applicationId + namespace pinned to
+#                         com.example.karthik_fitness (changing it orphans installs)
+#   3. Version integrity— versionCode is a whole integer AND strictly greater than
+#                         the latest released build (no decimals, no reuse, no go-back)
+#   4. flutter analyze  — warnings/errors fail (info-lints allowed)
+#   5. flutter test     — full suite, with coverage
+#   6. Coverage floor   — line coverage must stay >= COVERAGE_MIN (tests can't vanish)
 #
-# Branch protection requires this check (strict + enforce_admins). It runs on the
-# real head SHA and resets on every push — there is no comment string to fake.
-# Code review is handled by GitHub Copilot (advisory) per .github/copilot-instructions.md.
-# A broken release APK can never ship: build_apk.yml only creates a release after a
-# successful build, so the last good release always stays "latest".
+# Code review is GitHub Copilot (advisory) per .github/copilot-instructions.md.
+# A broken release APK can never ship: build_apk.yml only releases on success.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -29,6 +28,9 @@ concurrency:
 
 permissions:
   contents: read
+
+env:
+  COVERAGE_MIN: "38.0"   # ratchet: raise as coverage grows (currently ~40%)
 
 jobs:
   verify:
@@ -47,40 +49,54 @@ jobs:
           HEAD="${{ github.event.pull_request.head.sha }}"
           FILES=$(git diff --name-only "$BASE" "$HEAD")
           echo "Changed files:"; echo "$FILES"
-          # code = Dart source OR pubspec -> run analyze + test
           if echo "$FILES" | grep -qE '(\.dart$|^pubspec\.yaml$)'; then
             echo "code=true"  >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
-          # pubspec = version manifest changed -> run the tag-uniqueness check
           if echo "$FILES" | grep -qE '^pubspec\.yaml$'; then
             echo "pubspec=true"  >> "$GITHUB_OUTPUT"
           else
             echo "pubspec=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Version integrity (integer code; no duplicate release)
+      - name: Secret scan (no hardcoded credentials in lib/)
         run: |
-          VER=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//')
-          NAME="${VER%+*}"
-          CODE="${VER#*+}"
-          echo "pubspec version: $VER  (name=$NAME code=$CODE)"
-          # 1) versionCode must be a whole integer — decimals break Android installs.
-          if ! echo "$CODE" | grep -qE '^[0-9]+$'; then
-            echo "::error::versionCode '$CODE' is not a whole integer. Use e.g. 2.3.0+96, never 2.3.0+95.1 (Android truncates decimals -> 'can't install')."
+          # HF tokens, GitHub PATs, AWS keys, private keys. lib/ is Dart source —
+          # there is never a legit reason for a raw credential to live here.
+          PATTERN='hf_[A-Za-z0-9]{30}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+          if grep -rEn "$PATTERN" lib/; then
+            echo "::error::Hardcoded credential detected in lib/. Move it to --dart-define / a repo secret (see CI_SETUP.md)."
             exit 1
           fi
-          # 2) When pubspec changed, the implied release tag must not already exist.
+          echo "✅ No hardcoded credentials in lib/"
+
+      - name: App identity guard (applicationId + namespace pinned)
+        run: |
+          F=.github/workflows/build_apk.yml
+          grep -q 'applicationId "com.example.karthik_fitness"' "$F" || { echo "::error::applicationId must stay com.example.karthik_fitness (changing it orphans every install)."; exit 1; }
+          grep -q 'namespace "com.example.karthik_fitness"' "$F"     || { echo "::error::namespace must stay com.example.karthik_fitness (must match committed .kt package)."; exit 1; }
+          echo "✅ App identity pinned"
+
+      - name: Version integrity (integer + strictly increasing)
+        run: |
+          VER=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//')
+          NAME="${VER%+*}"; CODE="${VER#*+}"
+          echo "pubspec version: $VER  (name=$NAME code=$CODE)"
+          if ! echo "$CODE" | grep -qE '^[0-9]+$'; then
+            echo "::error::versionCode '$CODE' is not a whole integer (decimals truncate -> 'can't install')."
+            exit 1
+          fi
+          MAXN=$(git ls-remote --tags origin | grep -oE 'build-[0-9]+$' | grep -oE '[0-9]+$' | sort -n | tail -1)
+          MAXN=${MAXN:-0}
           if [ "${{ steps.changed.outputs.pubspec }}" = "true" ]; then
-            TAG="v${NAME}-build-${CODE}"
-            if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
-              echo "::error::Release tag ${TAG} already exists. Bump the build number in pubspec.yaml (reusing a released versionCode causes 'can't install')."
+            if [ "$CODE" -le "$MAXN" ]; then
+              echo "::error::versionCode $CODE must be greater than the latest released build $MAXN. Bump pubspec.yaml."
               exit 1
             fi
-            echo "✅ Version OK: ${TAG} (whole integer, not yet released)"
+            echo "✅ Version OK: $CODE > latest released $MAXN"
           else
-            echo "✅ versionCode ${CODE} is a whole integer (pubspec unchanged; skipping tag check)"
+            echo "✅ versionCode $CODE is a whole integer (pubspec unchanged)"
           fi
 
       - name: Set up Java
@@ -106,10 +122,25 @@ jobs:
         if: steps.changed.outputs.code == 'true'
         run: flutter analyze --no-fatal-infos
 
-      - name: Test (full suite)
+      - name: Test (full suite, with coverage)
         if: steps.changed.outputs.code == 'true'
-        run: flutter test
+        run: flutter test --coverage
+
+      - name: Coverage floor
+        if: steps.changed.outputs.code == 'true'
+        run: |
+          if [ ! -f coverage/lcov.info ]; then
+            echo "::error::coverage/lcov.info missing — tests did not produce coverage."
+            exit 1
+          fi
+          PCT=$(awk -F: '/^LF:/{lf+=$2} /^LH:/{lh+=$2} END{ if(lf>0) printf "%.1f", lh/lf*100; else print "0" }' coverage/lcov.info)
+          echo "Line coverage: ${PCT}% (floor ${COVERAGE_MIN}%)"
+          if awk "BEGIN{exit !($PCT < $COVERAGE_MIN)}"; then
+            echo "::error::Coverage ${PCT}% is below the ${COVERAGE_MIN}% floor. Add tests for your change."
+            exit 1
+          fi
+          echo "✅ Coverage ${PCT}% >= ${COVERAGE_MIN}%"
 
       - name: Docs-only PR
         if: steps.changed.outputs.code == 'false'
-        run: echo "No Dart/pubspec changes — analyze/test skipped. Version + gate pass."
+        run: echo "No Dart/pubspec changes — analyze/test skipped. Identity, secret & version checks still ran."
