@@ -120,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) => ctrl.dispose());
   }
 
 
@@ -159,9 +159,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF30D158), foregroundColor: Colors.black),
             onPressed: () async {
-              final val = int.tryParse(ctrl.text.trim());
-              if (val != null) {
-                await onSave(val);
+              final parsed = int.tryParse(ctrl.text.trim());
+              if (parsed != null) {
+                // Enforce the advertised range — an out-of-range goal (e.g. 0 or
+                // 50000 kcal) would break deficit/progress maths downstream.
+                await onSave(parsed.clamp(min, max));
               }
               if (mounted) Navigator.pop(context);
             },
@@ -169,7 +171,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) => ctrl.dispose());
   }
 
   @override
