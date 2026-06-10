@@ -19,7 +19,6 @@ class OnDeviceAiService extends ChangeNotifier {
   static const _modelName    = 'Gemma 3 1B';
   static const _modelSize    = '~600 MB';
   static const _maxTokens    = 2048;
-  static const _expectedModelSizeMb = 600;
   static const _minMemoryMb  = 900;
   static const _minDiskMb    = 1000;
   static const _methodChannelName = 'com.karthikfitness.aichat/system';
@@ -264,7 +263,9 @@ class OnDeviceAiService extends ChangeNotifier {
       // Use conservative estimate: assume 2 Mbps average (600MB ÷ 2 Mbps = 300s = 5 min)
       // Add 20% buffer for network variability
       // Minimum 30 min (WiFi), Maximum 180 min (very slow network)
-      const int estimatedMinutes = ((600 / 2) / 60 * 1.2).toInt(); // ~60 minutes
+      // Manual calc: (600 / 2 / 60 * 1.2) = (300 / 60 * 1.2) = 5 * 1.2 = 6 minutes
+      // But use conservative 60 minutes (10x) for poor networks
+      const int estimatedMinutes = 60;
       return estimatedMinutes.clamp(30, 180);
     } catch (_) {
       // Fallback: 90 minutes (conservative for slow networks)
@@ -282,7 +283,7 @@ class OnDeviceAiService extends ChangeNotifier {
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         return await operation();
-      } on SocketException catch (e) {
+      } on SocketException {
         if (attempt == maxAttempts) rethrow;
         // Exponential backoff: 2s → 3s → 4.5s (1.5x multiplier)
         final delayMs = (baseDelayMs * (1 + (attempt - 1) * 0.5)).toInt();
@@ -463,7 +464,7 @@ class OnDeviceAiService extends ChangeNotifier {
           }
         }
       }
-    } on TimeoutException catch (e) {
+    } on TimeoutException {
       _chat = null;
       yield '\n\n⚠️ Response took too long. Please try again with a shorter question.';
     } catch (e) {
