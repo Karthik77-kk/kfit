@@ -53,6 +53,18 @@ Required status check on `main` is now **`Verify (analyze + test)`** (the old
 - Even if something native slips through, `build_apk.yml` releases **only on a
   successful build**, so the newest *downloadable* release is always a good one.
 
-## Separate security follow-up (do soon)
-`lib/services/on_device_ai_service.dart` hardcodes an `hf_…` token that ships in every
-APK. Revoke it on HuggingFace and move it to a `--dart-define` build secret.
+## HuggingFace token (Build 97) — now a secret, action needed
+The `hf_…` token is **no longer hardcoded** — `on_device_ai_service.dart` reads it
+from `--dart-define=HF_TOKEN`, injected by `build_apk.yml` from the **`HF_TOKEN`**
+repo secret.
+
+⚠️ The old hardcoded token was **already dead (401)** — fresh installs can't download
+the on-device AI model until you set a **valid** token:
+1. On a HuggingFace account, open `litert-community/Gemma3-1B-IT` and **accept the
+   licence** (the model is gated).
+2. Create an HF access token (read) on that account.
+3. Update the repo secret **`HF_TOKEN`** with it.
+
+(Note: a `--dart-define` value is still embedded in the APK and extractable by a
+determined attacker — true secrecy needs a backend proxy this no-backend app lacks.
+The win is removing it from public source and enabling rotation without a code change.)
