@@ -86,7 +86,7 @@ Every merge to `main` that ships a new APK must bump `pubspec.yaml` version:
 - **New features** → next integer: `76` → `77`
 - **Patches/fixes** → also next integer: `77` → `78` (do NOT use `77.1` — decimals break Android versionCode)
 - The branch name and commit message can say "Build 77.1" for human readability, but pubspec must have `+78`
-Current build: **89**. Next build: **90**.
+Current build: **95**. Next build: **96**.
 
 ### Rule 4a — CRITICAL: Keep pubspec.yaml version code in sync with commit messages
 **This rule prevents release automation failures, download 404 errors, and website deployment confusion.**
@@ -153,8 +153,28 @@ git push origin --delete fix/build-N-description
 - Verify GitHub Actions run succeeds
 - APK artifact appears under Actions → latest run
 
-### Rule 9 — 🚫 MANDATORY FULLY-AUTOMATIC DUAL-APPROVAL WORKFLOW (UNBREAKABLE)
+### Rule 9 — 🚫 MANDATORY FULLY-AUTOMATIC QUALITY GATE (UNBREAKABLE)
 **This rule cannot be broken. No exceptions. Ever. NO USER PERMISSION NEEDED.**
+
+> ⚠️ **MECHANISM UPDATED (Build 95).** The old "post `✅ Code Review Agent: APPROVED`
+> / `✅ Testing Agent: VERIFIED` comment strings and let a workflow grep for them"
+> approval is **GONE** (it was fakeable — any comment containing the string merged
+> the PR). Replaced by a **real** CI gate. There is no Haiku/Claude CI job — review is
+> done by **GitHub Copilot** (advisory) per `.github/copilot-instructions.md`.
+>
+> - **`pr-quality-gate.yml` → `verify` job** (the hard, un-fakeable, REQUIRED gate):
+>   `flutter analyze --no-fatal-infos` + `flutter test` on the real head commit, plus
+>   a **version-integrity check** (versionCode must be a whole integer; the implied
+>   release tag must not already exist). Branch protection requires this; it resets
+>   on every push.
+> - **`auto-merge.yml`**: enables GitHub native squash auto-merge; the PR merges
+>   itself once the required gate passes (needs repo setting "Allow auto-merge" ON).
+> - **`build_apk.yml`** (unchanged): on push to main, builds + creates the release
+>   ONLY on success — so a broken build never ships; the last good APK stays "latest".
+>
+> **Nobody posts approval strings anymore; there is nothing to "fake."** To merge a PR:
+> push the branch → the gate runs → Copilot comments → fix what matters → it auto-merges
+> when green. The STEP 1–5 comment-string flow below is HISTORICAL — ignore it.
 
 ### ⚡⚡⚡ CRITICAL: ZERO USER INPUT — EVERYTHING AUTOMATIC ⚡⚡⚡
 
