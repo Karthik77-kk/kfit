@@ -822,11 +822,20 @@ class FitnessProvider extends ChangeNotifier {
       final met  = _exerciseMet[ex.name] ?? _exerciseMet['Default']!;
       final sets = ex.sets.length;
       if (sets == 0) continue;
-      // Rep-weighted duration: low-rep heavy sets (5 reps → 1.75 min/set),
-      // high-rep light sets (15 reps → 2.25 min/set), bodyweight (20 reps → 2.5 min/set)
-      final avgReps       = ex.sets.fold(0, (s, e) => s + e.reps) / sets;
-      final minPerSet     = (avgReps * 0.05 + 1.5).clamp(1.5, 4.0);
-      final durationMin   = sets * minPerSet;
+      double durationMin;
+      if (ExerciseDatabase.isCardio(ex.name)) {
+        // Cardio is logged by duration: minutes are stored in SetData.reps.
+        // Burn = MET × bodyweight × minutes (a sets/reps model is meaningless
+        // for running/cycling — this was previously under-counted to near zero).
+        durationMin = ex.sets.fold(0, (s, e) => s + e.reps).toDouble();
+        if (durationMin <= 0) continue;
+      } else {
+        // Rep-weighted duration: low-rep heavy sets (5 reps → 1.75 min/set),
+        // high-rep light sets (15 reps → 2.25 min/set), bodyweight (20 reps → 2.5 min/set)
+        final avgReps   = ex.sets.fold(0, (s, e) => s + e.reps) / sets;
+        final minPerSet = (avgReps * 0.05 + 1.5).clamp(1.5, 4.0);
+        durationMin     = sets * minPerSet;
+      }
       total += (met * weight * durationMin / 60).round();
     }
     return total;
