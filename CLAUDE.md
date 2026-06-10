@@ -86,7 +86,7 @@ Every merge to `main` that ships a new APK must bump `pubspec.yaml` version:
 - **New features** → next integer: `76` → `77`
 - **Patches/fixes** → also next integer: `77` → `78` (do NOT use `77.1` — decimals break Android versionCode)
 - The branch name and commit message can say "Build 77.1" for human readability, but pubspec must have `+78`
-Current build: **89**. Next build: **90**.
+Current build: **95**. Next build: **96**.
 
 ### Rule 4a — CRITICAL: Keep pubspec.yaml version code in sync with commit messages
 **This rule prevents release automation failures, download 404 errors, and website deployment confusion.**
@@ -153,8 +153,24 @@ git push origin --delete fix/build-N-description
 - Verify GitHub Actions run succeeds
 - APK artifact appears under Actions → latest run
 
-### Rule 9 — 🚫 MANDATORY FULLY-AUTOMATIC DUAL-APPROVAL WORKFLOW (UNBREAKABLE)
+### Rule 9 — 🚫 MANDATORY FULLY-AUTOMATIC QUALITY GATE (UNBREAKABLE)
 **This rule cannot be broken. No exceptions. Ever. NO USER PERMISSION NEEDED.**
+
+> ⚠️ **MECHANISM UPDATED (Build 95).** The old "post `✅ Code Review Agent: APPROVED`
+> / `✅ Testing Agent: VERIFIED` comment strings and let a workflow grep for them"
+> approval is **GONE** (it was fakeable — any comment containing the string merged
+> the PR). It is replaced by a **real** CI gate in `.github/workflows/pr-quality-gate.yml`:
+>
+> - **`verify` job** (the hard, un-fakeable gate): runs `flutter analyze` + `flutter test`
+>   on the actual head commit, plus `flutter build apk --release` when Android/Gradle
+>   files change. Branch protection requires this check. It resets on every push.
+> - **`claude-review` job**: Haiku (`claude-haiku-4-5`) reviews ONLY the diff and posts
+>   inline findings. Needs the `ANTHROPIC_API_KEY` repo secret.
+>
+> **Claude does NOT post approval strings anymore, and there is nothing to "fake."**
+> To get a PR merged: push the branch, let `verify` + `claude-review` run, fix anything
+> they flag, and GitHub merges once the required check is green. The detailed STEP 1–5
+> comment-string flow described further down in this rule is HISTORICAL — ignore it.
 
 ### ⚡⚡⚡ CRITICAL: ZERO USER INPUT — EVERYTHING AUTOMATIC ⚡⚡⚡
 

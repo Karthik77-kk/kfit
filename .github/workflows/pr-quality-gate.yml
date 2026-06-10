@@ -1,0 +1,141 @@
+name: PR Quality Gate
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REAL merge gate that replaces the old comment-string "dual-agent" approval.
+#
+# Two independent jobs run in parallel on every PR:
+#   1. verify        — deterministic: flutter analyze + test (+ conditional APK
+#                      build when android/gradle files change). This is the HARD,
+#                      un-fakeable gate. Code that doesn't compile / fails tests
+#                      cannot merge.
+#   2. claude-review — Haiku (claude-haiku-4-5) reviews ONLY the PR diff and posts
+#                      concise inline findings. Always runs; advisory by default.
+#
+# Branch protection should require the `verify` check (and optionally
+# `claude-review`). Approval can no longer be faked by typing a magic string in a
+# comment — the gate is produced by CI running real analysis on the actual head
+# commit, and resets automatically on every push.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Cancel superseded runs when new commits are pushed to the same PR.
+concurrency:
+  group: pr-quality-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ── Hard gate: objective build/test verification ───────────────────────────
+  verify:
+    name: Verify (analyze + test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changed
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          FILES=$(git diff --name-only "$BASE" "$HEAD")
+          echo "Changed files:"; echo "$FILES"
+          # code = Dart source OR pubspec (deps/version) -> needs analyze + test
+          if echo "$FILES" | grep -qE '(\.dart$|^pubspec\.yaml$)'; then
+            echo "code=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+          # android = native/Gradle/manifest -> additionally needs a release APK build.
+          # Deliberately EXCLUDES pubspec version bumps so routine PRs stay fast.
+          if echo "$FILES" | grep -qE '(^android/|\.gradle(\.kts)?$|AndroidManifest\.xml$)'; then
+            echo "android=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "android=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Java
+        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
+        run: flutter pub get
+
+      - name: Analyze (zero errors / warnings)
+        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
+        run: flutter analyze
+
+      - name: Test
+        if: steps.changed.outputs.code == 'true'
+        run: flutter test
+
+      - name: Build release APK (only when Android/Gradle files changed)
+        if: steps.changed.outputs.android == 'true'
+        run: flutter build apk --release
+
+      - name: Docs-only PR
+        if: steps.changed.outputs.code == 'false' && steps.changed.outputs.android == 'false'
+        run: echo "No code/Android changes — skipping build/test. Gate passes."
+
+  # ── Haiku code review of the diff (advisory, always runs) ──────────────────
+  claude-review:
+    name: Claude review (Haiku)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Review diff with Claude Haiku
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Uses your Claude Pro/Max subscription via an OAuth token.
+          # Generate locally with `claude setup-token`, then add it as the repo
+          # secret CLAUDE_CODE_OAUTH_TOKEN. (Swap for anthropic_api_key if you ever
+          # move to paid API billing.)
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --model claude-haiku-4-5
+            --max-turns 12
+          prompt: |
+            You are the automated code reviewer for this Flutter fitness app.
+            Review ONLY the diff of this pull request (the changed lines), not the
+            whole repository. Be fast and high-signal — this is a Haiku review.
+
+            Focus, in priority order:
+            1. Correctness: logic bugs, off-by-one, null dereferences, missing
+               awaits, broken call sites, removed safety guards / error paths.
+            2. Regressions: does a change break adjacent code or existing behavior?
+            3. Cleanup: duplicated logic that should reuse an existing helper;
+               needless complexity.
+            4. Altitude: is this a real fix or a band-aid?
+
+            Rules:
+            - Post concise inline comments ONLY on genuinely problematic lines.
+            - Do NOT comment on style, formatting, or things flutter analyze covers.
+            - If the diff is clean, post a single short summary comment saying so.
+            - Keep the whole review under ~8 comments. Prefer the highest-impact ones.
+            - End with one summary line: "REVIEW_VERDICT: PASS" if no blocking
+              correctness bug, or "REVIEW_VERDICT: BLOCK — <one-line reason>" if you
+              found a clear, high-confidence bug that must be fixed before merge.
