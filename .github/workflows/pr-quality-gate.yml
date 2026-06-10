@@ -1,37 +1,36 @@
 name: PR Quality Gate
 
 # ─────────────────────────────────────────────────────────────────────────────
-# REAL merge gate that replaces the old comment-string "dual-agent" approval.
+# The REAL, hard-to-fool merge gate. One required job: "Verify (analyze + test)".
 #
-# Two independent jobs run in parallel on every PR:
-#   1. verify        — deterministic: flutter analyze + test (+ conditional APK
-#                      build when android/gradle files change). This is the HARD,
-#                      un-fakeable gate. Code that doesn't compile / fails tests
-#                      cannot merge.
-#   2. claude-review — Haiku (claude-haiku-4-5) reviews ONLY the PR diff and posts
-#                      concise inline findings. Always runs; advisory by default.
+#   - flutter analyze (info-lints allowed; warnings/errors fail)
+#   - flutter test  (full suite, on the actual head commit)
+#   - version integrity:
+#       * versionCode MUST be a whole integer (decimals silently truncate and
+#         cause Android "can't install" — the classic Build 72/74/75 bug)
+#       * when pubspec.yaml changes, the release tag it implies must NOT already
+#         exist (forces a real build-number bump; prevents duplicate-version
+#         "can't install" and duplicate-tag release failures)
 #
-# Branch protection should require the `verify` check (and optionally
-# `claude-review`). Approval can no longer be faked by typing a magic string in a
-# comment — the gate is produced by CI running real analysis on the actual head
-# commit, and resets automatically on every push.
+# Branch protection requires this check (strict + enforce_admins). It runs on the
+# real head SHA and resets on every push — there is no comment string to fake.
+# Code review is handled by GitHub Copilot (advisory) per .github/copilot-instructions.md.
+# A broken release APK can never ship: build_apk.yml only creates a release after a
+# successful build, so the last good release always stays "latest".
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-# Cancel superseded runs when new commits are pushed to the same PR.
 concurrency:
   group: pr-quality-gate-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
-  # ── Hard gate: objective build/test verification ───────────────────────────
   verify:
     name: Verify (analyze + test)
     runs-on: ubuntu-latest
@@ -48,29 +47,51 @@ jobs:
           HEAD="${{ github.event.pull_request.head.sha }}"
           FILES=$(git diff --name-only "$BASE" "$HEAD")
           echo "Changed files:"; echo "$FILES"
-          # code = Dart source OR pubspec (deps/version) -> needs analyze + test
+          # code = Dart source OR pubspec -> run analyze + test
           if echo "$FILES" | grep -qE '(\.dart$|^pubspec\.yaml$)'; then
             echo "code=true"  >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
-          # android = native/Gradle/manifest -> additionally needs a release APK build.
-          # Deliberately EXCLUDES pubspec version bumps so routine PRs stay fast.
-          if echo "$FILES" | grep -qE '(^android/|\.gradle(\.kts)?$|AndroidManifest\.xml$)'; then
-            echo "android=true"  >> "$GITHUB_OUTPUT"
+          # pubspec = version manifest changed -> run the tag-uniqueness check
+          if echo "$FILES" | grep -qE '^pubspec\.yaml$'; then
+            echo "pubspec=true"  >> "$GITHUB_OUTPUT"
           else
-            echo "android=false" >> "$GITHUB_OUTPUT"
+            echo "pubspec=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Version integrity (integer code; no duplicate release)
+        run: |
+          VER=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//')
+          NAME="${VER%+*}"
+          CODE="${VER#*+}"
+          echo "pubspec version: $VER  (name=$NAME code=$CODE)"
+          # 1) versionCode must be a whole integer — decimals break Android installs.
+          if ! echo "$CODE" | grep -qE '^[0-9]+$'; then
+            echo "::error::versionCode '$CODE' is not a whole integer. Use e.g. 2.3.0+96, never 2.3.0+95.1 (Android truncates decimals -> 'can't install')."
+            exit 1
+          fi
+          # 2) When pubspec changed, the implied release tag must not already exist.
+          if [ "${{ steps.changed.outputs.pubspec }}" = "true" ]; then
+            TAG="v${NAME}-build-${CODE}"
+            if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
+              echo "::error::Release tag ${TAG} already exists. Bump the build number in pubspec.yaml (reusing a released versionCode causes 'can't install')."
+              exit 1
+            fi
+            echo "✅ Version OK: ${TAG} (whole integer, not yet released)"
+          else
+            echo "✅ versionCode ${CODE} is a whole integer (pubspec unchanged; skipping tag check)"
           fi
 
       - name: Set up Java
-        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
+        if: steps.changed.outputs.code == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Flutter
-        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
+        if: steps.changed.outputs.code == 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.44.0"
@@ -78,66 +99,17 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
+        if: steps.changed.outputs.code == 'true'
         run: flutter pub get
 
-      - name: Analyze (zero errors / warnings; info-lints allowed)
-        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
-        # --no-fatal-infos: info-level lints don't fail the gate (matches CLAUDE.md
-        # Rule 6 "info-level lints OK"). Warnings and errors still fail the build.
+      - name: Analyze (warnings/errors fail; info-lints allowed)
+        if: steps.changed.outputs.code == 'true'
         run: flutter analyze --no-fatal-infos
 
-      - name: Test
+      - name: Test (full suite)
         if: steps.changed.outputs.code == 'true'
         run: flutter test
 
-      - name: Build release APK (only when Android/Gradle files changed)
-        if: steps.changed.outputs.android == 'true'
-        run: flutter build apk --release
-
       - name: Docs-only PR
-        if: steps.changed.outputs.code == 'false' && steps.changed.outputs.android == 'false'
-        run: echo "No code/Android changes — skipping build/test. Gate passes."
-
-  # ── Haiku code review of the diff (advisory, always runs) ──────────────────
-  claude-review:
-    name: Claude review (Haiku)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Review diff with Claude Haiku
-        uses: anthropics/claude-code-action@v1
-        with:
-          # Uses your Claude Pro/Max subscription via an OAuth token.
-          # Generate locally with `claude setup-token`, then add it as the repo
-          # secret CLAUDE_CODE_OAUTH_TOKEN. (Swap for anthropic_api_key if you ever
-          # move to paid API billing.)
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: |
-            --model claude-haiku-4-5
-            --max-turns 12
-          prompt: |
-            You are the automated code reviewer for this Flutter fitness app.
-            Review ONLY the diff of this pull request (the changed lines), not the
-            whole repository. Be fast and high-signal — this is a Haiku review.
-
-            Focus, in priority order:
-            1. Correctness: logic bugs, off-by-one, null dereferences, missing
-               awaits, broken call sites, removed safety guards / error paths.
-            2. Regressions: does a change break adjacent code or existing behavior?
-            3. Cleanup: duplicated logic that should reuse an existing helper;
-               needless complexity.
-            4. Altitude: is this a real fix or a band-aid?
-
-            Rules:
-            - Post concise inline comments ONLY on genuinely problematic lines.
-            - Do NOT comment on style, formatting, or things flutter analyze covers.
-            - If the diff is clean, post a single short summary comment saying so.
-            - Keep the whole review under ~8 comments. Prefer the highest-impact ones.
-            - End with one summary line: "REVIEW_VERDICT: PASS" if no blocking
-              correctness bug, or "REVIEW_VERDICT: BLOCK — <one-line reason>" if you
-              found a clear, high-confidence bug that must be fixed before merge.
+        if: steps.changed.outputs.code == 'false'
+        run: echo "No Dart/pubspec changes — analyze/test skipped. Version + gate pass."

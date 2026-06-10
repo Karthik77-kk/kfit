@@ -1,0 +1,42 @@
+name: Auto-merge on green
+
+# Enables GitHub NATIVE auto-merge (squash) for non-draft PRs. GitHub then merges
+# the PR automatically ONLY once every required status check passes — i.e. the
+# "Verify (analyze + test)" gate in pr-quality-gate.yml. This cannot be fooled by
+# comments: the merge is gated by branch protection's required check, not by text.
+#
+# Requires the repo setting: Settings -> General -> Pull Requests -> "Allow auto-merge".
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Enable native auto-merge (squash)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prId = context.payload.pull_request.node_id;
+            try {
+              await github.graphql(
+                `mutation($id: ID!) {
+                   enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: SQUASH }) {
+                     pullRequest { number }
+                   }
+                 }`,
+                { id: prId }
+              );
+              core.info('✅ Native auto-merge enabled (squash). PR will merge when required checks pass.');
+            } catch (e) {
+              // Common, non-fatal reasons: "Allow auto-merge" not enabled in repo
+              // settings, PR already mergeable/merged, or no required checks configured.
+              core.info('ℹ️ Could not enable auto-merge: ' + e.message);
+            }

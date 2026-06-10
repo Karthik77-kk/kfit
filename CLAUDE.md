@@ -159,18 +159,22 @@ git push origin --delete fix/build-N-description
 > ⚠️ **MECHANISM UPDATED (Build 95).** The old "post `✅ Code Review Agent: APPROVED`
 > / `✅ Testing Agent: VERIFIED` comment strings and let a workflow grep for them"
 > approval is **GONE** (it was fakeable — any comment containing the string merged
-> the PR). It is replaced by a **real** CI gate in `.github/workflows/pr-quality-gate.yml`:
+> the PR). Replaced by a **real** CI gate. There is no Haiku/Claude CI job — review is
+> done by **GitHub Copilot** (advisory) per `.github/copilot-instructions.md`.
 >
-> - **`verify` job** (the hard, un-fakeable gate): runs `flutter analyze` + `flutter test`
->   on the actual head commit, plus `flutter build apk --release` when Android/Gradle
->   files change. Branch protection requires this check. It resets on every push.
-> - **`claude-review` job**: Haiku (`claude-haiku-4-5`) reviews ONLY the diff and posts
->   inline findings. Needs the `ANTHROPIC_API_KEY` repo secret.
+> - **`pr-quality-gate.yml` → `verify` job** (the hard, un-fakeable, REQUIRED gate):
+>   `flutter analyze --no-fatal-infos` + `flutter test` on the real head commit, plus
+>   a **version-integrity check** (versionCode must be a whole integer; the implied
+>   release tag must not already exist). Branch protection requires this; it resets
+>   on every push.
+> - **`auto-merge.yml`**: enables GitHub native squash auto-merge; the PR merges
+>   itself once the required gate passes (needs repo setting "Allow auto-merge" ON).
+> - **`build_apk.yml`** (unchanged): on push to main, builds + creates the release
+>   ONLY on success — so a broken build never ships; the last good APK stays "latest".
 >
-> **Claude does NOT post approval strings anymore, and there is nothing to "fake."**
-> To get a PR merged: push the branch, let `verify` + `claude-review` run, fix anything
-> they flag, and GitHub merges once the required check is green. The detailed STEP 1–5
-> comment-string flow described further down in this rule is HISTORICAL — ignore it.
+> **Nobody posts approval strings anymore; there is nothing to "fake."** To merge a PR:
+> push the branch → the gate runs → Copilot comments → fix what matters → it auto-merges
+> when green. The STEP 1–5 comment-string flow below is HISTORICAL — ignore it.
 
 ### ⚡⚡⚡ CRITICAL: ZERO USER INPUT — EVERYTHING AUTOMATIC ⚡⚡⚡
 
