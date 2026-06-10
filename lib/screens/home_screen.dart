@@ -1531,7 +1531,21 @@ class _WeeklyCalorieChart extends StatelessWidget {
                 },
               ),
             ),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 30,
+                interval: goal,
+                getTitlesWidget: (v, _) {
+                  if (v <= 0 || v > yMax) return const SizedBox.shrink();
+                  final k = v / 1000;
+                  return Text(
+                    '${k.toStringAsFixed(v % 1000 == 0 ? 0 : 1)}k',
+                    style: const TextStyle(color: _kSecond, fontSize: 9),
+                  );
+                },
+              ),
+            ),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
@@ -1610,7 +1624,13 @@ class _MacroDonutCard extends StatelessWidget {
     final protein = provider.todayProteinTotal;
     final carbs   = provider.todayCarbsEstimate;
     final fat     = provider.todayFatEstimate;
-    final total   = protein + carbs + fat;
+    final total   = protein + carbs + fat; // grams — used by the legend rows
+
+    // Size donut slices by CALORIE contribution (4/4/9 kcal per g), not grams, so
+    // each slice reflects its true share of energy (fat is 9 kcal/g vs 4 for the rest).
+    final proteinCal = protein * 4.0;
+    final carbsCal   = carbs   * 4.0;
+    final fatCal     = fat     * 9.0;
 
     if (total < 1) {
       return Container(
@@ -1625,19 +1645,19 @@ class _MacroDonutCard extends StatelessWidget {
 
     final sections = [
       PieChartSectionData(
-        value: protein,
+        value: proteinCal,
         color: _kBlue,
         radius: 30,
         showTitle: false,
       ),
       PieChartSectionData(
-        value: carbs,
+        value: carbsCal,
         color: _kOrange,
         radius: 30,
         showTitle: false,
       ),
       PieChartSectionData(
-        value: fat,
+        value: fatCal,
         color: _kRed.withOpacity(0.85),
         radius: 30,
         showTitle: false,
