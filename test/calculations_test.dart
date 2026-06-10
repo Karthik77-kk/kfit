@@ -247,20 +247,13 @@ void main() {
       await p.logBodyEntry(weightKg: 70.0);
     });
 
-    test('Running (MET=9.8), 3 sets × 1 rep @ 70kg', () {
-      // avgReps=1, minPerSet=(1*0.05+1.5)=1.55, dur=3*1.55=4.65 min
-      // kcal = 9.8 * 70 * 4.65 / 60 ≈ 53
+    test('Running (MET=9.8) is cardio — logged by minutes, not reps', () {
+      // Cardio stores minutes in reps: 30 min @ 70kg = 9.8 * 70 * 30/60 = 343.
+      // (Previously the rep-weighted model under-counted cardio to near zero.)
       final w = WorkoutLog(id: '1', name: 'Run', date: DateTime.now(), exercises: [
-        ExerciseLog(name: 'Running', sets: [
-          SetData(reps: 1, weight: 0),
-          SetData(reps: 1, weight: 0),
-          SetData(reps: 1, weight: 0),
-        ]),
+        ExerciseLog(name: 'Running', sets: [SetData(reps: 30, weight: 0)]),
       ]);
-      final avgReps = 1.0;
-      final minPerSet = (avgReps * 0.05 + 1.5).clamp(1.5, 4.0);
-      final dur = 3 * minPerSet;
-      final expected = (9.8 * 70 * dur / 60).round();
+      final expected = (9.8 * 70 * 30 / 60).round(); // 343
       expect(p.calculateWorkoutCalories(w), expected);
     });
 
