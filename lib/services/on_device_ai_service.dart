@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/fitness_provider.dart';
+import 'chat_intent.dart';
 
 enum AiModelState { notInstalled, downloading, loading, ready, error }
 
@@ -409,6 +410,20 @@ class OnDeviceAiService extends ChangeNotifier {
   ///
   /// A `_sending` guard prevents concurrent calls — only one stream at a time.
   Stream<String> sendMessage(String userMessage, FitnessProvider provider) async* {
+    // Fast path: greetings and factual lookups are answered deterministically —
+    // no LLM, so they're instant and the numbers are always exact (the 1B model
+    // is unreliable at reciting figures, and would otherwise dump data on a "hi").
+    // Open-ended/coaching questions fall through to the model below.
+    if (ChatIntent.isGreeting(userMessage)) {
+      yield ChatIntent.greetingReply(provider);
+      return;
+    }
+    final fact = ChatIntent.factualAnswer(userMessage, provider);
+    if (fact != null) {
+      yield fact;
+      return;
+    }
+
     if (_model == null) {
       yield 'Model not loaded. Please go back and reopen the chat.';
       return;
@@ -493,7 +508,8 @@ class OnDeviceAiService extends ChangeNotifier {
     // Issue #12: Trim context to token budget
     ctx = _trimContextToTokenBudget(ctx);
 
-    const anchor = 'Start your reply immediately with specific advice using the actual numbers above.';
+    final safeName = _sanitizeInput(p.userName);
+    final anchor = 'Answer the question $safeName asked, using the relevant numbers above to make it personal.';
     return base.replaceFirst(
       anchor,
       'EXTRA DATA (deeper history — reference only):\n$ctx\n\n$anchor',
@@ -762,7 +778,7 @@ class OnDeviceAiService extends ChangeNotifier {
     final safeName = _sanitizeInput(p.userName);
 
 // ── Prompt: rules-first, positive framing, no trailing fragments ──────────
-return '''You are $safeName's personal fitness AI coach. Give specific, data-driven advice using the numbers from the reference section below. Start your answer directly — cite $safeName's actual numbers. Keep it concise (2-4 sentences).
+return '''You are $safeName's personal fitness coach. Answer the question $safeName actually asked, directly and conversationally. Draw on the reference data below only when it's relevant to their question — don't recite numbers they didn't ask about. Be specific, practical and encouraging. Keep it to 2-4 sentences.
 
 === ${safeName.toUpperCase()}'S REFERENCE DATA (reference only — use to personalise your advice) ===
 Profile: ${p.age}y $sex ${p.heightCm.toInt()}cm | Goal weight: ${p.goalWeightKg.toStringAsFixed(1)}kg | Indian diet
@@ -773,7 +789,7 @@ ${buf.toString().trim()}
 === END REFERENCE DATA ===
 
 Food suggestions: prioritise Indian foods — roti, dal, paneer, eggs, curd, chicken, fish, whey protein.
-Start your reply immediately with specific advice using the actual numbers above.''';
+Answer the question $safeName asked, using the relevant numbers above to make it personal.''';
   }
 
   // ── Issue #2: Memory check ──────────────────────────────────────────────────

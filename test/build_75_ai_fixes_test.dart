@@ -184,8 +184,8 @@ void main() {
       final p = await _loaded();
       final ai = OnDeviceAiService();
       final prompt = ai.buildSystemPromptForTest(p);
-      expect(prompt, contains('specific advice'));
-      expect(prompt, contains('actual numbers'));
+      expect(prompt, contains('Be specific'));
+      expect(prompt, contains('relevant numbers'));
     });
 
     test('system prompt ends with actionable instruction (not a fragment)', () async {
@@ -193,7 +193,7 @@ void main() {
       final ai = OnDeviceAiService();
       final prompt = ai.buildSystemPromptForTest(p);
       // Should end with a complete sentence/instruction, not a fragment
-      expect(prompt.trimRight(), endsWith('Start your reply immediately with specific advice using the actual numbers above.'));
+      expect(prompt.trimRight(), endsWith('using the relevant numbers above to make it personal.'));
     });
 
     test('EXTRA DATA anchor uses the correct closing instruction', () async {
@@ -204,7 +204,7 @@ void main() {
       // EXTRA DATA must appear before the closing instruction
       expect(prompt, contains('EXTRA DATA'));
       final extraIdx    = prompt.indexOf('EXTRA DATA');
-      final anchorIdx   = prompt.indexOf('Start your reply immediately');
+      final anchorIdx   = prompt.indexOf('using the relevant numbers above to make it personal');
       expect(extraIdx, lessThan(anchorIdx));
     });
 
@@ -213,7 +213,7 @@ void main() {
       await p.logBodyEntry(weightKg: 78.0, steps: 0);
       final ai = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('Am I losing weight?', p);
-      final count = 'Start your reply immediately'.allMatches(prompt).length;
+      final count = 'using the relevant numbers above to make it personal'.allMatches(prompt).length;
       expect(count, 1);
     });
   });

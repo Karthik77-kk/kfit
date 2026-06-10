@@ -111,7 +111,7 @@ void main() {
       final ai = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('Hello, how are you?', p);
       expect(prompt, isNot(contains('EXTRA DATA')));
-      expect(prompt, contains('Start your reply'));
+      expect(prompt, contains('make it personal'));
     });
 
     test('weight keyword → EXTRA DATA section appears before closing instruction', () async {
@@ -120,10 +120,10 @@ void main() {
       final ai     = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('What is my weight trend?', p);
       expect(prompt, contains('EXTRA DATA'));
-      expect(prompt, contains('Start your reply immediately'));
+      expect(prompt, contains('using the relevant numbers above to make it personal'));
       // EXTRA DATA must appear before the closing "Start your reply" instruction
       final extraIdx   = prompt.indexOf('EXTRA DATA');
-      final closingIdx = prompt.lastIndexOf('Start your reply immediately');
+      final closingIdx = prompt.lastIndexOf('using the relevant numbers above to make it personal');
       expect(extraIdx, lessThan(closingIdx));
     });
 
@@ -154,7 +154,7 @@ void main() {
       final p  = await _loaded();
       final ai = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('Random question', p);
-      expect(prompt, contains('Start your reply'));
+      expect(prompt, contains('make it personal'));
       expect(prompt, contains('Profile:'));
       expect(prompt, contains('Today ('));
     });
@@ -165,7 +165,7 @@ void main() {
       final ai     = OnDeviceAiService();
       final prompt = ai.buildRichPromptForTest('How am I losing weight?', p);
       // Closing instruction should appear exactly once
-      final count = 'Start your reply immediately'.allMatches(prompt).length;
+      final count = 'using the relevant numbers above to make it personal'.allMatches(prompt).length;
       expect(count, 1);
     });
   });
@@ -746,7 +746,7 @@ void main() {
       final ai = OnDeviceAiService();
       final s  = ai.buildSystemPromptForTest(p);
       expect(s, isNotEmpty);
-      expect(s, contains('Start your reply'));
+      expect(s, contains('make it personal'));
     });
 
     test('buildRichPromptForTest returns non-empty string', () async {
