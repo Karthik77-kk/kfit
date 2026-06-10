@@ -22,7 +22,18 @@ opinion shouldn't hard-block a legitimate change.
 ## ⚠️ Manual steps (one-time)
 
 ### 1. Enable native auto-merge  ← required for auto-merge.yml
-Settings → General → Pull Requests → check **"Allow auto-merge"**.
+Settings → General → Pull Requests → check **"Allow auto-merge"**. *(Already enabled.)*
+
+### 1b. Add `RELEASE_PAT` so auto-merge also triggers the release build
+The bot merging via the default `GITHUB_TOKEN` does **not** trigger `build_apk.yml`
+(GitHub anti-recursion), so the APK wouldn't auto-build. Fix: merge *as you*.
+1. Create a **fine-grained PAT** (github.com → Settings → Developer settings →
+   Fine-grained tokens), scoped to **this repo only**, with permissions:
+   **Contents: Read/Write**, **Pull requests: Read/Write**, **Actions: Read/Write**.
+2. Add it as repo secret **`RELEASE_PAT`** (Settings → Secrets and variables → Actions).
+
+Until this is set, `auto-merge.yml` falls back to `GITHUB_TOKEN` (merges still work,
+but you'll dispatch the release build manually as we did for build-95).
 
 ### 2. Make sure Copilot code review is on (optional but recommended)
 Settings → Copilot / Code review (or a Ruleset) → enable automatic Copilot review on
