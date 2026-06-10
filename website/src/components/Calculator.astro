@@ -133,7 +133,7 @@
     const sexConstant = gender === 'm' ? 5 : -161;
     const bmr    = Math.round((10 * weight) + (6.25 * height) - (5 * age) + sexConstant);
     const tdee   = Math.round(bmr * activityFactor);
-    const target = Math.round(tdee - 400);
+    const target = Math.round(tdee - 500); // matches the app's fatLossCalorieTarget (TDEE − 500)
     const protein= Math.round(weight * 1.8);
     const deficit = -400;
 
