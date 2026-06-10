@@ -45,7 +45,7 @@ void main() async {
               create: (_) => OnDeviceAiService()..init(),
             ),
           ],
-          child: const KarthikFitnessApp(),
+          child: const KfitApp(),
         ),
       );
     },
@@ -73,8 +73,8 @@ void _appendCrashLog(String type, String error, String stack) {
   }).catchError((_) {});
 }
 
-class KarthikFitnessApp extends StatelessWidget {
-  const KarthikFitnessApp({super.key});
+class KfitApp extends StatelessWidget {
+  const KfitApp({super.key});
 
   @override
   Widget build(BuildContext context) {

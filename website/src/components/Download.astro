@@ -1,6 +1,6 @@
 ---
 // Valid by default (latest-release redirect); JS upgrades it to the exact tag URL.
-const APK_URL = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest/download/kfit.apk';
+const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk';
 const VERSION = 'Latest Build';
 ---
 
@@ -60,7 +60,7 @@ const VERSION = 'Latest Build';
           <span id="dlTxt">Download APK — Free</span>
         </a>
         <a
-          href="https://github.com/Karthik77-kk/karthik-fitness/releases"
+          href="https://github.com/Karthik77-kk/kfit/releases"
           target="_blank"
           rel="noopener noreferrer"
           class="btn btn-ghost"
@@ -136,17 +136,17 @@ const VERSION = 'Latest Build';
     });
 
     // Fetch latest GitHub release dynamically
-    fetch('https://api.github.com/repos/Karthik77-kk/karthik-fitness/releases/latest')
+    fetch('https://api.github.com/repos/Karthik77-kk/kfit/releases/latest')
       .then(r => r.json())
       .then(release => {
         // Construct direct download URL from tag (more reliable than browser_download_url)
         // GitHub tag format: v2.3.0-build-91
         if (release.tag_name && release.assets?.find((a: any) => a.name === 'kfit.apk')) {
-          dlBtn.href = `https://github.com/Karthik77-kk/karthik-fitness/releases/download/${release.tag_name}/kfit.apk`;
+          dlBtn.href = `https://github.com/Karthik77-kk/kfit/releases/download/${release.tag_name}/kfit.apk`;
         }
       })
       .catch(() => {
-        dlBtn.href = 'https://github.com/Karthik77-kk/karthik-fitness/releases/latest';
+        dlBtn.href = 'https://github.com/Karthik77-kk/kfit/releases/latest';
       });
   }
 </script>
