@@ -92,6 +92,8 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
   final _proteinPct = TextEditingController();
   final _skeletalMuscle = TextEditingController();
 
+  bool _didAutoPrefill = false;
+
   @override
   void initState() {
     super.initState();
@@ -175,7 +177,8 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
     // Handle data arriving after screen was open (e.g. after import on fresh install).
     // When latestScaleEntry goes from null → non-null while the screen is alive,
     // build() re-runs but initState doesn't — schedule a prefill for next frame.
-    if (latest != null && _weight.text.isEmpty) {
+    if (latest != null && !_didAutoPrefill && _weight.text.isEmpty) {
+      _didAutoPrefill = true; // one-shot: don't re-fill after the user clears a field
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _weight.text.isEmpty) _prefill();
       });
