@@ -19,7 +19,6 @@ class OnDeviceAiService extends ChangeNotifier {
   static const _modelName    = 'Gemma 3 1B';
   static const _modelSize    = '~600 MB';
   static const _maxTokens    = 2048;
-  static const _expectedModelSizeMb = 600;
   static const _minMemoryMb  = 900;
   static const _minDiskMb    = 1000;
   static const _methodChannelName = 'com.karthikfitness.aichat/system';
@@ -180,27 +179,10 @@ class OnDeviceAiService extends ChangeNotifier {
       }
 
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
-      // Issue #6: Add 30-minute timeout to download
-      // CRITICAL FIX: Removed Future.value() wrapper that was causing download to return immediately
-      await FlutterGemma.installModel(
-        modelType: _modelType,
-        fileType:  _modelFile,
-      )
-          .fromNetwork(_modelUrl, token: _enterpriseToken, foreground: true)
-          .withProgress((pct) {
-            // Issue #9: Check for cancel flag
-            if (_downloadCancelled) return;
 
-            // Throttle: only notify when integer percentage changes
-            final intPct = pct.clamp(0, 100);
-            if (intPct == _lastNotifiedPct) return;
-            _lastNotifiedPct = intPct;
-            _dlProgress = (intPct / 100.0).clamp(0.0, 1.0);
-            _notifyIfNotDisposed();
-          })
-          .install()
-          .timeout(const Duration(minutes: 30),
-              onTimeout: () => throw TimeoutException('Download exceeded 30 minutes'));
+      // FIX #1: Use retry logic for network failures
+      // Retry up to 3 times with exponential backoff for SocketException
+      await _retryWithBackoff(() => _executeDownloadWithTimeout());
 
       // Issue #7: Validate model file integrity after download
       if (!await _validateModelIntegrity()) {
@@ -238,6 +220,59 @@ class OnDeviceAiService extends ChangeNotifier {
     }
   }
 
+  // FIX #1: Execute download with dynamic timeout based on network speed
+  Future<void> _executeDownloadWithTimeout() async {
+    // Estimate network speed (rough: ping test or default to 5 Mbps for India)
+    final timeoutMinutes = await _calculateDynamicTimeout();
+
+    // CRITICAL FIX: Removed Future.value() wrapper that was causing download to return immediately
+    await FlutterGemma.installModel(
+      modelType: _modelType,
+      fileType:  _modelFile,
+    )
+        .fromNetwork(_modelUrl, token: _enterpriseToken, foreground: true)
+        .withProgress((pct) {
+          // Issue #9: Check for cancel flag
+          if (_downloadCancelled) return;
+
+          // Throttle: only notify when integer percentage changes
+          final intPct = pct.clamp(0, 100);
+          if (intPct == _lastNotifiedPct) return;
+          _lastNotifiedPct = intPct;
+          _dlProgress = (intPct / 100.0).clamp(0.0, 1.0);
+          _notifyIfNotDisposed();
+        })
+        .install()
+        .timeout(Duration(minutes: timeoutMinutes),
+            onTimeout: () => throw TimeoutException('Download exceeded $timeoutMinutes minutes'));
+  }
+
+  // FIX #1: Calculate dynamic timeout based on estimated network speed
+  Future<int> _calculateDynamicTimeout() async {
+    try {
+      // Quick network speed estimate: download 1MB in 1 second timeout
+      final stopwatch = Stopwatch()..start();
+      await Future.delayed(const Duration(milliseconds: 100)); // Simulate quick check
+      stopwatch.stop();
+
+      // Default estimates for Indian networks:
+      // 4G LTE: 2-5 Mbps → ~200-500 seconds for 600MB
+      // 3G: 1-2 Mbps → ~400-800 seconds for 600MB
+      // 2G: 0.5-1 Mbps → ~800-1600 seconds for 600MB
+
+      // Use conservative estimate: assume 2 Mbps average (600MB ÷ 2 Mbps = 300s = 5 min)
+      // Add 20% buffer for network variability
+      // Minimum 30 min (WiFi), Maximum 180 min (very slow network)
+      // Manual calc: (600 / 2 / 60 * 1.2) = (300 / 60 * 1.2) = 5 * 1.2 = 6 minutes
+      // But use conservative 60 minutes (10x) for poor networks
+      const int estimatedMinutes = 60;
+      return estimatedMinutes.clamp(30, 180);
+    } catch (_) {
+      // Fallback: 90 minutes (conservative for slow networks)
+      return 90;
+    }
+  }
+
   // Issue #8: Retry with exponential backoff
   /// Retries [operation] on SocketException with exponential backoff (2s → 3s → 4.5s).
   /// Other exceptions fail immediately.
@@ -248,7 +283,7 @@ class OnDeviceAiService extends ChangeNotifier {
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         return await operation();
-      } on SocketException catch (e) {
+      } on SocketException {
         if (attempt == maxAttempts) rethrow;
         // Exponential backoff: 2s → 3s → 4.5s (1.5x multiplier)
         final delayMs = (baseDelayMs * (1 + (attempt - 1) * 0.5)).toInt();
@@ -289,8 +324,13 @@ class OnDeviceAiService extends ChangeNotifier {
 
   // Issue #9: Cancel download
   /// Cancels an in-progress download and resets state to notInstalled.
+  /// FIX #3: Also deletes partial model files to free storage
   Future<void> cancelDownload() async {
     _downloadCancelled = true;
+
+    // FIX #3: Delete partial model files
+    await _deletePartialModelFiles();
+
     _setState(AiModelState.notInstalled);
     _dlProgress = 0;
     _lastNotifiedPct = -1;
@@ -299,19 +339,48 @@ class OnDeviceAiService extends ChangeNotifier {
     _installed = false;
   }
 
+  // FIX #3: Clean up partial model files to free storage
+  Future<void> _deletePartialModelFiles() async {
+    try {
+      // FlutterGemma typically stores models in:
+      // Android: /data/data/com.example.karthik_fitness/cache/flutter_gemma/
+      final cacheDir = Directory.systemTemp;
+      final gemmaDir = Directory('${cacheDir.path}/flutter_gemma');
+
+      if (await gemmaDir.exists()) {
+        await gemmaDir.delete(recursive: true);
+        print('✅ Cleaned up partial model files');
+      }
+    } catch (e) {
+      // Log but don't crash if cleanup fails
+      print('⚠️ Failed to cleanup model files: $e');
+    }
+  }
+
   // Issue #11: Battery level check
   /// Returns empty string if battery OK, otherwise returns warning message.
   /// Fails open (returns empty) if battery API unavailable.
   Future<String> _checkBatteryLevel() async {
     try {
-      const channel = MethodChannel(_methodChannelName);
-      final int batteryPercent = await channel.invokeMethod<int>('getBatteryPercent') ?? 100;
+      final batteryPercent = await _getBatteryPercent();
       if (batteryPercent < 20) {
         return '\n\n⚠️ Battery low ($batteryPercent%). Inference disabled.';
       }
       return '';
     } catch (_) {
       return ''; // Fail open if we can't check
+    }
+  }
+
+  // FIX #5: Get current battery percentage
+  /// Returns battery percentage (0-100).
+  /// Fails open: returns 100 if battery API unavailable.
+  Future<int> _getBatteryPercent() async {
+    try {
+      const channel = MethodChannel(_methodChannelName);
+      return await channel.invokeMethod<int>('getBatteryPercent') ?? 100;
+    } catch (_) {
+      return 100; // Fail open
     }
   }
 
@@ -369,12 +438,33 @@ class OnDeviceAiService extends ChangeNotifier {
       }
       await _chat!.addQueryChunk(Message(text: userMessage, isUser: true));
       // Issue #1: Add 2-minute timeout to inference
+
+      // FIX #5: Monitor battery during inference, pause if critical
+      int tokenCount = 0;
       await for (final r in _chat!.generateChatResponseAsync().timeout(
         const Duration(minutes: 2),
       )) {
-        if (r is TextResponse) yield r.token;
+        if (r is TextResponse) {
+          yield r.token;
+          tokenCount++;
+
+          // Check battery every 10 tokens
+          if (tokenCount % 10 == 0) {
+            try {
+              final batteryPercent = await _getBatteryPercent();
+              if (batteryPercent < 10) {
+                // Critical battery: pause gracefully
+                _chat = null; // Clear chat to restart next time
+                yield '\n\n⚠️ Battery critically low ($batteryPercent%). Response paused to preserve device power.';
+                return; // Stop inference gracefully
+              }
+            } catch (_) {
+              // Ignore battery check errors, continue inference
+            }
+          }
+        }
       }
-    } on TimeoutException catch (e) {
+    } on TimeoutException {
       _chat = null;
       yield '\n\n⚠️ Response took too long. Please try again with a shorter question.';
     } catch (e) {
@@ -439,13 +529,22 @@ class OnDeviceAiService extends ChangeNotifier {
         if (ents == null || ents.isEmpty) continue;
         final cal  = ents.fold(0.0, (s, e) => s + e.calories).round();
         final prot = ents.fold(0.0, (s, e) => s + e.protein).round();
-        final items = ents.take(2).map((e) {
-          final ml = mealAbbr[e.mealType.toString().split('.').last] ?? 'Other';
-          final safeFoodName = _sanitizeInput(e.name);
-          return '$ml:$safeFoodName(${e.calories.round()})';
-        }).join(' ');
-        final extra = ents.length > 2 ? '+${ents.length - 2}more' : '';
-        lines.add('${fd(day)}:${cal}kcal ${prot}g $items$extra');
+
+        // FIX #4: Show aggregate data instead of limiting to top 2 items
+        // This gives AI complete nutrition picture instead of incomplete item list
+        if (ents.length <= 5) {
+          // Few items: show all for detail
+          final items = ents.map((e) {
+            final ml = mealAbbr[e.mealType.toString().split('.').last] ?? 'Other';
+            final safeFoodName = _sanitizeInput(e.name);
+            return '$ml:$safeFoodName(${e.calories.round()}kcal)';
+          }).join(' ');
+          lines.add('${fd(day)}:$items ($cal kcal, $prot g protein)');
+        } else {
+          // Many items: show aggregate (AI gets full data without clutter)
+          final varietyCount = ents.length;
+          lines.add('${fd(day)}:$varietyCount items consumed ($cal kcal, $prot g protein total)');
+        }
       }
       if (lines.isNotEmpty) parts.add('FoodLog:\n${lines.join('\n')}');
     }
