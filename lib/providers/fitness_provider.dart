@@ -341,7 +341,7 @@ class FitnessProvider extends ChangeNotifier {
 
   /// Real maintenance calories calibrated from the user's own weight trend and
   /// logged intake. Null until there's a trustworthy signal: a weight trend
-  /// spanning ≥7 days (≥3 logs) AND logged calories over that window.
+  /// spanning ≥7 days (≥5 logs) AND logged calories over that window.
   /// 7 days is the practical minimum for an energy-balance TDEE estimate; the
   /// linear-regression slope smooths day-to-day water-weight noise, and the
   /// estimate sharpens automatically as more history accrues.
@@ -350,11 +350,13 @@ class FitnessProvider extends ChangeNotifier {
     final weekly = weeklyWeightChange; // kg/week, negative = losing
     if (weekly == null) return null;
     final entries = getRecentBodyEntries(days: 60);
-    if (entries.length < 3) return null;
+    if (entries.length < 5) return null;
     final spanDays = entries.last.date.difference(entries.first.date).inDays;
     if (spanDays < 7) return null;
-    // Average daily intake over a comparable recent window (skips empty days).
-    final avgIntake = avgCaloriesForDays(0, spanDays.clamp(7, 30));
+    // Average daily intake over the SAME span the weight-trend regression
+    // covered, so the energy-balance identity compares coincident periods.
+    // (skips empty days within that window)
+    final avgIntake = avgCaloriesForDays(0, spanDays);
     if (avgIntake <= 0) return null;
     final energyFromWeight = weekly * 7700 / 7; // kcal/day stored(+)/released(−)
     final t = avgIntake - energyFromWeight;
@@ -1248,7 +1250,7 @@ class FitnessProvider extends ChangeNotifier {
     for (int i = 1; i <= 30; i++) {
       final d = now.subtract(Duration(days: i));
       final cal = caloriesForDate(d);
-      if (cal == 0) break;
+      if (cal == 0) continue; // skip unlogged days (logged-days-only convention)
       if (cal < calorieGoal * 0.99) streak++;
       else break;
     }
@@ -1873,7 +1875,7 @@ class FitnessProvider extends ChangeNotifier {
   // ── Weight Prediction (Linear Regression) ─────────────────────────────────
   ({double slope, double intercept})? get _weightRegression {
     final entries = getRecentBodyEntries(days: 90);
-    if (entries.length < 3) return null;
+    if (entries.length < 5) return null;
 
     final first = entries.first.date.millisecondsSinceEpoch.toDouble();
     final xs = entries

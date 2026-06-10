@@ -438,12 +438,14 @@ void main() {
     });
 
     test('muscle dipped insight fires when muscle drops > 0.4 kg between readings', () async {
-      // _weightRegression needs >= 3 body entries; muscle-dipped also requires weekly < 0.
+      // _weightRegression needs >= 5 body entries; muscle-dipped also requires weekly < 0.
       // Seed declining body history so weeklyWeightChange < 0.
       SharedPreferences.setMockInitialValues(_seedBodyHistory([
+        (date: DateTime.now().subtract(const Duration(days: 28)), weight: 82),
         (date: DateTime.now().subtract(const Duration(days: 21)), weight: 81),
         (date: DateTime.now().subtract(const Duration(days: 14)), weight: 80),
         (date: DateTime.now().subtract(const Duration(days: 7)),  weight: 79),
+        (date: DateTime.now().subtract(const Duration(days: 2)),  weight: 78.5),
       ]));
       final p = FitnessProvider();
       await p.loadData();
@@ -504,10 +506,12 @@ void main() {
     });
 
     test('goal-pace coaching with ETA fires when losing at healthy rate', () async {
-      // Seed 3 declining body entries so _weightRegression yields weekly ≈ -0.25 kg/wk.
+      // Seed 5 declining body entries so _weightRegression yields weekly ≈ -0.25 kg/wk.
       SharedPreferences.setMockInitialValues(_seedBodyHistory([
         (date: DateTime.now().subtract(const Duration(days: 28)), weight: 78.5),
+        (date: DateTime.now().subtract(const Duration(days: 21)), weight: 78.3),
         (date: DateTime.now().subtract(const Duration(days: 14)), weight: 78.0),
+        (date: DateTime.now().subtract(const Duration(days: 7)),  weight: 77.7),
         (date: DateTime.now().subtract(const Duration(days: 1)),  weight: 77.5),
       ]));
       final p = FitnessProvider();
