@@ -796,7 +796,12 @@ void main() {
       await p.saveHeight(170);
       await p.saveAge(24);
       await p.addFoodEntry(_food('x', 2500, 50));
-      final insights = topInsights(p, DateTime.now(), count: 3);
+      // Fixed afternoon time so the hour-gated insights (activity, hydration)
+      // deterministically fire — otherwise this is flaky by time of day, since
+      // before noon only ~2 distinct categories exist and topInsights fills the
+      // 3rd slot with a duplicate. 14:00 guarantees >=3 distinct categories.
+      final now = DateTime(2026, 6, 10, 14, 0);
+      final insights = topInsights(p, now, count: 3);
       final categories = insights.map((i) => i.category).toSet();
       // Category count should equal insight count (no duplicates)
       expect(categories.length, insights.length);

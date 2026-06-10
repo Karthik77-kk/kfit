@@ -1,0 +1,115 @@
+name: PR Quality Gate
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The REAL, hard-to-fool merge gate. One required job: "Verify (analyze + test)".
+#
+#   - flutter analyze (info-lints allowed; warnings/errors fail)
+#   - flutter test  (full suite, on the actual head commit)
+#   - version integrity:
+#       * versionCode MUST be a whole integer (decimals silently truncate and
+#         cause Android "can't install" — the classic Build 72/74/75 bug)
+#       * when pubspec.yaml changes, the release tag it implies must NOT already
+#         exist (forces a real build-number bump; prevents duplicate-version
+#         "can't install" and duplicate-tag release failures)
+#
+# Branch protection requires this check (strict + enforce_admins). It runs on the
+# real head SHA and resets on every push — there is no comment string to fake.
+# Code review is handled by GitHub Copilot (advisory) per .github/copilot-instructions.md.
+# A broken release APK can never ship: build_apk.yml only creates a release after a
+# successful build, so the last good release always stays "latest".
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-quality-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify (analyze + test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changed
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          FILES=$(git diff --name-only "$BASE" "$HEAD")
+          echo "Changed files:"; echo "$FILES"
+          # code = Dart source OR pubspec -> run analyze + test
+          if echo "$FILES" | grep -qE '(\.dart$|^pubspec\.yaml$)'; then
+            echo "code=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+          # pubspec = version manifest changed -> run the tag-uniqueness check
+          if echo "$FILES" | grep -qE '^pubspec\.yaml$'; then
+            echo "pubspec=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "pubspec=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Version integrity (integer code; no duplicate release)
+        run: |
+          VER=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//')
+          NAME="${VER%+*}"
+          CODE="${VER#*+}"
+          echo "pubspec version: $VER  (name=$NAME code=$CODE)"
+          # 1) versionCode must be a whole integer — decimals break Android installs.
+          if ! echo "$CODE" | grep -qE '^[0-9]+$'; then
+            echo "::error::versionCode '$CODE' is not a whole integer. Use e.g. 2.3.0+96, never 2.3.0+95.1 (Android truncates decimals -> 'can't install')."
+            exit 1
+          fi
+          # 2) When pubspec changed, the implied release tag must not already exist.
+          if [ "${{ steps.changed.outputs.pubspec }}" = "true" ]; then
+            TAG="v${NAME}-build-${CODE}"
+            if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
+              echo "::error::Release tag ${TAG} already exists. Bump the build number in pubspec.yaml (reusing a released versionCode causes 'can't install')."
+              exit 1
+            fi
+            echo "✅ Version OK: ${TAG} (whole integer, not yet released)"
+          else
+            echo "✅ versionCode ${CODE} is a whole integer (pubspec unchanged; skipping tag check)"
+          fi
+
+      - name: Set up Java
+        if: steps.changed.outputs.code == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        if: steps.changed.outputs.code == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        if: steps.changed.outputs.code == 'true'
+        run: flutter pub get
+
+      - name: Analyze (warnings/errors fail; info-lints allowed)
+        if: steps.changed.outputs.code == 'true'
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test (full suite)
+        if: steps.changed.outputs.code == 'true'
+        run: flutter test
+
+      - name: Docs-only PR
+        if: steps.changed.outputs.code == 'false'
+        run: echo "No Dart/pubspec changes — analyze/test skipped. Version + gate pass."
