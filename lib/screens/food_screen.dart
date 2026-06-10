@@ -103,7 +103,7 @@ class _EmptyState extends StatelessWidget {
     }
     for (final e in yEntries) {
       await p.addFoodEntry(FoodEntry(
-        id: DateTime.now().millisecondsSinceEpoch.toString() + e.id,
+        id: p.newId(), // UUID — millisecond ids collide in a loop -> duplicate Dismissible keys crash
         name: e.name, calories: e.calories, protein: e.protein,
         mealType: e.mealType, servingNote: e.servingNote,
         timestamp: DateTime.now(),
@@ -1071,7 +1071,7 @@ class _RecentFoodsRow extends StatelessWidget {
                 if (item != null) {
                   // Add directly with default serving
                   context.read<FitnessProvider>().addFoodEntry(FoodEntry(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    id: context.read<FitnessProvider>().newId(), // UUID, not ms (avoids duplicate-key crash)
                     name: item.name,
                     calories: item.calories,
                     protein: item.protein,

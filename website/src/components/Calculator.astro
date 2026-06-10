@@ -96,7 +96,7 @@
           </div>
           <div class="result-item">
             <div class="ri-label">Deficit</div>
-            <div class="ri-value" id="res-deficit">-400</div>
+            <div class="ri-value" id="res-deficit">-500</div>
             <div class="ri-unit">kcal</div>
           </div>
         </div>
@@ -135,7 +135,7 @@
     const tdee   = Math.round(bmr * activityFactor);
     const target = Math.round(tdee - 500); // matches the app's fatLossCalorieTarget (TDEE − 500)
     const protein= Math.round(weight * 1.8);
-    const deficit = -400;
+    const deficit = -500; // = TDEE − target, matches the app's fat-loss deficit
 
     animateNum('res-bmr',     bmr);
     animateNum('res-tdee',    tdee);
