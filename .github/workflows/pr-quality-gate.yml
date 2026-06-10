@@ -8,11 +8,12 @@ name: PR Quality Gate
 #   1. Secret scan      — no hardcoded tokens/keys in lib/ (the HF-token leak class)
 #   2. App identity     — build_apk.yml keeps applicationId + namespace pinned to
 #                         com.example.karthik_fitness (changing it orphans installs)
-#   3. Version integrity— versionCode is a whole integer AND strictly greater than
-#                         the latest released build (no decimals, no reuse, no go-back)
-#   4. flutter analyze  — warnings/errors fail (info-lints allowed)
-#   5. flutter test     — full suite, with coverage
-#   6. Coverage floor   — line coverage must stay >= COVERAGE_MIN (tests can't vanish)
+#   3. flutter analyze  — warnings/errors fail (info-lints allowed)
+#   4. flutter test     — full suite, with coverage
+#   5. Coverage floor   — line coverage must stay >= COVERAGE_MIN (tests can't vanish)
+#
+# versionCode is auto-derived in build_apk.yml (commit count) — no manual bumps,
+# releases are tagged ascending as v<major.minor>.<count> (e.g. v2.3.239).
 #
 # Code review is GitHub Copilot (advisory) per .github/copilot-instructions.md.
 # A broken release APK can never ship: build_apk.yml only releases on success.
@@ -80,26 +81,10 @@ jobs:
           grep -q 'namespace "com.example.karthik_fitness"' "$F"     || { echo "::error::namespace must stay com.example.karthik_fitness (must match committed .kt package)."; exit 1; }
           echo "✅ App identity pinned"
 
-      - name: Version integrity (integer + strictly increasing)
-        run: |
-          VER=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//')
-          NAME="${VER%+*}"; CODE="${VER#*+}"
-          echo "pubspec version: $VER  (name=$NAME code=$CODE)"
-          if ! echo "$CODE" | grep -qE '^[0-9]+$'; then
-            echo "::error::versionCode '$CODE' is not a whole integer (decimals truncate -> 'can't install')."
-            exit 1
-          fi
-          MAXN=$(git ls-remote --tags origin | grep -oE 'build-[0-9]+$' | grep -oE '[0-9]+$' | sort -n | tail -1)
-          MAXN=${MAXN:-0}
-          if [ "${{ steps.changed.outputs.pubspec }}" = "true" ]; then
-            if [ "$CODE" -le "$MAXN" ]; then
-              echo "::error::versionCode $CODE must be greater than the latest released build $MAXN. Bump pubspec.yaml."
-              exit 1
-            fi
-            echo "✅ Version OK: $CODE > latest released $MAXN"
-          else
-            echo "✅ versionCode $CODE is a whole integer (pubspec unchanged)"
-          fi
+      # Version integrity check removed: the Android versionCode is now auto-derived
+      # in build_apk.yml from the commit count (always a unique, strictly-increasing
+      # integer). PRs no longer hand-bump pubspec, so there is nothing to validate
+      # and parallel PRs can never collide on a version.
 
       - name: Set up Java
         if: steps.changed.outputs.code == 'true'
