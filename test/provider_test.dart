@@ -1263,14 +1263,16 @@ void main() {
       expect(p.isTdeeCalibrated, isFalse);
     });
 
-    test('adaptiveTdee null with < 3 body entries', () async {
+    test('adaptiveTdee null with < 5 body entries', () async {
       SharedPreferences.setMockInitialValues(_seedBody([
         (DateTime.now().subtract(const Duration(days: 20)), 80.0),
+        (DateTime.now().subtract(const Duration(days: 15)), 79.7),
+        (DateTime.now().subtract(const Duration(days: 10)), 79.4),
         (DateTime.now(), 79.0),
       ]));
       final p = FitnessProvider();
       await p.loadData();
-      expect(p.adaptiveTdee, isNull);
+      expect(p.adaptiveTdee, isNull); // only 4 logs, below the 5-log threshold
     });
 
     test('adaptiveTdee null when trend span < 7 days', () async {
@@ -1299,7 +1301,9 @@ void main() {
       }
       final bodySeed = _seedBody([
         (now.subtract(const Duration(days: 9)), 79.1),
+        (now.subtract(const Duration(days: 7)), 78.9),
         (now.subtract(const Duration(days: 5)), 78.7),
+        (now.subtract(const Duration(days: 3)), 78.5),
         (now.subtract(const Duration(days: 1)), 78.3),
       ]);
       SharedPreferences.setMockInitialValues({...foodSeed, ...bodySeed});
@@ -1312,7 +1316,9 @@ void main() {
     test('adaptiveTdee null without logged calories (no intake to calibrate against)', () async {
       SharedPreferences.setMockInitialValues(_seedBody([
         (DateTime.now().subtract(const Duration(days: 28)), 80.0),
+        (DateTime.now().subtract(const Duration(days: 21)), 79.8),
         (DateTime.now().subtract(const Duration(days: 14)), 79.5),
+        (DateTime.now().subtract(const Duration(days: 7)), 79.2),
         (DateTime.now(), 79.0),
       ]));
       final p = FitnessProvider();
@@ -1336,7 +1342,9 @@ void main() {
       }
       final bodySeed = _seedBody([
         (now.subtract(const Duration(days: 28)), 80.0),
+        (now.subtract(const Duration(days: 21)), 79.5),
         (now.subtract(const Duration(days: 14)), 79.0),
+        (now.subtract(const Duration(days: 7)),  78.5),
         (now.subtract(const Duration(days: 1)),  78.0),
       ]);
       SharedPreferences.setMockInitialValues({...foodSeed, ...bodySeed});
