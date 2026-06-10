@@ -400,10 +400,9 @@ void main() {
 
   group('Progressive disclosure — ShowMoreSections widget', () {
     testWidgets('collapsed state shows "hidden" text', (tester) async {
-      bool tapped = false;
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: _TestShowMoreSections(count: 2, onTap: () => tapped = true),
+          body: _TestShowMoreSections(count: 2, onTap: () {}),
         ),
       ));
       expect(find.textContaining('hidden'), findsOneWidget);

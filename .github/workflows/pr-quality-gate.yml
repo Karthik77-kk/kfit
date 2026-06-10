@@ -81,9 +81,11 @@ jobs:
         if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
         run: flutter pub get
 
-      - name: Analyze (zero errors / warnings)
+      - name: Analyze (zero errors / warnings; info-lints allowed)
         if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
-        run: flutter analyze
+        # --no-fatal-infos: info-level lints don't fail the gate (matches CLAUDE.md
+        # Rule 6 "info-level lints OK"). Warnings and errors still fail the build.
+        run: flutter analyze --no-fatal-infos
 
       - name: Test
         if: steps.changed.outputs.code == 'true'
