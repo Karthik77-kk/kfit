@@ -32,3 +32,6 @@ Thumbs.db
 website/node_modules/
 website/dist/
 website/.astro/
+
+# Test coverage output
+coverage/
