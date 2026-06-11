@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:karthik_fitness/providers/fitness_provider.dart';
-import 'package:karthik_fitness/models/models.dart';
-import 'package:karthik_fitness/services/chat_session_service.dart';
-import 'package:karthik_fitness/services/on_device_ai_service.dart';
+import 'package:kfit/providers/fitness_provider.dart';
+import 'package:kfit/models/models.dart';
+import 'package:kfit/services/chat_session_service.dart';
+import 'package:kfit/services/on_device_ai_service.dart';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

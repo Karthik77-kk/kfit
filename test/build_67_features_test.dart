@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karthik_fitness/services/food_api_service.dart';
+import 'package:kfit/services/food_api_service.dart';
 
 // ─── Mock HTTP helpers ────────────────────────────────────────────────────────
 

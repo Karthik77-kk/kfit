@@ -2,8 +2,8 @@
 /// known inputs and expected outputs. If a formula changes, these tests
 /// catch it immediately.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karthik_fitness/models/models.dart';
-import 'package:karthik_fitness/providers/fitness_provider.dart';
+import 'package:kfit/models/models.dart';
+import 'package:kfit/providers/fitness_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

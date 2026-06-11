@@ -51,7 +51,7 @@ jobs:
           cp -r android android_committed
           cp pubspec.yaml pubspec_backup.yaml
           cp -r lib lib_backup
-          flutter create --project-name karthik_fitness --no-pub .
+          flutter create --project-name kfit --no-pub .
           cp pubspec_backup.yaml pubspec.yaml
           rm -rf lib
           cp -r lib_backup lib

@@ -2,8 +2,8 @@
 // Verifies calculateWorkoutCalories uses MET × bodyweight × minutes for cardio,
 // and leaves the rep-weighted model for strength exercises.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karthik_fitness/models/models.dart';
-import 'package:karthik_fitness/providers/fitness_provider.dart';
+import 'package:kfit/models/models.dart';
+import 'package:kfit/providers/fitness_provider.dart';
 
 WorkoutLog _wo(String exName, List<SetData> sets) => WorkoutLog(
       id: 'w', date: DateTime.now(), workoutType: WorkoutType.custom,

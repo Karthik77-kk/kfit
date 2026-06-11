@@ -2,9 +2,9 @@
 // Greetings and factual lookups must be answered deterministically (no LLM);
 // open-ended/coaching questions must defer to the model (factualAnswer == null).
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karthik_fitness/models/models.dart';
-import 'package:karthik_fitness/providers/fitness_provider.dart';
-import 'package:karthik_fitness/services/chat_intent.dart';
+import 'package:kfit/models/models.dart';
+import 'package:kfit/providers/fitness_provider.dart';
+import 'package:kfit/services/chat_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 FoodEntry _food(String id, double cal, double prot) => FoodEntry(

@@ -3,8 +3,8 @@
 // sedentary BMR×1.2 so idle users match the old formula (no competing number),
 // and rising dynamically with real activity.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karthik_fitness/models/models.dart';
-import 'package:karthik_fitness/providers/fitness_provider.dart';
+import 'package:kfit/models/models.dart';
+import 'package:kfit/providers/fitness_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
