@@ -1625,9 +1625,9 @@ class _MacroDonutCard extends StatelessWidget {
     final carbs   = provider.todayCarbsEstimate;
     final fat     = provider.todayFatEstimate;
     final total   = protein + carbs + fat; // grams — used by the legend rows
-    // When real logged macros exist, drop the "*" estimated marker.
-    final carbsEstimated = provider.todayCarbs <= 0;
-    final fatEstimated   = provider.todayFat <= 0;
+    // Carbs & fat are always derived (food-DB values are per-100g estimates, many
+    // items use the 65/35 fallback, and custom entries carry none) — never typed by
+    // the user. So they're honestly labelled as estimates with a footnote.
 
     // Size donut slices by CALORIE contribution (4/4/9 kcal per g), not grams, so
     // each slice reflects its true share of energy (fat is 9 kcal/g vs 4 for the rest).
@@ -1719,7 +1719,7 @@ class _MacroDonutCard extends StatelessWidget {
                   label: 'Carbs',
                   grams: carbs.round(),
                   total: total,
-                  estimated: carbsEstimated,
+                  estimated: true,
                 ),
                 const SizedBox(height: 10),
                 _MacroLegendRow(
@@ -1727,8 +1727,11 @@ class _MacroDonutCard extends StatelessWidget {
                   label: 'Fat',
                   grams: fat.round(),
                   total: total,
-                  estimated: fatEstimated,
+                  estimated: true,
                 ),
+                const SizedBox(height: 8),
+                const Text('* carbs & fat are estimated',
+                    style: TextStyle(color: _kSecond, fontSize: 10)),
               ],
             ),
           ),
