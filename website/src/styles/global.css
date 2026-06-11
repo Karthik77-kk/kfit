@@ -219,3 +219,33 @@ a { color: inherit; }
   background: rgba(48, 209, 88, 0.25);
   color: white;
 }
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition: none !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Stop the infinite marquee scroll */
+  .marquee-track {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  /* Stop the pulsing glow */
+  .ai-glow,
+  .hero-glow {
+    animation: none !important;
+  }
+}

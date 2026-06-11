@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
@@ -371,7 +373,9 @@ class _StatsScreenState extends State<StatsScreen>
                     _Card(
                       child: Column(
                         children: [
-                          _MiniWeightChart(entries: recent),
+                          _MiniWeightChart(
+                              entries: recent,
+                              goalWeightKg: p.goalWeightKg),
                           const SizedBox(height: 12),
                           Row(
                             mainAxisAlignment:
@@ -1325,68 +1329,199 @@ class _BmiLabel extends StatelessWidget {
 }
 
 // ─── Mini weight chart ─────────────────────────────────────────────────────────
+/// Interactive weight-over-time trend rendered with fl_chart's [LineChart],
+/// for visual consistency with the app's other charts. Entries are expected
+/// in chronological order. Gracefully handles 0- or 1-point series.
 class _MiniWeightChart extends StatelessWidget {
   final List<BodyEntry> entries;
-  const _MiniWeightChart({required this.entries});
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 90,
-    child: CustomPaint(painter: _WeightPainter(entries), size: Size.infinite),
-  );
-}
-
-class _WeightPainter extends CustomPainter {
-  final List<BodyEntry> entries;
-  const _WeightPainter(this.entries);
+  final double goalWeightKg;
+  const _MiniWeightChart({required this.entries, required this.goalWeightKg});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (entries.length < 2) return;
-    final minW = entries.map((e) => e.weightKg).reduce((a, b) => a < b ? a : b);
-    final maxW = entries.map((e) => e.weightKg).reduce((a, b) => a > b ? a : b);
-    final range = (maxW - minW).clamp(0.5, double.infinity);
-    final minD = entries.first.date.millisecondsSinceEpoch.toDouble();
-    final maxD = entries.last.date.millisecondsSinceEpoch.toDouble();
-    final dateRange = (maxD - minD).clamp(1.0, double.infinity);
-
-    Offset toOff(BodyEntry e) {
-      final x = ((e.date.millisecondsSinceEpoch - minD) / dateRange) * size.width;
-      final y = size.height - ((e.weightKg - minW) / range) * (size.height - 16) - 8;
-      return Offset(x, y);
+  Widget build(BuildContext context) {
+    // Need at least 2 points to draw a meaningful line.
+    if (entries.length < 2) {
+      return const SizedBox(
+        height: 120,
+        child: Center(
+          child: Text('Not enough data yet',
+              style: TextStyle(color: _kSecond, fontSize: 12)),
+        ),
+      );
     }
 
-    final pts = entries.map(toOff).toList();
+    final weights = entries.map((e) => e.weightKg).toList();
+    final minW = weights.reduce((a, b) => a < b ? a : b);
+    final maxW = weights.reduce((a, b) => a > b ? a : b);
 
-    // Fill
-    final fill = Path()..moveTo(0, size.height);
-    for (final pt in pts) fill.lineTo(pt.dx, pt.dy);
-    fill..lineTo(size.width, size.height)..close();
-    canvas.drawPath(fill, Paint()
-      ..color = _kGreen.withOpacity(0.15)
-      ..style = PaintingStyle.fill);
+    // Y padding: at least ±0.5 kg so a flat line isn't pinned to the edges.
+    final span = (maxW - minW);
+    final pad = (span * 0.15).clamp(0.5, double.infinity);
+    double minY = minW - pad;
+    double maxY = maxW + pad;
 
-    // Line
-    final linePath = Path()..moveTo(pts.first.dx, pts.first.dy);
-    for (final pt in pts.skip(1)) linePath.lineTo(pt.dx, pt.dy);
-    canvas.drawPath(linePath, Paint()
-      ..color = _kGreen
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round);
-
-    // Dots
-    for (final pt in pts) {
-      canvas.drawCircle(pt, 2.5, Paint()..color = _kGreen);
+    // Include the goal line in range when it sits close to the data.
+    final goalVisible = goalWeightKg >= minW - span - 2 &&
+        goalWeightKg <= maxW + span + 2;
+    if (goalVisible) {
+      if (goalWeightKg < minY) minY = goalWeightKg - 0.5;
+      if (goalWeightKg > maxY) maxY = goalWeightKg + 0.5;
     }
-    // Highlight last point
-    canvas.drawCircle(pts.last, 5,
-      Paint()..color = _kGreen.withOpacity(0.3)..style = PaintingStyle.fill);
-    canvas.drawCircle(pts.last, 4,
-      Paint()..color = _kGreen..style = PaintingStyle.fill);
+
+    final spots = <FlSpot>[
+      for (int i = 0; i < entries.length; i++)
+        FlSpot(i.toDouble(), entries[i].weightKg),
+    ];
+
+    // Show ~4 date labels across the X axis.
+    final n = entries.length;
+    final labelStep = (n / 4).ceil().clamp(1, n);
+
+    return SizedBox(
+      height: 120,
+      child: LineChart(
+        LineChartData(
+          minX: 0,
+          maxX: (n - 1).toDouble(),
+          minY: minY,
+          maxY: maxY,
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            getDrawingHorizontalLine: (_) =>
+                const FlLine(color: Color(0xFF38383A), strokeWidth: 0.5),
+          ),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 32,
+                getTitlesWidget: (v, meta) {
+                  if (v == meta.min || v == meta.max) {
+                    return const SizedBox.shrink();
+                  }
+                  return Text(v.toStringAsFixed(0),
+                      style: const TextStyle(color: _kSecond, fontSize: 9));
+                },
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 22,
+                interval: 1,
+                getTitlesWidget: (v, _) {
+                  final idx = v.round();
+                  if (idx < 0 || idx >= n) return const SizedBox.shrink();
+                  // Always label the last point; otherwise space them out.
+                  final isLast = idx == n - 1;
+                  if (!isLast && idx % labelStep != 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      DateFormat('d MMM').format(entries[idx].date),
+                      style: TextStyle(
+                        color: isLast ? _kGreen : _kSecond,
+                        fontSize: 9,
+                        fontWeight:
+                            isLast ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (_) => const Color(0xFF2C2C2E),
+              getTooltipItems: (spots) => spots.map((s) {
+                final e = entries[s.x.round().clamp(0, n - 1)];
+                return LineTooltipItem(
+                  '${e.weightKg.toStringAsFixed(1)} kg\n',
+                  const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700),
+                  children: [
+                    TextSpan(
+                      text: DateFormat('d MMM yyyy').format(e.date),
+                      style: const TextStyle(
+                          color: _kSecond,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              curveSmoothness: 0.25,
+              preventCurveOverShooting: true,
+              color: _kGreen,
+              barWidth: 2.5,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, _, __, ___) {
+                  final isLast = spot.x.round() == n - 1;
+                  return FlDotCirclePainter(
+                    radius: isLast ? 4 : 2.5,
+                    color: _kGreen,
+                    strokeWidth: isLast ? 2 : 0,
+                    strokeColor: _kGreen.withOpacity(0.3),
+                  );
+                },
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    _kGreen.withOpacity(0.25),
+                    _kGreen.withOpacity(0.0),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          extraLinesData: ExtraLinesData(
+            horizontalLines: [
+              if (goalVisible)
+                HorizontalLine(
+                  y: goalWeightKg,
+                  color: _kOrange.withOpacity(0.7),
+                  strokeWidth: 1.5,
+                  dashArray: [6, 4],
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.topRight,
+                    padding: const EdgeInsets.only(right: 4, bottom: 2),
+                    style: const TextStyle(
+                        color: _kOrange,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600),
+                    labelResolver: (_) =>
+                        'Goal ${goalWeightKg.toStringAsFixed(0)} kg',
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter _) => true;
 }
 
 // ─── BMI Bar ───────────────────────────────────────────────────────────────────

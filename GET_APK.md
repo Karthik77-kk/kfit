@@ -12,11 +12,11 @@ Go to https://github.com and sign up. It's free.
 
 ## Step 2 — Create a new repository
 1. Go to https://github.com/new
-2. Name it: `karthik-fitness` (or anything)
+2. Name it: `kfit` (or anything)
 3. Make it **Private** (your personal app)
 4. Click **"Create repository"**
 5. Copy the repo URL — it looks like:
-   `https://github.com/YOUR_USERNAME/karthik-fitness.git`
+   `https://github.com/YOUR_USERNAME/kfit.git`
 
 ---
 
@@ -35,7 +35,7 @@ git init
 git add .
 git commit -m "Initial commit - Karthik Fitness App"
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/karthik-fitness.git
+git remote add origin https://github.com/YOUR_USERNAME/kfit.git
 git push -u origin main
 ```
 
@@ -56,7 +56,7 @@ Replace `YOUR_USERNAME` with your actual GitHub username.
 
 1. Click on the completed build (green checkmark)
 2. Scroll down to **"Artifacts"**
-3. Click **"karthik-fitness-app"** to download the zip
+3. Click **"kfit-app"** to download the zip
 4. Unzip it — inside is `app-release.apk`
 
 ---

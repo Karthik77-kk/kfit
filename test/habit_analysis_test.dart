@@ -316,14 +316,15 @@ void main() {
       expect(p.deficitStreak, 1);
     });
 
-    test('breaks on gap day (no data = 0 calories)', () async {
-      // yesterday/2/3 days: deficit; 4th day: no data → breaks
+    test('skips an unlogged gap day (logged-days-only convention)', () async {
+      // days 1-3: deficit; day 4: no data (skipped, not a break); days 5-6: deficit.
+      // Only an over-goal day breaks the streak now, so all 5 logged days count.
       final cal = [1600, 1600, 1600, 0, 1600, 1600];
       SharedPreferences.setMockInitialValues(
           _seedFood(calByDay: cal, protByDay: List.filled(6, 80)));
       final p = FitnessProvider();
       await p.loadData();
-      expect(p.deficitStreak, 3);
+      expect(p.deficitStreak, 5);
     });
 
     test('10-day streak when all 10 past days under goal', () async {
