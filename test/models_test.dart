@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karthik_fitness/models/models.dart';
+import 'package:kfit/models/models.dart';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

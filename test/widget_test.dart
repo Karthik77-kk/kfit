@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:karthik_fitness/providers/fitness_provider.dart';
-import 'package:karthik_fitness/main.dart';
-import 'package:karthik_fitness/screens/onboarding_screen.dart';
+import 'package:kfit/providers/fitness_provider.dart';
+import 'package:kfit/main.dart';
+import 'package:kfit/screens/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// App with provider. Seeds onboarding_done=true so main nav is shown.
