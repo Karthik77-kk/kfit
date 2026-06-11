@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/fitness_provider.dart';
@@ -26,9 +25,6 @@ class OnDeviceAiService extends ChangeNotifier {
   static const _modelName    = 'Gemma 3 1B';
   static const _modelSize    = '~600 MB';
   static const _maxTokens    = 2048;
-  static const _minMemoryMb  = 900;
-  static const _minDiskMb    = 1000;
-  static const _methodChannelName = 'com.kfit.aichat/system';
 
   static const _prefToken          = 'hf_token_ai_chat';
   static const _prefInstalledModel = 'ai_installed_model_id';
@@ -111,13 +107,6 @@ class OnDeviceAiService extends ChangeNotifier {
     }
 
     try {
-      // Issue #2: Check available memory before initializing
-      if (!await _hasEnoughMemory()) {
-        _setState(AiModelState.error,
-            error: 'Not enough memory (~900 MB required). Close other apps and try again.');
-        return;
-      }
-
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
 
       // installModel().install() is idempotent: skips download if file exists on disk,
@@ -178,28 +167,10 @@ class OnDeviceAiService extends ChangeNotifier {
       _downloadCancelled = false; // Reset cancel flag for new download attempt
       _setState(AiModelState.downloading);
 
-      // Issue #3: Check disk space before downloading
-      if (!await _hasDiskSpace()) {
-        _setState(AiModelState.error,
-            error: 'Not enough storage (~1 GB required). Free up space and try again.');
-        return;
-      }
-
       await FlutterGemma.initialize(huggingFaceToken: _enterpriseToken);
 
-      // FIX #1: Use retry logic for network failures
       // Retry up to 3 times with exponential backoff for SocketException
       await _retryWithBackoff(() => _executeDownloadWithTimeout());
-
-      // Issue #7: Validate model file integrity after download
-      if (!await _validateModelIntegrity()) {
-        _installed = false;
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove(_prefInstalledModel);
-        _setState(AiModelState.error,
-            error: 'Model file corrupted. Please download again.');
-        return;
-      }
 
       // Persist FIRST — if the app crashes between write and flag, the flag
       // stays false and the download retries cleanly on next launch.
@@ -364,34 +335,7 @@ class OnDeviceAiService extends ChangeNotifier {
     }
   }
 
-  // Issue #11: Battery level check
-  /// Returns empty string if battery OK, otherwise returns warning message.
-  /// Fails open (returns empty) if battery API unavailable.
-  Future<String> _checkBatteryLevel() async {
-    try {
-      final batteryPercent = await _getBatteryPercent();
-      if (batteryPercent < 20) {
-        return '\n\n⚠️ Battery low ($batteryPercent%). Inference disabled.';
-      }
-      return '';
-    } catch (_) {
-      return ''; // Fail open if we can't check
-    }
-  }
-
-  // FIX #5: Get current battery percentage
-  /// Returns battery percentage (0-100).
-  /// Fails open: returns 100 if battery API unavailable.
-  Future<int> _getBatteryPercent() async {
-    try {
-      const channel = MethodChannel(_methodChannelName);
-      return await channel.invokeMethod<int>('getBatteryPercent') ?? 100;
-    } catch (_) {
-      return 100; // Fail open
-    }
-  }
-
-  // Issue #12: Prompt size optimization
+  // Prompt size optimization
   /// Trims context to ~1024 tokens to prevent KV-cache overflow.
   /// Rough heuristic: 1 token ≈ 4 characters in English text.
   String _trimContextToTokenBudget(String context) {
@@ -435,13 +379,6 @@ class OnDeviceAiService extends ChangeNotifier {
       return;
     }
 
-    // Issue #11: Check battery level before inference
-    final batteryWarning = await _checkBatteryLevel();
-    if (batteryWarning.isNotEmpty) {
-      yield batteryWarning;
-      return;
-    }
-
     // Service-layer guard: prevents concurrent sendMessage calls even if the UI
     // guard (_thinking) somehow fails.
     if (_sending) return;
@@ -458,31 +395,12 @@ class OnDeviceAiService extends ChangeNotifier {
         );
       }
       await _chat!.addQueryChunk(Message(text: userMessage, isUser: true));
-      // Issue #1: Add 2-minute timeout to inference
-
-      // FIX #5: Monitor battery during inference, pause if critical
-      int tokenCount = 0;
+      // 2-minute timeout guards against a runaway inference.
       await for (final r in _chat!.generateChatResponseAsync().timeout(
         const Duration(minutes: 2),
       )) {
         if (r is TextResponse) {
           yield r.token;
-          tokenCount++;
-
-          // Check battery every 10 tokens
-          if (tokenCount % 10 == 0) {
-            try {
-              final batteryPercent = await _getBatteryPercent();
-              if (batteryPercent < 10) {
-                // Critical battery: pause gracefully
-                _chat = null; // Clear chat to restart next time
-                yield '\n\n⚠️ Battery critically low ($batteryPercent%). Response paused to preserve device power.';
-                return; // Stop inference gracefully
-              }
-            } catch (_) {
-              // Ignore battery check errors, continue inference
-            }
-          }
         }
       }
     } on TimeoutException {
@@ -798,43 +716,7 @@ Food suggestions: prioritise Indian foods — roti, dal, paneer, eggs, curd, chi
 Answer the question $safeName asked, using the relevant numbers above to make it personal.''';
   }
 
-  // ── Issue #2: Memory check ──────────────────────────────────────────────────
-  Future<bool> _hasEnoughMemory() async {
-    try {
-      const channel = MethodChannel(_methodChannelName);
-      final int freeMb = await channel.invokeMethod<int>('getAvailableMemoryMb') ?? 0;
-      return freeMb >= _minMemoryMb;
-    } catch (e) {
-      return true; // Fail open if we can't check
-    }
-  }
-
-  // ── Issue #3: Disk space check ──────────────────────────────────────────────
-  Future<bool> _hasDiskSpace() async {
-    try {
-      const channel = MethodChannel(_methodChannelName);
-      final int freeMb = await channel.invokeMethod<int>('getAvailableDiskSpaceMb') ?? 0;
-      return freeMb >= _minDiskMb;
-    } catch (e) {
-      return true; // Fail open if we can't check
-    }
-  }
-
-  // ── Issue #7: CRC validation ────────────────────────────────────────────────
-  Future<bool> _validateModelIntegrity() async {
-    try {
-      const channel = MethodChannel(_methodChannelName);
-      final int fileSizeMb = await channel.invokeMethod<int>('getModelFileSizeMb') ?? 0;
-      // Allow ±5% variance from expected 600 MB (570-630 MB)
-      final int minSize = (600 * 0.95).toInt();
-      final int maxSize = (600 * 1.05).toInt();
-      return fileSizeMb >= minSize && fileSizeMb <= maxSize;
-    } catch (e) {
-      return true; // Fail open if we can't validate
-    }
-  }
-
-  // ── Issue #4: Friendly error messages ───────────────────────────────────────
+  // ── Friendly error messages ───────────────────────────────────────
   String _friendlyErrorMessage(String rawError) {
     final lower = rawError.toLowerCase();
 
