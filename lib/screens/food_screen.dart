@@ -496,7 +496,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           );
         },
       ),
-    );
+    ).then((_) => gCtrl.dispose());
   }
 
   void _addApiItem(BuildContext ctx, FoodApiResult item, double grams) {
