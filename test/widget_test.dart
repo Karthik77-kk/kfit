@@ -13,7 +13,7 @@ Widget _appWithProvider({bool onboardingDone = true}) {
   );
   return ChangeNotifierProvider(
     create: (_) => FitnessProvider()..loadData(),
-    child: const KarthikFitnessApp(),
+    child: const KfitApp(),
   );
 }
 
@@ -145,7 +145,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider(
         create: (_) => FitnessProvider()..loadData(),
-        child: const KarthikFitnessApp(),
+        child: const KfitApp(),
       ),
     );
     // One pump — provider hasn't finished yet, so splash should show.

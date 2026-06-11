@@ -21,7 +21,7 @@ Widget _app({bool onboardingDone = true, Map<String, Object> seed = const {}}) {
   SharedPreferences.setMockInitialValues(merged);
   return ChangeNotifierProvider(
     create: (_) => FitnessProvider()..loadData(),
-    child: const KarthikFitnessApp(),
+    child: const KfitApp(),
   );
 }
 
