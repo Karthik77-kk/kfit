@@ -105,6 +105,7 @@ class _EmptyState extends StatelessWidget {
       await p.addFoodEntry(FoodEntry(
         id: p.newId(), // UUID — millisecond ids collide in a loop -> duplicate Dismissible keys crash
         name: e.name, calories: e.calories, protein: e.protein,
+        carbs: e.carbs, fat: e.fat,
         mealType: e.mealType, servingNote: e.servingNote,
         timestamp: DateTime.now(),
       ));
@@ -510,6 +511,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       name:        item.name,
       calories:    item.caloriesForGrams(grams),
       protein:     item.proteinForGrams(grams),
+      carbs:       item.carbsForGrams(grams),
+      fat:         item.fatForGrams(grams),
       mealType:    _selectedMeal,
       timestamp:   DateTime.now(),
       servingNote: '$gStr · 🌐 ${item.source}',
@@ -609,6 +612,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       name: item.name,
       calories: item.calories * servings,
       protein: item.protein * servings,
+      carbs: item.effectiveCarbs * servings,
+      fat: item.effectiveFat * servings,
       mealType: _selectedMeal,
       timestamp: DateTime.now(),
       servingNote: label,
@@ -1075,6 +1080,8 @@ class _RecentFoodsRow extends StatelessWidget {
                     name: item.name,
                     calories: item.calories,
                     protein: item.protein,
+                    carbs: item.effectiveCarbs,
+                    fat: item.effectiveFat,
                     mealType: meal,
                     servingNote: item.serving,
                     timestamp: DateTime.now(),

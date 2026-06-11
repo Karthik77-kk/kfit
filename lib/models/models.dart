@@ -37,6 +37,8 @@ class FoodEntry {
   final String name;
   final double calories;
   final double protein;
+  final double carbs; // grams (0 = unknown / legacy entry)
+  final double fat;   // grams (0 = unknown / legacy entry)
   final MealType mealType;
   final DateTime timestamp;
   final String servingNote; // e.g. "2× 1 roti (~40g)" or "custom entry"
@@ -46,6 +48,8 @@ class FoodEntry {
     required this.name,
     required this.calories,
     required this.protein,
+    this.carbs = 0,
+    this.fat = 0,
     required this.mealType,
     required this.timestamp,
     this.servingNote = '',
@@ -56,6 +60,8 @@ class FoodEntry {
         'name': name,
         'calories': calories,
         'protein': protein,
+        'carbs': carbs,
+        'fat': fat,
         'mealType': mealType.index,
         'timestamp': timestamp.toIso8601String(),
         'servingNote': servingNote,
@@ -75,6 +81,8 @@ class FoodEntry {
       name: (j['name'] as String?) ?? 'Unknown',
       calories: ((j['calories'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
       protein: ((j['protein'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
+      carbs: ((j['carbs'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
+      fat: ((j['fat'] as num?) ?? 0).toDouble().clamp(0, double.infinity),
       mealType: MealType.values[mealIdx],
       timestamp: ts,
       servingNote: (j['servingNote'] as String?) ?? '',
@@ -513,6 +521,8 @@ class FoodItem {
   final String name;
   final double calories; // per default serving
   final double protein;  // grams per default serving
+  final double carbs;    // grams per default serving (0 = unknown, falls back to estimate)
+  final double fat;      // grams per default serving (0 = unknown, falls back to estimate)
   final String category;
   final String emoji;
   final String serving;  // human-readable serving description
@@ -521,10 +531,31 @@ class FoodItem {
     required this.name,
     required this.calories,
     required this.protein,
+    this.carbs = 0,
+    this.fat = 0,
     required this.category,
     required this.emoji,
     this.serving = '1 serving',
   });
+
+  /// Whether this item carries real (non-estimated) carb/fat macros.
+  bool get hasRealMacros => carbs > 0 || fat > 0;
+
+  /// Carbs grams for this serving — real value when known, else the
+  /// Indian-diet 65/35 split estimate of the non-protein calories.
+  double get effectiveCarbs {
+    if (hasRealMacros) return carbs;
+    final remaining = (calories - protein * 4.0).clamp(0.0, double.infinity);
+    return (remaining * 0.65) / 4.0;
+  }
+
+  /// Fat grams for this serving — real value when known, else the
+  /// Indian-diet 65/35 split estimate of the non-protein calories.
+  double get effectiveFat {
+    if (hasRealMacros) return fat;
+    final remaining = (calories - protein * 4.0).clamp(0.0, double.infinity);
+    return (remaining * 0.35) / 9.0;
+  }
 }
 
 /// Categories in display order
@@ -556,21 +587,21 @@ const List<String> kFoodCategories = [
 
 const List<FoodItem> kFoodDatabase = [
   // ── Popular ───────────────────────────────────────────────────────────────
-  FoodItem(name: 'Boiled Egg', calories: 78, protein: 6, category: 'Popular', emoji: '🥚', serving: '1 egg'),
-  FoodItem(name: 'Roti', calories: 104, protein: 3, category: 'Popular', emoji: '🫓', serving: '1 roti (~40g)'),
-  FoodItem(name: 'Rice (cooked)', calories: 130, protein: 2.7, category: 'Popular', emoji: '🍚', serving: '100g cooked'),
-  FoodItem(name: 'Dal', calories: 120, protein: 8, category: 'Popular', emoji: '🫘', serving: '1 katori'),
-  FoodItem(name: 'Grilled Chicken', calories: 219, protein: 43, category: 'Popular', emoji: '🍗', serving: '150g'),
-  FoodItem(name: 'Paneer', calories: 265, protein: 18, category: 'Popular', emoji: '🧀', serving: '100g'),
-  FoodItem(name: 'Oats', calories: 148, protein: 5, category: 'Popular', emoji: '🥣', serving: '40g dry'),
-  FoodItem(name: 'Banana', calories: 89, protein: 1.1, category: 'Popular', emoji: '🍌', serving: '1 medium'),
-  FoodItem(name: 'Curd / Dahi', calories: 60, protein: 3.5, category: 'Popular', emoji: '🥛', serving: '100g'),
-  FoodItem(name: 'Whey Protein Shake', calories: 130, protein: 25, category: 'Popular', emoji: '💪', serving: '1 scoop (33g)'),
-  FoodItem(name: 'Idli', calories: 70, protein: 2, category: 'Popular', emoji: '🫓', serving: '1 piece'),
-  FoodItem(name: 'Masala Dosa', calories: 290, protein: 6, category: 'Popular', emoji: '🫓', serving: '1 dosa'),
-  FoodItem(name: 'Chicken Biryani', calories: 490, protein: 28, category: 'Popular', emoji: '🍛', serving: '1 plate'),
-  FoodItem(name: 'Rajma Chawal', calories: 390, protein: 15, category: 'Popular', emoji: '🫘', serving: '1 plate'),
-  FoodItem(name: 'Pav Bhaji', calories: 400, protein: 10, category: 'Popular', emoji: '🥖', serving: '2 pav + bhaji'),
+  FoodItem(name: 'Boiled Egg', calories: 78, protein: 6, carbs: 0.6, fat: 5.3, category: 'Popular', emoji: '🥚', serving: '1 egg'),
+  FoodItem(name: 'Roti', calories: 104, protein: 3, carbs: 18, fat: 2.5, category: 'Popular', emoji: '🫓', serving: '1 roti (~40g)'),
+  FoodItem(name: 'Rice (cooked)', calories: 130, protein: 2.7, carbs: 28, fat: 0.3, category: 'Popular', emoji: '🍚', serving: '100g cooked'),
+  FoodItem(name: 'Dal', calories: 120, protein: 8, carbs: 18, fat: 1.5, category: 'Popular', emoji: '🫘', serving: '1 katori'),
+  FoodItem(name: 'Grilled Chicken', calories: 219, protein: 43, carbs: 0, fat: 5, category: 'Popular', emoji: '🍗', serving: '150g'),
+  FoodItem(name: 'Paneer', calories: 265, protein: 18, carbs: 3.5, fat: 20, category: 'Popular', emoji: '🧀', serving: '100g'),
+  FoodItem(name: 'Oats', calories: 148, protein: 5, carbs: 27, fat: 2.6, category: 'Popular', emoji: '🥣', serving: '40g dry'),
+  FoodItem(name: 'Banana', calories: 89, protein: 1.1, carbs: 23, fat: 0.3, category: 'Popular', emoji: '🍌', serving: '1 medium'),
+  FoodItem(name: 'Curd / Dahi', calories: 60, protein: 3.5, carbs: 4.7, fat: 3.3, category: 'Popular', emoji: '🥛', serving: '100g'),
+  FoodItem(name: 'Whey Protein Shake', calories: 130, protein: 25, carbs: 3, fat: 1.5, category: 'Popular', emoji: '💪', serving: '1 scoop (33g)'),
+  FoodItem(name: 'Idli', calories: 70, protein: 2, carbs: 14, fat: 0.4, category: 'Popular', emoji: '🫓', serving: '1 piece'),
+  FoodItem(name: 'Masala Dosa', calories: 290, protein: 6, carbs: 42, fat: 10, category: 'Popular', emoji: '🫓', serving: '1 dosa'),
+  FoodItem(name: 'Chicken Biryani', calories: 490, protein: 28, carbs: 55, fat: 17, category: 'Popular', emoji: '🍛', serving: '1 plate'),
+  FoodItem(name: 'Rajma Chawal', calories: 390, protein: 15, carbs: 68, fat: 6, category: 'Popular', emoji: '🫘', serving: '1 plate'),
+  FoodItem(name: 'Pav Bhaji', calories: 400, protein: 10, carbs: 52, fat: 16, category: 'Popular', emoji: '🥖', serving: '2 pav + bhaji'),
 
   // ── South Indian ──────────────────────────────────────────────────────────
   FoodItem(name: 'Idli', calories: 70, protein: 2, category: 'South Indian', emoji: '🫓', serving: '1 piece'),
@@ -692,29 +723,29 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Aloo Paratha', calories: 260, protein: 5, category: 'Breakfast', emoji: '🫓', serving: '1 paratha'),
 
   // ── Protein sources ───────────────────────────────────────────────────────
-  FoodItem(name: 'Boiled Egg White (1)', calories: 17, protein: 3.6, category: 'Protein', emoji: '🥚', serving: '1 white only'),
-  FoodItem(name: 'Boiled Egg (whole)', calories: 78, protein: 6, category: 'Protein', emoji: '🥚', serving: '1 egg'),
-  FoodItem(name: 'Egg Curry (2 eggs)', calories: 200, protein: 14, category: 'Protein', emoji: '🍳', serving: '2 eggs'),
-  FoodItem(name: 'Grilled Chicken Breast', calories: 165, protein: 31, category: 'Protein', emoji: '🍗', serving: '100g'),
-  FoodItem(name: 'Boiled Chicken', calories: 215, protein: 40, category: 'Protein', emoji: '🍗', serving: '150g'),
-  FoodItem(name: 'Chicken Curry', calories: 248, protein: 28, category: 'Protein', emoji: '🍛', serving: '150g'),
-  FoodItem(name: 'Paneer (raw)', calories: 265, protein: 18, category: 'Protein', emoji: '🧀', serving: '100g'),
-  FoodItem(name: 'Paneer Bhurji', calories: 200, protein: 16, category: 'Protein', emoji: '🧆', serving: '100g'),
-  FoodItem(name: 'Paneer Tikka', calories: 230, protein: 19, category: 'Protein', emoji: '🍢', serving: '100g'),
-  FoodItem(name: 'Tofu (firm)', calories: 76, protein: 8, category: 'Protein', emoji: '🧀', serving: '100g'),
-  FoodItem(name: 'Moong Dal (cooked)', calories: 105, protein: 7, category: 'Protein', emoji: '🫘', serving: '100g cooked'),
-  FoodItem(name: 'Sprouts (mixed)', calories: 62, protein: 4, category: 'Protein', emoji: '🌱', serving: '100g'),
-  FoodItem(name: 'Tuna (canned)', calories: 116, protein: 25, category: 'Protein', emoji: '🐟', serving: '100g drained'),
-  FoodItem(name: 'Fish Curry', calories: 190, protein: 22, category: 'Protein', emoji: '🐟', serving: '150g'),
-  FoodItem(name: 'Soya Chunks (cooked)', calories: 145, protein: 20, category: 'Protein', emoji: '🌱', serving: '100g'),
+  FoodItem(name: 'Boiled Egg White (1)', calories: 17, protein: 3.6, carbs: 0.2, fat: 0.1, category: 'Protein', emoji: '🥚', serving: '1 white only'),
+  FoodItem(name: 'Boiled Egg (whole)', calories: 78, protein: 6, carbs: 0.6, fat: 5.3, category: 'Protein', emoji: '🥚', serving: '1 egg'),
+  FoodItem(name: 'Egg Curry (2 eggs)', calories: 200, protein: 14, carbs: 6, fat: 13, category: 'Protein', emoji: '🍳', serving: '2 eggs'),
+  FoodItem(name: 'Grilled Chicken Breast', calories: 165, protein: 31, carbs: 0, fat: 3.6, category: 'Protein', emoji: '🍗', serving: '100g'),
+  FoodItem(name: 'Boiled Chicken', calories: 215, protein: 40, carbs: 0, fat: 5.5, category: 'Protein', emoji: '🍗', serving: '150g'),
+  FoodItem(name: 'Chicken Curry', calories: 248, protein: 28, carbs: 6, fat: 12, category: 'Protein', emoji: '🍛', serving: '150g'),
+  FoodItem(name: 'Paneer (raw)', calories: 265, protein: 18, carbs: 3.5, fat: 20, category: 'Protein', emoji: '🧀', serving: '100g'),
+  FoodItem(name: 'Paneer Bhurji', calories: 200, protein: 16, carbs: 6, fat: 13, category: 'Protein', emoji: '🧆', serving: '100g'),
+  FoodItem(name: 'Paneer Tikka', calories: 230, protein: 19, carbs: 7, fat: 14, category: 'Protein', emoji: '🍢', serving: '100g'),
+  FoodItem(name: 'Tofu (firm)', calories: 76, protein: 8, carbs: 1.9, fat: 4.8, category: 'Protein', emoji: '🧀', serving: '100g'),
+  FoodItem(name: 'Moong Dal (cooked)', calories: 105, protein: 7, carbs: 19, fat: 0.4, category: 'Protein', emoji: '🫘', serving: '100g cooked'),
+  FoodItem(name: 'Sprouts (mixed)', calories: 62, protein: 4, carbs: 11, fat: 0.5, category: 'Protein', emoji: '🌱', serving: '100g'),
+  FoodItem(name: 'Tuna (canned)', calories: 116, protein: 25, carbs: 0, fat: 1, category: 'Protein', emoji: '🐟', serving: '100g drained'),
+  FoodItem(name: 'Fish Curry', calories: 190, protein: 22, carbs: 5, fat: 9, category: 'Protein', emoji: '🐟', serving: '150g'),
+  FoodItem(name: 'Soya Chunks (cooked)', calories: 145, protein: 20, carbs: 12, fat: 1.5, category: 'Protein', emoji: '🌱', serving: '100g'),
 
   // ── Rice & Biryani ────────────────────────────────────────────────────────
-  FoodItem(name: 'White Rice', calories: 130, protein: 2.7, category: 'Rice & Biryani', emoji: '🍚', serving: '100g cooked'),
-  FoodItem(name: 'Brown Rice', calories: 112, protein: 2.6, category: 'Rice & Biryani', emoji: '🍚', serving: '100g cooked'),
-  FoodItem(name: 'Jeera Rice', calories: 160, protein: 3, category: 'Rice & Biryani', emoji: '🍚', serving: '1 cup cooked'),
-  FoodItem(name: 'Veg Biryani', calories: 350, protein: 8, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
-  FoodItem(name: 'Chicken Biryani', calories: 490, protein: 28, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
-  FoodItem(name: 'Mutton Biryani', calories: 540, protein: 30, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
+  FoodItem(name: 'White Rice', calories: 130, protein: 2.7, carbs: 28, fat: 0.3, category: 'Rice & Biryani', emoji: '🍚', serving: '100g cooked'),
+  FoodItem(name: 'Brown Rice', calories: 112, protein: 2.6, carbs: 24, fat: 0.9, category: 'Rice & Biryani', emoji: '🍚', serving: '100g cooked'),
+  FoodItem(name: 'Jeera Rice', calories: 160, protein: 3, carbs: 30, fat: 3, category: 'Rice & Biryani', emoji: '🍚', serving: '1 cup cooked'),
+  FoodItem(name: 'Veg Biryani', calories: 350, protein: 8, carbs: 55, fat: 10, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
+  FoodItem(name: 'Chicken Biryani', calories: 490, protein: 28, carbs: 55, fat: 17, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
+  FoodItem(name: 'Mutton Biryani', calories: 540, protein: 30, carbs: 56, fat: 21, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
   FoodItem(name: 'Egg Biryani', calories: 400, protein: 18, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
   FoodItem(name: 'Hyderabadi Biryani', calories: 510, protein: 26, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
   FoodItem(name: 'Kozhikodan Biryani', calories: 480, protein: 27, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
@@ -726,15 +757,15 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Rajma Chawal', calories: 390, protein: 15, category: 'Rice & Biryani', emoji: '🫘', serving: '1 plate'),
 
   // ── Roti & Bread ──────────────────────────────────────────────────────────
-  FoodItem(name: 'Roti (wheat)', calories: 104, protein: 3, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti (~40g)'),
-  FoodItem(name: 'Roti with Ghee', calories: 134, protein: 3, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti + ghee'),
-  FoodItem(name: 'Chapati (thin)', calories: 80, protein: 2.5, category: 'Roti & Bread', emoji: '🫓', serving: '1 small'),
-  FoodItem(name: 'Plain Paratha', calories: 200, protein: 4, category: 'Roti & Bread', emoji: '🫓', serving: '1 paratha'),
-  FoodItem(name: 'Naan', calories: 262, protein: 8, category: 'Roti & Bread', emoji: '🫓', serving: '1 piece'),
-  FoodItem(name: 'Garlic Naan', calories: 290, protein: 8, category: 'Roti & Bread', emoji: '🫓', serving: '1 piece'),
-  FoodItem(name: 'Bread (White)', calories: 69, protein: 2.3, category: 'Roti & Bread', emoji: '🍞', serving: '1 slice (30g)'),
-  FoodItem(name: 'Bread (Brown)', calories: 65, protein: 3, category: 'Roti & Bread', emoji: '🍞', serving: '1 slice (30g)'),
-  FoodItem(name: 'Puri', calories: 160, protein: 2.5, category: 'Roti & Bread', emoji: '🫓', serving: '1 piece'),
+  FoodItem(name: 'Roti (wheat)', calories: 104, protein: 3, carbs: 18, fat: 2.5, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti (~40g)'),
+  FoodItem(name: 'Roti with Ghee', calories: 134, protein: 3, carbs: 18, fat: 5.7, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti + ghee'),
+  FoodItem(name: 'Chapati (thin)', calories: 80, protein: 2.5, carbs: 15, fat: 1.5, category: 'Roti & Bread', emoji: '🫓', serving: '1 small'),
+  FoodItem(name: 'Plain Paratha', calories: 200, protein: 4, carbs: 28, fat: 8, category: 'Roti & Bread', emoji: '🫓', serving: '1 paratha'),
+  FoodItem(name: 'Naan', calories: 262, protein: 8, carbs: 45, fat: 5, category: 'Roti & Bread', emoji: '🫓', serving: '1 piece'),
+  FoodItem(name: 'Garlic Naan', calories: 290, protein: 8, carbs: 46, fat: 8, category: 'Roti & Bread', emoji: '🫓', serving: '1 piece'),
+  FoodItem(name: 'Bread (White)', calories: 69, protein: 2.3, carbs: 13, fat: 0.9, category: 'Roti & Bread', emoji: '🍞', serving: '1 slice (30g)'),
+  FoodItem(name: 'Bread (Brown)', calories: 65, protein: 3, carbs: 12, fat: 1, category: 'Roti & Bread', emoji: '🍞', serving: '1 slice (30g)'),
+  FoodItem(name: 'Puri', calories: 160, protein: 2.5, carbs: 18, fat: 8, category: 'Roti & Bread', emoji: '🫓', serving: '1 piece'),
 
   // ── Dal & Curry ───────────────────────────────────────────────────────────
   FoodItem(name: 'Toor Dal', calories: 115, protein: 7, category: 'Dal & Curry', emoji: '🫘', serving: '1 katori'),
@@ -828,42 +859,42 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Namak Para', calories: 155, protein: 3, category: 'Snacks', emoji: '🫓', serving: '30g'),
 
   // ── Fruits ───────────────────────────────────────────────────────────────
-  FoodItem(name: 'Apple', calories: 52, protein: 0.3, category: 'Fruits', emoji: '🍎', serving: '1 medium (150g)'),
-  FoodItem(name: 'Banana', calories: 89, protein: 1.1, category: 'Fruits', emoji: '🍌', serving: '1 medium (120g)'),
-  FoodItem(name: 'Mango', calories: 135, protein: 1.4, category: 'Fruits', emoji: '🥭', serving: '1 medium (200g)'),
-  FoodItem(name: 'Orange', calories: 47, protein: 0.9, category: 'Fruits', emoji: '🍊', serving: '1 medium (130g)'),
-  FoodItem(name: 'Papaya', calories: 43, protein: 0.5, category: 'Fruits', emoji: '🍈', serving: '100g'),
-  FoodItem(name: 'Watermelon', calories: 30, protein: 0.6, category: 'Fruits', emoji: '🍉', serving: '100g'),
-  FoodItem(name: 'Pomegranate', calories: 83, protein: 1.7, category: 'Fruits', emoji: '🍎', serving: '100g arils'),
-  FoodItem(name: 'Grapes', calories: 67, protein: 0.6, category: 'Fruits', emoji: '🍇', serving: '100g'),
-  FoodItem(name: 'Guava', calories: 68, protein: 2.6, category: 'Fruits', emoji: '🍈', serving: '1 medium (100g)'),
-  FoodItem(name: 'Pineapple', calories: 50, protein: 0.5, category: 'Fruits', emoji: '🍍', serving: '100g'),
-  FoodItem(name: 'Strawberry', calories: 32, protein: 0.7, category: 'Fruits', emoji: '🍓', serving: '100g'),
-  FoodItem(name: 'Chickoo (Sapota)', calories: 83, protein: 0.4, category: 'Fruits', emoji: '🍈', serving: '100g'),
-  FoodItem(name: 'Kiwi', calories: 61, protein: 1.1, category: 'Fruits', emoji: '🥝', serving: '1 medium (76g)'),
-  FoodItem(name: 'Dates (Khajur)', calories: 282, protein: 2.5, category: 'Fruits', emoji: '🤎', serving: '4 pieces (40g)'),
+  FoodItem(name: 'Apple', calories: 52, protein: 0.3, carbs: 14, fat: 0.2, category: 'Fruits', emoji: '🍎', serving: '1 medium (150g)'),
+  FoodItem(name: 'Banana', calories: 89, protein: 1.1, carbs: 23, fat: 0.3, category: 'Fruits', emoji: '🍌', serving: '1 medium (120g)'),
+  FoodItem(name: 'Mango', calories: 135, protein: 1.4, carbs: 33, fat: 0.6, category: 'Fruits', emoji: '🥭', serving: '1 medium (200g)'),
+  FoodItem(name: 'Orange', calories: 47, protein: 0.9, carbs: 12, fat: 0.1, category: 'Fruits', emoji: '🍊', serving: '1 medium (130g)'),
+  FoodItem(name: 'Papaya', calories: 43, protein: 0.5, carbs: 11, fat: 0.3, category: 'Fruits', emoji: '🍈', serving: '100g'),
+  FoodItem(name: 'Watermelon', calories: 30, protein: 0.6, carbs: 7.6, fat: 0.2, category: 'Fruits', emoji: '🍉', serving: '100g'),
+  FoodItem(name: 'Pomegranate', calories: 83, protein: 1.7, carbs: 19, fat: 1.2, category: 'Fruits', emoji: '🍎', serving: '100g arils'),
+  FoodItem(name: 'Grapes', calories: 67, protein: 0.6, carbs: 17, fat: 0.4, category: 'Fruits', emoji: '🍇', serving: '100g'),
+  FoodItem(name: 'Guava', calories: 68, protein: 2.6, carbs: 14, fat: 1, category: 'Fruits', emoji: '🍈', serving: '1 medium (100g)'),
+  FoodItem(name: 'Pineapple', calories: 50, protein: 0.5, carbs: 13, fat: 0.1, category: 'Fruits', emoji: '🍍', serving: '100g'),
+  FoodItem(name: 'Strawberry', calories: 32, protein: 0.7, carbs: 7.7, fat: 0.3, category: 'Fruits', emoji: '🍓', serving: '100g'),
+  FoodItem(name: 'Chickoo (Sapota)', calories: 83, protein: 0.4, carbs: 20, fat: 1.1, category: 'Fruits', emoji: '🍈', serving: '100g'),
+  FoodItem(name: 'Kiwi', calories: 61, protein: 1.1, carbs: 15, fat: 0.5, category: 'Fruits', emoji: '🥝', serving: '1 medium (76g)'),
+  FoodItem(name: 'Dates (Khajur)', calories: 282, protein: 2.5, carbs: 75, fat: 0.4, category: 'Fruits', emoji: '🤎', serving: '4 pieces (40g)'),
 
   // ── Dairy ────────────────────────────────────────────────────────────────
-  FoodItem(name: 'Full-Fat Milk', calories: 122, protein: 6.4, category: 'Dairy', emoji: '🥛', serving: '200ml'),
-  FoodItem(name: 'Toned Milk', calories: 100, protein: 6, category: 'Dairy', emoji: '🥛', serving: '200ml'),
-  FoodItem(name: 'Skim Milk', calories: 70, protein: 7, category: 'Dairy', emoji: '🥛', serving: '200ml'),
-  FoodItem(name: 'Curd / Dahi', calories: 60, protein: 3.5, category: 'Dairy', emoji: '🥛', serving: '100g'),
-  FoodItem(name: 'Greek Yogurt', calories: 100, protein: 10, category: 'Dairy', emoji: '🥛', serving: '150g'),
-  FoodItem(name: 'Buttermilk (Chaas)', calories: 45, protein: 3, category: 'Dairy', emoji: '🥛', serving: '250ml'),
-  FoodItem(name: 'Paneer', calories: 265, protein: 18, category: 'Dairy', emoji: '🧀', serving: '100g'),
-  FoodItem(name: 'Ghee', calories: 112, protein: 0, category: 'Dairy', emoji: '🧈', serving: '1 tsp (14g)'),
-  FoodItem(name: 'Butter', calories: 102, protein: 0.1, category: 'Dairy', emoji: '🧈', serving: '1 tbsp (14g)'),
+  FoodItem(name: 'Full-Fat Milk', calories: 122, protein: 6.4, carbs: 9.6, fat: 6.6, category: 'Dairy', emoji: '🥛', serving: '200ml'),
+  FoodItem(name: 'Toned Milk', calories: 100, protein: 6, carbs: 10, fat: 3.6, category: 'Dairy', emoji: '🥛', serving: '200ml'),
+  FoodItem(name: 'Skim Milk', calories: 70, protein: 7, carbs: 10, fat: 0.2, category: 'Dairy', emoji: '🥛', serving: '200ml'),
+  FoodItem(name: 'Curd / Dahi', calories: 60, protein: 3.5, carbs: 4.7, fat: 3.3, category: 'Dairy', emoji: '🥛', serving: '100g'),
+  FoodItem(name: 'Greek Yogurt', calories: 100, protein: 10, carbs: 6, fat: 4, category: 'Dairy', emoji: '🥛', serving: '150g'),
+  FoodItem(name: 'Buttermilk (Chaas)', calories: 45, protein: 3, carbs: 5, fat: 1.2, category: 'Dairy', emoji: '🥛', serving: '250ml'),
+  FoodItem(name: 'Paneer', calories: 265, protein: 18, carbs: 3.5, fat: 20, category: 'Dairy', emoji: '🧀', serving: '100g'),
+  FoodItem(name: 'Ghee', calories: 112, protein: 0, carbs: 0, fat: 12.7, category: 'Dairy', emoji: '🧈', serving: '1 tsp (14g)'),
+  FoodItem(name: 'Butter', calories: 102, protein: 0.1, carbs: 0.1, fat: 11.5, category: 'Dairy', emoji: '🧈', serving: '1 tbsp (14g)'),
 
   // ── Nuts & Seeds ──────────────────────────────────────────────────────────
-  FoodItem(name: 'Almonds', calories: 58, protein: 2.1, category: 'Nuts & Seeds', emoji: '🌰', serving: '10g (~8 nuts)'),
-  FoodItem(name: 'Cashews', calories: 55, protein: 1.8, category: 'Nuts & Seeds', emoji: '🥜', serving: '10g (~6 nuts)'),
-  FoodItem(name: 'Walnuts', calories: 65, protein: 1.5, category: 'Nuts & Seeds', emoji: '🌰', serving: '10g'),
-  FoodItem(name: 'Peanuts', calories: 170, protein: 7.7, category: 'Nuts & Seeds', emoji: '🥜', serving: '30g'),
-  FoodItem(name: 'Peanut Butter (1 tbsp)', calories: 94, protein: 4, category: 'Nuts & Seeds', emoji: '🥜', serving: '1 tbsp (16g)'),
-  FoodItem(name: 'Chia Seeds', calories: 58, protein: 2, category: 'Nuts & Seeds', emoji: '🌱', serving: '1 tbsp (15g)'),
-  FoodItem(name: 'Flax Seeds', calories: 55, protein: 1.9, category: 'Nuts & Seeds', emoji: '🌱', serving: '1 tbsp (14g)'),
-  FoodItem(name: 'Mixed Nuts (30g)', calories: 170, protein: 4.5, category: 'Nuts & Seeds', emoji: '🌰', serving: '30g'),
-  FoodItem(name: 'Pistachios', calories: 57, protein: 2.1, category: 'Nuts & Seeds', emoji: '🌰', serving: '10g'),
+  FoodItem(name: 'Almonds', calories: 58, protein: 2.1, carbs: 2.2, fat: 5, category: 'Nuts & Seeds', emoji: '🌰', serving: '10g (~8 nuts)'),
+  FoodItem(name: 'Cashews', calories: 55, protein: 1.8, carbs: 3, fat: 4.4, category: 'Nuts & Seeds', emoji: '🥜', serving: '10g (~6 nuts)'),
+  FoodItem(name: 'Walnuts', calories: 65, protein: 1.5, carbs: 1.4, fat: 6.5, category: 'Nuts & Seeds', emoji: '🌰', serving: '10g'),
+  FoodItem(name: 'Peanuts', calories: 170, protein: 7.7, carbs: 4.8, fat: 14, category: 'Nuts & Seeds', emoji: '🥜', serving: '30g'),
+  FoodItem(name: 'Peanut Butter (1 tbsp)', calories: 94, protein: 4, carbs: 3, fat: 8, category: 'Nuts & Seeds', emoji: '🥜', serving: '1 tbsp (16g)'),
+  FoodItem(name: 'Chia Seeds', calories: 58, protein: 2, carbs: 5, fat: 3.7, category: 'Nuts & Seeds', emoji: '🌱', serving: '1 tbsp (15g)'),
+  FoodItem(name: 'Flax Seeds', calories: 55, protein: 1.9, carbs: 3, fat: 4.3, category: 'Nuts & Seeds', emoji: '🌱', serving: '1 tbsp (14g)'),
+  FoodItem(name: 'Mixed Nuts (30g)', calories: 170, protein: 4.5, carbs: 6, fat: 15, category: 'Nuts & Seeds', emoji: '🌰', serving: '30g'),
+  FoodItem(name: 'Pistachios', calories: 57, protein: 2.1, carbs: 2.8, fat: 4.5, category: 'Nuts & Seeds', emoji: '🌰', serving: '10g'),
 
   // ── Drinks ───────────────────────────────────────────────────────────────
   FoodItem(name: 'Black Coffee', calories: 2, protein: 0.3, category: 'Drinks', emoji: '☕', serving: '1 cup (240ml)'),
@@ -1294,6 +1325,74 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Soft Drink (Cola)', calories: 140, protein: 0, category: 'Drinks', emoji: '🥤', serving: '330ml can'),
   FoodItem(name: 'Fresh Lime Soda', calories: 90, protein: 0, category: 'Drinks', emoji: '🍋', serving: '1 glass'),
   FoodItem(name: 'Coconut Water', calories: 45, protein: 1.7, category: 'Drinks', emoji: '🥥', serving: '1 glass'),
+
+  // ── New items (full macros) ────────────────────────────────────────────────
+  // Protein & lean staples
+  FoodItem(name: 'Chicken Thigh (cooked)', calories: 209, protein: 26, carbs: 0, fat: 11, category: 'Protein', emoji: '🍗', serving: '100g'),
+  FoodItem(name: 'Egg Whites (4, boiled)', calories: 68, protein: 14.4, carbs: 0.8, fat: 0.2, category: 'Protein', emoji: '🥚', serving: '4 whites'),
+  FoodItem(name: 'Salmon (grilled)', calories: 208, protein: 22, carbs: 0, fat: 13, category: 'Protein', emoji: '🐟', serving: '100g'),
+  FoodItem(name: 'Prawns (boiled)', calories: 99, protein: 24, carbs: 0.2, fat: 0.3, category: 'Protein', emoji: '🦐', serving: '100g'),
+  FoodItem(name: 'Mutton Curry', calories: 280, protein: 24, carbs: 6, fat: 18, category: 'Protein', emoji: '🍖', serving: '150g'),
+  FoodItem(name: 'Soya Bhurji', calories: 175, protein: 18, carbs: 10, fat: 6, category: 'Protein', emoji: '🌱', serving: '150g'),
+  FoodItem(name: 'Rajma (cooked)', calories: 127, protein: 8.7, carbs: 22.8, fat: 0.5, category: 'Protein', emoji: '🫘', serving: '100g cooked'),
+  FoodItem(name: 'Chickpeas (boiled)', calories: 164, protein: 8.9, carbs: 27, fat: 2.6, category: 'Protein', emoji: '🫘', serving: '100g cooked'),
+  FoodItem(name: 'Cottage Cheese (paneer, low-fat)', calories: 206, protein: 24, carbs: 4, fat: 10, category: 'Protein', emoji: '🧀', serving: '100g'),
+  FoodItem(name: 'Egg Bhurji (2 eggs)', calories: 190, protein: 13, carbs: 4, fat: 13, category: 'Protein', emoji: '🍳', serving: '2 eggs'),
+
+  // Whole grains & carbs
+  FoodItem(name: 'Sweet Potato (boiled)', calories: 86, protein: 1.6, carbs: 20, fat: 0.1, category: 'Breakfast', emoji: '🍠', serving: '100g'),
+  FoodItem(name: 'Whole Wheat Pasta (cooked)', calories: 124, protein: 5, carbs: 25, fat: 1, category: 'Fast Food', emoji: '🍝', serving: '100g cooked'),
+  FoodItem(name: 'Daliya (Broken Wheat) cooked', calories: 120, protein: 4, carbs: 25, fat: 0.7, category: 'Breakfast', emoji: '🌾', serving: '150g'),
+  FoodItem(name: 'Multigrain Roti', calories: 110, protein: 3.5, carbs: 19, fat: 2.3, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti (~40g)'),
+  FoodItem(name: 'Khichdi (Moong Dal)', calories: 200, protein: 8, carbs: 35, fat: 3.5, category: 'North Indian', emoji: '🥣', serving: '1 bowl (200g)'),
+  FoodItem(name: 'Vegetable Pulao', calories: 260, protein: 6, carbs: 44, fat: 7, category: 'Rice & Biryani', emoji: '🍚', serving: '1 plate'),
+  FoodItem(name: 'Lemon Coriander Soup', calories: 60, protein: 2, carbs: 9, fat: 1.5, category: 'Salads & Light Meals', emoji: '🍲', serving: '1 bowl (250ml)'),
+
+  // South Indian additions
+  FoodItem(name: 'Ragi Dosa', calories: 130, protein: 3.5, carbs: 24, fat: 2.5, category: 'South Indian', emoji: '🫓', serving: '1 dosa'),
+  FoodItem(name: 'Oats Dosa', calories: 145, protein: 5, carbs: 22, fat: 4, category: 'South Indian', emoji: '🫓', serving: '1 dosa'),
+  FoodItem(name: 'Tomato Uttapam', calories: 220, protein: 6, carbs: 35, fat: 6, category: 'South Indian', emoji: '🥞', serving: '1 piece'),
+  FoodItem(name: 'Onion Rava Dosa', calories: 210, protein: 4, carbs: 30, fat: 8, category: 'South Indian', emoji: '🫓', serving: '1 dosa'),
+  FoodItem(name: 'Lemon Sevai', calories: 190, protein: 4, carbs: 36, fat: 4, category: 'South Indian', emoji: '🍜', serving: '1 plate'),
+
+  // North Indian additions
+  FoodItem(name: 'Stuffed Capsicum Sabzi', calories: 150, protein: 4, carbs: 14, fat: 9, category: 'North Indian', emoji: '🫑', serving: '1 katori (150g)'),
+  FoodItem(name: 'Lauki Sabzi (Bottle Gourd)', calories: 95, protein: 2, carbs: 9, fat: 6, category: 'North Indian', emoji: '🥒', serving: '1 katori (150g)'),
+  FoodItem(name: 'Tinda Masala', calories: 110, protein: 2.5, carbs: 11, fat: 7, category: 'North Indian', emoji: '🥬', serving: '1 katori (150g)'),
+  FoodItem(name: 'Methi Malai Matar', calories: 230, protein: 6, carbs: 16, fat: 16, category: 'North Indian', emoji: '🟢', serving: '1 katori (150g)'),
+  FoodItem(name: 'Veg Kolhapuri', calories: 200, protein: 5, carbs: 18, fat: 13, category: 'North Indian', emoji: '🥘', serving: '1 katori (150g)'),
+
+  // Healthy / fitness additions
+  FoodItem(name: 'Boiled Chana Chaat', calories: 180, protein: 9, carbs: 27, fat: 4, category: 'Salads & Light Meals', emoji: '🫘', serving: '1 bowl (150g)'),
+  FoodItem(name: 'Moong Sprouts Salad', calories: 100, protein: 7, carbs: 16, fat: 0.6, category: 'Salads & Light Meals', emoji: '🌱', serving: '1 bowl (120g)'),
+  FoodItem(name: 'Grilled Veg Skewers', calories: 120, protein: 4, carbs: 14, fat: 5, category: 'Salads & Light Meals', emoji: '🍢', serving: '1 skewer (150g)'),
+  FoodItem(name: 'Quinoa Veg Bowl', calories: 280, protein: 9, carbs: 45, fat: 7, category: 'Salads & Light Meals', emoji: '🥗', serving: '1 bowl (250g)'),
+  FoodItem(name: 'Egg & Avocado Bowl', calories: 320, protein: 16, carbs: 10, fat: 24, category: 'Protein', emoji: '🥑', serving: '1 bowl'),
+  FoodItem(name: 'Protein Smoothie Bowl', calories: 300, protein: 24, carbs: 35, fat: 6, category: 'Breakfast', emoji: '🥣', serving: '1 bowl'),
+
+  // Snacks & nuts
+  FoodItem(name: 'Roasted Almonds (15g)', calories: 87, protein: 3.2, carbs: 3.3, fat: 7.5, category: 'Nuts & Seeds', emoji: '🌰', serving: '15g'),
+  FoodItem(name: 'Pumpkin Seeds (15g)', calories: 84, protein: 4.5, carbs: 1.6, fat: 7, category: 'Nuts & Seeds', emoji: '🌱', serving: '15g'),
+  FoodItem(name: 'Sunflower Seeds (15g)', calories: 88, protein: 3.1, carbs: 3, fat: 7.6, category: 'Nuts & Seeds', emoji: '🌻', serving: '15g'),
+  FoodItem(name: 'Trail Mix (30g)', calories: 150, protein: 4, carbs: 14, fat: 9, category: 'Snacks', emoji: '🥜', serving: '30g'),
+  FoodItem(name: 'Roasted Peanuts (30g)', calories: 170, protein: 7, carbs: 6, fat: 14, category: 'Snacks', emoji: '🥜', serving: '30g'),
+  FoodItem(name: 'Energy Bar (Date & Nut)', calories: 180, protein: 5, carbs: 24, fat: 7, category: 'Snacks', emoji: '🍫', serving: '1 bar (45g)'),
+  FoodItem(name: 'Dark Chocolate (20g)', calories: 120, protein: 1.5, carbs: 9, fat: 8.5, category: 'Snacks', emoji: '🍫', serving: '20g (70% cocoa)'),
+
+  // Fruits additions
+  FoodItem(name: 'Avocado', calories: 160, protein: 2, carbs: 9, fat: 15, category: 'Fruits', emoji: '🥑', serving: '100g'),
+  FoodItem(name: 'Muskmelon (Cantaloupe)', calories: 34, protein: 0.8, carbs: 8, fat: 0.2, category: 'Fruits', emoji: '🍈', serving: '100g'),
+  FoodItem(name: 'Pear', calories: 57, protein: 0.4, carbs: 15, fat: 0.1, category: 'Fruits', emoji: '🍐', serving: '1 medium (100g)'),
+  FoodItem(name: 'Blueberries', calories: 57, protein: 0.7, carbs: 14, fat: 0.3, category: 'Fruits', emoji: '🫐', serving: '100g'),
+  FoodItem(name: 'Litchi', calories: 66, protein: 0.8, carbs: 17, fat: 0.4, category: 'Fruits', emoji: '🍒', serving: '100g'),
+
+  // Dairy & drinks additions
+  FoodItem(name: 'Low-Fat Yogurt', calories: 63, protein: 5.3, carbs: 7, fat: 1.6, category: 'Dairy', emoji: '🥛', serving: '100g'),
+  FoodItem(name: 'Cheese Slice (Cheddar)', calories: 70, protein: 4, carbs: 1, fat: 5.5, category: 'Dairy', emoji: '🧀', serving: '1 slice (20g)'),
+  FoodItem(name: 'Paneer Tikka Skewer', calories: 180, protein: 13, carbs: 5, fat: 12, category: 'Fried & Grilled', emoji: '🍢', serving: '4 cubes (80g)'),
+  FoodItem(name: 'Green Tea', calories: 2, protein: 0, carbs: 0.4, fat: 0, category: 'Drinks', emoji: '🍵', serving: '1 cup'),
+  FoodItem(name: 'Whey + Banana Smoothie', calories: 290, protein: 28, carbs: 32, fat: 4, category: 'Drinks', emoji: '🥤', serving: '1 glass (350ml)'),
+  FoodItem(name: 'Black Coffee (no sugar)', calories: 2, protein: 0.3, carbs: 0, fat: 0, category: 'Drinks', emoji: '☕', serving: '1 cup'),
 ];
 
 
