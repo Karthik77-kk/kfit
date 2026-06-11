@@ -23,7 +23,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Rebuild so the Continue button can gently react to the name field.
+    _nameController.addListener(_onNameChanged);
+  }
+
+  void _onNameChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _nameEntered => _nameController.text.trim().isNotEmpty;
+
+  @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _pageController.dispose();
     _nameController.dispose();
     super.dispose();
@@ -97,7 +111,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(height: 20),
 
                   // Navigation button — only shown on page 0
-                  if (_currentPage == 0)
+                  if (_currentPage == 0) ...[
+                    // Gentle hint — encourages a name without blocking the user.
+                    AnimatedOpacity(
+                      opacity: _nameEntered ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          'Add your name so we can make this yours 🙂',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _kSecond,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -106,7 +136,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           _goToPage(1);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _kGreen,
+                          // Soften (not disable) until a name is entered.
+                          backgroundColor: _nameEntered
+                              ? _kGreen
+                              : _kGreen.withValues(alpha: 0.45),
                           foregroundColor: Colors.black,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -122,6 +155,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),

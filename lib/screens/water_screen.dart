@@ -184,6 +184,17 @@ class _WaterScreenState extends State<WaterScreen>
                   children: [
                     TextButton.icon(
                       onPressed: p.todayWaterMl > 0
+                          ? () => context.read<FitnessProvider>().removeWater(150)
+                          : null,
+                      icon: const Icon(Icons.remove_circle_outline,
+                          size: 16, color: Colors.white54),
+                      label: const Text('-150ml',
+                          style:
+                              TextStyle(color: Colors.white54, fontSize: 13)),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: p.todayWaterMl > 0
                           ? () => context.read<FitnessProvider>().removeWater(250)
                           : null,
                       icon: const Icon(Icons.remove_circle_outline,

@@ -313,7 +313,7 @@ jobs:
         # HF model-download token is hardcoded in lib/services/on_device_ai_service.dart
         # (no secret needed, by design). --build-number sets the Android versionCode
         # from the auto-computed commit count (overrides pubspec).
-        run: flutter build apk --release --no-tree-shake-icons --build-number=${{ steps.ver.outputs.code }}
+        run: flutter build apk --release --no-tree-shake-icons --build-number=${{ steps.ver.outputs.code }} --dart-define=HF_TOKEN=${{ secrets.HF_TOKEN }}
 
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/kfit.apk
