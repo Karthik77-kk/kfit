@@ -11,13 +11,13 @@ enum AiModelState { notInstalled, downloading, loading, ready, error }
 
 class OnDeviceAiService extends ChangeNotifier {
   // ── Single model: Gemma 3 1B INT4 (~600 MB) ────────────────────────────────
-  // HuggingFace token for the gated model download, bundled directly in the app
-  // (no GitHub secret, by design). The model is gated, so this must be a token
-  // from an HF account that has accepted the Gemma3-1B-IT licence to DOWNLOAD it.
-  // `gate-allow-token` marks it as an intentional, allowlisted bundled credential
-  // so the CI secret-scan doesn't block it.
+  // HuggingFace token for the gated model download, injected at build time from
+  // the HF_TOKEN GitHub Actions secret via --dart-define (NOT committed in source:
+  // GitHub push-protection blocks tokens in commits, and a secret is more durable).
+  // The model is gated, so HF_TOKEN must be a token from an account that accepted
+  // the Gemma3-1B-IT licence. Empty in local dev unless you pass your own --dart-define.
   static const _enterpriseToken =
-      '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'; // gate-allow-token
+      String.fromEnvironment('HF_TOKEN', defaultValue: '');
   static const _modelUrl =
       'https://huggingface.co/litert-community/Gemma3-1B-IT'
       '/resolve/main/gemma3-1b-it-int4.litertlm';
