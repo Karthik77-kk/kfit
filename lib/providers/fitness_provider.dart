@@ -197,16 +197,28 @@ class FitnessProvider extends ChangeNotifier {
   /// Total protein including supplements
   double get todayProteinTotal => todayProtein + supplementProtein;
 
-  /// Estimated carbs today (Indian diet approximation):
-  /// protein_cal = protein*4, fat_cal = remaining*35%, carb_cal = remaining*65%
+  /// Real carbs (grams) summed from today's logged entries' carb data.
+  /// 0 when no entry carries carb data (legacy / custom entries).
+  double get todayCarbs =>
+      _todayFood.fold(0.0, (sum, e) => sum + e.carbs);
+
+  /// Real fat (grams) summed from today's logged entries' fat data.
+  double get todayFat =>
+      _todayFood.fold(0.0, (sum, e) => sum + e.fat);
+
+  /// Carbs today (grams). Prefers the real summed value when entries carry
+  /// carb data; otherwise falls back to the Indian-diet 65/35 split estimate.
   double get todayCarbsEstimate {
+    if (todayCarbs > 0) return todayCarbs;
     final proteinCal = todayProteinTotal * 4.0;
     final remaining = (todayCaloriesTotal - proteinCal).clamp(0.0, double.infinity);
     return (remaining * 0.65) / 4.0; // convert kcal → grams
   }
 
-  /// Estimated fat today (Indian diet approximation)
+  /// Fat today (grams). Prefers the real summed value when entries carry fat
+  /// data; otherwise falls back to the Indian-diet 65/35 split estimate.
   double get todayFatEstimate {
+    if (todayFat > 0) return todayFat;
     final proteinCal = todayProteinTotal * 4.0;
     final remaining = (todayCaloriesTotal - proteinCal).clamp(0.0, double.infinity);
     return (remaining * 0.35) / 9.0; // convert kcal → grams
