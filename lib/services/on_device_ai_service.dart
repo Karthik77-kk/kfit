@@ -28,7 +28,7 @@ class OnDeviceAiService extends ChangeNotifier {
   static const _maxTokens    = 2048;
   static const _minMemoryMb  = 900;
   static const _minDiskMb    = 1000;
-  static const _methodChannelName = 'com.karthikfitness.aichat/system';
+  static const _methodChannelName = 'com.kfit.aichat/system';
 
   static const _prefToken          = 'hf_token_ai_chat';
   static const _prefInstalledModel = 'ai_installed_model_id';

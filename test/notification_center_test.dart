@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karthik_fitness/models/models.dart';
-import 'package:karthik_fitness/services/notification_center.dart';
+import 'package:kfit/models/models.dart';
+import 'package:kfit/services/notification_center.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 AppNotification _n(String id, String title, {DateTime? ts}) => AppNotification(

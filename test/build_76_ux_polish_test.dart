@@ -6,13 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:karthik_fitness/providers/fitness_provider.dart';
-import 'package:karthik_fitness/models/models.dart';
-import 'package:karthik_fitness/main.dart';
-import 'package:karthik_fitness/screens/body_screen.dart';
-import 'package:karthik_fitness/screens/stats_screen.dart';
-import 'package:karthik_fitness/screens/smart_scale_screen.dart';
-import 'package:karthik_fitness/widgets/app_empty_state.dart';
+import 'package:kfit/providers/fitness_provider.dart';
+import 'package:kfit/models/models.dart';
+import 'package:kfit/main.dart';
+import 'package:kfit/screens/body_screen.dart';
+import 'package:kfit/screens/stats_screen.dart';
+import 'package:kfit/screens/smart_scale_screen.dart';
+import 'package:kfit/widgets/app_empty_state.dart';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

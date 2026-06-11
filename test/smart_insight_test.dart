@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karthik_fitness/models/models.dart';
-import 'package:karthik_fitness/providers/fitness_provider.dart';
-import 'package:karthik_fitness/services/smart_insight_engine.dart';
+import 'package:kfit/models/models.dart';
+import 'package:kfit/providers/fitness_provider.dart';
+import 'package:kfit/services/smart_insight_engine.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
