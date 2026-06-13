@@ -381,10 +381,12 @@ void main() {
       expect(p.todayFatEstimate, greaterThanOrEqualTo(0));
     });
 
-    test('includes supplement calories in estimates', () async {
+    test('includes supplement macros in estimates', () async {
       await p.updateSupplement('whey', true);
-      // whey = 120 kcal, 25g protein → protein cal = 100, remaining = 20 kcal
+      // The whey supplement contributes its real macros (3g carb, 1.5g fat),
+      // so the macro donut accounts for it even with no food logged.
       expect(p.todayCarbsEstimate, greaterThan(0));
+      expect(p.todayFatEstimate, greaterThan(0));
     });
   });
 

@@ -185,11 +185,35 @@ class FitnessProvider extends ChangeNotifier {
   double get todayProtein =>
       _todayFood.fold(0.0, (sum, e) => sum + e.protein);
 
-  /// Calories from checked supplements (whey protein = 120 kcal per scoop)
-  double get supplementCalories => _supplements.whey ? 120.0 : 0.0;
+  /// True when a whey/protein shake has already been logged as a food entry
+  /// today. Used to avoid double-counting the whey supplement toggle on top of
+  /// a logged shake (both would otherwise add ~120 kcal / 25 g for one scoop).
+  bool get _hasLoggedWheyFood => _todayFood.any((e) {
+        final n = e.name.toLowerCase();
+        return n.contains('whey') ||
+            (n.contains('protein') && n.contains('shake'));
+      });
 
-  /// Protein from checked supplements (whey = 25g)
-  double get supplementProtein => _supplements.whey ? 25.0 : 0.0;
+  /// Calories from the checked whey supplement (120 kcal per scoop).
+  /// Returns 0 when a whey shake is already in today's food log, so the scoop
+  /// isn't counted twice.
+  double get supplementCalories =>
+      (_supplements.whey && !_hasLoggedWheyFood) ? 120.0 : 0.0;
+
+  /// Protein from the checked whey supplement (25 g per scoop).
+  /// Returns 0 when a whey shake is already logged as food (avoids double-count).
+  double get supplementProtein =>
+      (_supplements.whey && !_hasLoggedWheyFood) ? 25.0 : 0.0;
+
+  /// Carbs (g) from the checked whey supplement — small and real (matches the
+  /// "Whey Protein Shake" food item: 3 g carb). Suppressed when a shake is
+  /// already logged as food, mirroring [supplementCalories].
+  double get supplementCarbs =>
+      (_supplements.whey && !_hasLoggedWheyFood) ? 3.0 : 0.0;
+
+  /// Fat (g) from the checked whey supplement (1.5 g). See [supplementCarbs].
+  double get supplementFat =>
+      (_supplements.whey && !_hasLoggedWheyFood) ? 1.5 : 0.0;
 
   /// Total calories including supplements
   double get todayCaloriesTotal => todayCalories + supplementCalories;
@@ -206,23 +230,26 @@ class FitnessProvider extends ChangeNotifier {
   double get todayFat =>
       _todayFood.fold(0.0, (sum, e) => sum + e.fat);
 
-  /// Carbs today (grams). Prefers the real summed value when entries carry
-  /// carb data; otherwise falls back to the Indian-diet 65/35 split estimate.
-  double get todayCarbsEstimate {
-    if (todayCarbs > 0) return todayCarbs;
-    final proteinCal = todayProteinTotal * 4.0;
-    final remaining = (todayCaloriesTotal - proteinCal).clamp(0.0, double.infinity);
-    return (remaining * 0.65) / 4.0; // convert kcal → grams
-  }
+  /// Carbs today (grams) for the macro donut — summed per-entry so each item
+  /// uses its REAL value when known and the Indian-diet 65/35 split estimate
+  /// only when it doesn't, plus the whey supplement's carbs. This is accurate
+  /// even when the day mixes entries that carry real macros with ones that don't
+  /// (the old whole-day formula under-counted that case). Equals the real sum
+  /// when every entry is real, and the 65/35 estimate when none are.
+  double get todayCarbsEstimate =>
+      _todayFood.fold(0.0, (sum, e) => sum + e.effectiveCarbs) + supplementCarbs;
 
-  /// Fat today (grams). Prefers the real summed value when entries carry fat
-  /// data; otherwise falls back to the Indian-diet 65/35 split estimate.
-  double get todayFatEstimate {
-    if (todayFat > 0) return todayFat;
-    final proteinCal = todayProteinTotal * 4.0;
-    final remaining = (todayCaloriesTotal - proteinCal).clamp(0.0, double.infinity);
-    return (remaining * 0.35) / 9.0; // convert kcal → grams
-  }
+  /// Fat today (grams) for the macro donut — per-entry effective sum plus the
+  /// whey supplement's fat (see [todayCarbsEstimate]).
+  double get todayFatEstimate =>
+      _todayFood.fold(0.0, (sum, e) => sum + e.effectiveFat) + supplementFat;
+
+  /// True when any of today's logged carb/fat figures are estimated rather than
+  /// real — i.e. at least one entry with calories carries no real macros. Lets
+  /// the UI show the "estimated" macro footnote only when it's actually accurate
+  /// to do so (a day of all-real-macro foods shows no footnote).
+  bool get todayMacrosEstimated =>
+      _todayFood.any((e) => e.calories > 0 && !e.hasRealMacros);
 
   /// Last 7 days of calorie data for bar chart.
   /// Returns list of [dayLabel, calories] pairs, oldest→newest.
@@ -260,13 +287,45 @@ class FitnessProvider extends ChangeNotifier {
 
   // ── Net calories & deficit ─────────────────────────────────────────────────
   /// Calories eaten minus ALL calories burned today (resting + walking + workout).
+  /// NOTE: this is an *instantaneous* net — resting burn is prorated to the
+  /// current time of day, so it grows through the day. For a stable "will I end
+  /// the day in a deficit?" verdict use [projectedInDeficit], not the sign of
+  /// this value.
   int get netCalories => (todayCaloriesTotal - totalCaloriesBurned).round();
 
   /// Positive = deficit (good for fat loss), Negative = surplus.
   /// Uses totalCaloriesBurned (resting + walking + workout) for accuracy.
   int get calorieDeficit => calorieGoal - (todayCaloriesTotal - totalCaloriesBurned).round();
 
-  /// True if currently in a calorie deficit.
+  /// Full-day burn estimate: resting BMR for the WHOLE day (not prorated to now)
+  /// + today's walking + today's workout. Used for a time-of-day-stable energy
+  /// balance verdict so the same day doesn't read "surplus" at 9 AM and
+  /// "deficit" at 11 PM. Falls back to walking+workout when no BMR (no weight).
+  double get projectedDayBurn {
+    final b = bmr;
+    final base = b ?? 0;
+    return base + walkingCaloriesBurned + todayCaloriesBurned;
+  }
+
+  /// Whether today is *projected* to end in an energy deficit (intake < burn),
+  /// using end-of-day projections so the verdict is stable through the day.
+  ///
+  /// Returns null when there isn't enough signal yet — no full-day burn estimate
+  /// (no weight/BMR) or no reliable intake projection (too early in the day /
+  /// nothing logged). The UI should show a neutral "keep logging" state for null
+  /// rather than guessing.
+  bool? get projectedInDeficit {
+    final burn = projectedDayBurn;
+    if (burn <= 0) return null;
+    final intake = projectedEodCalories;
+    if (intake == null || intake <= 0) return null;
+    return intake < burn;
+  }
+
+  /// True if currently in a calorie deficit (instantaneous, time-of-day sensitive).
+  ///
+  /// Prefer [projectedInDeficit] for a stable daily verdict. Kept for backward
+  /// compatibility and "right now" comparisons.
   ///
   /// Logic:
   ///  • When real burn data exists (BMR + steps + workout > 0): uses true
@@ -367,8 +426,9 @@ class FitnessProvider extends ChangeNotifier {
     if (spanDays < 7) return null;
     // Average daily intake over the SAME span the weight-trend regression
     // covered, so the energy-balance identity compares coincident periods.
-    // (skips empty days within that window)
-    final avgIntake = avgCaloriesForDays(0, spanDays);
+    // Start at 1 (yesterday) — today is a partial day and would bias the
+    // average intake low. (skips empty days within that window)
+    final avgIntake = avgCaloriesForDays(1, spanDays);
     if (avgIntake <= 0) return null;
     final energyFromWeight = weekly * 7700 / 7; // kcal/day stored(+)/released(−)
     final t = avgIntake - energyFromWeight;
@@ -497,8 +557,10 @@ class FitnessProvider extends ChangeNotifier {
     }
 
     // 2) Sustainable projection from a 500 kcal/day deficit (0.45 kg/week).
+    //    Use bestTdee (data-calibrated when available) so this fallback agrees
+    //    with the maintenance figure surfaced everywhere else in the app.
     final target = fatLossCalorieTarget;
-    final t = tdee;
+    final t = bestTdee;
     if (target != null && t != null && t > target) {
       final dailyDeficit = (t - target).clamp(0, 1000); // capped, realistic
       if (dailyDeficit <= 0) return null;

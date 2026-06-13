@@ -332,7 +332,15 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       }
       return results;
     }
-    return kFoodDatabase.where((f) => f.category == _selectedCategory).toList();
+    // Browse: dedupe by name within the category so a food curated more than
+    // once (e.g. an extra serving variant) doesn't appear two or three times.
+    final seen = <String>{};
+    final out = <FoodItem>[];
+    for (final f in kFoodDatabase) {
+      if (f.category != _selectedCategory) continue;
+      if (seen.add(f.name.toLowerCase())) out.add(f);
+    }
+    return out;
   }
 
   // ── Online search ────────────────────────────────────────────────────────────
@@ -612,8 +620,11 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       name: item.name,
       calories: item.calories * servings,
       protein: item.protein * servings,
-      carbs: item.effectiveCarbs * servings,
-      fat: item.effectiveFat * servings,
+      // Store the food's REAL macros (0 when the DB item has none) so the entry
+      // honestly records whether its carbs/fat are known. The macro donut
+      // estimates per-entry at display time via FoodEntry.effectiveCarbs/Fat.
+      carbs: item.carbs * servings,
+      fat: item.fat * servings,
       mealType: _selectedMeal,
       timestamp: DateTime.now(),
       servingNote: label,
@@ -1045,19 +1056,22 @@ class _RecentFoodsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
-    // Collect unique food names from recent history (newest first)
-    final seen  = <String>{};
-    final names = <String>[];
-    final hist  = p.foodHistory;
-    final keys  = hist.keys.toList()..sort((a, b) => b.compareTo(a));
+    // Collect the most-recent logged ENTRY per distinct food name (newest first).
+    // Re-adding works for ANY past food — DB items, custom entries, and
+    // OpenFoodFacts results alike — because we replay the stored entry's own
+    // calories/protein/macros rather than re-looking it up in the local DB.
+    final seen    = <String>{};
+    final recents = <FoodEntry>[];
+    final hist    = p.foodHistory;
+    final keys    = hist.keys.toList()..sort((a, b) => b.compareTo(a));
     for (final key in keys) {
-      for (final e in (hist[key] ?? [])) {
-        if (seen.add(e.name.toLowerCase())) names.add(e.name);
-        if (names.length >= 5) break;
+      for (final e in (hist[key] ?? <FoodEntry>[])) {
+        if (seen.add(e.name.toLowerCase())) recents.add(e);
+        if (recents.length >= 5) break;
       }
-      if (names.length >= 5) break;
+      if (recents.length >= 5) break;
     }
-    if (names.isEmpty) return const SizedBox.shrink();
+    if (recents.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1067,32 +1081,28 @@ class _RecentFoodsRow extends StatelessWidget {
         const SizedBox(height: 6),
         Wrap(
           spacing: 8, runSpacing: 6,
-          children: names.map((name) {
-            // Find matching FoodItem in DB for calorie info
-            final item = kFoodDatabase.where((f) => f.name.toLowerCase() == name.toLowerCase())
-                .firstOrNull;
+          children: recents.map((src) {
             return GestureDetector(
               onTap: () {
-                if (item != null) {
-                  // Add directly with default serving
-                  context.read<FitnessProvider>().addFoodEntry(FoodEntry(
-                    id: context.read<FitnessProvider>().newId(), // UUID, not ms (avoids duplicate-key crash)
-                    name: item.name,
-                    calories: item.calories,
-                    protein: item.protein,
-                    carbs: item.effectiveCarbs,
-                    fat: item.effectiveFat,
-                    mealType: meal,
-                    servingNote: item.serving,
-                    timestamp: DateTime.now(),
-                  ));
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Added ${item.name}'),
-                    backgroundColor: const Color(0xFF30D158),
-                    duration: const Duration(seconds: 2),
-                  ));
-                }
+                // Replay the stored entry into the current meal with a fresh id
+                // and timestamp (UUID, not ms — avoids duplicate-key crashes).
+                context.read<FitnessProvider>().addFoodEntry(FoodEntry(
+                  id: context.read<FitnessProvider>().newId(),
+                  name: src.name,
+                  calories: src.calories,
+                  protein: src.protein,
+                  carbs: src.carbs,
+                  fat: src.fat,
+                  mealType: meal,
+                  servingNote: src.servingNote,
+                  timestamp: DateTime.now(),
+                ));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Added ${src.name}'),
+                  backgroundColor: const Color(0xFF30D158),
+                  duration: const Duration(seconds: 2),
+                ));
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -1104,15 +1114,13 @@ class _RecentFoodsRow extends StatelessWidget {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.history_rounded, size: 12, color: Color(0xFF8E8E93)),
                   const SizedBox(width: 4),
-                  Text(name,
+                  Text(src.name,
                       style: const TextStyle(color: Colors.white, fontSize: 12,
                           fontWeight: FontWeight.w500),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                  if (item != null) ...[
-                    const SizedBox(width: 4),
-                    Text('${item.calories.round()}kcal',
-                        style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
-                  ],
+                  const SizedBox(width: 4),
+                  Text('${src.calories.round()}kcal',
+                      style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
                 ]),
               ),
             );

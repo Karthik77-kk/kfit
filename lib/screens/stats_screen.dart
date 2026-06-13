@@ -332,8 +332,20 @@ class _StatsScreenState extends State<StatsScreen>
                       value: p.todayCaloriesTotal > 0
                           ? '${p.netCalories} kcal'
                           : '—',
-                      sub: p.inDeficit ? '🎯 In deficit' : 'Over goal',
-                      color: p.inDeficit ? _kGreen : _kRed,
+                      // Verdict uses the END-OF-DAY projection (projectedInDeficit)
+                      // so it stays stable through the day, instead of the raw net
+                      // sign that flips "surplus → deficit" as resting burn accrues.
+                      // null = not enough signal yet → neutral "keep logging".
+                      sub: p.projectedInDeficit == null
+                          ? 'Keep logging'
+                          : p.projectedInDeficit!
+                              ? '🎯 On track: deficit'
+                              : '⚠️ Heading for surplus',
+                      color: p.projectedInDeficit == null
+                          ? _kSecond
+                          : p.projectedInDeficit!
+                              ? _kGreen
+                              : _kRed,
                       icon: Icons.balance_outlined,
                     ),
                     _StatCard(
