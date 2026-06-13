@@ -647,10 +647,16 @@ class FitnessProvider extends ChangeNotifier {
   ({String label, Color color}) get ffmiStatus {
     final f = ffmi;
     if (f == null) return (label: '—', color: _bcMuted);
-    if (f < 18) return (label: 'Below average', color: _bcOrange);
-    if (f < 20) return (label: 'Average', color: _bcBlue);
-    if (f < 22) return (label: 'Athletic', color: _bcGreen);
-    if (f < 25) return (label: 'Excellent', color: _bcGreen);
+    // FFMI norms are sex-specific — women run ~3 points lower than men, so a
+    // fixed male scale wrongly grades every woman "below average".
+    final belowAvg  = _isMale ? 18.0 : 15.0;
+    final average   = _isMale ? 20.0 : 17.0;
+    final athletic  = _isMale ? 22.0 : 19.0;
+    final excellent = _isMale ? 25.0 : 22.0;
+    if (f < belowAvg)  return (label: 'Below average', color: _bcOrange);
+    if (f < average)   return (label: 'Average', color: _bcBlue);
+    if (f < athletic)  return (label: 'Athletic', color: _bcGreen);
+    if (f < excellent) return (label: 'Excellent', color: _bcGreen);
     return (label: 'Very high', color: _bcBlue);
   }
 
@@ -720,19 +726,28 @@ class FitnessProvider extends ChangeNotifier {
       return (label: 'Log data', color: _bcMuted, detail: 'Log weight (and scale) to assess.');
     }
     if (bf != null && bf > 0) {
-      if (bf >= 25) {
+      // Healthy body-fat ranges are sex-specific: women carry ~10 percentage
+      // points more essential fat, so a male scale wrongly labels a lean woman
+      // "Overfat". FFMI gates are likewise shifted ~3 points lower for women.
+      final overfatBf  = _isMale ? 25.0 : 32.0;
+      final athleticBf = _isMale ? 15.0 : 22.0;
+      final leanBf     = _isMale ? 20.0 : 27.0;
+      final ffmiAthletic = _isMale ? 20.0 : 17.0;
+      final ffmiLean     = _isMale ? 19.0 : 16.0;
+      final ffmiLow      = _isMale ? 18.0 : 15.0;
+      if (bf >= overfatBf) {
         return (label: 'Overfat', color: _bcRed,
             detail: 'Body fat ${bf.toStringAsFixed(0)}% is high — prioritise the deficit + protein.');
       }
-      if (bf < 15 && (f == null || f >= 20)) {
+      if (bf < athleticBf && (f == null || f >= ffmiAthletic)) {
         return (label: 'Athletic', color: _bcGreen,
             detail: 'Lean and muscular — maintain protein and training.');
       }
-      if (bf < 20 && (f == null || f >= 19)) {
+      if (bf < leanBf && (f == null || f >= ffmiLean)) {
         return (label: 'Lean', color: _bcGreen,
             detail: 'Good composition — keep protein high to hold muscle.');
       }
-      if (f != null && f < 18) {
+      if (f != null && f < ffmiLow) {
         return (label: 'Recomp needed', color: _bcOrange,
             detail: 'Lowish muscle (FFMI ${f.toStringAsFixed(1)}) — lift heavy while holding the deficit.');
       }

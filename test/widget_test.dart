@@ -118,21 +118,29 @@ void main() {
     expect(find.widgetWithText(ElevatedButton, 'Continue'), findsOneWidget);
   });
 
-  testWidgets('Onboarding Continue button advances to page 2', (tester) async {
+  testWidgets('Onboarding Continue advances Welcome → Profile → Activity',
+      (tester) async {
     await tester.pumpWidget(_appWithProvider(onboardingDone: false));
     await tester.pumpAndSettle();
 
+    // page 0 (Welcome) → page 1 (Profile)
     await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
     await tester.pumpAndSettle();
+    expect(find.text('A bit about you'), findsOneWidget);
 
+    // page 1 (Profile) → page 2 (Activity)
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+    await tester.pumpAndSettle();
     expect(find.text('Track your steps automatically'), findsOneWidget);
   });
 
-  testWidgets('Onboarding page 2 has Skip button', (tester) async {
+  testWidgets('Onboarding Activity page has Skip button', (tester) async {
     await tester.pumpWidget(_appWithProvider(onboardingDone: false));
     await tester.pumpAndSettle();
 
-    // advance to page 2
+    // advance Welcome → Profile → Activity
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
     await tester.pumpAndSettle();
 
