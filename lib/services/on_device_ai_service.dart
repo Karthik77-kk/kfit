@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/fitness_provider.dart';
 import 'chat_intent.dart';
@@ -198,10 +199,9 @@ class OnDeviceAiService extends ChangeNotifier {
     }
   }
 
-  // FIX #1: Execute download with dynamic timeout based on network speed
+  // Execute download with a generous runaway-guard timeout.
   Future<void> _executeDownloadWithTimeout() async {
-    // Estimate network speed (rough: ping test or default to 5 Mbps for India)
-    final timeoutMinutes = await _calculateDynamicTimeout();
+    const timeoutMinutes = _downloadTimeoutMinutes;
 
     // CRITICAL FIX: Removed Future.value() wrapper that was causing download to return immediately
     await FlutterGemma.installModel(
@@ -225,31 +225,12 @@ class OnDeviceAiService extends ChangeNotifier {
             onTimeout: () => throw TimeoutException('Download exceeded $timeoutMinutes minutes'));
   }
 
-  // FIX #1: Calculate dynamic timeout based on estimated network speed
-  Future<int> _calculateDynamicTimeout() async {
-    try {
-      // Quick network speed estimate: download 1MB in 1 second timeout
-      final stopwatch = Stopwatch()..start();
-      await Future.delayed(const Duration(milliseconds: 100)); // Simulate quick check
-      stopwatch.stop();
-
-      // Default estimates for Indian networks:
-      // 4G LTE: 2-5 Mbps → ~200-500 seconds for 600MB
-      // 3G: 1-2 Mbps → ~400-800 seconds for 600MB
-      // 2G: 0.5-1 Mbps → ~800-1600 seconds for 600MB
-
-      // Use conservative estimate: assume 2 Mbps average (600MB ÷ 2 Mbps = 300s = 5 min)
-      // Add 20% buffer for network variability
-      // Minimum 30 min (WiFi), Maximum 180 min (very slow network)
-      // Manual calc: (600 / 2 / 60 * 1.2) = (300 / 60 * 1.2) = 5 * 1.2 = 6 minutes
-      // But use conservative 60 minutes (10x) for poor networks
-      const int estimatedMinutes = 60;
-      return estimatedMinutes.clamp(30, 180);
-    } catch (_) {
-      // Fallback: 90 minutes (conservative for slow networks)
-      return 90;
-    }
-  }
+  // Download timeout for the ~600 MB model. We can't reliably probe bandwidth
+  // before the download starts, so we use a single generous ceiling sized for a
+  // slow Indian mobile connection (600 MB ÷ ~1.3 Mbps ≈ 60 min). This only acts
+  // as a runaway-guard — a healthy WiFi download finishes in a couple of minutes
+  // and progress updates keep the UI responsive throughout.
+  static const int _downloadTimeoutMinutes = 60;
 
   // Issue #8: Retry with exponential backoff
   /// Retries [operation] on SocketException with exponential backoff (2s → 3s → 4.5s).
@@ -317,21 +298,48 @@ class OnDeviceAiService extends ChangeNotifier {
     _installed = false;
   }
 
-  // FIX #3: Clean up partial model files to free storage
+  // FIX #3: Clean up partial model files to free storage.
+  // flutter_gemma stores the downloaded model under the app's cache / files
+  // directories — NOT Directory.systemTemp (the previous code deleted a path
+  // that never existed, so a cancelled download leaked ~600 MB). Resolve the
+  // real app directories via path_provider and remove any flutter_gemma subdir
+  // (and stray *.litertlm/*.task/*.bin partials) found in them.
   Future<void> _deletePartialModelFiles() async {
-    try {
-      // FlutterGemma typically stores models in:
-      // Android: /data/data/com.example.karthik_fitness/cache/flutter_gemma/
-      final cacheDir = Directory.systemTemp;
-      final gemmaDir = Directory('${cacheDir.path}/flutter_gemma');
+    Future<void> purge(Directory? base) async {
+      if (base == null) return;
+      try {
+        final gemmaDir = Directory('${base.path}/flutter_gemma');
+        if (await gemmaDir.exists()) {
+          await gemmaDir.delete(recursive: true);
+        }
+        // Also sweep loose model partials written directly into the dir.
+        if (await base.exists()) {
+          await for (final f in base.list(followLinks: false)) {
+            if (f is File &&
+                (f.path.endsWith('.litertlm') ||
+                    f.path.endsWith('.task') ||
+                    f.path.endsWith('.bin'))) {
+              try {
+                await f.delete();
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (_) {/* best-effort cleanup — never crash on failure */}
+    }
 
-      if (await gemmaDir.exists()) {
-        await gemmaDir.delete(recursive: true);
-        print('✅ Cleaned up partial model files');
+    try {
+      // getApplicationCacheDirectory isn't on every platform — guard each call.
+      Directory? cache;
+      try {
+        cache = await getApplicationCacheDirectory();
+      } catch (_) {
+        cache = await getTemporaryDirectory();
       }
+      await purge(cache);
+      await purge(await getApplicationSupportDirectory());
     } catch (e) {
-      // Log but don't crash if cleanup fails
-      print('⚠️ Failed to cleanup model files: $e');
+      debugPrint('Model cleanup failed (non-fatal): $e');
     }
   }
 

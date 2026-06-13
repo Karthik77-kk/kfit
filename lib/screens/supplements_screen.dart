@@ -317,17 +317,18 @@ class _ReminderTip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.alarm, color: Colors.white54, size: 20),
+          const Icon(Icons.tips_and_updates_outlined, color: Colors.white54, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Set daily reminders',
+                const Text('Build the daily habit',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 Text(
-                  'Daily reminders fire at 8:30 AM (multivitamin) and 10 AM (creatine) automatically.',
+                  'Tick these off after breakfast each day — your streak and the in-app '
+                  'coach keep you consistent. (The app sends no phone notifications.)',
                   style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.4),
                 ),
               ],

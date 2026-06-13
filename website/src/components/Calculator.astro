@@ -73,20 +73,20 @@
       <div class="calc-results">
         <div class="result-card rc-main">
           <div class="rc-label">Daily target for fat loss</div>
-          <div class="rc-value" id="res-target">1,450</div>
+          <div class="rc-value" id="res-target">1,870</div>
           <div class="rc-unit">kcal / day</div>
-          <div class="rc-note">≈ 0.5 kg fat loss per week</div>
+          <div class="rc-note" id="res-rate">≈ 0.45 kg fat loss per week</div>
         </div>
 
         <div class="result-grid">
           <div class="result-item">
             <div class="ri-label">BMR</div>
-            <div class="ri-value" id="res-bmr">1,850</div>
+            <div class="ri-value" id="res-bmr">1,724</div>
             <div class="ri-unit">kcal</div>
           </div>
           <div class="result-item">
             <div class="ri-label">TDEE</div>
-            <div class="ri-value" id="res-tdee">2,544</div>
+            <div class="ri-value" id="res-tdee">2,370</div>
             <div class="ri-unit">kcal</div>
           </div>
           <div class="result-item">
@@ -104,6 +104,7 @@
         <a
           href="https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk"
           class="btn btn-primary calc-cta"
+          id="calcCta"
           download
         >
           Track this in the app
@@ -133,15 +134,30 @@
     const sexConstant = gender === 'm' ? 5 : -161;
     const bmr    = Math.round((10 * weight) + (6.25 * height) - (5 * age) + sexConstant);
     const tdee   = Math.round(bmr * activityFactor);
-    const target = Math.round(tdee - 500); // matches the app's fatLossCalorieTarget (TDEE − 500)
-    const protein= Math.round(weight * 1.8);
-    const deficit = -500; // = TDEE − target, matches the app's fat-loss deficit
+    // Clamp the fat-loss target to the SAME safe range the app enforces
+    // (fatLossCalorieTarget → [1200, 2800]) so a small/older/sedentary user is
+    // never shown a dangerous sub-1200 kcal target.
+    const target = Math.round(Math.min(2800, Math.max(1200, tdee - 500)));
+    // Protein 1.8 g/kg, clamped to the app's [60, 300] g range.
+    const protein= Math.round(Math.min(300, Math.max(60, weight * 1.8)));
+    // Real deficit = target − TDEE (negative). Shrinks toward 0 when the target
+    // hits the 1200 floor, so it stays honest instead of always showing −500.
+    const deficit = target - tdee;
 
     animateNum('res-bmr',     bmr);
     animateNum('res-tdee',    tdee);
     animateNum('res-target',  target);
     animateNum('res-protein', protein);
     setNum('res-deficit', deficit);
+
+    // Honest weekly-loss note from the actual deficit (7700 kcal ≈ 1 kg fat).
+    const rateEl = document.getElementById('res-rate');
+    if (rateEl) {
+      const kgPerWeek = Math.max(0, (tdee - target) * 7 / 7700);
+      rateEl.textContent = kgPerWeek >= 0.05
+        ? `≈ ${kgPerWeek.toFixed(2)} kg fat loss per week`
+        : 'At maintenance — increase activity to lose fat';
+    }
   }
 
   function animateNum(id: string, to: number) {
@@ -198,6 +214,21 @@
       calculate();
     });
   });
+
+  // ── Resolve the CTA to the exact latest-release asset (same as Download) ──────
+  // The static href uses the /releases/latest/download/ redirect as a safe
+  // fallback; upgrade it to the precise tag URL when the GitHub API is reachable.
+  const calcCta = document.getElementById('calcCta') as HTMLAnchorElement | null;
+  if (calcCta) {
+    fetch('https://api.github.com/repos/Karthik77-kk/kfit/releases/latest')
+      .then(r => r.json())
+      .then(release => {
+        if (release.tag_name && release.assets?.find((a: any) => a.name === 'kfit.apk')) {
+          calcCta.href = `https://github.com/Karthik77-kk/kfit/releases/download/${release.tag_name}/kfit.apk`;
+        }
+      })
+      .catch(() => { /* keep the static latest-download fallback */ });
+  }
 
   // ── Scroll reveal ─────────────────────────────────────────────────────────────
   gsap.from('.calc-card', {

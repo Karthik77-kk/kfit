@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
+import '../app_info.dart';
 import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
 import 'chat_screen.dart' show openChat;
@@ -313,7 +314,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Tile(
             icon: Icons.info_outline,
             title: 'K Fitness',
-            subtitle: 'v2.3.0 · Build 82 — Personal fitness tracker',
+            subtitle: '$kAppVersionLabel — Personal fitness tracker',
             onTap: null,
           ),
           const SizedBox(height: 32),

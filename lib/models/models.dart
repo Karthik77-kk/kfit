@@ -67,6 +67,25 @@ class FoodEntry {
         'servingNote': servingNote,
       };
 
+  /// Whether this entry carries real (non-estimated) carb/fat macros.
+  bool get hasRealMacros => carbs > 0 || fat > 0;
+
+  /// Carbs grams for this entry — the real value when known, else the
+  /// Indian-diet 65/35 split estimate of this entry's non-protein calories.
+  double get effectiveCarbs {
+    if (hasRealMacros) return carbs;
+    final remaining = (calories - protein * 4.0).clamp(0.0, double.infinity);
+    return (remaining * 0.65) / 4.0;
+  }
+
+  /// Fat grams for this entry — the real value when known, else the
+  /// Indian-diet 65/35 split estimate of this entry's non-protein calories.
+  double get effectiveFat {
+    if (hasRealMacros) return fat;
+    final remaining = (calories - protein * 4.0).clamp(0.0, double.infinity);
+    return (remaining * 0.35) / 9.0;
+  }
+
   factory FoodEntry.fromJson(Map<String, dynamic> j) {
     final mealIdx = (j['mealType'] as int? ?? 0)
         .clamp(0, MealType.values.length - 1);
@@ -604,10 +623,10 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Pav Bhaji', calories: 400, protein: 10, carbs: 52, fat: 16, category: 'Popular', emoji: '🥖', serving: '2 pav + bhaji'),
 
   // ── South Indian ──────────────────────────────────────────────────────────
-  FoodItem(name: 'Idli', calories: 70, protein: 2, category: 'South Indian', emoji: '🫓', serving: '1 piece'),
+  FoodItem(name: 'Idli', calories: 70, protein: 2, carbs: 14, fat: 0.4, category: 'South Indian', emoji: '🫓', serving: '1 piece'),
   FoodItem(name: 'Idli with Sambar', calories: 220, protein: 8, category: 'South Indian', emoji: '🫓', serving: '2 idli + sambar'),
   FoodItem(name: 'Plain Dosa', calories: 165, protein: 4, category: 'South Indian', emoji: '🫓', serving: '1 dosa'),
-  FoodItem(name: 'Masala Dosa', calories: 290, protein: 6, category: 'South Indian', emoji: '🫓', serving: '1 dosa'),
+  FoodItem(name: 'Masala Dosa', calories: 290, protein: 6, carbs: 42, fat: 10, category: 'South Indian', emoji: '🫓', serving: '1 dosa'),
   FoodItem(name: 'Rava Dosa', calories: 200, protein: 4, category: 'South Indian', emoji: '🫓', serving: '1 dosa'),
   FoodItem(name: 'Uttapam', calories: 210, protein: 5, category: 'South Indian', emoji: '🥞', serving: '1 piece'),
   FoodItem(name: 'Pesarattu', calories: 170, protein: 8, category: 'South Indian', emoji: '🫓', serving: '1 piece'),
@@ -645,9 +664,9 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Paneer Paratha', calories: 290, protein: 10, category: 'North Indian', emoji: '🫓', serving: '1 paratha'),
   FoodItem(name: 'Methi Paratha', calories: 220, protein: 5, category: 'North Indian', emoji: '🫓', serving: '1 paratha'),
   FoodItem(name: 'Thepla', calories: 165, protein: 4, category: 'North Indian', emoji: '🫓', serving: '1 piece'),
-  FoodItem(name: 'Puri', calories: 160, protein: 2.5, category: 'North Indian', emoji: '🫓', serving: '1 piece'),
+  FoodItem(name: 'Puri', calories: 160, protein: 2.5, carbs: 18, fat: 8, category: 'North Indian', emoji: '🫓', serving: '1 piece'),
   FoodItem(name: 'Bhatura', calories: 280, protein: 6, category: 'North Indian', emoji: '🫓', serving: '1 piece'),
-  FoodItem(name: 'Naan', calories: 262, protein: 8, category: 'North Indian', emoji: '🫓', serving: '1 piece'),
+  FoodItem(name: 'Naan', calories: 262, protein: 8, carbs: 45, fat: 5, category: 'North Indian', emoji: '🫓', serving: '1 piece'),
   FoodItem(name: 'Kulcha', calories: 240, protein: 7, category: 'North Indian', emoji: '🫓', serving: '1 piece'),
   FoodItem(name: 'Dal Makhani', calories: 200, protein: 9, category: 'North Indian', emoji: '🫘', serving: '1 bowl'),
   FoodItem(name: 'Dal Tadka', calories: 150, protein: 8, category: 'North Indian', emoji: '🫘', serving: '1 bowl'),
@@ -708,8 +727,8 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Egg Omelette (3 eggs)', calories: 210, protein: 18, category: 'Breakfast', emoji: '🍳', serving: '3 eggs'),
   FoodItem(name: 'Masala Omelette (2 eggs)', calories: 165, protein: 13, category: 'Breakfast', emoji: '🍳', serving: '2 eggs'),
   FoodItem(name: 'Scrambled Eggs (2)', calories: 150, protein: 12, category: 'Breakfast', emoji: '🍳', serving: '2 eggs'),
-  FoodItem(name: 'Boiled Egg', calories: 78, protein: 6, category: 'Breakfast', emoji: '🥚', serving: '1 egg'),
-  FoodItem(name: 'Bread (White)', calories: 69, protein: 2.3, category: 'Breakfast', emoji: '🍞', serving: '1 slice (30g)'),
+  FoodItem(name: 'Boiled Egg', calories: 78, protein: 6, carbs: 0.6, fat: 5.3, category: 'Breakfast', emoji: '🥚', serving: '1 egg'),
+  FoodItem(name: 'Bread (White)', calories: 69, protein: 2.3, carbs: 13, fat: 0.9, category: 'Breakfast', emoji: '🍞', serving: '1 slice (30g)'),
   FoodItem(name: 'Bread (Brown/Multigrain)', calories: 65, protein: 3, category: 'Breakfast', emoji: '🍞', serving: '1 slice (30g)'),
   FoodItem(name: 'Bread with Peanut Butter', calories: 188, protein: 8, category: 'Breakfast', emoji: '🍞', serving: '2 slices + 1 tbsp PB'),
   FoodItem(name: 'Oats (plain)', calories: 148, protein: 5, category: 'Breakfast', emoji: '🥣', serving: '40g dry'),
@@ -754,7 +773,7 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Lemon Rice', calories: 200, protein: 3, category: 'Rice & Biryani', emoji: '🍚', serving: '1 plate'),
   FoodItem(name: 'Tomato Rice', calories: 210, protein: 4, category: 'Rice & Biryani', emoji: '🍚', serving: '1 plate'),
   FoodItem(name: 'Coconut Rice', calories: 230, protein: 3, category: 'Rice & Biryani', emoji: '🍚', serving: '1 plate'),
-  FoodItem(name: 'Rajma Chawal', calories: 390, protein: 15, category: 'Rice & Biryani', emoji: '🫘', serving: '1 plate'),
+  FoodItem(name: 'Rajma Chawal', calories: 390, protein: 15, carbs: 68, fat: 6, category: 'Rice & Biryani', emoji: '🫘', serving: '1 plate'),
 
   // ── Roti & Bread ──────────────────────────────────────────────────────────
   FoodItem(name: 'Roti (wheat)', calories: 104, protein: 3, carbs: 18, fat: 2.5, category: 'Roti & Bread', emoji: '🫓', serving: '1 roti (~40g)'),
@@ -780,7 +799,7 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Mixed Veg Curry', calories: 140, protein: 4, category: 'Dal & Curry', emoji: '🥘', serving: '1 katori'),
 
   // ── Street Food ───────────────────────────────────────────────────────────
-  FoodItem(name: 'Pav Bhaji', calories: 400, protein: 10, category: 'Street Food', emoji: '🥖', serving: '2 pav + bhaji'),
+  FoodItem(name: 'Pav Bhaji', calories: 400, protein: 10, carbs: 52, fat: 16, category: 'Street Food', emoji: '🥖', serving: '2 pav + bhaji'),
   FoodItem(name: 'Vada Pav', calories: 285, protein: 7, category: 'Street Food', emoji: '🥖', serving: '1 piece'),
   FoodItem(name: 'Pani Puri (6)', calories: 200, protein: 4, category: 'Street Food', emoji: '🫙', serving: '6 pieces'),
   FoodItem(name: 'Dahi Puri (6)', calories: 210, protein: 6, category: 'Street Food', emoji: '🫙', serving: '6 pieces'),
@@ -1070,14 +1089,14 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Thai Cucumber Salad', calories: 55, protein: 1, category: 'Salads & Light Meals', emoji: '🥗', serving: '1 bowl (150g)'),
 
   // ── Eggs ─────────────────────────────────────────────────────────────────
-  FoodItem(name: 'Boiled Egg (whole)', calories: 78, protein: 6, category: 'Eggs', emoji: '🥚', serving: '1 egg'),
+  FoodItem(name: 'Boiled Egg (whole)', calories: 78, protein: 6, carbs: 0.6, fat: 5.3, category: 'Eggs', emoji: '🥚', serving: '1 egg'),
   FoodItem(name: 'Egg White (boiled)', calories: 17, protein: 3.6, category: 'Eggs', emoji: '🥚', serving: '1 white'),
   FoodItem(name: 'Fried Egg (sunny side)', calories: 90, protein: 6, category: 'Eggs', emoji: '🍳', serving: '1 egg'),
   FoodItem(name: 'Scrambled Eggs (2)', calories: 150, protein: 12, category: 'Eggs', emoji: '🍳', serving: '2 eggs'),
   FoodItem(name: 'Egg Omelette (2 eggs)', calories: 165, protein: 13, category: 'Eggs', emoji: '🍳', serving: '2 eggs'),
   FoodItem(name: 'Masala Omelette (2 eggs)', calories: 175, protein: 13, category: 'Eggs', emoji: '🍳', serving: '2 eggs + onion/chilli'),
-  FoodItem(name: 'Egg Bhurji (2 eggs)', calories: 155, protein: 12, category: 'Eggs', emoji: '🍳', serving: '2 eggs'),
-  FoodItem(name: 'Egg Curry (2 eggs)', calories: 200, protein: 14, category: 'Eggs', emoji: '🍛', serving: '2 eggs + gravy'),
+  FoodItem(name: 'Egg Bhurji (2 eggs)', calories: 155, protein: 12, carbs: 3, fat: 10, category: 'Eggs', emoji: '🍳', serving: '2 eggs'),
+  FoodItem(name: 'Egg Curry (2 eggs)', calories: 200, protein: 14, carbs: 6, fat: 13, category: 'Eggs', emoji: '🍛', serving: '2 eggs + gravy'),
   FoodItem(name: 'Egg Paratha', calories: 350, protein: 14, category: 'Eggs', emoji: '🫓', serving: '1 paratha + 1 egg'),
   FoodItem(name: 'Deviled Eggs (2)', calories: 150, protein: 11, category: 'Eggs', emoji: '🥚', serving: '2 halves'),
   FoodItem(name: 'Egg Drop Soup', calories: 75, protein: 6, category: 'Eggs', emoji: '🍜', serving: '1 bowl (250ml)'),
@@ -1092,14 +1111,14 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Fish Tikka', calories: 200, protein: 28, category: 'Fried & Grilled', emoji: '🐟', serving: '150g'),
   FoodItem(name: 'Prawn Fry', calories: 220, protein: 22, category: 'Fried & Grilled', emoji: '🦐', serving: '150g'),
   FoodItem(name: 'Grilled Paneer', calories: 200, protein: 15, category: 'Fried & Grilled', emoji: '🧀', serving: '100g'),
-  FoodItem(name: 'Paneer Tikka', calories: 230, protein: 19, category: 'Fried & Grilled', emoji: '🍢', serving: '100g'),
+  FoodItem(name: 'Paneer Tikka', calories: 230, protein: 19, carbs: 7, fat: 14, category: 'Fried & Grilled', emoji: '🍢', serving: '100g'),
   FoodItem(name: 'Veg Cutlet (2 pcs)', calories: 200, protein: 5, category: 'Fried & Grilled', emoji: '🥙', serving: '2 pieces'),
   FoodItem(name: 'Chicken Cutlet (2 pcs)', calories: 280, protein: 24, category: 'Fried & Grilled', emoji: '🥙', serving: '2 pieces'),
   FoodItem(name: 'Crispy Fried Chicken (KFC style)', calories: 290, protein: 22, category: 'Fried & Grilled', emoji: '🍗', serving: '1 piece (~100g)'),
   FoodItem(name: 'Bhajia / Mixed Pakora (4 pcs)', calories: 220, protein: 5, category: 'Fried & Grilled', emoji: '🧆', serving: '4 pieces'),
   FoodItem(name: 'Aloo Tikki (2 pcs)', calories: 200, protein: 4, category: 'Fried & Grilled', emoji: '🥔', serving: '2 pieces'),
   FoodItem(name: 'Stuffed Capsicum (1 pc)', calories: 160, protein: 6, category: 'Fried & Grilled', emoji: '🫑', serving: '1 piece (~150g)'),
-  FoodItem(name: 'Grilled Chicken Breast', calories: 165, protein: 31, category: 'Fried & Grilled', emoji: '🍗', serving: '100g'),
+  FoodItem(name: 'Grilled Chicken Breast', calories: 165, protein: 31, carbs: 0, fat: 3.6, category: 'Fried & Grilled', emoji: '🍗', serving: '100g'),
   FoodItem(name: 'Seekh Kebab (2 pcs)', calories: 220, protein: 22, category: 'Fried & Grilled', emoji: '🍢', serving: '2 pieces'),
   FoodItem(name: 'Shammi Kebab (2 pcs)', calories: 200, protein: 18, category: 'Fried & Grilled', emoji: '🍢', serving: '2 pieces'),
   FoodItem(name: 'Kakori Kebab (2 pcs)', calories: 220, protein: 16, category: 'Fried & Grilled', emoji: '🍢', serving: '2 pieces'),
@@ -1183,7 +1202,7 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Keema Matar', calories: 310, protein: 26, category: 'North Indian', emoji: '🥩', serving: '1 katori (150g)'),
   FoodItem(name: 'Nihari', calories: 350, protein: 28, category: 'North Indian', emoji: '🍖', serving: '200g'),
   FoodItem(name: 'Rogan Josh (Mutton)', calories: 320, protein: 26, category: 'North Indian', emoji: '🍖', serving: '200g'),
-  FoodItem(name: 'Mutton Biryani', calories: 540, protein: 30, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
+  FoodItem(name: 'Mutton Biryani', calories: 540, protein: 30, carbs: 56, fat: 21, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
   FoodItem(name: 'Hyderabad Dum Biryani (Veg)', calories: 380, protein: 8, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
   FoodItem(name: 'Ambur Star Biryani', calories: 500, protein: 26, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
   FoodItem(name: 'Dindigul Biryani', calories: 480, protein: 25, category: 'Rice & Biryani', emoji: '🍛', serving: '1 plate'),
@@ -1249,7 +1268,7 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Samosa', calories: 260, protein: 5, category: 'Street Food', emoji: '🥟', serving: '1 piece'),
   FoodItem(name: 'Kachori', calories: 280, protein: 6, category: 'Street Food', emoji: '🥮', serving: '1 piece'),
   FoodItem(name: 'Vada Pav', calories: 290, protein: 8, category: 'Street Food', emoji: '🍔', serving: '1 piece'),
-  FoodItem(name: 'Pav Bhaji', calories: 400, protein: 10, category: 'Street Food', emoji: '🍛', serving: '1 plate (2 pav)'),
+  FoodItem(name: 'Pav Bhaji', calories: 400, protein: 10, carbs: 52, fat: 16, category: 'Street Food', emoji: '🍛', serving: '1 plate (2 pav)'),
   FoodItem(name: 'Frankie / Kathi Roll', calories: 350, protein: 14, category: 'Street Food', emoji: '🌯', serving: '1 roll'),
   FoodItem(name: 'Momos (Veg, 6 pc)', calories: 220, protein: 7, category: 'Street Food', emoji: '🥟', serving: '6 pieces'),
   FoodItem(name: 'Momos (Chicken, 6 pc)', calories: 260, protein: 14, category: 'Street Food', emoji: '🥟', serving: '6 pieces'),
@@ -1290,12 +1309,12 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Chole Bhature', calories: 480, protein: 13, category: 'North Indian', emoji: '🍛', serving: '1 plate'),
   FoodItem(name: 'Butter Chicken', calories: 420, protein: 30, category: 'North Indian', emoji: '🍗', serving: '1 katori (200g)'),
   FoodItem(name: 'Chicken Tikka Masala', calories: 380, protein: 32, category: 'North Indian', emoji: '🍗', serving: '1 katori (200g)'),
-  FoodItem(name: 'Egg Curry (2 eggs)', calories: 280, protein: 16, category: 'Dal & Curry', emoji: '🥚', serving: '1 katori'),
-  FoodItem(name: 'Fish Curry', calories: 250, protein: 26, category: 'Dal & Curry', emoji: '🐟', serving: '1 katori (200g)'),
+  FoodItem(name: 'Egg Curry (2 eggs)', calories: 280, protein: 16, carbs: 8, fat: 20, category: 'Dal & Curry', emoji: '🥚', serving: '1 katori'),
+  FoodItem(name: 'Fish Curry', calories: 250, protein: 26, carbs: 6, fat: 13, category: 'Dal & Curry', emoji: '🐟', serving: '1 katori (200g)'),
   FoodItem(name: 'Prawn Masala', calories: 230, protein: 24, category: 'Dal & Curry', emoji: '🦐', serving: '1 katori (150g)'),
 
   // ── More breakfast & tiffin ────────────────────────────────────────────────
-  FoodItem(name: 'Masala Dosa', calories: 250, protein: 6, category: 'Breakfast', emoji: '🫓', serving: '1 dosa'),
+  FoodItem(name: 'Masala Dosa', calories: 250, protein: 6, carbs: 37, fat: 8.5, category: 'Breakfast', emoji: '🫓', serving: '1 dosa'),
   FoodItem(name: 'Plain Dosa', calories: 170, protein: 4, category: 'Breakfast', emoji: '🫓', serving: '1 dosa'),
   FoodItem(name: 'Idli (2 pc)', calories: 120, protein: 4, category: 'Breakfast', emoji: '⚪', serving: '2 idlis'),
   FoodItem(name: 'Medu Vada (2 pc)', calories: 280, protein: 7, category: 'Breakfast', emoji: '🍩', serving: '2 vadas'),
@@ -1308,9 +1327,9 @@ const List<FoodItem> kFoodDatabase = [
   FoodItem(name: 'Bread Omelette', calories: 320, protein: 16, category: 'Breakfast', emoji: '🍳', serving: '2 bread + 2 eggs'),
 
   // ── More fruits, dairy & drinks ────────────────────────────────────────────
-  FoodItem(name: 'Banana', calories: 105, protein: 1.3, category: 'Fruits', emoji: '🍌', serving: '1 medium'),
-  FoodItem(name: 'Apple', calories: 95, protein: 0.5, category: 'Fruits', emoji: '🍎', serving: '1 medium'),
-  FoodItem(name: 'Mango', calories: 150, protein: 1, category: 'Fruits', emoji: '🥭', serving: '1 medium'),
+  FoodItem(name: 'Banana', calories: 105, protein: 1.3, carbs: 27, fat: 0.4, category: 'Fruits', emoji: '🍌', serving: '1 medium'),
+  FoodItem(name: 'Apple', calories: 95, protein: 0.5, carbs: 25, fat: 0.3, category: 'Fruits', emoji: '🍎', serving: '1 medium'),
+  FoodItem(name: 'Mango', calories: 150, protein: 1, carbs: 38, fat: 0.6, category: 'Fruits', emoji: '🥭', serving: '1 medium'),
   FoodItem(name: 'Papaya (1 cup)', calories: 60, protein: 1, category: 'Fruits', emoji: '🍈', serving: '1 cup'),
   FoodItem(name: 'Watermelon (1 cup)', calories: 46, protein: 1, category: 'Fruits', emoji: '🍉', serving: '1 cup'),
   FoodItem(name: 'Pomegranate (1 cup)', calories: 145, protein: 3, category: 'Fruits', emoji: '🔴', serving: '1 cup'),

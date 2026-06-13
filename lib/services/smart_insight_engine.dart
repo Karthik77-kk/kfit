@@ -659,8 +659,10 @@ Insight topInsight(FitnessProvider p, DateTime now) =>
     topInsights(p, now, count: 1).first;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+// MET 3.5 = normal walking — matches the provider's exercise MET table so the
+// "a 30-min walk burns ~X kcal" copy agrees with logged-walk calorie burn.
 int _walkBurn(double? weightKg, {int minutes = 30}) =>
-    (5.0 * (weightKg ?? 70.0) * minutes / 60.0).round();
+    (3.5 * (weightKg ?? 70.0) * minutes / 60.0).round();
 
 String _fmtK(int n) =>
     n >= 1000 ? '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k' : '$n';
