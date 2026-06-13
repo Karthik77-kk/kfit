@@ -7,7 +7,7 @@
 library;
 
 const String kAppVersionName = '2.3.0';
-const int kAppBuild = 107;
+const int kAppBuild = 108;
 
-/// e.g. "v2.3.0 · Build 107"
+/// e.g. "v2.3.0 · Build 108"
 const String kAppVersionLabel = 'v$kAppVersionName · Build $kAppBuild';

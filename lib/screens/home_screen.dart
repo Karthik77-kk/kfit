@@ -326,11 +326,6 @@ String _fmtInt(int n) {
   return '$n';
 }
 
-/// Estimate calories burned for a given body weight and exercise duration.
-/// Uses MET 5 (moderate intensity) as a sensible default for 30-min sessions.
-int estimateCaloriesBurned(double weightKg, int minutes) =>
-    (5.0 * weightKg * minutes / 60.0).round();
-
 // ─── Section header ────────────────────────────────────────────────────────────
 class _SectionHdr extends StatelessWidget {
   final String text;
