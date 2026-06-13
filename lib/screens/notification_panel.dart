@@ -564,5 +564,7 @@ class _NotificationTile extends StatelessWidget {
 String _fmtK(int n) =>
     n >= 1000 ? '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k' : '$n';
 
+// Uses the shared walk-burn helper (MET 3.5) so this matches the AI-coach
+// insight card exactly — they previously disagreed (5.0 here vs 3.5 there).
 int _walkKcal(double? weightKg) =>
-    (5.0 * (weightKg ?? 70.0) * 20.0 / 60.0).round();
+    walkCaloriesForMinutes(weightKg, minutes: 20);

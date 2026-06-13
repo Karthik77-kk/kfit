@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/models.dart' show walkCaloriesForMinutes;
 import '../providers/fitness_provider.dart';
 
 // ─── Palette (mirror of home_screen) ─────────────────────────────────────────
@@ -659,10 +660,10 @@ Insight topInsight(FitnessProvider p, DateTime now) =>
     topInsights(p, now, count: 1).first;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-// MET 3.5 = normal walking — matches the provider's exercise MET table so the
-// "a 30-min walk burns ~X kcal" copy agrees with logged-walk calorie burn.
+// Delegates to the shared walk-burn helper so the AI-coach copy and the
+// notification center always agree (single source of truth in models.dart).
 int _walkBurn(double? weightKg, {int minutes = 30}) =>
-    (3.5 * (weightKg ?? 70.0) * minutes / 60.0).round();
+    walkCaloriesForMinutes(weightKg, minutes: minutes);
 
 String _fmtK(int n) =>
     n >= 1000 ? '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k' : '$n';

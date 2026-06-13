@@ -30,6 +30,18 @@ int estimateCaloriesBurned(double weightKg, int durationMinutes) {
   return (met * weightKg * durationMinutes / 60).round();
 }
 
+/// MET for normal walking. SINGLE SOURCE OF TRUTH for the "an X-min walk burns
+/// ~Y kcal" copy shown by both the AI-coach insight engine and the in-app
+/// notification center, so the two can never disagree (they previously used
+/// 3.5 vs 5.0 and contradicted each other). Matches the provider's exercise
+/// MET table ('Walking': 3.5).
+const double kWalkingMet = 3.5;
+
+/// Calories burned walking for [minutes] at body weight [weightKg]
+/// (MET × kg × hours). Falls back to a 70 kg reference when weight is unknown.
+int walkCaloriesForMinutes(double? weightKg, {int minutes = 30}) =>
+    (kWalkingMet * (weightKg ?? 70.0) * minutes / 60.0).round();
+
 // ─── Food Entry ───────────────────────────────────────────────────────────────
 
 class FoodEntry {
