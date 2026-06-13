@@ -20,14 +20,17 @@ void openNotifications(BuildContext context) {
 }
 
 class NotificationsScreen extends StatelessWidget {
-  const NotificationsScreen({super.key});
+  /// Test-only clock override so the time-gated sections (Morning Brief / Night
+  /// Check-In / reminders) are deterministically renderable. Null in production.
+  final DateTime? clockOverride;
+  const NotificationsScreen({super.key, this.clockOverride});
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
     final insights = p.liveInsightFeed;
     final milestones = p.milestoneFeed;
-    final hour = DateTime.now().hour;
+    final hour = (clockOverride ?? DateTime.now()).hour;
 
     return Scaffold(
       backgroundColor: Colors.black,

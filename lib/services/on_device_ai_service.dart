@@ -776,6 +776,16 @@ Answer the question $safeName asked, using the relevant numbers above to make it
   static bool hasKeywordTest(String query, List<String> keywords) =>
       _has(query, keywords);
 
+  /// Test-only: mark the model installed + ready so widgets that auto-trigger a
+  /// download on open (e.g. ChatScreen) render the ready UI instead of kicking
+  /// off a real download (whose 60-min timeout Timer would never complete in a
+  /// test → pending-timer failure).
+  @visibleForTesting
+  void debugMarkReady() {
+    _installed = true;
+    _setState(AiModelState.ready);
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   void _setState(AiModelState s, {String error = ''}) {
     _state = s;
