@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/date_picker_chip.dart';
 
 class SmartScaleScreen extends StatefulWidget {
   final bool embedded;
@@ -78,6 +79,7 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
   bool get wantKeepAlive => true;
   final _formKey = GlobalKey<FormState>();
 
+  DateTime _logDate = DateTime.now(); // backdate target for the scale reading
   final _weight = TextEditingController();
   final _bodyFatPct = TextEditingController();
   final _bodyFatKg = TextEditingController();
@@ -139,7 +141,7 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
     if (weightVal == null) return; // form validator should catch this, but guard anyway
     final entry = SmartScaleEntry(
       id: const Uuid().v4(),
-      date: DateTime.now(),
+      date: _logDate,
       weightKg: weightVal,
       bodyFatPercent: double.tryParse(_bodyFatPct.text) ?? 0,
       bodyFatKg: double.tryParse(_bodyFatKg.text) ?? 0,
@@ -190,8 +192,21 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(subtitle,
-              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(subtitle,
+                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Backdate: which day this reading is logged to.
+                DatePickerChip(
+                  date: _logDate,
+                  onChanged: (d) => setState(() => _logDate = d),
+                  maxPastDays: 365,
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             _Section('Essential', [

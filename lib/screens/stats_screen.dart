@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+import '../widgets/date_picker_chip.dart';
 
 const _kGreen  = Color(0xFF30D158);
 const _kBlue   = Color(0xFF40C8E0);
@@ -30,6 +31,7 @@ class _StatsScreenState extends State<StatsScreen>
   final _heightCtrl  = TextEditingController();
   final _ageCtrl     = TextEditingController();
   final _goalWtCtrl  = TextEditingController();
+  DateTime _logDate  = DateTime.now(); // backdate target for weigh-ins
 
 
   // Prevents re-populating fields after user edits them
@@ -118,7 +120,7 @@ class _StatsScreenState extends State<StatsScreen>
 
     final futures = <Future>[];
     final skipped = <String>[];
-    futures.add(p.logBodyEntry(weightKg: weight, steps: steps.clamp(0, 100000)));
+    futures.add(p.logBodyEntry(weightKg: weight, steps: steps.clamp(0, 100000), date: _logDate));
 
     // Each optional field: save if valid, flag if the user typed something invalid.
     if (_heightCtrl.text.trim().isNotEmpty) {
@@ -198,6 +200,17 @@ class _StatsScreenState extends State<StatsScreen>
                   _Card(
                     child: Column(
                       children: [
+                        // Backdate: which day this weigh-in is logged to.
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: DatePickerChip(
+                              date: _logDate,
+                              onChanged: (d) => setState(() => _logDate = d),
+                            ),
+                          ),
+                        ),
                         _FieldRow(
                           label: 'Weight',
                           icon: Icons.monitor_weight_outlined,

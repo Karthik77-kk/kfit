@@ -5,6 +5,7 @@ import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/food_api_service.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/date_picker_chip.dart';
 
 /// Call this from any context (standalone or embedded) to open the Add Food sheet.
 void showAddFoodSheet(BuildContext context) {
@@ -224,7 +225,9 @@ class _FoodEntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: () => _showEditFoodDialog(context, entry),
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -260,8 +263,65 @@ class _FoodEntryTile extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
+}
+
+/// Edit dialog for a logged food entry — adjust calories/protein or delete.
+/// Operates on today's log (the only place entry tiles are shown).
+void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
+  final calCtrl = TextEditingController(text: entry.calories.toInt().toString());
+  final protCtrl = TextEditingController(text: entry.protein.toStringAsFixed(0));
+  final provider = context.read<FitnessProvider>();
+  showDialog(
+    context: context,
+    builder: (dCtx) => AlertDialog(
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: Text(entry.name,
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+      content: Row(children: [
+        Expanded(child: _MiniField(ctrl: calCtrl, hint: 'kcal', keyboard: TextInputType.number)),
+        const SizedBox(width: 8),
+        Expanded(child: _MiniField(ctrl: protCtrl, hint: 'protein g', keyboard: TextInputType.number)),
+      ]),
+      actions: [
+        TextButton(
+          onPressed: () {
+            provider.removeFoodEntry(entry.id);
+            Navigator.pop(dCtx);
+          },
+          child: const Text('Delete', style: TextStyle(color: Color(0xFFFF453A))),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final cal = double.tryParse(calCtrl.text.trim()) ?? entry.calories;
+            final prot = (double.tryParse(protCtrl.text.trim()) ?? entry.protein)
+                .clamp(0.0, 100000.0);
+            provider.updateFoodEntry(
+              entry.id,
+              FoodEntry(
+                id: entry.id, name: entry.name, calories: cal.clamp(0, double.infinity),
+                protein: prot, carbs: entry.carbs, fat: entry.fat,
+                mealType: entry.mealType, timestamp: entry.timestamp,
+                servingNote: entry.servingNote,
+              ),
+            );
+            Navigator.pop(dCtx);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF30D158),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          child: const Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    ),
+  ).then((_) {
+    calCtrl.dispose();
+    protCtrl.dispose();
+  });
 }
 
 // ── Add Food Bottom Sheet ─────────────────────────────────────────────────────
@@ -278,6 +338,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   String _search = '';
   String _selectedCategory = 'Popular';
   bool _showCustom = false;
+  DateTime _selectedDate = DateTime.now(); // backdate target for logged items
 
   final _nameCtrl = TextEditingController();
   final _calCtrl = TextEditingController();
@@ -522,9 +583,9 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       carbs:       item.carbsForGrams(grams),
       fat:         item.fatForGrams(grams),
       mealType:    _selectedMeal,
-      timestamp:   DateTime.now(),
+      timestamp:   _selectedDate,
       servingNote: '$gStr · 🌐 ${item.source}',
-    ));
+    ), date: _selectedDate);
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
     messenger.showSnackBar(SnackBar(
@@ -626,9 +687,9 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       carbs: item.carbs * servings,
       fat: item.fat * servings,
       mealType: _selectedMeal,
-      timestamp: DateTime.now(),
+      timestamp: _selectedDate,
       servingNote: label,
-    ));
+    ), date: _selectedDate);
     // Capture messenger BEFORE pop (avoids using deactivated context)
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
@@ -662,9 +723,9 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       calories: cal,
       protein: prot,
       mealType: _selectedMeal,
-      timestamp: DateTime.now(),
+      timestamp: _selectedDate,
       servingNote: 'custom entry',
-    ));
+    ), date: _selectedDate);
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
     messenger.showSnackBar(SnackBar(
@@ -694,11 +755,18 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Add Food', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const Text('Add Food', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  // Backdate: pick the day this entry should be logged to.
+                  DatePickerChip(
+                    date: _selectedDate,
+                    onChanged: (d) => setState(() => _selectedDate = d),
+                  ),
+                ],
               ),
             ),
 
@@ -766,7 +834,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
 
             // ── Recent foods (5 most recent unique food names logged today or ever) ──
             if (_search.isEmpty)
-              _RecentFoodsRow(meal: _selectedMeal),
+              _RecentFoodsRow(meal: _selectedMeal, date: _selectedDate),
 
             // Category tabs
             if (_search.isEmpty)
@@ -1051,7 +1119,8 @@ class _MiniField extends StatelessWidget {
 // Shows the last 5 distinct food names logged across any day, as quick-add chips.
 class _RecentFoodsRow extends StatelessWidget {
   final MealType meal;
-  const _RecentFoodsRow({required this.meal});
+  final DateTime date;
+  const _RecentFoodsRow({required this.meal, required this.date});
 
   @override
   Widget build(BuildContext context) {
@@ -1095,8 +1164,8 @@ class _RecentFoodsRow extends StatelessWidget {
                   fat: src.fat,
                   mealType: meal,
                   servingNote: src.servingNote,
-                  timestamp: DateTime.now(),
-                ));
+                  timestamp: date,
+                ), date: date);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text('Added ${src.name}'),
