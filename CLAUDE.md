@@ -420,6 +420,33 @@ model: "haiku"  # MANDATORY
 
 This rule ensures efficient quality gates without sacrificing review quality.
 
+### Rule 16 — Branch from the LATEST `main`; do NOT stack branches or hand-bump the version
+**This rule exists because violating it silently breaks CI.** PRs merge with **squash**,
+and `build_apk.yml` **auto-derives `versionCode` from the commit count** — so manual
+`pubspec.yaml` / `lib/app_info.dart` version bumps are unnecessary AND dangerous.
+
+- ✅ Always branch each feature/fix from up-to-date main:
+  `git fetch origin && git checkout -b <name> origin/main`
+- ❌ Never base a new branch on another in-flight feature branch (no stacking).
+- ❌ Do not manually bump the version. (If `app_info.dart` must change for the
+  About screen, keep `pubspec` and `app_info` in sync so `app_version_test` passes,
+  and rebase onto latest `main` before requesting merge.)
+
+**Why:** when you stack branches and hand-bump the version line, then an earlier PR
+squash-merges, the later branches diverge from `main` on that line → **merge
+CONFLICT**. GitHub does **not** run `pull_request` workflows on a conflicting PR, so
+the **PR Quality Gate never dispatches** and the PR can't auto-merge. It looks exactly
+like "Actions isn't running" or "we hit a quota cap" — but it's a silent conflict block.
+(This is what stranded Builds 110/111 in PRs #36/#37.)
+
+**Diagnose before assuming an outage:** `gh pr view <n> --json mergeable,mergeStateStatus`.
+`CONFLICTING` / `DIRTY` is the real cause — fix with `git merge origin/main`, resolve the
+version line, push (that re-triggers the gate). A fresh non-conflicting PR running fine
+proves Actions is up.
+
+> ⚠️ This **supersedes the manual-bump guidance** in Rules 4 / 4a / 12 above: those
+> predate the commit-count `versionCode` automation. Do not hand-bump `+N` anymore.
+
 ---
 
 ## Build & Run Commands
