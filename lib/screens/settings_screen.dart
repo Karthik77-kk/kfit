@@ -665,17 +665,23 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(bottom: 8),
-    decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
-    child: ListTile(
-      leading: Icon(icon, color: const Color(0xFF30D158)),
-      title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
-      trailing: trailing ?? (onTap != null
-          ? const Icon(Icons.chevron_right, color: Color(0xFF8E8E93))
-          : null),
-      onTap: onTap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    // Material (clipped to the rounded shape) carries the colour so the
+    // ListTile's ink splashes paint on it and stay visible — wrapping a
+    // ListTile directly in a coloured DecoratedBox hides the ink.
+    child: Material(
+      color: const Color(0xFF1C1C1E),
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: Icon(icon, color: const Color(0xFF30D158)),
+        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        subtitle: Text(subtitle, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+        trailing: trailing ?? (onTap != null
+            ? const Icon(Icons.chevron_right, color: Color(0xFF8E8E93))
+            : null),
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
     ),
   );
 }
@@ -685,11 +691,11 @@ class _AiAutoLoadTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ai = context.watch<OnDeviceAiService>();
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return Material(
+      // Material carries the colour so the SwitchListTile's ink stays visible.
+      color: const Color(0xFF1C1C1E),
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
       child: SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         secondary: const Icon(Icons.bolt_rounded, color: Color(0xFF30D158)),
