@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/food_api_service.dart';
@@ -954,19 +955,9 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                         ]),
                       ),
 
-                    // Loading
-                    if (_searchingOnline)
-                      const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(
-                          child: Column(mainAxisSize: MainAxisSize.min, children: [
-                            CircularProgressIndicator(color: Color(0xFF40C8E0), strokeWidth: 2),
-                            SizedBox(height: 10),
-                            Text('Searching online…',
-                                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
-                          ]),
-                        ),
-                      ),
+                    // Loading — skeleton placeholders shaped like result rows so
+                    // the wait reads as content arriving rather than a bare spinner.
+                    if (_searchingOnline) const _OnlineSearchSkeleton(),
 
                     // Error state
                     if (_onlineError != null && !_searchingOnline)
@@ -1057,6 +1048,36 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
 }
 
 // ── Reusable widgets ──────────────────────────────────────────────────────────
+
+/// Shimmer placeholder shown while the online food search is in flight. Mirrors
+/// the shape of the real result rows (icon + name + macro line + add button) so
+/// the transition to real data is seamless.
+class _OnlineSearchSkeleton extends StatelessWidget {
+  const _OnlineSearchSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      enabled: true,
+      child: Column(
+        children: List.generate(4, (i) => ListTile(
+          leading: Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFF40C8E0).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          title: const Text('Online food item name',
+              style: TextStyle(color: Colors.white, fontSize: 13)),
+          subtitle: const Text('123 kcal · 12.0g prot · 20.0g carbs per 100g',
+              style: TextStyle(fontSize: 10)),
+          trailing: const Icon(Icons.add_circle, color: Color(0xFF40C8E0)),
+        )),
+      ),
+    );
+  }
+}
 
 class _QtyBtn extends StatelessWidget {
   final IconData icon;

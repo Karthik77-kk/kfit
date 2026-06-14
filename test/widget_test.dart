@@ -160,5 +160,10 @@ void main() {
     await tester.pump();
     // Either splash or main nav is acceptable here (timing-dependent in test).
     expect(find.byType(MaterialApp), findsOneWidget);
+    // If the provider finished loading the Home feed may have mounted, starting
+    // its refresh timer + flutter_animate entrance timers. Settle then unmount
+    // so the end-of-test pending-timer check passes.
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }
