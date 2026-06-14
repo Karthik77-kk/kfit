@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+import '../widgets/kit/kit.dart';
 
 const _kCard = Color(0xFF1C1C1E);
 const _kGreen = Color(0xFF30D158);
@@ -13,10 +14,7 @@ const _kSecond = Color(0xFF8E8E93);
 /// Opens the in-app notification center as a full page.
 void openNotifications(BuildContext context) {
   context.read<FitnessProvider>().markNotificationsRead();
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-  );
+  Navigator.push(context, sharedAxisRoute(const NotificationsScreen()));
 }
 
 class NotificationsScreen extends StatelessWidget {

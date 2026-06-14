@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
 import 'services/on_device_ai_service.dart';
 import 'theme/app_theme.dart';
+import 'theme/app_tokens.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
@@ -115,8 +116,13 @@ class _SplashScreen extends StatelessWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   int _index = 0;
+
+  // Drives a quick fade-through of the active tab on switch. IndexedStack keeps
+  // every screen mounted (state + correct offstage semantics); this just fades
+  // the newly-shown one in.
+  late final AnimationController _tabFade;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -130,12 +136,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _tabFade = AnimationController(
+        vsync: this, duration: AppDurations.normal, value: 1);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tabFade.dispose();
     super.dispose();
+  }
+
+  void _onTabTap(int i) {
+    if (i == _index) return;
+    setState(() => _index = i);
+    if (reduceMotion(context)) {
+      _tabFade.value = 1;
+    } else {
+      _tabFade.forward(from: 0);
+    }
   }
 
   /// Refresh all data whenever the app returns to the foreground so the
@@ -150,9 +169,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: _screens,
+      // IndexedStack keeps all tabs mounted (scroll positions, sub-tab
+      // selections, Home's entrance animation) and offstage-hides the inactive
+      // ones; the FadeTransition fades the active tab in on each switch.
+      body: FadeTransition(
+        opacity: _tabFade,
+        child: IndexedStack(index: _index, children: _screens),
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -162,7 +184,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         ),
         child: BottomNavigationBar(
           currentIndex: _index,
-          onTap: (i) => setState(() => _index = i),
+          onTap: _onTabTap,
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.house_outlined, size: 24),

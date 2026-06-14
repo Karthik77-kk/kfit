@@ -126,8 +126,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _NotificationBell(unread: p.unreadNotifications),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, size: 22),
-                  onPressed: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                  onPressed: () => Navigator.push(
+                      context, sharedAxisRoute(const SettingsScreen())),
                 ),
               ],
             ),
