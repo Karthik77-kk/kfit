@@ -8,6 +8,7 @@ import 'providers/fitness_provider.dart';
 import 'services/on_device_ai_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
+import 'widgets/brand_splash.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
@@ -105,14 +106,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Text('💪', style: TextStyle(fontSize: 72)),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const BrandSplash();
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen>

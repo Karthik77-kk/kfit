@@ -106,6 +106,13 @@ class FitnessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// One-shot flag set when a NEW milestone (streak / goal reached) is detected,
+  /// so the UI can fire a celebratory confetti burst exactly once. The UI calls
+  /// [consumeCelebration] after playing it.
+  bool _celebratePending = false;
+  bool get hasPendingCelebration => _celebratePending;
+  void consumeCelebration() => _celebratePending = false;
+
   Future<void> saveUserName(String name) async {
     _userName = name.trim().isEmpty ? 'Friend' : name.trim();
     final prefs = await SharedPreferences.getInstance();
@@ -1658,6 +1665,7 @@ class FitnessProvider extends ChangeNotifier {
           body: '$m days in a row — elite consistency. Keep the chain unbroken.',
           accent: 0xFFFF9F0A, category: 'milestone', timestamp: DateTime.now(),
         ));
+        _celebratePending = true;
       }
     }
     await prefs.setInt('ms_workout_streak', ws);
@@ -1673,6 +1681,7 @@ class FitnessProvider extends ChangeNotifier {
           body: 'Logged your food $m days straight. Awareness is half the battle.',
           accent: 0xFF40C8E0, category: 'milestone', timestamp: DateTime.now(),
         ));
+        _celebratePending = true;
       }
     }
     await prefs.setInt('ms_calorie_streak', cs);
@@ -1688,6 +1697,7 @@ class FitnessProvider extends ChangeNotifier {
             'target or shift to maintenance.',
         accent: 0xFF30D158, category: 'milestone', timestamp: DateTime.now(),
       ));
+      _celebratePending = true;
     }
     await prefs.setBool('ms_goal_reached', reached);
   }

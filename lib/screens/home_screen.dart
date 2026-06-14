@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:confetti/confetti.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/smart_insight_engine.dart';
@@ -13,6 +14,7 @@ import '../widgets/kit/kit.dart';
 import 'settings_screen.dart';
 import 'notification_panel.dart';
 import 'chat_screen.dart';
+import 'weekly_recap_screen.dart';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 // These local aliases now point at the single source of truth in app_tokens.dart
@@ -34,6 +36,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Timer _refreshTimer;
   bool _showEmptySections = false;
+  final ConfettiController _confetti =
+      ConfettiController(duration: const Duration(seconds: 2));
 
   @override
   void initState() {
@@ -46,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _refreshTimer.cancel();
+    _confetti.dispose();
     super.dispose();
   }
 
@@ -71,9 +76,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final today = DateFormat('EEEE, MMMM d').format(DateTime.now());
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
+    // Fire a one-shot confetti burst when a new milestone (streak / goal) lands.
+    if (p.hasPendingCelebration && !reduceMotion(context)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<FitnessProvider>().consumeCelebration();
+        _confetti.play();
+      });
+    } else if (p.hasPendingCelebration) {
+      // Reduced motion: acknowledge without animating so it doesn't re-trigger.
+      WidgetsBinding.instance.addPostFrameCallback(
+          (_) => context.read<FitnessProvider>().consumeCelebration());
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
-      body: RefreshIndicator(
+      body: Stack(children: [
+        RefreshIndicator(
         color: _kGreen,
         backgroundColor: _kCard,
         onRefresh: () async {
@@ -259,7 +278,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 20),
 
                   // ── Weekly report ─────────────────────────────────────────
-                  const _SectionHdr('LAST 7 DAYS'),
+                  Row(children: [
+                    const _SectionHdr('LAST 7 DAYS'),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                          context, sharedAxisRoute(const WeeklyRecapScreen())),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text('Recap',
+                            style: TextStyle(
+                                color: _kGreen,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600)),
+                        SizedBox(width: 2),
+                        Icon(Icons.auto_awesome_rounded, color: _kGreen, size: 14),
+                      ]),
+                    ),
+                  ]),
                   const SizedBox(height: 10),
                   _WeeklyReportCard(provider: p),
                   const SizedBox(height: 20),
@@ -280,6 +315,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConfettiWidget(
+            confettiController: _confetti,
+            blastDirectionality: BlastDirectionality.explosive,
+            numberOfParticles: 18,
+            maxBlastForce: 18,
+            minBlastForce: 6,
+            gravity: 0.25,
+            emissionFrequency: 0.04,
+            colors: const [_kGreen, _kBlue, _kOrange, _kRed],
+          ),
+        ),
+      ]),
     );
   }
 
