@@ -589,8 +589,10 @@ class FitnessProvider extends ChangeNotifier {
         weight = w;
       }
     }
-    if (_bodyHistory.isNotEmpty) consider(_bodyHistory.first.date, _bodyHistory.first.weightKg);
-    if (_scaleHistory.isNotEmpty) consider(_scaleHistory.first.date, _scaleHistory.first.weightKg);
+    // Scan ALL entries for the earliest with a real (>0) weight — not just the
+    // first, which can be a zero-weight or backdated entry.
+    for (final e in _bodyHistory) consider(e.date, e.weightKg);
+    for (final e in _scaleHistory) consider(e.date, e.weightKg);
     return weight;
   }
 
@@ -1699,43 +1701,95 @@ class FitnessProvider extends ChangeNotifier {
     }
   }
 
+  /// True when [d] falls on the current calendar day.
+  bool _isToday(DateTime d) {
+    final n = DateTime.now();
+    return d.year == n.year && d.month == n.month && d.day == n.day;
+  }
+
   // ── Food actions ───────────────────────────────────────────────────────────
-  Future<void> addFoodEntry(FoodEntry entry) async {
-    _todayFood.add(entry);
-    await _saveFoodEntries();
+  /// Adds [entry] to [date] (defaults to today). Backdating writes to that day's
+  /// stored list and updates the in-memory history so trends/averages refresh
+  /// immediately.
+  Future<void> addFoodEntry(FoodEntry entry, {DateTime? date}) async {
+    final d = date ?? DateTime.now();
+    if (_isToday(d)) {
+      _todayFood.add(entry);
+      await _saveFoodEntries();
+    } else {
+      final key = _keyFor(d);
+      final list = [...?_foodHistory[key], entry];
+      _foodHistory[key] = list;
+      await _saveFoodForKey(key, list);
+    }
     notifyListeners();
     _updateWidget();
   }
 
-  Future<void> removeFoodEntry(String id) async {
-    _todayFood.removeWhere((e) => e.id == id);
-    await _saveFoodEntries();
+  /// Removes the entry with [id] from [date] (defaults to today).
+  Future<void> removeFoodEntry(String id, {DateTime? date}) async {
+    final d = date ?? DateTime.now();
+    if (_isToday(d)) {
+      _todayFood.removeWhere((e) => e.id == id);
+      await _saveFoodEntries();
+    } else {
+      final key = _keyFor(d);
+      final list = (_foodHistory[key] ?? []).where((e) => e.id != id).toList();
+      _foodHistory[key] = list;
+      await _saveFoodForKey(key, list);
+    }
     notifyListeners();
     _updateWidget();
   }
 
-  Future<void> _saveFoodEntries() async {
+  /// Replaces the entry with [id] on [date] with [updated] — used when editing a
+  /// logged item's quantity. No-op if the id isn't found on that day.
+  Future<void> updateFoodEntry(String id, FoodEntry updated, {DateTime? date}) async {
+    final d = date ?? DateTime.now();
+    if (_isToday(d)) {
+      final i = _todayFood.indexWhere((e) => e.id == id);
+      if (i >= 0) _todayFood[i] = updated;
+      await _saveFoodEntries();
+    } else {
+      final key = _keyFor(d);
+      final list = [...?_foodHistory[key]];
+      final i = list.indexWhere((e) => e.id == id);
+      if (i < 0) return;
+      list[i] = updated;
+      _foodHistory[key] = list;
+      await _saveFoodForKey(key, list);
+    }
+    notifyListeners();
+    _updateWidget();
+  }
+
+  Future<void> _saveFoodEntries() => _saveFoodForKey(_todayKey, _todayFood);
+
+  Future<void> _saveFoodForKey(String key, List<FoodEntry> list) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-      'food_$_todayKey',
-      jsonEncode(_todayFood.map((e) => e.toJson()).toList()),
-    );
+        'food_$key', jsonEncode(list.map((e) => e.toJson()).toList()));
   }
 
   // ── Water actions ──────────────────────────────────────────────────────────
-  Future<void> addWater(int ml) async {
-    _todayWaterMl += ml;
-    await _saveWater();
+  /// Adds [ml] of water to [date] (defaults to today). Negative [ml] subtracts.
+  Future<void> addWater(int ml, {DateTime? date}) async {
+    final d = date ?? DateTime.now();
+    if (_isToday(d)) {
+      _todayWaterMl = (_todayWaterMl + ml).clamp(0, 99999);
+      await _saveWater();
+    } else {
+      final key = _keyFor(d);
+      final v = ((_waterHistory[key] ?? 0) + ml).clamp(0, 99999);
+      _waterHistory[key] = v;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('water_$key', v);
+    }
     notifyListeners();
     _updateWidget();
   }
 
-  Future<void> removeWater(int ml) async {
-    _todayWaterMl = (_todayWaterMl - ml).clamp(0, 99999);
-    await _saveWater();
-    notifyListeners();
-    _updateWidget();
-  }
+  Future<void> removeWater(int ml, {DateTime? date}) => addWater(-ml, date: date);
 
   Future<void> _saveWater() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1781,16 +1835,21 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   // ── Body / weight actions ──────────────────────────────────────────────────
-  Future<void> logBodyEntry({required double weightKg, int steps = 0}) async {
+  /// Logs a weigh-in for [date] (defaults to today). One entry per day — logging
+  /// again for the same date replaces it. Backdating fills gaps in the weight
+  /// trend that powers the regression/forecast and adaptive TDEE.
+  Future<void> logBodyEntry(
+      {required double weightKg, int steps = 0, DateTime? date}) async {
     final now = DateTime.now();
+    final d = date ?? now;
     _bodyHistory.removeWhere((e) =>
-        e.date.year == now.year &&
-        e.date.month == now.month &&
-        e.date.day == now.day);
+        e.date.year == d.year &&
+        e.date.month == d.month &&
+        e.date.day == d.day);
 
     _bodyHistory.add(BodyEntry(
       id: const Uuid().v4(),
-      date: now,
+      date: d,
       weightKg: weightKg,
       steps: steps,
     ));
@@ -1852,12 +1911,15 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   // ── Smart Scale actions ────────────────────────────────────────────────────
+  /// Logs a smart-scale reading. The reading's day comes from [entry].date, so
+  /// passing an entry dated in the past backdates it (one reading per day).
   Future<void> logScaleEntry(SmartScaleEntry entry) async {
     final now = DateTime.now();
+    final d = entry.date;
     _scaleHistory.removeWhere((e) =>
-        e.date.year == now.year &&
-        e.date.month == now.month &&
-        e.date.day == now.day);
+        e.date.year == d.year &&
+        e.date.month == d.month &&
+        e.date.day == d.day);
     _scaleHistory.add(entry);
     _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
     final cutoff = now.subtract(const Duration(days: 365));
@@ -1867,14 +1929,14 @@ class FitnessProvider extends ChangeNotifier {
       'scale_history',
       jsonEncode(_scaleHistory.map((e) => e.toJson()).toList()),
     );
-    // Preserve today's manually-logged steps — logBodyEntry defaults steps to 0
-    // which would wipe any steps the user entered before logging the scale.
-    final todayBody = _bodyHistory.where((e) =>
-        e.date.year == now.year &&
-        e.date.month == now.month &&
-        e.date.day == now.day).toList();
-    final existingSteps = todayBody.isNotEmpty ? todayBody.first.steps : 0;
-    await logBodyEntry(weightKg: entry.weightKg, steps: existingSteps);
+    // Preserve that day's manually-logged steps — logBodyEntry defaults steps to
+    // 0 which would wipe any steps already entered for the reading's date.
+    final dayBody = _bodyHistory.where((e) =>
+        e.date.year == d.year &&
+        e.date.month == d.month &&
+        e.date.day == d.day).toList();
+    final existingSteps = dayBody.isNotEmpty ? dayBody.first.steps : 0;
+    await logBodyEntry(weightKg: entry.weightKg, steps: existingSteps, date: d);
     notifyListeners();
   }
 
@@ -1882,10 +1944,11 @@ class FitnessProvider extends ChangeNotifier {
   Future<void> logMeasurement(MeasurementEntry entry) async {
     if (entry.isEmpty) return;
     final now = DateTime.now();
+    final d = entry.date; // honour the entry's date so measurements can backdate
     _measurementHistory.removeWhere((e) =>
-        e.date.year == now.year &&
-        e.date.month == now.month &&
-        e.date.day == now.day);
+        e.date.year == d.year &&
+        e.date.month == d.month &&
+        e.date.day == d.day);
     _measurementHistory.add(entry);
     _measurementHistory.sort((a, b) => a.date.compareTo(b.date));
     final cutoff = now.subtract(const Duration(days: 180));

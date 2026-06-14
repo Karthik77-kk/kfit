@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
+import '../widgets/date_picker_chip.dart';
 
 class WaterScreen extends StatefulWidget {
   final bool embedded;
@@ -15,6 +16,7 @@ class _WaterScreenState extends State<WaterScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _scaleAnim;
+  DateTime _logDate = DateTime.now(); // backdate target for water intake
 
   @override
   void initState() {
@@ -37,11 +39,14 @@ class _WaterScreenState extends State<WaterScreen>
   void _addWater(BuildContext context, int ml) async {
     HapticFeedback.lightImpact();
     _animController.forward().then((_) => _animController.reverse());
-    await context.read<FitnessProvider>().addWater(ml);
+    await context.read<FitnessProvider>().addWater(ml, date: _logDate);
     if (!mounted) return;
+    final onPast = _logDate.day != DateTime.now().day ||
+        _logDate.month != DateTime.now().month ||
+        _logDate.year != DateTime.now().year;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('+$ml ml added'),
+        content: Text(onPast ? '+$ml ml added to ${_logDate.day}/${_logDate.month}' : '+$ml ml added'),
         duration: const Duration(seconds: 1),
         backgroundColor: const Color(0xFF40C8E0),
         behavior: SnackBarBehavior.floating,
@@ -59,6 +64,17 @@ class _WaterScreenState extends State<WaterScreen>
 
     final body = Column(
       children: [
+          // Backdate chip — logs intake to the chosen day (ring shows today).
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: DatePickerChip(
+                date: _logDate,
+                onChanged: (d) => setState(() => _logDate = d),
+              ),
+            ),
+          ),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
