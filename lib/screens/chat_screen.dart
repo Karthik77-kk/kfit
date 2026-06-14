@@ -6,6 +6,7 @@ import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/food_api_service.dart';
+import '../widgets/kit/kit.dart';
 import 'chat_sessions_screen.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -16,10 +17,7 @@ const _kSecond = Color(0xFF8E8E93);
 // ── Entry point — opens sessions list ────────────────────────────────────────
 
 void openChat(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const ChatSessionsScreen()),
-  );
+  Navigator.push(context, sharedAxisRoute(const ChatSessionsScreen()));
 }
 
 // ── Chat screen ───────────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ dependencies:
   http: ^1.2.0
   flutter_animate: ^4.5.2
   skeletonizer: ^2.1.3
+  animations: ^2.2.0
 
 dev_dependencies:
   flutter_test:

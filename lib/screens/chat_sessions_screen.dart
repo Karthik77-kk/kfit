@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/chat_session_service.dart';
 import '../services/on_device_ai_service.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/kit/kit.dart';
 import 'package:provider/provider.dart';
 import 'chat_screen.dart';
 
@@ -34,10 +35,7 @@ class _ChatSessionsScreenState extends State<ChatSessionsScreen> {
   }
 
   Future<void> _openSession(ChatSession? session) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ChatScreen(session: session)),
-    );
+    await Navigator.push(context, sharedAxisRoute(ChatScreen(session: session)));
     _load(); // refresh after returning
   }
 

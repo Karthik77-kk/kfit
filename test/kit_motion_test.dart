@@ -72,4 +72,25 @@ void main() {
       expect(find.text('static'), findsOneWidget);
     });
   });
+
+  group('sharedAxisRoute', () {
+    testWidgets('pushes to the destination page', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => Navigator.push(
+                    context, sharedAxisRoute(const Text('DEST'))),
+                child: const Text('go'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('go'));
+      await tester.pumpAndSettle();
+      expect(find.text('DEST'), findsOneWidget);
+    });
+  });
 }

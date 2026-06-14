@@ -3,5 +3,6 @@
 library;
 
 export 'app_card.dart';
+export 'app_transitions.dart';
 export 'count_up_text.dart';
 export 'section_header.dart';
