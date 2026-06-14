@@ -31,7 +31,7 @@ permissions:
   contents: read
 
 env:
-  COVERAGE_MIN: "38.0"   # ratchet: raise as coverage grows (currently ~40%)
+  COVERAGE_MIN: "75.0"   # ratchet: raise as coverage grows (currently ~80%)
 
 jobs:
   verify:
