@@ -4,20 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/smart_insight_engine.dart';
+import '../theme/app_tokens.dart';
+import '../widgets/kit/kit.dart';
 import 'settings_screen.dart';
 import 'notification_panel.dart';
 import 'chat_screen.dart';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const _kGreen  = Color(0xFF30D158);
-const _kBlue   = Color(0xFF40C8E0);
-const _kRed    = Color(0xFFFF453A);
-const _kOrange = Color(0xFFFF9F0A);
-const _kCard   = Color(0xFF1C1C1E);
-const _kSecond = Color(0xFF8E8E93);
+// These local aliases now point at the single source of truth in app_tokens.dart
+// so the palette is defined in exactly one place (call sites stay unchanged).
+const _kGreen  = AppColors.green;
+const _kBlue   = AppColors.blue;
+const _kRed    = AppColors.red;
+const _kOrange = AppColors.orange;
+const _kCard   = AppColors.card;
+const _kSecond = AppColors.muted;
 
 // ─── Home Screen ───────────────────────────────────────────────────────────────
 class HomeScreen extends StatefulWidget {
@@ -130,56 +135,51 @@ class _HomeScreenState extends State<HomeScreen> {
             SliverPadding(
               padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottomPad),
               sliver: SliverList(
-                delegate: SliverChildListDelegate([
+                delegate: SliverChildListDelegate(_staggerIn(context, [
 
                   // ── AI Coach (top) — hidden when disabled in Settings ─────
                   if (p.aiCoachEnabled) ...[
                   const _SectionHdr('AI COACH'),
                   const SizedBox(height: 8),
-                  GestureDetector(
+                  AppCard(
                     onTap: () => openChat(context),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            _kGreen.withValues(alpha: 0.14),
-                            _kBlue.withValues(alpha: 0.07),
-                          ],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(children: [
-                        Container(
-                          padding: const EdgeInsets.all(9),
-                          decoration: BoxDecoration(
-                            color: _kGreen.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Text('🤖', style: TextStyle(fontSize: 22)),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Ask AI Coach',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700)),
-                            SizedBox(height: 2),
-                            Text('Ask about your diet, workouts & progress',
-                                style: TextStyle(color: _kSecond, fontSize: 12)),
-                          ],
-                        )),
-                        Icon(Icons.chevron_right_rounded,
-                            color: _kGreen.withValues(alpha: 0.7), size: 22),
-                      ]),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    radius: 14,
+                    gradient: LinearGradient(
+                      colors: [
+                        _kGreen.withValues(alpha: 0.14),
+                        _kBlue.withValues(alpha: 0.07),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
+                    border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
+                    child: Row(children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: _kGreen.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text('🤖', style: TextStyle(fontSize: 22)),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Ask AI Coach',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700)),
+                          SizedBox(height: 2),
+                          Text('Ask about your diet, workouts & progress',
+                              style: TextStyle(color: _kSecond, fontSize: 12)),
+                        ],
+                      )),
+                      Icon(Icons.chevron_right_rounded,
+                          color: _kGreen.withValues(alpha: 0.7), size: 22),
+                    ]),
                   ),
                   const SizedBox(height: 10),
                   _AiCoachSection(provider: p),
@@ -274,13 +274,35 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }),
                   const SizedBox(height: 8),
-                ]),
+                ])),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// Wraps each non-spacer section in a fade-in + slide-up with a cumulative
+  /// stagger so the feed assembles itself on screen entry. Returns the list
+  /// unchanged when the OS "reduce motion" setting is on. Spacers are passed
+  /// through untouched so the stagger reads as one section after another.
+  List<Widget> _staggerIn(BuildContext context, List<Widget> items) {
+    if (reduceMotion(context)) return items;
+    final out = <Widget>[];
+    var step = 0;
+    for (final w in items) {
+      if (w is SizedBox) {
+        out.add(w);
+      } else {
+        out.add(w
+            .animate(delay: (AppDurations.stagger.inMilliseconds * step).ms)
+            .fadeIn(duration: 250.ms)
+            .slideY(begin: 0.08, end: 0, curve: AppCurves.emphasized));
+        step++;
+      }
+    }
+    return out;
   }
 }
 
@@ -333,9 +355,7 @@ class _SectionHdr extends StatelessWidget {
   final String text;
   const _SectionHdr(this.text);
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(
-    color: _kSecond, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8,
-  ));
+  Widget build(BuildContext context) => SectionHeader(text);
 }
 
 // ─── Notification bell ─────────────────────────────────────────────────────────
@@ -423,10 +443,17 @@ class _ActivityRingsCard extends StatelessWidget {
       child: Row(children: [
         SizedBox(
           width: 110, height: 110,
-          child: CustomPaint(painter: _RingsPainter(
-            values: [calRaw, protRaw, watRaw],
-            colors: [_kRed, _kGreen, _kBlue],
-          )),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: reduceMotion(context) ? Duration.zero : AppDurations.ring,
+            curve: AppCurves.emphasized,
+            builder: (_, t, __) => CustomPaint(
+              painter: _RingsPainter(
+                values: [calRaw * t, protRaw * t, watRaw * t],
+                colors: const [_kRed, _kGreen, _kBlue],
+              ),
+            ),
+          ),
         ),
         const SizedBox(width: 18),
         Expanded(child: Column(children: [
@@ -464,16 +491,24 @@ class _RingRow extends StatelessWidget {
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
         const Spacer(),
-        Text('${(progress * 100).round()}%',
+        CountUpText(progress * 100, suffix: '%',
             style: TextStyle(color: displayColor, fontSize: 11, fontWeight: FontWeight.w600)),
       ]),
       const SizedBox(height: 4),
-      ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(
-        value: isOver ? 1.0 : progress,
-        backgroundColor: color.withOpacity(0.15),
-        valueColor: AlwaysStoppedAnimation<Color>(displayColor),
-        minHeight: 5,
-      )),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: isOver ? 1.0 : progress),
+          duration: reduceMotion(context) ? Duration.zero : AppDurations.ring,
+          curve: AppCurves.emphasized,
+          builder: (_, v, __) => LinearProgressIndicator(
+            value: v,
+            backgroundColor: color.withOpacity(0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(displayColor),
+            minHeight: 5,
+          ),
+        ),
+      ),
       const SizedBox(height: 2),
       Text(value, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
     ]);
@@ -572,12 +607,19 @@ class _CalorieRingTile extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                CustomPaint(
-                  size: const Size(180, 180),
-                  painter: _CalorieRingPainter(eaten: eaten, burned: burned, goal: goal),
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: 1),
+                  duration: reduceMotion(context) ? Duration.zero : AppDurations.ring,
+                  curve: AppCurves.emphasized,
+                  builder: (_, t, __) => CustomPaint(
+                    size: const Size(180, 180),
+                    painter: _CalorieRingPainter(
+                        eaten: eaten * t, burned: burned * t, goal: goal),
+                  ),
                 ),
-                Text(
-                  net >= 0 ? '+${net.round()}' : '${net.round()}',
+                CountUpText(
+                  net,
+                  signed: true,
                   style: TextStyle(
                     fontSize: 34, fontWeight: FontWeight.w800,
                     color: net > 200 ? _kRed : net < -200 ? _kGreen : Colors.white,

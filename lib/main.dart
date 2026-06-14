@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
 import 'services/on_device_ai_service.dart';
+import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
@@ -81,74 +82,7 @@ class KfitApp extends StatelessWidget {
     return MaterialApp(
       title: 'K Fitness',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF30D158),
-          secondary: Color(0xFF40C8E0),
-          surface: Color(0xFF1C1C1E),
-          onPrimary: Colors.black,
-          onSurface: Colors.white,
-          error: Color(0xFFFF453A),
-        ),
-        scaffoldBackgroundColor: Colors.black,
-        cardColor: const Color(0xFF1C1C1E),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-          titleTextStyle: TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.3,
-          ),
-          iconTheme: IconThemeData(color: Colors.white),
-          systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.light,
-          ),
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Color(0xFF111111),
-          selectedItemColor: Color(0xFF30D158),
-          unselectedItemColor: Color(0xFF8E8E93),
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          selectedLabelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-          unselectedLabelStyle: TextStyle(fontSize: 10),
-        ),
-        snackBarTheme: const SnackBarThemeData(
-          backgroundColor: Color(0xFF2C2C2E),
-          contentTextStyle: TextStyle(color: Colors.white),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF2C2C2E),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF30D158), width: 1.5),
-          ),
-          hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
-          labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
-        dividerTheme: const DividerThemeData(
-          color: Color(0xFF38383A),
-          thickness: 0.5,
-        ),
-      ),
+      theme: buildAppTheme(),
       home: Consumer<FitnessProvider>(
         builder: (context, p, _) {
           if (!p.isLoaded) return const _SplashScreen();
