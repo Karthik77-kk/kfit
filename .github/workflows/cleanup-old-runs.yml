@@ -5,65 +5,43 @@ on:
     - cron: '0 2 * * 0'  # Weekly, Sunday 2 AM UTC
   workflow_dispatch:
 
+permissions:
+  actions: write  # required to delete workflow runs
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Cleanup Old Workflow Runs
+      - name: Delete old runs (keep newest 5 per workflow)
         uses: actions/github-script@v7
         with:
           script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
+            const { owner, repo } = context.repo;
+            console.log(`Cleaning old workflow runs for ${owner}/${repo}...`);
 
-            console.log(`Cleaning up old workflow runs for ${owner}/${repo}...`);
+            // listWorkflowRunsForRepo = ALL runs (listWorkflowRuns needs a workflow_id
+            // and was the bug that made this job throw before any deletion).
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo,
+              { owner, repo, per_page: 100 },
+            );
 
-            // Get all workflow runs
-            const runs = await github.rest.actions.listWorkflowRuns({
-              owner,
-              repo,
-              per_page: 100,
-            });
+            // Group by workflow, newest first.
+            const byWorkflow = {};
+            for (const r of runs) (byWorkflow[r.workflow_id] ??= []).push(r);
 
             let deleted = 0;
-            let kept = 0;
-
-            // Keep last 5 successful runs per workflow, delete older ones
-            const runsPerWorkflow = {};
-
-            for (const run of runs.data.workflow_runs) {
-              const workflowId = run.workflow_id;
-
-              if (!runsPerWorkflow[workflowId]) {
-                runsPerWorkflow[workflowId] = [];
-              }
-
-              if (run.conclusion === 'success') {
-                runsPerWorkflow[workflowId].push(run);
-              }
-            }
-
-            // Delete runs older than the last 5 successful ones
-            for (const run of runs.data.workflow_runs) {
-              const workflowId = run.workflow_id;
-              const successfulRuns = runsPerWorkflow[workflowId] || [];
-
-              if (successfulRuns.length > 5 &&
-                  successfulRuns.indexOf(run) >= 5) {
+            for (const id of Object.keys(byWorkflow)) {
+              const list = byWorkflow[id]
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              for (const run of list.slice(5)) {          // keep the newest 5
+                if (run.status !== 'completed') continue;  // never touch in-progress
                 try {
-                  await github.rest.actions.deleteWorkflowRun({
-                    owner,
-                    repo,
-                    run_id: run.id,
-                  });
-                  console.log(`✅ Deleted: ${run.name} (${run.conclusion})`);
+                  await github.rest.actions.deleteWorkflowRun({ owner, repo, run_id: run.id });
                   deleted++;
-                } catch (error) {
-                  console.log(`⚠️ Could not delete run ${run.id}: ${error.message}`);
+                } catch (e) {
+                  console.log(`skip ${run.id}: ${e.message}`);
                 }
-              } else {
-                kept++;
               }
             }
-
-            console.log(`\n✅ Cleanup complete: Deleted ${deleted} runs, kept ${kept} recent runs`);
+            console.log(`Cleanup complete: deleted ${deleted} old runs.`);
