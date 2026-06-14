@@ -132,7 +132,8 @@ class _HomeScreenState extends State<HomeScreen> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
 
-                  // ── AI Coach (top) ────────────────────────────────────────
+                  // ── AI Coach (top) — hidden when disabled in Settings ─────
+                  if (p.aiCoachEnabled) ...[
                   const _SectionHdr('AI COACH'),
                   const SizedBox(height: 8),
                   GestureDetector(
@@ -183,6 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 10),
                   _AiCoachSection(provider: p),
                   const SizedBox(height: 20),
+                  ],
 
                   // ── Getting-started card (shows until user logs weight, food, or workout) ─
                   if (p.latestWeightKg == null && p.todayFood.isEmpty && p.workoutHistory.isEmpty)

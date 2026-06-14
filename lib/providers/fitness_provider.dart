@@ -86,10 +86,23 @@ class FitnessProvider extends ChangeNotifier {
   bool _onboardingDone = false;
   bool get onboardingDone => _onboardingDone;
 
+  /// When false, the AI Coach is fully disabled — hidden from the Home screen
+  /// and its sub-tiles/chat entry collapsed in Settings. Defaults to true so
+  /// existing users keep the feature unless they opt out.
+  bool _aiCoachEnabled = true;
+  bool get aiCoachEnabled => _aiCoachEnabled;
+
   Future<void> markOnboardingDone() async {
     _onboardingDone = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done', true);
+    notifyListeners();
+  }
+
+  Future<void> saveAiCoachEnabled(bool value) async {
+    _aiCoachEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ai_coach_enabled', value);
     notifyListeners();
   }
 
@@ -1420,6 +1433,7 @@ class FitnessProvider extends ChangeNotifier {
     _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? 70.0;
     _userName = prefs.getString('user_name') ?? 'Friend';
     _onboardingDone = prefs.getBool('onboarding_done') ?? false;
+    _aiCoachEnabled = prefs.getBool('ai_coach_enabled') ?? true;
 
     // User-defined goals
     _calorieGoal = prefs.getInt('calorie_goal') ?? kDefaultCalorieGoal;
@@ -1438,6 +1452,7 @@ class FitnessProvider extends ChangeNotifier {
     if (!prefs.containsKey('protein_goal')) await prefs.setInt('protein_goal',    _proteinGoal);
     if (!prefs.containsKey('water_goal_ml')) await prefs.setInt('water_goal_ml', _waterGoalMl);
     if (!prefs.containsKey('step_goal'))    await prefs.setInt('step_goal',       _stepGoal);
+    if (!prefs.containsKey('ai_coach_enabled')) await prefs.setBool('ai_coach_enabled', _aiCoachEnabled);
 
     // Always reset today's data first (handles midnight day-change case)
     _todayFood = [];

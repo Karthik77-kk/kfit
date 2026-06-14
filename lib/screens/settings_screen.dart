@@ -259,9 +259,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // ── AI COACH ──────────────────────────────────────────────
           _Header('AI Coach'),
-          const _AiStatusTile(),
-          const SizedBox(height: 8),
-          _AiAutoLoadTile(),
+          _AiCoachEnabledTile(),
+          if (p.aiCoachEnabled) ...[
+            const SizedBox(height: 8),
+            const _AiStatusTile(),
+            const SizedBox(height: 8),
+            _AiAutoLoadTile(),
+          ],
           const SizedBox(height: 20),
 
           // ── DATA ──────────────────────────────────────────────────
@@ -684,6 +688,35 @@ class _Tile extends StatelessWidget {
       ),
     ),
   );
+}
+
+// ── AI Coach enable/disable toggle ────────────────────────────────────────────
+class _AiCoachEnabledTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    return Material(
+      // Material carries the colour so the SwitchListTile's ink stays visible.
+      color: const Color(0xFF1C1C1E),
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        secondary: const Icon(Icons.smart_toy_rounded, color: Color(0xFF30D158)),
+        title: const Text('Enable AI Coach',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          p.aiCoachEnabled
+              ? 'Shown on Home and available for chat'
+              : 'Hidden from Home — turn on to use the coach again',
+          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+        ),
+        value: p.aiCoachEnabled,
+        activeColor: const Color(0xFF30D158),
+        onChanged: (v) => context.read<FitnessProvider>().saveAiCoachEnabled(v),
+      ),
+    );
+  }
 }
 
 // ── AI Auto-load toggle ───────────────────────────────────────────────────────
