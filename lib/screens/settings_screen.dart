@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import '../app_info.dart';
+import '../theme/app_tokens.dart';
 import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
 import 'chat_screen.dart' show openChat;
@@ -296,6 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF1C1C1E),
               borderRadius: BorderRadius.circular(14),
+              boxShadow: AppShadows.card,
               border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
             ),
             child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -345,6 +347,7 @@ class _SmartGoalsTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(14),
+        boxShadow: AppShadows.card,
         border: Border.all(color: const Color(0xFF40C8E0).withValues(alpha: 0.3)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
