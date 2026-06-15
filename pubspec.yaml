@@ -32,6 +32,19 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+
+# App launcher icon — generated from assets/icon/app_icon.png via:
+#   dart run flutter_launcher_icons
+# Adaptive icon (Android 8+) gets the device's rounded/squircle mask; the dark
+# background blends with the artwork's own dark frame.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#0A0A0B"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
