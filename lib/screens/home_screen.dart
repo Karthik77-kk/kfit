@@ -454,7 +454,7 @@ class _NotificationBell extends StatelessWidget {
                 unread > 9 ? '9+' : '$unread',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                    color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -503,7 +503,12 @@ class _ActivityRingsCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppShadows.card,
+        border: const Border(top: BorderSide(color: AppColors.rim, width: 1)),
+      ),
       child: Row(children: [
         SizedBox(
           width: 110, height: 110,
@@ -569,7 +574,7 @@ class _RingRow extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 2),
-      Text(value, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+      Text(value, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11)),
     ]);
   }
 }
@@ -690,7 +695,12 @@ class _CalorieRingTile extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppShadows.card,
+        border: const Border(top: BorderSide(color: AppColors.rim, width: 1)),
+      ),
       child: Column(
         children: [
           const Text('Calorie Balance',
@@ -701,6 +711,15 @@ class _CalorieRingTile extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // Soft ambient glow behind the hero ring.
+                Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: AppShadows.glow(_kGreen),
+                  ),
+                ),
                 TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: eaten),
                   duration: reduceMotion(context) ? Duration.zero : AppDurations.ring,
@@ -847,7 +866,7 @@ class _MacroRow extends StatelessWidget {
     final proteinGoal = p.proteinGoal;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Row(
         children: [
           Expanded(child: _MacroChip(
@@ -890,7 +909,7 @@ class _MacroChip extends StatelessWidget {
       Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
       const SizedBox(height: 4),
       Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
-      Text(goal, style: const TextStyle(color: _kSecond, fontSize: 10)),
+      Text(goal, style: const TextStyle(color: _kSecond, fontSize: 11)),
       const SizedBox(height: 6),
       ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -913,7 +932,7 @@ class _BurnBreakdownTile extends StatelessWidget {
     final p = context.watch<FitnessProvider>();
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1016,7 +1035,7 @@ class _BurnChip extends StatelessWidget {
         Text('$value kcal',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
         Text(label,
-            style: const TextStyle(fontSize: 10, color: _kSecond)),
+            style: const TextStyle(fontSize: 11, color: _kSecond)),
       ]),
     );
   }
@@ -1064,7 +1083,7 @@ class _MiniRingCard extends StatelessWidget {
     final progress = (current / goal).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(icon, style: const TextStyle(fontSize: 18)),
@@ -1101,7 +1120,7 @@ class _BodyStatsTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 0),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           const Text('Body Stats', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
@@ -1150,7 +1169,7 @@ class _StatChip extends StatelessWidget {
         Text(emoji, style: const TextStyle(fontSize: 14)),
         const SizedBox(width: 5),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
+          Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
           Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600)),
         ]),
       ]),
@@ -1177,7 +1196,12 @@ class _WeightPredictionCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppShadows.card,
+        border: const Border(top: BorderSide(color: AppColors.rim, width: 1)),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           const Text('🤖', style: TextStyle(fontSize: 18)),
@@ -1255,7 +1279,7 @@ class _PredStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(children: [
     Text(v, style: TextStyle(color: c, fontSize: 14, fontWeight: FontWeight.bold)),
-    Text(l, style: const TextStyle(color: _kSecond, fontSize: 10)),
+    Text(l, style: const TextStyle(color: _kSecond, fontSize: 11)),
   ]);
 }
 
@@ -1350,7 +1374,7 @@ class _WorkoutCard extends StatelessWidget {
     if (workouts.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
         child: Row(children: [
           Container(padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: _kGreen.withOpacity(0.1), shape: BoxShape.circle),
@@ -1400,7 +1424,7 @@ class _SupplementsCard extends StatelessWidget {
     final done = items.where((e) => e.$2).length;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text('$done/${items.length} taken', style: const TextStyle(color: _kSecond, fontSize: 12)),
@@ -1422,7 +1446,7 @@ class _SupplementsCard extends StatelessWidget {
               Text(item.$3, style: const TextStyle(fontSize: 20)),
               const SizedBox(height: 4),
               Text(item.$1, style: TextStyle(
-                color: item.$2 ? _kGreen : _kSecond, fontSize: 10, fontWeight: FontWeight.w500)),
+                color: item.$2 ? _kGreen : _kSecond, fontSize: 11, fontWeight: FontWeight.w500)),
             ]),
           ),
         ))).toList()),
@@ -1448,7 +1472,12 @@ class _WeeklyReportCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppShadows.card,
+        border: const Border(top: BorderSide(color: AppColors.rim, width: 1)),
+      ),
       child: Column(children: [
         // ── 7-day workout grid (rolling, today = last) ──────────────────
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1546,7 +1575,7 @@ class _WeekStat extends StatelessWidget {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (icon != null) ...[Icon(icon, color: color, size: 14), const SizedBox(height: 4)],
       Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
-      Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
+      Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
     ]),
   ));
 }
@@ -1666,7 +1695,7 @@ class _WeeklyCalorieChart extends StatelessWidget {
                       data[idx]['label'] as String,
                       style: TextStyle(
                         color: idx == data.length - 1 ? _kGreen : _kSecond,
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: idx == data.length - 1 ? FontWeight.w700 : FontWeight.w400,
                       ),
                     ),
@@ -1684,7 +1713,7 @@ class _WeeklyCalorieChart extends StatelessWidget {
                   final k = v / 1000;
                   return Text(
                     '${k.toStringAsFixed(v % 1000 == 0 ? 0 : 1)}k',
-                    style: const TextStyle(color: _kSecond, fontSize: 9),
+                    style: const TextStyle(color: _kSecond, fontSize: 11),
                   );
                 },
               ),
@@ -1745,7 +1774,7 @@ class _WeeklyCalorieChart extends StatelessWidget {
                 labelResolver: (_) => '  goal',
                 style: TextStyle(
                   color: _kOrange.withOpacity(0.8),
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1782,7 +1811,7 @@ class _MacroDonutCard extends StatelessWidget {
     if (total < 1) {
       return Container(
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
         child: const Center(
           child: Text('Log food to see macro breakdown',
               style: TextStyle(color: _kSecond, fontSize: 13)),
@@ -1813,7 +1842,7 @@ class _MacroDonutCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Row(
         children: [
           SizedBox(
@@ -1839,7 +1868,7 @@ class _MacroDonutCard extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             fontSize: 16)),
                     const Text('kcal',
-                        style: TextStyle(color: _kSecond, fontSize: 10)),
+                        style: TextStyle(color: _kSecond, fontSize: 11)),
                   ],
                 ),
               ],
@@ -1876,7 +1905,7 @@ class _MacroDonutCard extends StatelessWidget {
                 if (estimated) ...[
                   const SizedBox(height: 8),
                   const Text('* carbs & fat are estimated',
-                      style: TextStyle(color: _kSecond, fontSize: 10)),
+                      style: TextStyle(color: _kSecond, fontSize: 11)),
                 ],
               ],
             ),

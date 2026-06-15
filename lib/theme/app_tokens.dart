@@ -20,16 +20,42 @@ abstract final class AppColors {
   static const Color orange = Color(0xFFFF9F0A); // warning / eaten
   static const Color indigo = Color(0xFF5E5CE6); // rare accent
 
-  // Surfaces (near-black, OLED-friendly)
-  static const Color background = Color(0xFF000000);
-  static const Color card = Color(0xFF1C1C1E);
-  static const Color surface2 = Color(0xFF2C2C2E); // inputs, raised chips
+  // Surfaces (near-black, OLED-friendly). Depth on black comes from surface
+  // lightness, not drop shadows — higher number = lighter = "closer".
+  static const Color background = Color(0xFF000000); // canvas
+  static const Color card = Color(0xFF1C1C1E); // L1 primary cards
+  static const Color surface2 = Color(0xFF2C2C2E); // L2 inputs, raised chips
+  static const Color surface3 = Color(0xFF26262C); // L3 bottom sheets, dialogs
+  static const Color surface4 = Color(0xFF2F2F36); // L4 popovers, menus
   static const Color navBackground = Color(0xFF111111);
+
+  // A 1px top highlight that catches "light" so a card lifts off the pure-black
+  // canvas (where a drop shadow alone is nearly invisible).
+  static const Color rim = Color(0x14FFFFFF); // white @ ~8%
 
   // Text / lines
   static const Color textPrimary = Colors.white;
   static const Color muted = Color(0xFF8E8E93); // secondary text
   static const Color border = Color(0xFF38383A); // hairline dividers
+}
+
+/// Soft, tinted shadows. On near-black a blue-black shadow reads where pure
+/// black can't — this is the default "lift" baked into [AppCard].
+abstract final class AppShadows {
+  static const List<BoxShadow> card = [
+    BoxShadow(
+      color: Color(0x73000814), // blue-black @ ~45%
+      blurRadius: 24,
+      offset: Offset(0, 8),
+      spreadRadius: -6,
+    ),
+  ];
+
+  /// A coloured ambient glow (e.g. behind a hero ring or number).
+  static List<BoxShadow> glow(Color c) => [
+        BoxShadow(
+            color: c.withValues(alpha: 0.18), blurRadius: 32, spreadRadius: -8),
+      ];
 }
 
 /// 8-pt-ish spacing scale. Named steps keep padding/gaps consistent.

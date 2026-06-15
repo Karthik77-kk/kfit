@@ -5,6 +5,11 @@ import '../../theme/app_tokens.dart';
 /// [AppColors.card] surface. When [onTap] is provided it uses an [InkWell] so
 /// taps get a Material ripple (replacing bare `GestureDetector`s). Pass
 /// [gradient] / [border] for accent cards (e.g. the AI Coach entry).
+///
+/// By default the card is [elevated]: it gets a soft blue-black shadow plus a
+/// 1px top rim-light, so it lifts off the pure-black canvas. Set
+/// `elevated: false` for flat nested tiles, or pass an explicit [boxShadow] /
+/// [border] to override.
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -14,6 +19,7 @@ class AppCard extends StatelessWidget {
   final BoxBorder? border;
   final VoidCallback? onTap;
   final List<BoxShadow>? boxShadow;
+  final bool elevated;
 
   const AppCard({
     super.key,
@@ -25,18 +31,25 @@ class AppCard extends StatelessWidget {
     this.border,
     this.onTap,
     this.boxShadow,
+    this.elevated = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final br = BorderRadius.circular(radius);
+    final effectiveShadow =
+        boxShadow ?? (elevated ? AppShadows.card : null);
+    final effectiveBorder = border ??
+        (elevated
+            ? const Border(top: BorderSide(color: AppColors.rim, width: 1))
+            : null);
     final decorated = Container(
       decoration: BoxDecoration(
         color: gradient == null ? color : null,
         gradient: gradient,
         borderRadius: br,
-        border: border,
-        boxShadow: boxShadow,
+        border: effectiveBorder,
+        boxShadow: effectiveShadow,
       ),
       child: onTap == null
           ? Padding(padding: padding, child: child)
