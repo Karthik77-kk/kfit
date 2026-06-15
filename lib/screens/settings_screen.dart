@@ -349,7 +349,7 @@ class _SmartGoalsTile extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Row(children: [
-          Text('🧬', style: TextStyle(fontSize: 16)),
+          Icon(Icons.science_rounded, size: 16, color: Color(0xFF40C8E0)),
           SizedBox(width: 8),
           Expanded(
             child: Text('Calculated from your body data',

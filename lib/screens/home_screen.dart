@@ -1234,7 +1234,7 @@ class _WeightPredictionCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(children: [
-              const Text('🎯', style: TextStyle(fontSize: 14)),
+              const Icon(Icons.flag_rounded, size: 15, color: _kGreen),
               const SizedBox(width: 8),
               Expanded(child: Text(
                 'At this rate you\'ll reach ${p.goalWeightKg.toStringAsFixed(1)} kg by ${DateFormat('d MMMM yyyy').format(goalDate)}',
