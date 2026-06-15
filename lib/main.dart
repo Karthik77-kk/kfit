@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -163,43 +162,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    // The body extends behind the translucent nav so the blur has live content
-    // to frost. We add the nav height back to BOTH padding (for scroll content /
-    // SafeArea) and viewPadding (Scaffold places FABs against viewPadding — this
-    // is what keeps FoodScreen's "Add Food" button above the nav).
-    const cushion = kBottomNavigationBarHeight;
     return Scaffold(
-      extendBody: true,
+      // NOTE: a true frosted nav (extendBody + BackdropFilter) was reverted — it
+      // tucked bottom-anchored controls (e.g. Water's +150/+250/+500 buttons)
+      // under the nav. The nav reserves its own space; a proper glass pass needs
+      // a per-screen bottom-inset audit first.
       // IndexedStack keeps all tabs mounted (scroll positions, sub-tab
       // selections, Home's entrance animation) and offstage-hides the inactive
       // ones; the FadeTransition fades the active tab in on each switch.
-      body: MediaQuery(
-        data: mq.copyWith(
-          padding: mq.padding.copyWith(bottom: mq.padding.bottom + cushion),
-          viewPadding:
-              mq.viewPadding.copyWith(bottom: mq.viewPadding.bottom + cushion),
-        ),
-        child: FadeTransition(
-          opacity: _tabFade,
-          child: IndexedStack(index: _index, children: _screens),
-        ),
+      body: FadeTransition(
+        opacity: _tabFade,
+        child: IndexedStack(index: _index, children: _screens),
       ),
-      // Frosted-glass nav — blurred, translucent surface over scrolling content.
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: AppColors.navBackground.withValues(alpha: 0.78),
-              border: const Border(
-                top: BorderSide(color: AppColors.border, width: 0.5),
-              ),
-            ),
-            child: BottomNavigationBar(
-              backgroundColor: Colors.transparent,
-              currentIndex: _index,
-              onTap: _onTabTap,
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppColors.navBackground,
+          border: Border(
+            top: BorderSide(color: AppColors.border, width: 0.5),
+          ),
+        ),
+        child: BottomNavigationBar(
+          backgroundColor: Colors.transparent,
+          currentIndex: _index,
+          onTap: _onTabTap,
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.house_outlined, size: 24),
@@ -229,8 +214,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
           ],
             ),
           ),
-        ),
-      ),
     );
   }
 }
