@@ -7,7 +7,6 @@ const _kGreen = Color(0xFF30D158);
 const _kBlue = Color(0xFF40C8E0);
 const _kRed = Color(0xFFFF453A);
 const _kOrange = Color(0xFFFF9F0A);
-const _kIndigo = Color(0xFF5E5CE6);
 
 /// Category — used to keep the top-N insights varied (max one per category).
 enum InsightCategory {
@@ -327,7 +326,7 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
       title: 'Only ${p.weeklyWorkoutDays} workouts this week',
       body: 'Aim for 3–4 sessions weekly to retain muscle in a deficit. '
           'You\'ve got the weekend — fit one or two in.',
-      accent: _kIndigo,
+      accent: _kBlue,
       category: InsightCategory.workout,
       score: 57,
     ));
@@ -491,7 +490,7 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
       body: 'Your data shows you eat noticeably more on weekends. Plan today\'s '
           'meals ahead and keep one high-protein, high-volume option ready to '
           'stay in control.',
-      accent: _kIndigo,
+      accent: _kBlue,
       category: InsightCategory.nutrition,
       score: 59,
     ));
@@ -505,7 +504,7 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
       body: 'Your logs show >25% of your meals happening after 9 PM. Late meals '
           'spike insulin before sleep and hurt fat burn. Front-load calories — '
           'bigger breakfast, smaller dinner.',
-      accent: _kIndigo,
+      accent: _kBlue,
       category: InsightCategory.nutrition,
       score: 74,
     ));

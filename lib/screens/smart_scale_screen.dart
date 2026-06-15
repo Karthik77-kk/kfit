@@ -379,7 +379,7 @@ class _HistoryTab extends StatelessWidget {
               _Pill('Fat ${e.bodyFatPercent.toStringAsFixed(1)}%', const Color(0xFFFF9F0A)),
               _Pill('Muscle ${e.muscleMassKg.toStringAsFixed(1)}kg', const Color(0xFF30D158)),
               _Pill('Water ${e.bodyWaterPercent.toStringAsFixed(1)}%', const Color(0xFF40C8E0)),
-              _Pill('BMR ${e.bmr.toStringAsFixed(0)} kcal', const Color(0xFF5E5CE6)),
+              _Pill('BMR ${e.bmr.toStringAsFixed(0)} kcal', const Color(0xFFFF9F0A)),
               _Pill('Bio Age ${e.biologicalAge}', Colors.white54),
               _Pill('Visceral ${e.visceralFatIndex}', Colors.white54),
             ]),
