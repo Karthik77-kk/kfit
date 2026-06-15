@@ -95,7 +95,7 @@ class _WeeklyRecapScreenState extends State<WeeklyRecapScreen> {
       decimals: 0,
       big: 'Habit score',
       caption: insight.title,
-      colors: const [AppColors.indigo, Color(0xFF3A2E8C)],
+      colors: const [AppColors.green, Color(0xFF1E7A3C)],
     ));
 
     return slides;

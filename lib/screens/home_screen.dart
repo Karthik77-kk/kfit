@@ -985,7 +985,7 @@ class _BurnBreakdownTile extends StatelessWidget {
           const SizedBox(height: 12),
           Row(children: [
             Expanded(child: _BurnChip(icon: '😴', label: 'Resting',
-                value: p.restingCaloriesBurned.round(), color: const Color(0xFF5E5CE6))),
+                value: p.restingCaloriesBurned.round(), color: _kBlue)),
             const SizedBox(width: 8),
             Expanded(child: _BurnChip(icon: '👟', label: 'Walking',
                 value: p.walkingCaloriesBurned.round(), color: _kBlue)),
@@ -1144,7 +1144,7 @@ class _BodyStatsTile extends StatelessWidget {
               _StatChip('🔥', 'Body Fat', '${scale.bodyFatPercent.toStringAsFixed(1)}%', _kOrange),
               _StatChip('💪', 'Muscle', '${scale.muscleMassKg.toStringAsFixed(1)} kg', _kGreen),
               _StatChip('💧', 'Water', '${scale.bodyWaterPercent.toStringAsFixed(1)}%', _kBlue),
-              _StatChip('🧬', 'Bio Age', '${scale.biologicalAge} yr', const Color(0xFF5E5CE6)),
+              _StatChip('🧬', 'Bio Age', '${scale.biologicalAge} yr', _kBlue),
             ],
           ],
         ),

@@ -18,7 +18,6 @@ abstract final class AppColors {
   static const Color blue = Color(0xFF40C8E0); // secondary
   static const Color red = Color(0xFFFF453A); // error / over-goal
   static const Color orange = Color(0xFFFF9F0A); // warning / eaten
-  static const Color indigo = Color(0xFF5E5CE6); // rare accent
 
   // Surfaces (near-black, OLED-friendly). Depth on black comes from surface
   // lightness, not drop shadows — higher number = lighter = "closer".
