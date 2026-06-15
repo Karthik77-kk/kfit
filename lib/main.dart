@@ -170,13 +170,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         opacity: _tabFade,
         child: IndexedStack(index: _index, children: _screens),
       ),
-      bottomNavigationBar: Container(
+      bottomNavigationBar: DecoratedBox(
         decoration: const BoxDecoration(
+          color: AppColors.navBackground,
           border: Border(
-            top: BorderSide(color: Color(0xFF38383A), width: 0.5),
+            top: BorderSide(color: AppColors.border, width: 0.5),
           ),
         ),
         child: BottomNavigationBar(
+          backgroundColor: Colors.transparent,
           currentIndex: _index,
           onTap: _onTabTap,
           items: const [
@@ -206,8 +208,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
               label: 'History',
             ),
           ],
-        ),
-      ),
+            ),
+          ),
     );
   }
 }

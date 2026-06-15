@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
 import '../services/chat_session_service.dart';
@@ -352,16 +353,61 @@ class _DownloadingView extends StatelessWidget {
 
 class _LoadingView extends StatelessWidget {
   @override
-  Widget build(BuildContext context) => const Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          CircularProgressIndicator(color: _kGreen, strokeWidth: 2.5),
-          SizedBox(height: 16),
-          Text('Loading model into GPU memory…',
-              style: TextStyle(color: _kSecond, fontSize: 13)),
-          SizedBox(height: 6),
-          Text('First load takes ~5 seconds',
-              style: TextStyle(color: _kSecond, fontSize: 11)),
-        ]),
+  Widget build(BuildContext context) => Column(
+        children: [
+          // Shimmer chat bubbles read as "a conversation is loading" rather than
+          // a bare spinner.
+          Expanded(
+            child: Skeletonizer(
+              enabled: true,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                children: const [
+                  _SkeletonBubble(isUser: false, width: 230),
+                  SizedBox(height: 12),
+                  _SkeletonBubble(isUser: true, width: 150),
+                  SizedBox(height: 12),
+                  _SkeletonBubble(isUser: false, width: 270),
+                ],
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16, top: 4),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('Loading model into GPU memory…',
+                  style: TextStyle(color: _kSecond, fontSize: 13)),
+              SizedBox(height: 4),
+              Text('First load takes ~5 seconds',
+                  style: TextStyle(color: _kSecond, fontSize: 11)),
+            ]),
+          ),
+        ],
+      );
+}
+
+class _SkeletonBubble extends StatelessWidget {
+  final bool isUser;
+  final double width;
+  const _SkeletonBubble({required this.isUser, required this.width});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          Container(
+            width: width,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+                color: _kCard, borderRadius: BorderRadius.circular(14)),
+            child: const Text(
+              'Loading a line of the reply so the shape reads as a message',
+              maxLines: 2,
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+          ),
+        ],
       );
 }
 

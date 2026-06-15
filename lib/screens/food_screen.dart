@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../services/food_api_service.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/date_picker_chip.dart';
+import '../widgets/kit/kit.dart';
 
 /// Call this from any context (standalone or embedded) to open the Add Food sheet.
 void showAddFoodSheet(BuildContext context) {
@@ -486,11 +487,11 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 final sel = grams.round() == g;
                 return Expanded(child: Padding(
                   padding: const EdgeInsets.only(right: 4),
-                  child: GestureDetector(
+                  child: AppTappable(
                     onTap: () { gCtrl.text = '$g'; setD(() {}); },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
                         color: sel
                             ? const Color(0xFF40C8E0).withValues(alpha: 0.18)
                             : Colors.white.withValues(alpha: 0.05),
@@ -510,7 +511,6 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                             fontSize: 12,
                             fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                           )),
-                    ),
                   ),
                 ));
               }).toList()),
@@ -779,10 +779,11 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 children: MealType.values.map((mt) {
                   const labels = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
                   final sel = _selectedMeal == mt;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedMeal = mt),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 8),
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: AppTappable(
+                      onTap: () => setState(() => _selectedMeal = mt),
+                      borderRadius: BorderRadius.circular(20),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                       decoration: BoxDecoration(
                         color: sel ? const Color(0xFF30D158) : Colors.white.withOpacity(0.08),
@@ -1085,15 +1086,16 @@ class _QtyBtn extends StatelessWidget {
   const _QtyBtn({required this.icon, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return AppTappable(
       onTap: onTap,
-      child: Container(
+      customBorder: const CircleBorder(),
+      decoration: BoxDecoration(
+        color: const Color(0xFF30D158).withOpacity(0.15),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF30D158).withOpacity(0.4)),
+      ),
+      child: SizedBox(
         width: 44, height: 44,
-        decoration: BoxDecoration(
-          color: const Color(0xFF30D158).withOpacity(0.15),
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFF30D158).withOpacity(0.4)),
-        ),
         child: Icon(icon, color: const Color(0xFF30D158), size: 20),
       ),
     );
@@ -1172,7 +1174,7 @@ class _RecentFoodsRow extends StatelessWidget {
         Wrap(
           spacing: 8, runSpacing: 6,
           children: recents.map((src) {
-            return GestureDetector(
+            return AppTappable(
               onTap: () {
                 // Replay the stored entry into the current meal with a fresh id
                 // and timestamp (UUID, not ms — avoids duplicate-key crashes).
@@ -1194,9 +1196,9 @@ class _RecentFoodsRow extends StatelessWidget {
                   duration: const Duration(seconds: 2),
                 ));
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
                   color: const Color(0xFF2C2C2E),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFF3A3A3C)),
@@ -1212,7 +1214,6 @@ class _RecentFoodsRow extends StatelessWidget {
                   Text('${src.calories.round()}kcal',
                       style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
                 ]),
-              ),
             );
           }).toList(),
         ),

@@ -36,6 +36,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Timer _refreshTimer;
   bool _showEmptySections = false;
+  // The entrance stagger is a ONE-SHOT for the initial load only. After this
+  // flips true, sections render with no animation — so fast-scrolling never
+  // leaves later sections blank (they appear instantly as they enter view).
+  bool _entered = false;
+  Timer? _entryTimer;
   final ConfettiController _confetti =
       ConfettiController(duration: const Duration(seconds: 2));
 
@@ -45,10 +50,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (mounted) setState(() {});
     });
+    // End the entrance window after the above-the-fold sweep has played.
+    _entryTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => _entered = true);
+    });
   }
 
   @override
   void dispose() {
+    _entryTimer?.cancel();
     _refreshTimer.cancel();
     _confetti.dispose();
     super.dispose();
@@ -337,11 +347,16 @@ class _HomeScreenState extends State<HomeScreen> {
   /// unchanged when the OS "reduce motion" setting is on. Spacers are passed
   /// through untouched so the stagger reads as one section after another.
   List<Widget> _staggerIn(BuildContext context, List<Widget> items) {
-    if (reduceMotion(context)) return items;
+    // After the one-shot entrance window (or under reduce-motion) render plainly
+    // so scrolling is instant and nothing ever waits behind a delay.
+    if (_entered || reduceMotion(context)) return items;
+    // Only the first few (above-the-fold) sections animate. Sections reached by
+    // scrolling are never wrapped, so a fast scroll can't leave them blank.
+    const cap = 6;
     final out = <Widget>[];
     var step = 0;
     for (final w in items) {
-      if (w is SizedBox) {
+      if (w is SizedBox || step >= cap) {
         out.add(w);
       } else {
         out.add(w
@@ -463,7 +478,7 @@ class _StreakBadge extends StatelessWidget {
         border: Border.all(color: _kOrange.withOpacity(0.3)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Text('🔥', style: TextStyle(fontSize: 14)),
+        const Icon(Icons.local_fire_department_rounded, size: 14, color: _kOrange),
         const SizedBox(width: 4),
         Text('$streak day${streak == 1 ? '' : 's'}', style: const TextStyle(
           color: _kOrange, fontSize: 12, fontWeight: FontWeight.w600,
@@ -492,16 +507,11 @@ class _ActivityRingsCard extends StatelessWidget {
       child: Row(children: [
         SizedBox(
           width: 110, height: 110,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0, end: 1),
-            duration: reduceMotion(context) ? Duration.zero : AppDurations.ring,
-            curve: AppCurves.emphasized,
-            builder: (_, t, __) => CustomPaint(
-              painter: _RingsPainter(
-                values: [calRaw * t, protRaw * t, watRaw * t],
-                colors: const [_kRed, _kGreen, _kBlue],
-              ),
-            ),
+          child: Semantics(
+            label: 'Activity rings: calories ${(calRaw * 100).round()} percent, '
+                'protein ${(protRaw * 100).round()} percent, '
+                'water ${(watRaw * 100).round()} percent of goal',
+            child: _AnimatedRings(values: [calRaw, protRaw, watRaw]),
           ),
         ),
         const SizedBox(width: 18),
@@ -561,6 +571,41 @@ class _RingRow extends StatelessWidget {
       const SizedBox(height: 2),
       Text(value, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
     ]);
+  }
+}
+
+/// Drives [_RingsPainter] so each ring both sweeps on from zero (entry) AND
+/// animates the delta when a value changes mid-session — TweenAnimationBuilder
+/// animates from the current value to the new `end`, so logging food now glides
+/// the ring to its new fill instead of snapping.
+class _AnimatedRings extends StatelessWidget {
+  final List<double> values; // [calories, protein, water] raw ratios (unclamped)
+  const _AnimatedRings({required this.values});
+
+  @override
+  Widget build(BuildContext context) {
+    final dur = reduceMotion(context) ? Duration.zero : AppDurations.ring;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: values[0]),
+      duration: dur,
+      curve: AppCurves.emphasized,
+      builder: (_, cal, __) => TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: values[1]),
+        duration: dur,
+        curve: AppCurves.emphasized,
+        builder: (_, prot, __) => TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: values[2]),
+          duration: dur,
+          curve: AppCurves.emphasized,
+          builder: (_, wat, __) => CustomPaint(
+            painter: _RingsPainter(
+              values: [cal, prot, wat],
+              colors: const [_kRed, _kGreen, _kBlue],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -657,21 +702,31 @@ class _CalorieRingTile extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0, end: 1),
+                  tween: Tween<double>(begin: 0, end: eaten),
                   duration: reduceMotion(context) ? Duration.zero : AppDurations.ring,
                   curve: AppCurves.emphasized,
-                  builder: (_, t, __) => CustomPaint(
-                    size: const Size(180, 180),
-                    painter: _CalorieRingPainter(
-                        eaten: eaten * t, burned: burned * t, goal: goal),
+                  builder: (_, e, __) => TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0, end: burned),
+                    duration:
+                        reduceMotion(context) ? Duration.zero : AppDurations.ring,
+                    curve: AppCurves.emphasized,
+                    builder: (_, b, __) => CustomPaint(
+                      size: const Size(180, 180),
+                      painter: _CalorieRingPainter(eaten: e, burned: b, goal: goal),
+                    ),
                   ),
                 ),
-                CountUpText(
-                  net,
-                  signed: true,
-                  style: TextStyle(
-                    fontSize: 34, fontWeight: FontWeight.w800,
-                    color: net > 200 ? _kRed : net < -200 ? _kGreen : Colors.white,
+                Semantics(
+                  // Announce status in words so it doesn't rely on colour alone.
+                  label: 'Net ${net >= 0 ? '+' : ''}${net.round()} kilocalories, '
+                      '${net >= 0 ? 'surplus' : 'deficit'}',
+                  child: CountUpText(
+                    net,
+                    signed: true,
+                    style: TextStyle(
+                      fontSize: 34, fontWeight: FontWeight.w800,
+                      color: net > 200 ? _kRed : net < -200 ? _kGreen : Colors.white,
+                    ),
                   ),
                 ),
               ],

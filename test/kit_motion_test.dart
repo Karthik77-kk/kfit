@@ -73,6 +73,48 @@ void main() {
     });
   });
 
+  group('AppTappable', () {
+    testWidgets('fires onTap and shows an InkWell ripple', (tester) async {
+      var taps = 0;
+      await pumpReduced(
+        tester,
+        AppTappable(onTap: () => taps++, child: const Text('chip')),
+      );
+      expect(find.byType(InkWell), findsOneWidget);
+      await tester.tap(find.text('chip'));
+      expect(taps, 1);
+    });
+
+    testWidgets('decoration mode paints via Ink (ripple over a fill)',
+        (tester) async {
+      await pumpReduced(
+        tester,
+        AppTappable(
+          onTap: () {},
+          decoration: BoxDecoration(
+            color: Colors.green, borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.all(8),
+          child: const Text('filled'),
+        ),
+      );
+      expect(find.byType(Ink), findsOneWidget);
+      expect(find.text('filled'), findsOneWidget);
+    });
+
+    testWidgets('customBorder clips circular targets', (tester) async {
+      await pumpReduced(
+        tester,
+        const AppTappable(
+          customBorder: CircleBorder(),
+          child: SizedBox(width: 44, height: 44, child: Icon(Icons.add)),
+        ),
+      );
+      final inkWell = tester.widget<InkWell>(find.byType(InkWell));
+      expect(inkWell.customBorder, isA<CircleBorder>());
+      expect(inkWell.borderRadius, isNull);
+    });
+  });
+
   group('sharedAxisRoute', () {
     testWidgets('pushes to the destination page', (tester) async {
       await tester.pumpWidget(MaterialApp(

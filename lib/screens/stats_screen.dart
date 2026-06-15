@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../widgets/date_picker_chip.dart';
+import '../widgets/kit/kit.dart';
 
 const _kGreen  = Color(0xFF30D158);
 const _kBlue   = Color(0xFF40C8E0);
@@ -1276,19 +1277,18 @@ class _SexBtn extends StatelessWidget {
   const _SexBtn({required this.label, required this.selected, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => AppTappable(
     onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: selected ? const Color(0xFF30D158) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(label,
-          style: TextStyle(
-              color: selected ? Colors.black : const Color(0xFF8E8E93),
-              fontSize: 13, fontWeight: FontWeight.w600)),
+    borderRadius: BorderRadius.circular(8),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+    decoration: BoxDecoration(
+      color: selected ? const Color(0xFF30D158) : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
     ),
+    child: Text(label,
+        style: TextStyle(
+            color: selected ? Colors.black : const Color(0xFF8E8E93),
+            fontSize: 13, fontWeight: FontWeight.w600)),
   );
 }
 
