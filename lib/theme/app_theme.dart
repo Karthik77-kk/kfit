@@ -8,6 +8,9 @@ import 'app_tokens.dart';
 ThemeData buildAppTheme() {
   return ThemeData(
     brightness: Brightness.dark,
+    // Inter (variable) — a clean grotesk that reads more refined than Roboto.
+    // Bundled at assets/fonts/Inter.ttf; fontWeight maps to its `wght` axis.
+    fontFamily: 'Inter',
     colorScheme: const ColorScheme.dark(
       primary: AppColors.green,
       secondary: AppColors.blue,
