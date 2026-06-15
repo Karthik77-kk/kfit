@@ -470,7 +470,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                     maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Row(children: [
-                  const Text('🌐', style: TextStyle(fontSize: 11)),
+                  const Icon(Icons.public_rounded, size: 12, color: Color(0xFF40C8E0)),
                   const SizedBox(width: 4),
                   Text(
                     '${item.source} · per 100g: ${item.calories100g.round()} kcal, '
@@ -943,7 +943,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                             width: double.infinity,
                             child: OutlinedButton.icon(
                               onPressed: () => _searchOnline(context),
-                              icon: const Text('🌐', style: TextStyle(fontSize: 14)),
+                              icon: const Icon(Icons.public_rounded, size: 16),
                               label: const Text('Search online food database'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF40C8E0),
@@ -983,7 +983,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
                         child: Row(children: [
-                          const Text('🌐 ', style: TextStyle(fontSize: 11)),
+                          const Icon(Icons.public_rounded, size: 12, color: Color(0xFF40C8E0)),
+                          const SizedBox(width: 4),
                           Text(
                             'Online results  ·  values per 100 g',
                             style: TextStyle(
@@ -1002,7 +1003,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Center(
-                            child: Text('🌐', style: TextStyle(fontSize: 16)),
+                            child: Icon(Icons.public_rounded, size: 18, color: Color(0xFF40C8E0)),
                           ),
                         ),
                         title: Text(
