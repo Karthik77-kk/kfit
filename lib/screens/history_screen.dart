@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+import '../theme/app_tokens.dart';
 import '../widgets/app_empty_state.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -121,6 +122,7 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
           decoration: BoxDecoration(
             color: const Color(0xFF1C1C1E),
             borderRadius: BorderRadius.circular(14),
+            boxShadow: AppShadows.card,
           ),
           child: Column(
             children: [
@@ -297,7 +299,7 @@ class _NutritionHistory extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
+              color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card),
           child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(day, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -394,6 +396,7 @@ class _WeightHistory extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF1C1C1E),
               borderRadius: BorderRadius.circular(14),
+              boxShadow: AppShadows.card,
             ),
             height: 220,
             child: LineChart(
@@ -515,6 +518,7 @@ class _WeightHistory extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF1C1C1E),
               borderRadius: BorderRadius.circular(14),
+              boxShadow: AppShadows.card,
             ),
             child: Row(
               children: [
@@ -595,7 +599,7 @@ class _WaterHistory extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
+              color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(child: Text(day,

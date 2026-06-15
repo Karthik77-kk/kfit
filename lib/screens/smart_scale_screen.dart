@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+import '../theme/app_tokens.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/date_picker_chip.dart';
 
@@ -361,6 +362,7 @@ class _HistoryTab extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF1C1C1E),
             borderRadius: BorderRadius.circular(14),
+            boxShadow: AppShadows.card,
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [

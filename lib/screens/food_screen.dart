@@ -8,6 +8,7 @@ import '../services/food_api_service.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/date_picker_chip.dart';
 import '../widgets/kit/kit.dart';
+import '../theme/app_tokens.dart';
 
 /// Call this from any context (standalone or embedded) to open the Add Food sheet.
 void showAddFoodSheet(BuildContext context) {
@@ -235,6 +236,7 @@ class _FoodEntryTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(14),
+        boxShadow: AppShadows.card,
         border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
       ),
       child: Row(

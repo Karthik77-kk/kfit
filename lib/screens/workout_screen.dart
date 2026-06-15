@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
+import '../theme/app_tokens.dart';
 import 'package:uuid/uuid.dart';
 
 /// Summarises a set list honestly. When all sets share the same reps & weight
@@ -516,6 +517,7 @@ class _TodayWorkoutSummary extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(14),
+        boxShadow: AppShadows.card,
         border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
       ),
       child: Column(
@@ -576,6 +578,7 @@ class _ExerciseCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(14),
+        boxShadow: AppShadows.card,
       ),
       child: Row(children: [
         Expanded(
