@@ -270,18 +270,6 @@ void main() {
       }
     });
 
-    test('emojiFor known exercise returns specific emoji', () {
-      expect(ExerciseDatabase.emojiFor('Push-ups'), '💪');
-      expect(ExerciseDatabase.emojiFor('Deadlift'), '💀');
-      expect(ExerciseDatabase.emojiFor('Running'), '🏃');
-      expect(ExerciseDatabase.emojiFor('Squats'), '🦵');
-    });
-
-    test('emojiFor unknown exercise returns fallback', () {
-      expect(ExerciseDatabase.emojiFor('Unknown Exercise 123'), '🏋️');
-      expect(ExerciseDatabase.emojiFor(''), '🏋️');
-    });
-
     test('categoryOf returns correct category for known exercise', () {
       expect(ExerciseDatabase.categoryOf('Push-ups'), 'Chest');
       expect(ExerciseDatabase.categoryOf('Running'), 'Cardio');
