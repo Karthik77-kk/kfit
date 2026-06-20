@@ -20,7 +20,7 @@ class SupplementsScreen extends StatelessWidget {
 
           // ── Supplement cards ──────────────────────────────────────────────
           _SupplementCard(
-            emoji: '💪',
+            icon: Icons.fitness_center_rounded,
             name: 'Whey Protein',
             brand: 'Nutrabay Gold 100% Whey',
             amount: '1 scoop (25g protein)',
@@ -42,7 +42,7 @@ class SupplementsScreen extends StatelessWidget {
           const SizedBox(height: 12),
 
           _SupplementCard(
-            emoji: '⚡',
+            icon: Icons.bolt_rounded,
             name: 'Creatine Monohydrate',
             brand: 'Nutrabay Pure Micronised',
             amount: '3–5g daily',
@@ -60,7 +60,7 @@ class SupplementsScreen extends StatelessWidget {
           const SizedBox(height: 12),
 
           _SupplementCard(
-            emoji: '🌿',
+            icon: Icons.eco_rounded,
             name: 'Multivitamin',
             brand: 'MuscleBlaze MB-Vite',
             amount: '1 tablet daily',
@@ -182,7 +182,8 @@ class _ProgressHeader extends StatelessWidget {
 // ── Supplement card ────────────────────────────────────────────────────────────
 
 class _SupplementCard extends StatelessWidget {
-  final String emoji, name, brand, amount, timing, tip;
+  final IconData icon;
+  final String name, brand, amount, timing, tip;
   final Color color;
   final bool taken;
   final String nutritionSubtitle;
@@ -190,7 +191,7 @@ class _SupplementCard extends StatelessWidget {
   final ValueChanged<bool> onToggle;
 
   const _SupplementCard({
-    required this.emoji,
+    required this.icon,
     required this.name,
     required this.brand,
     required this.amount,
@@ -221,7 +222,7 @@ class _SupplementCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 26)),
+              Icon(icon, size: 26, color: color),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

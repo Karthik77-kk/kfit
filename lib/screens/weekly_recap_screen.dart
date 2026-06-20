@@ -36,7 +36,7 @@ class _WeeklyRecapScreenState extends State<WeeklyRecapScreen> {
   List<_Slide> _slides(FitnessProvider p) {
     final slides = <_Slide>[
       const _Slide(
-        emoji: '📊',
+        icon: Icons.bar_chart_rounded,
         value: 7,
         suffix: '',
         decimals: 0,
@@ -50,7 +50,7 @@ class _WeeklyRecapScreenState extends State<WeeklyRecapScreen> {
     if (weekly != null) {
       final losing = weekly <= 0;
       slides.add(_Slide(
-        emoji: '⚖️',
+        icon: Icons.monitor_weight_rounded,
         value: weekly,
         decimals: 2,
         suffix: ' kg',
@@ -65,7 +65,7 @@ class _WeeklyRecapScreenState extends State<WeeklyRecapScreen> {
         ? p.topLiftsOneRm.entries.first
         : null;
     slides.add(_Slide(
-      emoji: '🏋️',
+      icon: Icons.fitness_center_rounded,
       value: p.weeklyWorkoutDays.toDouble(),
       suffix: '/7',
       decimals: 0,
@@ -77,7 +77,7 @@ class _WeeklyRecapScreenState extends State<WeeklyRecapScreen> {
     ));
 
     slides.add(_Slide(
-      emoji: '🍽️',
+      icon: Icons.restaurant_rounded,
       value: p.weeklyAvgProtein.toDouble(),
       suffix: 'g',
       decimals: 0,
@@ -89,7 +89,7 @@ class _WeeklyRecapScreenState extends State<WeeklyRecapScreen> {
 
     final insight = topInsight(p, DateTime.now());
     slides.add(_Slide(
-      emoji: '🔥',
+      icon: Icons.local_fire_department_rounded,
       value: p.habitScore.toDouble(),
       suffix: '/100',
       decimals: 0,
@@ -168,7 +168,7 @@ class _WeeklyRecapScreenState extends State<WeeklyRecapScreen> {
 }
 
 class _Slide {
-  final String emoji;
+  final IconData icon;
   final double value;
   final int decimals;
   final String suffix;
@@ -178,7 +178,7 @@ class _Slide {
   final List<Color> colors;
 
   const _Slide({
-    required this.emoji,
+    required this.icon,
     required this.value,
     required this.big,
     required this.caption,
@@ -212,7 +212,7 @@ class _SlideView extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(slide.emoji, style: const TextStyle(fontSize: 56))
+          Icon(slide.icon, size: 52, color: Colors.white)
               .animate()
               .fadeIn(duration: 350.ms)
               .scale(begin: const Offset(0.7, 0.7)),

@@ -32,10 +32,10 @@ class FoodScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 100, top: 8),
       children: [
-        _MealSection(title: '☀️ Breakfast', entries: p.breakfastEntries, provider: p),
-        _MealSection(title: '🌤️ Lunch', entries: p.lunchEntries, provider: p),
-        _MealSection(title: '🌙 Dinner', entries: p.dinnerEntries, provider: p),
-        _MealSection(title: '🍎 Snacks', entries: p.snackEntries, provider: p),
+        _MealSection(icon: Icons.wb_sunny_rounded, title: 'Breakfast', entries: p.breakfastEntries, provider: p),
+        _MealSection(icon: Icons.restaurant_rounded, title: 'Lunch', entries: p.lunchEntries, provider: p),
+        _MealSection(icon: Icons.nightlight_round, title: 'Dinner', entries: p.dinnerEntries, provider: p),
+        _MealSection(icon: Icons.cookie_rounded, title: 'Snacks', entries: p.snackEntries, provider: p),
       ],
     );
   }
@@ -151,11 +151,12 @@ class _EmptyState extends StatelessWidget {
 // ── Meal Section ──────────────────────────────────────────────────────────────
 
 class _MealSection extends StatelessWidget {
+  final IconData icon;
   final String title;
   final List<FoodEntry> entries;
   final FitnessProvider provider;
 
-  const _MealSection({required this.title, required this.entries, required this.provider});
+  const _MealSection({required this.icon, required this.title, required this.entries, required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +167,8 @@ class _MealSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
           child: Row(
             children: [
+              Icon(icon, size: 17, color: Colors.white70),
+              const SizedBox(width: 7),
               Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
               const Spacer(),
               if (entries.isNotEmpty)
