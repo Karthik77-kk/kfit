@@ -949,20 +949,32 @@ class _BurnBreakdownTile extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('😴  Resting (BMR)',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.bedtime_rounded, size: 16, color: Color(0xFF40C8E0)),
+                        SizedBox(width: 6),
+                        Text('Resting (BMR)',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      ]),
                       SizedBox(height: 4),
                       Text('Your body burns calories just to stay alive — breathing, heart beating, organs working. This is called your Basal Metabolic Rate (BMR). It\'s prorated based on how many hours of the day have passed.',
                           style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
                       SizedBox(height: 14),
-                      Text('👟  Walking',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.directions_walk_rounded, size: 16, color: Color(0xFF40C8E0)),
+                        SizedBox(width: 6),
+                        Text('Walking',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      ]),
                       SizedBox(height: 4),
                       Text('Calculated from your step count using a formula that scales with your body weight. Heavier = more calories per step.',
                           style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
                       SizedBox(height: 14),
-                      Text('💪  Workout',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.fitness_center_rounded, size: 16, color: Color(0xFF30D158)),
+                        SizedBox(width: 6),
+                        Text('Workout',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      ]),
                       SizedBox(height: 4),
                       Text('Calculated from each exercise\'s MET value × your weight × duration. Log your exercises in the Workout tab to see this update.',
                           style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
@@ -1139,14 +1151,14 @@ class _BodyStatsTile extends StatelessWidget {
           runSpacing: 8,
           children: [
             if (p.latestWeightKg != null)
-              _StatChip('⚖️', 'Weight', '${p.latestWeightKg!.toStringAsFixed(1)} kg', Colors.white),
+              _StatChip(Icons.monitor_weight_rounded, 'Weight', '${p.latestWeightKg!.toStringAsFixed(1)} kg', Colors.white),
             if (bmi != null)
-              _StatChip('📊', 'BMI', bmi.toStringAsFixed(1), p.bmiColor(context)),
+              _StatChip(Icons.straighten_rounded, 'BMI', bmi.toStringAsFixed(1), p.bmiColor(context)),
             if (scale != null) ...[
-              _StatChip('🔥', 'Body Fat', '${scale.bodyFatPercent.toStringAsFixed(1)}%', _kOrange),
-              _StatChip('💪', 'Muscle', '${scale.muscleMassKg.toStringAsFixed(1)} kg', _kGreen),
-              _StatChip('💧', 'Water', '${scale.bodyWaterPercent.toStringAsFixed(1)}%', _kBlue),
-              _StatChip('🧬', 'Bio Age', '${scale.biologicalAge} yr', _kBlue),
+              _StatChip(Icons.local_fire_department_rounded, 'Body Fat', '${scale.bodyFatPercent.toStringAsFixed(1)}%', _kOrange),
+              _StatChip(Icons.fitness_center_rounded, 'Muscle', '${scale.muscleMassKg.toStringAsFixed(1)} kg', _kGreen),
+              _StatChip(Icons.water_drop_rounded, 'Water', '${scale.bodyWaterPercent.toStringAsFixed(1)}%', _kBlue),
+              _StatChip(Icons.science_rounded, 'Bio Age', '${scale.biologicalAge} yr', _kBlue),
             ],
           ],
         ),
@@ -1156,9 +1168,10 @@ class _BodyStatsTile extends StatelessWidget {
 }
 
 class _StatChip extends StatelessWidget {
-  final String emoji, label, value;
+  final IconData icon;
+  final String label, value;
   final Color color;
-  const _StatChip(this.emoji, this.label, this.value, this.color);
+  const _StatChip(this.icon, this.label, this.value, this.color);
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1168,7 +1181,7 @@ class _StatChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(emoji, style: const TextStyle(fontSize: 14)),
+        Icon(icon, size: 18, color: color),
         const SizedBox(width: 5),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
@@ -1962,9 +1975,9 @@ class _GettingStartedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const steps = [
-      ('⚖️', 'Log your weight',    'Body tab → Stats → Log Today'),
-      ('🍽️', 'Log your first meal', 'Nutrition tab → + Add Food'),
-      ('💪', 'Log a workout',       'Workout tab → pick an exercise'),
+      (Icons.monitor_weight_rounded, 'Log your weight',    'Body tab → Stats → Log Today'),
+      (Icons.restaurant_rounded,     'Log your first meal', 'Nutrition tab → + Add Food'),
+      (Icons.fitness_center_rounded, 'Log a workout',       'Workout tab → pick an exercise'),
     ];
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1975,7 +1988,7 @@ class _GettingStartedCard extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Row(children: [
-          Text('🚀', style: TextStyle(fontSize: 18)),
+          Icon(Icons.rocket_launch_rounded, size: 18, color: _kGreen),
           SizedBox(width: 8),
           Text('Get started',
               style: TextStyle(color: Colors.white, fontSize: 15,
@@ -1988,7 +2001,7 @@ class _GettingStartedCard extends StatelessWidget {
         ...steps.map((s) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Row(children: [
-            Text(s.$1, style: const TextStyle(fontSize: 20)),
+            Icon(s.$1, size: 20, color: _kGreen),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(s.$2, style: const TextStyle(color: Colors.white, fontSize: 13,

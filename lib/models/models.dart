@@ -459,66 +459,6 @@ class ExerciseDatabase {
       // Push-ups in Chest + Triceps) so the "all" grid has no duplicates.
       categories.values.expand((e) => e).toSet().toList()..sort();
 
-  /// Returns an emoji for the exercise, falling back to 🏋️ for unknown exercises.
-  static String emojiFor(String exercise) {
-    const map = <String, String>{
-      // Chest
-      'Push-ups': '💪', 'Bench Press': '🏋️', 'Incline Bench Press': '📐',
-      'Decline Bench Press': '📉', 'Dumbbell Flyes': '🦋', 'Incline Dumbbell Flyes': '🦋',
-      'Cable Crossover': '🔗', 'Chest Dips': '⬇️', 'Pec Deck': '🦅',
-      'Close-Grip Push-ups': '🤜', 'Wide Push-ups': '🤲', 'Diamond Push-ups': '💎',
-      'Pike Push-ups': '🔺', 'Chest Press Machine': '🖥️',
-      // Back
-      'Pull-ups': '🧗', 'Chin-ups': '🙌', 'Barbell Rows': '🔄',
-      'Dumbbell Rows': '↔️', 'Lat Pulldown': '⬇️', 'Seated Cable Row': '🚣',
-      'T-Bar Row': '🔀', 'Face Pulls': '😤', 'Single-Arm Dumbbell Row': '💪',
-      'Chest-Supported Row': '🪑', 'Pendlay Row': '🏋️', 'Rack Pulls': '🔧',
-      'Good Mornings': '☀️', 'Hyperextensions': '🌉',
-      // Shoulders
-      'Overhead Press': '🏋️', 'Dumbbell Shoulder Press': '💪', 'Arnold Press': '💪',
-      'Lateral Raises': '↔️', 'Front Raises': '⬆️', 'Rear Delt Flyes': '🦅',
-      'Upright Rows': '↑', 'Shrugs': '🤷', 'Cable Lateral Raises': '🔗',
-      'Bradford Press': '🔄', 'Machine Shoulder Press': '🖥️',
-      // Biceps
-      'Barbell Curls': '💪', 'Dumbbell Curls': '💪', 'Hammer Curls': '🔨',
-      'Cable Curls': '🔗', 'Preacher Curls': '🙏', 'Concentration Curls': '🧠',
-      'Incline Dumbbell Curls': '📐', 'Cross-Body Hammer Curls': '✖️',
-      'Reverse Curls': '🔃', 'Zottman Curls': '🔄', 'Machine Curls': '🖥️',
-      // Triceps
-      'Tricep Pushdowns': '⬇️', 'Skull Crushers': '💀', 'Overhead Tricep Extension': '⬆️',
-      'Close-Grip Bench Press': '🤜', 'Tricep Dips': '⬇️', 'Kickbacks': '🦵',
-      'Cable Overhead Extension': '🔗', 'Machine Tricep Press': '🖥️',
-      // Legs
-      'Squats': '🦵', 'Front Squats': '🦵', 'Goblet Squats': '🍷',
-      'Leg Press': '🦵', 'Leg Extensions': '🦵', 'Leg Curls': '🦵',
-      'Romanian Deadlift': '🏋️', 'Stiff-Leg Deadlift': '🏋️', 'Hack Squats': '🦵',
-      'Bulgarian Split Squats': '🦵', 'Walking Lunges': '🚶', 'Reverse Lunges': '🔃',
-      'Step-ups': '⬆️', 'Calf Raises': '🦶', 'Seated Calf Raises': '🪑',
-      'Hip Thrusts': '🍑', 'Glute Bridges': '🌉', 'Sumo Squats': '🦵',
-      'Box Squats': '📦', 'Wall Sit': '🧱', 'Sissy Squats': '🦵',
-      // Core
-      'Plank': '🧘', 'Side Plank': '🧘', 'Crunches': '💪',
-      'Bicycle Crunches': '🚴', 'Russian Twists': '🔄', 'Leg Raises': '🦵',
-      'Hanging Leg Raises': '🧗', 'Cable Crunches': '🔗', 'Ab Wheel Rollout': '⚙️',
-      'Mountain Climbers': '🏔️', 'Flutter Kicks': '🦵', 'Sit-ups': '💪',
-      'Dead Bug': '🐛', 'Hollow Body Hold': '🌙', 'V-ups': 'V', 'Dragon Flags': '🐉',
-      // Full Body / Compound
-      'Deadlift': '💀', 'Power Clean': '⚡', 'Kettlebell Swings': '🔔',
-      'Box Jumps': '📦', 'Battle Ropes': '🌊', "Farmer's Walk": '🌾',
-      'Clean and Press': '🏋️', 'Thrusters': '🚀', 'Turkish Get-up': '🧘',
-      'Sled Push': '🛷', 'Bear Crawl': '🐻',
-      // Cardio
-      'Running': '🏃', 'Walking': '🚶', 'Cycling': '🚴', 'Jump Rope': '🪢',
-      'Swimming': '🏊', 'HIIT': '🔥', 'Burpees': '💥', 'Jumping Jacks': '⭐',
-      'Stair Climbing': '🪜', 'Rowing Machine': '🚣', 'Elliptical': '🌀',
-      'Sprints': '⚡', 'High Knees': '🦵', 'Jump Squats': '🦵',
-      // Forearms
-      'Wrist Curls': '💪', 'Reverse Wrist Curls': '🔃', 'Dead Hangs': '🧗',
-      'Plate Pinches': '🤏', 'Towel Pull-ups': '🧗',
-    };
-    return map[exercise] ?? '🏋️';
-  }
-
   static String? categoryOf(String exercise) {
     for (final entry in categories.entries) {
       if (entry.value.contains(exercise)) return entry.key;
