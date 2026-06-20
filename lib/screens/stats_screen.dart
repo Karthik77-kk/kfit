@@ -593,7 +593,7 @@ class _AiPredictionsCard extends StatelessWidget {
             border: Border.all(color: calColor.withOpacity(0.25)),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('💡', style: TextStyle(fontSize: 16)),
+            const Icon(Icons.tips_and_updates_outlined, size: 16, color: Color(0xFFFF9F0A)),
             const SizedBox(width: 8),
             Expanded(child: Text(calSuggestion,
                 style: const TextStyle(

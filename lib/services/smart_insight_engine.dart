@@ -38,6 +38,29 @@ class Insight {
     required this.category,
     required this.score,
   });
+
+  IconData get icon {
+    switch (category) {
+      case InsightCategory.weight:
+        return Icons.monitor_weight_rounded;
+      case InsightCategory.prediction:
+        return Icons.trending_down_rounded;
+      case InsightCategory.nutrition:
+        return Icons.restaurant_rounded;
+      case InsightCategory.hydration:
+        return Icons.water_drop_rounded;
+      case InsightCategory.activity:
+        return Icons.directions_walk_rounded;
+      case InsightCategory.workout:
+        return Icons.fitness_center_rounded;
+      case InsightCategory.bodyComp:
+        return Icons.accessibility_new_rounded;
+      case InsightCategory.measurements:
+        return Icons.straighten_rounded;
+      case InsightCategory.motivation:
+        return Icons.local_fire_department_rounded;
+    }
+  }
 }
 
 const _weekdayNames = [

@@ -1528,9 +1528,9 @@ class _WeeklyReportCard extends StatelessWidget {
           const SizedBox(width: 8),
           _WeekStat('Kcal Burned', '${p.weeklyCaloriesBurned}', _kRed, Icons.local_fire_department_rounded),
           const SizedBox(width: 8),
-          _WeekStat('Workout 🔥', '${p.workoutStreak}d', _kOrange, null),
+          _WeekStat('Workout', '${p.workoutStreak}d', _kOrange, Icons.local_fire_department_rounded),
           const SizedBox(width: 8),
-          _WeekStat('Diet 🥗', '${p.calorieStreak}d', const Color(0xFF40C8E0), null),
+          _WeekStat('Diet', '${p.calorieStreak}d', const Color(0xFF40C8E0), Icons.restaurant_rounded),
         ]),
         const SizedBox(height: 8),
 
@@ -1641,7 +1641,7 @@ class _InsightCard extends StatelessWidget {
             color: tip.accent.withOpacity(0.12),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Text(tip.emoji, style: const TextStyle(fontSize: 18)),
+          child: Icon(tip.icon, size: 18, color: tip.accent),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(
@@ -1868,6 +1868,15 @@ class _MacroDonutCard extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // Soft glow behind the macro donut.
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: AppShadows.glow(_kBlue),
+                  ),
+                ),
                 PieChart(
                   PieChartData(
                     sections: sections,

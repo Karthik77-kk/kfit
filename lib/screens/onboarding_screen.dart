@@ -217,9 +217,18 @@ class _WelcomePage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 32),
-          const Text(
-            '💪',
-            style: TextStyle(fontSize: 64),
+          Container(
+            width: 96,
+            height: 96,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFF30D158), Color(0xFF40C8E0)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: const Icon(Icons.fitness_center_rounded, size: 48, color: Colors.black),
           ),
           const SizedBox(height: 24),
           const Text(
