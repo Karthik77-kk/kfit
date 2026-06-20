@@ -22,7 +22,7 @@ abstract final class AppColors {
   // Surfaces (near-black, OLED-friendly). Depth on black comes from surface
   // lightness, not drop shadows — higher number = lighter = "closer".
   static const Color background = Color(0xFF000000); // canvas
-  static const Color card = Color(0xFF1C1C1E); // L1 primary cards
+  static const Color card = Color(0xFF1E1E22); // L1 primary cards
   static const Color surface2 = Color(0xFF2C2C2E); // L2 inputs, raised chips
   static const Color surface3 = Color(0xFF26262C); // L3 bottom sheets, dialogs
   static const Color surface4 = Color(0xFF2F2F36); // L4 popovers, menus
@@ -53,7 +53,7 @@ abstract final class AppShadows {
   /// A coloured ambient glow (e.g. behind a hero ring or number).
   static List<BoxShadow> glow(Color c) => [
         BoxShadow(
-            color: c.withValues(alpha: 0.18), blurRadius: 32, spreadRadius: -8),
+            color: c.withValues(alpha: 0.30), blurRadius: 40, spreadRadius: -8),
       ];
 }
 

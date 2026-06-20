@@ -122,7 +122,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: const Color(0xFF1E1E22),
         title: Text(exerciseName,
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
         content: Column(
@@ -426,7 +426,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         _searchQuery = '';
                       }
                     }),
-                    backgroundColor: const Color(0xFF1C1C1E),
+                    backgroundColor: const Color(0xFF1E1E22),
                     side: BorderSide(
                       color: selected ? const Color(0xFF30D158) : const Color(0xFF38383A),
                     ),
@@ -463,7 +463,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           decoration: BoxDecoration(
                             color: alreadyAdded
                                 ? const Color(0xFF30D158).withOpacity(0.12)
-                                : const Color(0xFF1C1C1E),
+                                : const Color(0xFF1E1E22),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: alreadyAdded
@@ -533,7 +533,7 @@ class _TodayWorkoutSummary extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: const Color(0xFF1E1E22),
         borderRadius: BorderRadius.circular(14),
         boxShadow: AppShadows.card,
         border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
@@ -593,7 +593,7 @@ class _ExerciseCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: const Color(0xFF1E1E22),
         borderRadius: BorderRadius.circular(14),
         boxShadow: AppShadows.card,
       ),

@@ -210,7 +210,7 @@ class _SupplementCard extends StatelessWidget {
       duration: const Duration(milliseconds: 250),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: taken ? color.withOpacity(0.12) : const Color(0xFF1C1C1E),
+        color: taken ? color.withOpacity(0.12) : const Color(0xFF1E1E22),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: taken ? color.withOpacity(0.5) : color.withOpacity(0.2),

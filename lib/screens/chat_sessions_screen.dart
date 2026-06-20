@@ -8,7 +8,7 @@ import 'chat_screen.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
-const _kCard   = Color(0xFF1C1C1E);
+const _kCard   = Color(0xFF1E1E22);
 const _kSecond = Color(0xFF8E8E93);
 const _kBg     = Color(0xFF000000);
 
