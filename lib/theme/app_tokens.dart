@@ -24,7 +24,7 @@ abstract final class AppColors {
   static const Color background = Color(0xFF000000); // canvas
   static const Color card = Color(0xFF1E1E22); // L1 primary cards
   static const Color surface2 = Color(0xFF2C2C2E); // L2 inputs, raised chips
-  static const Color surface3 = Color(0xFF26262C); // L3 bottom sheets, dialogs
+  static const Color surface3 = Color(0xFF303036); // L3 bottom sheets, dialogs
   static const Color surface4 = Color(0xFF2F2F36); // L4 popovers, menus
   static const Color navBackground = Color(0xFF111111);
 

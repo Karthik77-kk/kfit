@@ -5,6 +5,19 @@ import '../models/models.dart';
 import '../widgets/kit/kit.dart';
 
 const _kCard = Color(0xFF1E1E22);
+
+// Maps InsightCategory.name → Material icon for notification tiles.
+const _kInsightIcons = <String, IconData>{
+  'weight': Icons.monitor_weight_rounded,
+  'prediction': Icons.trending_down_rounded,
+  'nutrition': Icons.restaurant_rounded,
+  'hydration': Icons.water_drop_rounded,
+  'activity': Icons.directions_walk_rounded,
+  'workout': Icons.fitness_center_rounded,
+  'bodyComp': Icons.accessibility_new_rounded,
+  'measurements': Icons.straighten_rounded,
+  'motivation': Icons.local_fire_department_rounded,
+};
 const _kGreen = Color(0xFF30D158);
 const _kBlue = Color(0xFF40C8E0);
 const _kRed = Color(0xFFFF453A);
@@ -188,13 +201,13 @@ class _MorningBriefSection extends StatelessWidget {
                 style: TextStyle(color: _kSecond, fontSize: 11, fontWeight: FontWeight.w700,
                     letterSpacing: 0.7)),
             const SizedBox(height: 10),
-            _GoalRow('🔥', 'Calories', '${p.calorieGoal} kcal', _kRed),
+            _GoalRow(Icons.local_fire_department_rounded, 'Calories', '${p.calorieGoal} kcal', _kRed),
             const SizedBox(height: 6),
-            _GoalRow('💪', 'Protein', '${p.proteinGoal} g', _kGreen),
+            _GoalRow(Icons.fitness_center_rounded, 'Protein', '${p.proteinGoal} g', _kGreen),
             const SizedBox(height: 6),
-            _GoalRow('💧', 'Water', '${(p.waterGoalMl / 1000).toStringAsFixed(1)} L', _kBlue),
+            _GoalRow(Icons.water_drop_rounded, 'Water', '${(p.waterGoalMl / 1000).toStringAsFixed(1)} L', _kBlue),
             const SizedBox(height: 6),
-            _GoalRow('🚶', 'Steps', '${_fmtK(p.stepGoal)}', _kOrange),
+            _GoalRow(Icons.directions_walk_rounded, 'Steps', '${_fmtK(p.stepGoal)}', _kOrange),
           ]),
         ),
         // Yesterday recap
@@ -263,15 +276,15 @@ class _MorningBriefSection extends StatelessWidget {
 }
 
 class _GoalRow extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String label;
   final String value;
   final Color color;
-  const _GoalRow(this.emoji, this.label, this.value, this.color);
+  const _GoalRow(this.icon, this.label, this.value, this.color);
 
   @override
   Widget build(BuildContext context) => Row(children: [
-        Text(emoji, style: const TextStyle(fontSize: 15)),
+        Icon(icon, size: 15, color: color),
         const SizedBox(width: 8),
         Text(label, style: const TextStyle(color: _kSecond, fontSize: 13)),
         const Spacer(),
@@ -534,7 +547,9 @@ class _NotificationTile extends StatelessWidget {
             color: accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Text(n.emoji, style: const TextStyle(fontSize: 18)),
+          child: n.insightCategory != null && _kInsightIcons.containsKey(n.insightCategory)
+              ? Icon(_kInsightIcons[n.insightCategory]!, size: 18, color: accent)
+              : Text(n.emoji, style: const TextStyle(fontSize: 18)),
         ),
         const SizedBox(width: 12),
         Expanded(

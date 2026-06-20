@@ -271,7 +271,8 @@ class _SupplementCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('💡 ', style: TextStyle(fontSize: 13)),
+                const Icon(Icons.tips_and_updates_outlined, size: 13, color: Color(0xFFFF9F0A)),
+                const SizedBox(width: 4),
                 Expanded(
                   child: Text(tip,
                     style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, height: 1.4),
@@ -364,9 +365,13 @@ class _AvoidSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('🚫 Supplements to avoid',
-            style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
-          ),
+          Row(children: const [
+            Icon(Icons.block_rounded, size: 13, color: Colors.redAccent),
+            SizedBox(width: 6),
+            Text('Supplements to avoid',
+              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ]),
           const SizedBox(height: 8),
           ...avoid.map((s) => Padding(
                 padding: const EdgeInsets.only(bottom: 5),

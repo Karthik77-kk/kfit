@@ -1599,6 +1599,7 @@ class FitnessProvider extends ChangeNotifier {
               category: 'insight',
               timestamp: DateTime.now(),
               read: _seenInsightTitles.contains(ins.title),
+              insightCategory: ins.category.name,
             ))
         .toList();
   }

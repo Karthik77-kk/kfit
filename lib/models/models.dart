@@ -264,6 +264,9 @@ class AppNotification {
   final String category;
   final DateTime timestamp;
   bool read;
+  /// Optional insight category name (used by notification tiles to show a
+  /// Material icon instead of the emoji string). Not persisted.
+  final String? insightCategory;
 
   AppNotification({
     required this.id,
@@ -274,6 +277,7 @@ class AppNotification {
     required this.category,
     required this.timestamp,
     this.read = false,
+    this.insightCategory,
   });
 
   Map<String, dynamic> toJson() => {
