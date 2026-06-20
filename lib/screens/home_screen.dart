@@ -984,13 +984,13 @@ class _BurnBreakdownTile extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: _BurnChip(icon: '😴', label: 'Resting',
+            Expanded(child: _BurnChip(icon: Icons.bedtime_rounded, label: 'Resting',
                 value: p.restingCaloriesBurned.round(), color: _kBlue)),
             const SizedBox(width: 8),
-            Expanded(child: _BurnChip(icon: '👟', label: 'Walking',
+            Expanded(child: _BurnChip(icon: Icons.directions_walk_rounded, label: 'Walking',
                 value: p.walkingCaloriesBurned.round(), color: _kBlue)),
             const SizedBox(width: 8),
-            Expanded(child: _BurnChip(icon: '💪', label: 'Workout',
+            Expanded(child: _BurnChip(icon: Icons.fitness_center_rounded, label: 'Workout',
                 value: p.todayCaloriesBurned, color: _kGreen)),
           ]),
           const SizedBox(height: 10),
@@ -1016,7 +1016,8 @@ class _BurnBreakdownTile extends StatelessWidget {
 }
 
 class _BurnChip extends StatelessWidget {
-  final String icon, label;
+  final IconData icon;
+  final String label;
   final int value;
   final Color color;
   const _BurnChip({required this.icon, required this.label, required this.value, required this.color});
@@ -1030,7 +1031,7 @@ class _BurnChip extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(children: [
-        Text(icon, style: const TextStyle(fontSize: 20)),
+        Icon(icon, size: 20, color: color),
         const SizedBox(height: 4),
         Text('$value kcal',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
@@ -1049,8 +1050,8 @@ class _StepsWaterRow extends StatelessWidget {
     final p = context.watch<FitnessProvider>();
     return Row(children: [
       Expanded(child: _MiniRingCard(
-        icon: '👟',
-        label: p.hasPedometerData ? 'Steps 📱' : 'Steps',
+        icon: Icons.directions_walk_rounded,
+        label: 'Steps',
         current: p.todaySteps.toDouble(),
         goal: p.stepGoal.toDouble(),
         valueText: _fmtInt(p.todaySteps),
@@ -1059,7 +1060,7 @@ class _StepsWaterRow extends StatelessWidget {
       )),
       const SizedBox(width: 10),
       Expanded(child: _MiniRingCard(
-        icon: '💧',
+        icon: Icons.water_drop_rounded,
         label: 'Water',
         current: p.todayWaterMl.toDouble(),
         goal: p.waterGoalMl.toDouble(),
@@ -1072,7 +1073,8 @@ class _StepsWaterRow extends StatelessWidget {
 }
 
 class _MiniRingCard extends StatelessWidget {
-  final String icon, label, valueText, goalText;
+  final IconData icon;
+  final String label, valueText, goalText;
   final double current, goal;
   final Color color;
   const _MiniRingCard({required this.icon, required this.label, required this.current,
@@ -1086,7 +1088,7 @@ class _MiniRingCard extends StatelessWidget {
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text(icon, style: const TextStyle(fontSize: 18)),
+          Icon(icon, size: 18, color: color),
           const SizedBox(width: 6),
           Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         ]),

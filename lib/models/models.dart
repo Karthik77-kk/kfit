@@ -455,7 +455,9 @@ class ExerciseDatabase {
   };
 
   static List<String> get allExercises =>
-      categories.values.expand((e) => e).toList()..sort();
+      // toSet() de-dupes exercises that live in two categories (e.g. Diamond
+      // Push-ups in Chest + Triceps) so the "all" grid has no duplicates.
+      categories.values.expand((e) => e).toSet().toList()..sort();
 
   /// Returns an emoji for the exercise, falling back to 🏋️ for unknown exercises.
   static String emojiFor(String exercise) {

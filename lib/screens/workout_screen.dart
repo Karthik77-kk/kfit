@@ -6,6 +6,21 @@ import '../models/models.dart';
 import '../theme/app_tokens.dart';
 import 'package:uuid/uuid.dart';
 
+/// A clean, category-based Material icon for an exercise — replaces the
+/// inconsistent per-exercise emoji with the app's monoline icon language.
+IconData _exerciseIcon(String name) {
+  switch (ExerciseDatabase.categoryOf(name)) {
+    case 'Cardio':
+      return Icons.directions_run_rounded;
+    case 'Core':
+      return Icons.self_improvement_rounded;
+    case 'Full Body / Compound':
+      return Icons.sports_gymnastics_rounded;
+    default:
+      return Icons.fitness_center_rounded; // all strength categories
+  }
+}
+
 /// Summarises a set list honestly. When all sets share the same reps & weight
 /// it reads "3×10 @20kg"; when sets vary it shows the rep range
 /// ("3 sets · 8–12 reps") instead of misleadingly echoing only the first set.
@@ -459,9 +474,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(ExerciseDatabase.emojiFor(name),
-                                  style: const TextStyle(fontSize: 16, height: 1.1)),
-                              const SizedBox(height: 3),
+                              Icon(_exerciseIcon(name),
+                                  size: 22,
+                                  color: alreadyAdded
+                                      ? const Color(0xFF30D158)
+                                      : Colors.white70),
+                              const SizedBox(height: 5),
                               Text(
                                 name,
                                 textAlign: TextAlign.center,
@@ -545,8 +563,7 @@ class _TodayWorkoutSummary extends StatelessWidget {
           ...workouts.expand((w) => w.exercises).map((ex) => Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(children: [
-              Text(ExerciseDatabase.emojiFor(ex.name),
-                  style: const TextStyle(fontSize: 13)),
+              Icon(_exerciseIcon(ex.name), size: 16, color: const Color(0xFF8E8E93)),
               const SizedBox(width: 8),
               Expanded(child: Text(ex.name, style: const TextStyle(fontSize: 13))),
               Text(
