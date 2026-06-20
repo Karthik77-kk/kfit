@@ -12,7 +12,7 @@ import 'chat_sessions_screen.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
-const _kCard   = Color(0xFF1C1C1E);
+const _kCard   = Color(0xFF1E1E22);
 const _kSecond = Color(0xFF8E8E93);
 
 // ── Entry point — opens sessions list ────────────────────────────────────────
@@ -211,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (_) => AlertDialog(
-                    backgroundColor: const Color(0xFF1C1C1E),
+                    backgroundColor: const Color(0xFF1E1E22),
                     title: const Text('Delete chat?'),
                     content: const Text(
                       'This conversation will be permanently removed.',
@@ -483,7 +483,7 @@ class _ChatView extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: const Color(0xFF1C1C1E),
+          color: const Color(0xFF1E1E22),
           child: const Text(
             '📝 History shown above. AI starts fresh — it does not remember prior turns.',
             textAlign: TextAlign.center,

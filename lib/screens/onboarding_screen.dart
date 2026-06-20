@@ -7,7 +7,7 @@ import '../main.dart' show MainNavigationScreen;
 // ─── Design tokens (mirrors app palette) ───────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
 const _kBlue   = Color(0xFF40C8E0);
-const _kCard   = Color(0xFF1C1C1E);
+const _kCard   = Color(0xFF1E1E22);
 const _kSecond = Color(0xFF8E8E93);
 
 class OnboardingScreen extends StatefulWidget {

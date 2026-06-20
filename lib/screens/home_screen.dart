@@ -385,7 +385,7 @@ class _ShowMoreSections extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: const Color(0xFF1E1E22),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFF38383A)),
         ),
@@ -943,7 +943,7 @@ class _BurnBreakdownTile extends StatelessWidget {
               onTap: () => showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
-                  backgroundColor: const Color(0xFF1C1C1E),
+                  backgroundColor: const Color(0xFF1E1E22),
                   title: const Text('How calories burned is calculated'),
                   content: const Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1540,9 +1540,11 @@ class _WeeklyReportCard extends StatelessWidget {
           const SizedBox(width: 8),
           _WeekStat('Avg Protein', '${p.weeklyAvgProtein.round()}g', _kBlue, null),
           const SizedBox(width: 8),
-          _WeekStat('Water Goal', '${p.weeklyWaterGoalHitDays}/7d', _kBlue, null),
+          _WeekStat('Water Goal', '${p.weeklyWaterGoalHitDays}/7d',
+              p.weeklyWaterGoalHitDays >= 4 ? _kGreen : _kSecond, null),
           const SizedBox(width: 8),
-          _WeekStat('Prot Goal', '${p.weeklyProteinGoalHitDays}/7d', _kGreen, null),
+          _WeekStat('Prot Goal', '${p.weeklyProteinGoalHitDays}/7d',
+              p.weeklyProteinGoalHitDays >= 4 ? _kGreen : _kSecond, null),
         ]),
 
         // ── Weight change line ──────────────────────────────────────────

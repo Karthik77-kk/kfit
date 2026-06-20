@@ -52,7 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            backgroundColor: const Color(0xFF1C1C1E),
+            backgroundColor: const Color(0xFF1E1E22),
             title: const Text('Replace all data?'),
             content: const Text(
               'This will overwrite ALL your current data with the backup. This cannot be undone.',
@@ -98,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: const Color(0xFF1E1E22),
         title: const Text('Your Name'),
         content: TextField(
           controller: ctrl,
@@ -138,7 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: const Color(0xFF1E1E22),
         title: Text(label, style: const TextStyle(fontSize: 15)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(
@@ -295,7 +295,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
+              color: const Color(0xFF1E1E22),
               borderRadius: BorderRadius.circular(14),
               boxShadow: AppShadows.card,
               border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
@@ -345,7 +345,7 @@ class _SmartGoalsTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: const Color(0xFF1E1E22),
         borderRadius: BorderRadius.circular(14),
         boxShadow: AppShadows.card,
         border: Border.all(color: const Color(0xFF40C8E0).withValues(alpha: 0.3)),
@@ -489,7 +489,7 @@ class _AiStatusTile extends StatelessWidget {
   const _AiStatusTile();
 
   static const _kGreen  = Color(0xFF30D158);
-  static const _kCard   = Color(0xFF1C1C1E);
+  static const _kCard   = Color(0xFF1E1E22);
   static const _kSecond = Color(0xFF8E8E93);
 
   @override
@@ -676,7 +676,7 @@ class _Tile extends StatelessWidget {
     // ListTile's ink splashes paint on it and stay visible — wrapping a
     // ListTile directly in a coloured DecoratedBox hides the ink.
     child: Material(
-      color: const Color(0xFF1C1C1E),
+      color: const Color(0xFF1E1E22),
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: ListTile(
@@ -700,7 +700,7 @@ class _AiCoachEnabledTile extends StatelessWidget {
     final p = context.watch<FitnessProvider>();
     return Material(
       // Material carries the colour so the SwitchListTile's ink stays visible.
-      color: const Color(0xFF1C1C1E),
+      color: const Color(0xFF1E1E22),
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: SwitchListTile(
@@ -729,7 +729,7 @@ class _AiAutoLoadTile extends StatelessWidget {
     final ai = context.watch<OnDeviceAiService>();
     return Material(
       // Material carries the colour so the SwitchListTile's ink stays visible.
-      color: const Color(0xFF1C1C1E),
+      color: const Color(0xFF1E1E22),
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: SwitchListTile(

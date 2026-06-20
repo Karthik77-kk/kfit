@@ -360,7 +360,7 @@ class _HistoryTab extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
+            color: const Color(0xFF1E1E22),
             borderRadius: BorderRadius.circular(14),
             boxShadow: AppShadows.card,
           ),

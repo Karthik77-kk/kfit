@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
+import '../theme/app_tokens.dart';
 import '../widgets/date_picker_chip.dart';
 import '../widgets/kit/kit.dart';
 
@@ -88,6 +89,14 @@ class _WaterScreenState extends State<WaterScreen>
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
+                      Container(
+                        width: 200,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: AppShadows.glow(const Color(0xFF40C8E0)),
+                        ),
+                      ),
                       SizedBox(
                         width: 200,
                         height: 200,

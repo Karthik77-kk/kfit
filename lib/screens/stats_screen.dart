@@ -13,7 +13,7 @@ const _kGreen  = Color(0xFF30D158);
 const _kBlue   = Color(0xFF40C8E0);
 const _kOrange = Color(0xFFFF9F0A);
 const _kRed    = Color(0xFFFF453A);
-const _kCard   = Color(0xFF1C1C1E);
+const _kCard   = Color(0xFF1E1E22);
 const _kSecond = Color(0xFF8E8E93);
 
 class StatsScreen extends StatefulWidget {

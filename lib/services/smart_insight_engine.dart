@@ -584,7 +584,7 @@ List<Insight> generateInsights(FitnessProvider p, DateTime now) {
       body: 'You hit ${p.proteinGoal}g+ on only ${(protAdh * 100).round()}% of '
           'logged days. Low protein while in a deficit accelerates muscle loss. '
           'Add whey or eggs to breakfast — it is the easiest protein win.',
-      accent: _kRed,
+      accent: _kOrange,
       category: InsightCategory.nutrition,
       score: 76,
     ));

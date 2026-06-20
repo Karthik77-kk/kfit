@@ -15,7 +15,7 @@ void showAddFoodSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: const Color(0xFF1C1C1E),
+    backgroundColor: const Color(0xFF1E1E22),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -237,7 +237,7 @@ class _FoodEntryTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: const Color(0xFF1E1E22),
         borderRadius: BorderRadius.circular(14),
         boxShadow: AppShadows.card,
         border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
@@ -284,7 +284,7 @@ void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
   showDialog(
     context: context,
     builder: (dCtx) => AlertDialog(
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: const Color(0xFF1E1E22),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       title: Text(entry.name,
           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
@@ -462,7 +462,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           final fat    = item.fatForGrams(grams);
 
           return AlertDialog(
-            backgroundColor: const Color(0xFF1C1C1E),
+            backgroundColor: const Color(0xFF1E1E22),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -612,7 +612,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
         final cal = (item.calories * servings).round();
         final prot = item.protein * servings;
         return AlertDialog(
-          backgroundColor: const Color(0xFF1C1C1E),
+          backgroundColor: const Color(0xFF1E1E22),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(children: [
             Text(item.emoji, style: const TextStyle(fontSize: 22)),
