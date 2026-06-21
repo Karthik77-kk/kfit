@@ -133,105 +133,238 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       text: lastWeight != null ? lastWeight.toStringAsFixed(1) : '0',
     );
 
-    showDialog(
+    // Resolve exercise info for the info panel.
+    final info = ExerciseDatabase.infoFor(exerciseName);
+    final primaryMuscle = info?.$1 ?? ExerciseDatabase.categoryOf(exerciseName) ?? '';
+    final secondaryMuscles = (info?.$2 ?? '').isNotEmpty
+        ? (info!.$2).split(' · ')
+        : <String>[];
+    final formTip = info?.$3 ?? '';
+
+    showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E22),
-        title: Text(exerciseName,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (pr != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9F0A).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E1E22),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Drag handle ──────────────────────────────────────────
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8E8E93).withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: 16),
+
+                // ── Exercise title ───────────────────────────────────────
+                Text(
+                  exerciseName,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+
+                // ── Info panel ───────────────────────────────────────────
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
                   children: [
-                    const Icon(Icons.emoji_events, color: Color(0xFFFF9F0A), size: 16),
-                    const SizedBox(width: 6),
-                    Text('PR: ${pr.toStringAsFixed(1)} kg',
-                        style: const TextStyle(color: Color(0xFFFF9F0A), fontSize: 13)),
+                    // Primary muscle chip (green-tinted)
+                    if (primaryMuscle.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF30D158).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          primaryMuscle,
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF30D158)),
+                        ),
+                      ),
+                    // Secondary muscle chips (neutral)
+                    for (final muscle in secondaryMuscles)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2C2C2E),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          muscle,
+                          style: const TextStyle(fontSize: 11, color: Colors.white70),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-            if (isCardio)
-              _buildField('Minutes', repsCtrl, isDecimal: false)
-            else
-              Row(children: [
-                Expanded(child: _buildField('Sets', setsCtrl, isDecimal: false)),
-                const SizedBox(width: 8),
-                Expanded(child: _buildField('Reps', repsCtrl, isDecimal: false)),
-                const SizedBox(width: 8),
-                Expanded(child: _buildField('kg', weightCtrl)),
-              ]),
-            const SizedBox(height: 8),
-            if (isCardio && lastReps != null)
-              Text('Last: $lastReps min',
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12))
-            else if (!isCardio && lastWeight != null)
-              Text('Last session: ${lastWeight.toStringAsFixed(1)} kg × ${lastReps ?? '?'} reps',
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF30D158),
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            onPressed: () {
-              final List<SetData> setLogs;
-              final String tip;
-              if (isCardio) {
-                final minutes = int.tryParse(repsCtrl.text) ?? 20;
-                setLogs = [SetData(reps: minutes, weight: 0)];
-                tip = '$minutes min logged 🏃';
-              } else {
-                final sets = int.tryParse(setsCtrl.text) ?? 3;
-                final reps = int.tryParse(repsCtrl.text) ?? 10;
-                final weight = double.tryParse(weightCtrl.text) ?? 0;
-                tip = ExerciseDatabase.progressiveOverloadTip(
-                    exerciseName, sets, reps, weight, lastReps ?? 10);
-                setLogs = List.generate(sets, (_) => SetData(reps: reps, weight: weight));
-              }
-              setState(() {
-                final existingIdx = _exercises.indexWhere((e) => e.name == exerciseName);
-                if (existingIdx >= 0) {
-                  _exercises[existingIdx] = ExerciseLog(
-                    name: exerciseName,
-                    sets: [..._exercises[existingIdx].sets, ...setLogs],
-                  );
-                } else {
-                  _exercises.add(ExerciseLog(name: exerciseName, sets: setLogs));
-                }
-              });
-              HapticFeedback.lightImpact();
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(tip),
-                  duration: const Duration(seconds: 3),
-                  backgroundColor: const Color(0xFF2C2C2E),
+
+                // Form cue (only when we have a known info entry with a tip)
+                if (formTip.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.tips_and_updates_outlined,
+                        size: 14,
+                        color: Colors.white70,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          formTip,
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.white70),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+
+                // ── PR chip ──────────────────────────────────────────────
+                if (pr != null) ...[
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9F0A).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.emoji_events,
+                            color: Color(0xFFFF9F0A), size: 16),
+                        const SizedBox(width: 6),
+                        Text('PR: ${pr.toStringAsFixed(1)} kg',
+                            style: const TextStyle(
+                                color: Color(0xFFFF9F0A), fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // ── Input fields ─────────────────────────────────────────
+                if (isCardio)
+                  _buildField('Minutes', repsCtrl, isDecimal: false)
+                else
+                  Row(children: [
+                    Expanded(
+                        child: _buildField('Sets', setsCtrl, isDecimal: false)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: _buildField('Reps', repsCtrl, isDecimal: false)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildField('kg', weightCtrl)),
+                  ]),
+                const SizedBox(height: 8),
+
+                // ── Last session line ────────────────────────────────────
+                if (isCardio && lastReps != null)
+                  Text('Last: $lastReps min',
+                      style: const TextStyle(
+                          color: Color(0xFF8E8E93), fontSize: 12))
+                else if (!isCardio && lastWeight != null)
+                  Text(
+                      'Last session: ${lastWeight.toStringAsFixed(1)} kg × ${lastReps ?? '?'} reps',
+                      style: const TextStyle(
+                          color: Color(0xFF8E8E93), fontSize: 12)),
+                const SizedBox(height: 20),
+
+                // ── Action buttons ───────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel',
+                          style: TextStyle(color: Color(0xFF8E8E93))),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF30D158),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: () {
+                        final List<SetData> setLogs;
+                        final String tip;
+                        if (isCardio) {
+                          final minutes = int.tryParse(repsCtrl.text) ?? 20;
+                          setLogs = [SetData(reps: minutes, weight: 0)];
+                          tip = '$minutes min logged 🏃';
+                        } else {
+                          final sets = int.tryParse(setsCtrl.text) ?? 3;
+                          final reps = int.tryParse(repsCtrl.text) ?? 10;
+                          final weight = double.tryParse(weightCtrl.text) ?? 0;
+                          tip = ExerciseDatabase.progressiveOverloadTip(
+                              exerciseName, sets, reps, weight, lastReps ?? 10);
+                          setLogs = List.generate(
+                              sets, (_) => SetData(reps: reps, weight: weight));
+                        }
+                        setState(() {
+                          final existingIdx = _exercises
+                              .indexWhere((e) => e.name == exerciseName);
+                          if (existingIdx >= 0) {
+                            _exercises[existingIdx] = ExerciseLog(
+                              name: exerciseName,
+                              sets: [
+                                ..._exercises[existingIdx].sets,
+                                ...setLogs
+                              ],
+                            );
+                          } else {
+                            _exercises
+                                .add(ExerciseLog(name: exerciseName, sets: setLogs));
+                          }
+                        });
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).clearSnackBars();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(tip),
+                            duration: const Duration(seconds: 3),
+                            backgroundColor: const Color(0xFF2C2C2E),
+                          ),
+                        );
+                      },
+                      child: const Text('Add'),
+                    ),
+                  ],
                 ),
-              );
-            },
-            child: const Text('Add'),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
-    );
+    ).whenComplete(() {
+      setsCtrl.dispose();
+      repsCtrl.dispose();
+      weightCtrl.dispose();
+    });
   }
 
   Widget _buildField(String label, TextEditingController ctrl,
