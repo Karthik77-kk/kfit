@@ -8,6 +8,7 @@ import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../widgets/date_picker_chip.dart';
 import '../widgets/kit/kit.dart';
+import '../theme/app_tokens.dart';
 
 const _kGreen  = Color(0xFF30D158);
 const _kBlue   = Color(0xFF40C8E0);
@@ -613,7 +614,7 @@ class _AiPredictionsCard extends StatelessWidget {
           if (p.isTdeeCalibrated) ...[
             const SizedBox(height: 6),
             const Text('✓ TDEE calibrated from your real weight trend + intake',
-                style: TextStyle(color: _kGreen, fontSize: 10)),
+                style: TextStyle(color: _kGreen, fontSize: 11)),
           ],
         ],
       ]),
@@ -637,7 +638,7 @@ class _PredChip extends StatelessWidget {
         Text(value, style: TextStyle(
             color: color, fontSize: 13, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: _kSecond, fontSize: 9)),
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
       ]),
     ),
   );
@@ -657,7 +658,7 @@ class _MetaChip2 extends StatelessWidget {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(value, style: TextStyle(
           color: color, fontSize: 12, fontWeight: FontWeight.bold)),
-      Text(label, style: const TextStyle(color: _kSecond, fontSize: 9)),
+      Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
     ]),
   ));
 }
@@ -876,10 +877,10 @@ class _BcChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
+        Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
         const SizedBox(height: 2),
         Text(value, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w700)),
-        Text(sub, style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 9)),
+        Text(sub, style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 11)),
       ]),
     );
   }
@@ -910,7 +911,7 @@ class _MetaChip extends StatelessWidget {
               style: TextStyle(
                   color: color, fontSize: 20, fontWeight: FontWeight.bold)),
           Text(unit,
-              style: const TextStyle(color: _kSecond, fontSize: 10)),
+              style: const TextStyle(color: _kSecond, fontSize: 11)),
           const SizedBox(height: 2),
           Text(label,
               style: TextStyle(
@@ -1077,7 +1078,7 @@ class _OneRMSection extends StatelessWidget {
                   color: _kOrange.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8)),
               child: const Text('Epley Formula',
-                  style: TextStyle(color: _kOrange, fontSize: 10)),
+                  style: TextStyle(color: _kOrange, fontSize: 11)),
             ),
           ]),
           const SizedBox(height: 4),
@@ -1143,7 +1144,10 @@ class _Card extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: _kCard, borderRadius: BorderRadius.circular(14),
+      color: _kCard,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: AppShadows.card,
+      border: const Border(top: BorderSide(color: AppColors.rim, width: 1)),
     ),
     child: child,
   );
@@ -1320,14 +1324,19 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14)),
+    decoration: BoxDecoration(
+      color: _kCard,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: AppShadows.card,
+      border: const Border(top: BorderSide(color: AppColors.rim, width: 1)),
+    ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, color: color, size: 20),
+      Icon(icon, color: _kSecond, size: 20),
       const SizedBox(height: 8),
       Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
       const SizedBox(height: 2),
       Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
-      Text(sub, style: const TextStyle(color: _kSecond, fontSize: 10)),
+      Text(sub, style: const TextStyle(color: _kSecond, fontSize: 11)),
     ]),
   );
 }
@@ -1349,7 +1358,7 @@ class _BmiLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(children: [
     Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-    Text(range, style: const TextStyle(color: _kSecond, fontSize: 9)),
+    Text(range, style: const TextStyle(color: _kSecond, fontSize: 11)),
   ]);
 }
 
@@ -1431,7 +1440,7 @@ class _MiniWeightChart extends StatelessWidget {
                     return const SizedBox.shrink();
                   }
                   return Text(v.toStringAsFixed(0),
-                      style: const TextStyle(color: _kSecond, fontSize: 9));
+                      style: const TextStyle(color: _kSecond, fontSize: 11));
                 },
               ),
             ),
@@ -1454,7 +1463,7 @@ class _MiniWeightChart extends StatelessWidget {
                       DateFormat('d MMM').format(entries[idx].date),
                       style: TextStyle(
                         color: isLast ? _kGreen : _kSecond,
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight:
                             isLast ? FontWeight.w700 : FontWeight.w400,
                       ),
@@ -1480,7 +1489,7 @@ class _MiniWeightChart extends StatelessWidget {
                       text: DateFormat('d MMM yyyy').format(e.date),
                       style: const TextStyle(
                           color: _kSecond,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w400),
                     ),
                   ],
@@ -1535,7 +1544,7 @@ class _MiniWeightChart extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 4, bottom: 2),
                     style: const TextStyle(
                         color: _kOrange,
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600),
                     labelResolver: (_) =>
                         'Goal ${goalWeightKg.toStringAsFixed(0)} kg',
