@@ -63,7 +63,7 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
         private val GREEN  = Color.parseColor("#30D158")
         private val CYAN   = Color.parseColor("#40C8E0")
         private val ORANGE = Color.parseColor("#FF9F0A")
-        private val BG     = Color.parseColor("#1C1C1E")
+        private val BG     = Color.parseColor("#000000")
         private val STRIP  = Color.parseColor("#141416")
         private val MUTED  = Color.parseColor("#8E8E93")
         private val WHITE  = Color.WHITE
@@ -209,7 +209,7 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
 
                 // value
                 p.textSize = valueSz; p.color = WHITE
-                p.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 cv.drawText(row.value, metL + 9f * dp, midY + labelSz * 0.35f + valueSz + 1f * dp, p)
 
                 // progress bar
