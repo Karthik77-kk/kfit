@@ -205,14 +205,33 @@ class FitnessProvider extends ChangeNotifier {
   double get todayProtein =>
       _todayFood.fold(0.0, (sum, e) => sum + e.protein);
 
-  /// True when a whey/protein shake has already been logged as a food entry
-  /// today. Used to avoid double-counting the whey supplement toggle on top of
-  /// a logged shake (both would otherwise add ~120 kcal / 25 g for one scoop).
-  bool get _hasLoggedWheyFood => _todayFood.any((e) {
+  /// True when a whey/protein shake appears in [foods] — one day's food log.
+  /// Shared by today's [_hasLoggedWheyFood] and the historical helpers below so
+  /// the predicate lives in one place and the whey supplement toggle is never
+  /// double-counted on top of a logged shake.
+  bool _foodListHasWhey(List<FoodEntry>? foods) =>
+      foods?.any((e) {
         final n = e.name.toLowerCase();
         return n.contains('whey') ||
             (n.contains('protein') && n.contains('shake'));
-      });
+      }) ??
+      false;
+
+  /// True when a whey/protein shake has already been logged as a food entry
+  /// today. Used to avoid double-counting the whey supplement toggle on top of
+  /// a logged shake (both would otherwise add ~120 kcal / 25 g for one scoop).
+  bool get _hasLoggedWheyFood => _foodListHasWhey(_todayFood);
+
+  /// Whey supplement calories to count for a PAST day, suppressed when a shake
+  /// is already in that day's food log (mirrors [supplementCalories] for
+  /// history so today and history agree).
+  double _wheySuppCalFor(List<FoodEntry>? foods, SupplementStatus? supp) =>
+      ((supp?.whey ?? false) && !_foodListHasWhey(foods)) ? 120.0 : 0.0;
+
+  /// Whey supplement protein to count for a PAST day, suppressed when a shake
+  /// is already logged as food (mirrors [supplementProtein] for history).
+  double _wheySuppProtFor(List<FoodEntry>? foods, SupplementStatus? supp) =>
+      ((supp?.whey ?? false) && !_foodListHasWhey(foods)) ? 25.0 : 0.0;
 
   /// Calories from the checked whey supplement (120 kcal per scoop).
   /// Returns 0 when a whey shake is already in today's food log, so the scoop
@@ -287,7 +306,7 @@ class FitnessProvider extends ChangeNotifier {
         final foods = _foodHistory[key];
         final supp = _supplementHistory[key];
         final foodCal = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
-        final suppCal = (supp?.whey ?? false) ? 120.0 : 0.0;
+        final suppCal = _wheySuppCalFor(foods, supp);
         cal = foodCal + suppCal;
       }
       final label = i == 0
@@ -891,7 +910,7 @@ class FitnessProvider extends ChangeNotifier {
       final foods = _foodHistory[key];
       final supp = _supplementHistory[key];
       final dayFoodCals = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
-      final daySuppCals = (supp?.whey ?? false) ? 120.0 : 0.0;
+      final daySuppCals = _wheySuppCalFor(foods, supp);
       final dayCals = dayFoodCals + daySuppCals;
       if (dayCals >= 500) {
         streak++;
@@ -1037,7 +1056,7 @@ class FitnessProvider extends ChangeNotifier {
         final foods = _foodHistory[key];
         final supp = _supplementHistory[key];
         final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
-        final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+        final suppProt = _wheySuppProtFor(foods, supp);
         total += foodProt + suppProt;
       }
     }
@@ -1073,7 +1092,7 @@ class FitnessProvider extends ChangeNotifier {
         final foods = _foodHistory[key];
         final supp = _supplementHistory[key];
         final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
-        final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+        final suppProt = _wheySuppProtFor(foods, supp);
         prot = foodProt + suppProt;
       }
       if (prot >= _proteinGoal) count++;
@@ -1096,7 +1115,7 @@ class FitnessProvider extends ChangeNotifier {
     final foods = _foodHistory[key];
     final supp = _supplementHistory[key];
     final foodCal = foods?.fold(0.0, (s, e) => s + e.calories) ?? 0.0;
-    final suppCal = (supp?.whey ?? false) ? 120.0 : 0.0;
+    final suppCal = _wheySuppCalFor(foods, supp);
     return foodCal + suppCal;
   }
 
@@ -1110,7 +1129,7 @@ class FitnessProvider extends ChangeNotifier {
     final foods = _foodHistory[key];
     final supp = _supplementHistory[key];
     final foodProt = foods?.fold(0.0, (s, e) => s + e.protein) ?? 0.0;
-    final suppProt = (supp?.whey ?? false) ? 25.0 : 0.0;
+    final suppProt = _wheySuppProtFor(foods, supp);
     return foodProt + suppProt;
   }
 
