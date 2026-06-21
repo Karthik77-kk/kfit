@@ -301,8 +301,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
             ),
             child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('💡 Safe update process',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              Row(children: [
+                Icon(Icons.tips_and_updates_outlined, size: 16, color: Color(0xFF30D158)),
+                SizedBox(width: 6),
+                Text('Safe update process',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              ]),
               SizedBox(height: 6),
               Text(
                 'Since v1.3.0+4, this APK uses a permanent signing key. '

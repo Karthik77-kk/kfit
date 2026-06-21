@@ -254,7 +254,9 @@ class _WaterScreenState extends State<WaterScreen>
               children: [
                 Row(
                   children: [
-                    const Text('☀️ Tip:',
+                    const Icon(Icons.tips_and_updates_outlined, size: 14, color: Colors.white70),
+                    const SizedBox(width: 4),
+                    const Text('Tip:',
                         style:
                             TextStyle(color: Colors.white70, fontSize: 12)),
                     const SizedBox(width: 6),
