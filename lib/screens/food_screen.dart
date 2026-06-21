@@ -70,7 +70,7 @@ class FoodScreen extends StatelessWidget {
                 Text(
                   '${p.todayProteinTotal.toInt()}g protein',
                   style: TextStyle(
-                      color: Colors.white.withOpacity(0.5), fontSize: 11),
+                      color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                 ),
               ],
             ),
@@ -174,7 +174,7 @@ class _MealSection extends StatelessWidget {
               if (entries.isNotEmpty)
                 Text(
                   '${entries.fold(0.0, (s, e) => s + e.calories).toInt()} kcal',
-                  style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
                 ),
             ],
           ),
@@ -183,7 +183,7 @@ class _MealSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
             child: Text('Nothing logged',
-                style: TextStyle(color: Colors.white.withOpacity(0.25), fontSize: 12)),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 12)),
           )
         else
           ...entries.map((entry) => Dismissible(
@@ -192,7 +192,7 @@ class _MealSection extends StatelessWidget {
                 background: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.2),
+                    color: Colors.red.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   alignment: Alignment.centerRight,
@@ -240,7 +240,7 @@ class _FoodEntryTile extends StatelessWidget {
         color: const Color(0xFF1E1E22),
         borderRadius: BorderRadius.circular(14),
         boxShadow: AppShadows.card,
-        border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
       ),
       child: Row(
         children: [
@@ -265,7 +265,7 @@ class _FoodEntryTile extends StatelessWidget {
               Text('${entry.calories.toInt()} kcal',
                   style: const TextStyle(color: Color(0xFF30D158), fontWeight: FontWeight.bold, fontSize: 13)),
               Text('${entry.protein.toStringAsFixed(1)}g protein',
-                  style: TextStyle(color: const Color(0xFF40C8E0).withOpacity(0.8), fontSize: 11)),
+                  style: TextStyle(color: const Color(0xFF40C8E0).withValues(alpha: 0.8), fontSize: 11)),
             ],
           ),
         ],
@@ -480,7 +480,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                   Text(
                     '${item.source} · per 100g: ${item.calories100g.round()} kcal, '
                     '${item.protein100g.toStringAsFixed(1)}g protein',
-                    style: TextStyle(color: Colors.white.withOpacity(0.38), fontSize: 10),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.38), fontSize: 10),
                   ),
                 ]),
               ],
@@ -512,7 +512,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                           style: TextStyle(
                             color: sel
                                 ? const Color(0xFF40C8E0)
-                                : Colors.white.withOpacity(0.5),
+                                : Colors.white.withValues(alpha: 0.5),
                             fontSize: 12,
                             fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                           )),
@@ -527,9 +527,9 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
-                  suffix: Text('g', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 16)),
+                  suffix: Text('g', style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 16)),
                   hintText: '100',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                   contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 ),
@@ -540,7 +540,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
@@ -555,7 +555,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dCtx),
-                child: Text('Cancel', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                child: Text('Cancel', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
               ),
               ElevatedButton(
                 onPressed: raw < 1 ? null : () {
@@ -622,7 +622,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           ]),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('Per serving: ${item.serving}',
-                style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 12)),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12)),
             const SizedBox(height: 20),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _QtyBtn(icon: Icons.remove, onTap: () {
@@ -635,7 +635,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                   style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold),
                 ),
                 Text('serving${servings != 1.0 ? 's' : ''}',
-                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
               ]),
               const SizedBox(width: 20),
               _QtyBtn(icon: Icons.add, onTap: () {
@@ -645,7 +645,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(14)),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
                 _NutCol(label: 'Calories', value: '$cal kcal', color: const Color(0xFF30D158)),
                 _NutCol(label: 'Protein', value: '${prot.toStringAsFixed(1)}g', color: const Color(0xFF40C8E0)),
@@ -655,7 +655,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dCtx),
-              child: Text('Cancel', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              child: Text('Cancel', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
             ),
             ElevatedButton(
               onPressed: () {
@@ -757,7 +757,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               margin: const EdgeInsets.only(top: 10, bottom: 6),
               width: 40, height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -791,12 +791,12 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       borderRadius: BorderRadius.circular(20),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                       decoration: BoxDecoration(
-                        color: sel ? const Color(0xFF30D158) : Colors.white.withOpacity(0.08),
+                        color: sel ? const Color(0xFF30D158) : Colors.white.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(labels[mt.index],
                           style: TextStyle(
-                            color: sel ? Colors.white : Colors.white.withOpacity(0.6),
+                            color: sel ? Colors.white : Colors.white.withValues(alpha: 0.6),
                             fontSize: 13,
                             fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                           )),
@@ -823,16 +823,16 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 }),
                 decoration: InputDecoration(
                   hintText: 'Search 200+ Indian foods...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                  prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.4)),
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                  prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.4)),
                   suffixIcon: _search.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.clear, color: Colors.white.withOpacity(0.4), size: 18),
+                          icon: Icon(Icons.clear, color: Colors.white.withValues(alpha: 0.4), size: 18),
                           onPressed: () { _searchCtrl.clear(); setState(() => _search = ''); },
                         )
                       : null,
                   filled: true,
-                  fillColor: Colors.white.withOpacity(0.07),
+                  fillColor: Colors.white.withValues(alpha: 0.07),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
@@ -860,15 +860,15 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                         margin: const EdgeInsets.only(right: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: sel ? const Color(0xFF30D158).withOpacity(0.2) : Colors.transparent,
+                          color: sel ? const Color(0xFF30D158).withValues(alpha: 0.2) : Colors.transparent,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: sel ? const Color(0xFF30D158) : Colors.white.withOpacity(0.15),
+                            color: sel ? const Color(0xFF30D158) : Colors.white.withValues(alpha: 0.15),
                           ),
                         ),
                         child: Text(cat,
                             style: TextStyle(
-                              color: sel ? const Color(0xFF30D158) : Colors.white.withOpacity(0.55),
+                              color: sel ? const Color(0xFF30D158) : Colors.white.withValues(alpha: 0.55),
                               fontSize: 12,
                               fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                             )),
@@ -920,7 +920,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       title: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
                       subtitle: Text(
                         '${item.calories.toInt()} kcal · ${item.protein.toStringAsFixed(1)}g protein · ${item.serving}',
-                        style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.add_circle, color: Color(0xFF30D158)),
@@ -941,7 +941,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                         child: Column(children: [
                           Text(
                             'No local results for "$_search"',
-                            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
                           ),
                           const SizedBox(height: 10),
                           SizedBox(
@@ -972,7 +972,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                         child: Column(children: [
                           Text(_onlineError!,
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13)),
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 13)),
                           const SizedBox(height: 8),
                           TextButton.icon(
                             onPressed: () => _searchOnline(context),
@@ -993,7 +993,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                           Text(
                             'Online results  ·  values per 100 g',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.35),
+                              color: Colors.white.withValues(alpha: 0.35),
                               fontSize: 11,
                               fontStyle: FontStyle.italic,
                             ),
@@ -1021,7 +1021,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                           '${item.calories100g.round()} kcal · '
                           '${item.protein100g.toStringAsFixed(1)}g prot · '
                           '${item.carbs100g.toStringAsFixed(1)}g carbs per 100g',
-                          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10),
                         ),
                         trailing: IconButton(
                           icon: const Icon(Icons.add_circle, color: Color(0xFF40C8E0)),
@@ -1040,7 +1040,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       child: Center(
                         child: Text(
                           'Type more to search…',
-                          style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
                         ),
                       ),
                     ),
@@ -1096,9 +1096,9 @@ class _QtyBtn extends StatelessWidget {
       onTap: onTap,
       customBorder: const CircleBorder(),
       decoration: BoxDecoration(
-        color: const Color(0xFF30D158).withOpacity(0.15),
+        color: const Color(0xFF30D158).withValues(alpha: 0.15),
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF30D158).withOpacity(0.4)),
+        border: Border.all(color: const Color(0xFF30D158).withValues(alpha: 0.4)),
       ),
       child: SizedBox(
         width: 44, height: 44,
@@ -1116,7 +1116,7 @@ class _NutCol extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(children: [
       Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
-      Text(label, style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11)),
+      Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11)),
     ]);
   }
 }
@@ -1134,9 +1134,9 @@ class _MiniField extends StatelessWidget {
       style: const TextStyle(color: Colors.white, fontSize: 13),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 12),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 12),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.07),
+        fillColor: Colors.white.withValues(alpha: 0.07),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),

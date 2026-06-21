@@ -298,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: const Color(0xFF1E1E22),
               borderRadius: BorderRadius.circular(14),
               boxShadow: AppShadows.card,
-              border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF30D158).withValues(alpha: 0.3)),
             ),
             child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [

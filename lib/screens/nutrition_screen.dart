@@ -60,7 +60,7 @@ class _NutritionScreenState extends State<NutritionScreen>
                   Text(
                     '${p.todayProteinTotal.toInt()}g protein',
                     style: TextStyle(
-                        color: Colors.white.withOpacity(0.5), fontSize: 11),
+                        color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                   ),
                 ],
               ),
@@ -86,7 +86,7 @@ class _NutritionScreenState extends State<NutritionScreen>
                   Text(
                     '${(p.waterProgress * 100).toInt()}% of goal',
                     style: TextStyle(
-                        color: Colors.white.withOpacity(0.5), fontSize: 11),
+                        color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                   ),
                 ],
               ),
@@ -112,7 +112,7 @@ class _NutritionScreenState extends State<NutritionScreen>
                   Text(
                     'today',
                     style: TextStyle(
-                        color: Colors.white.withOpacity(0.5), fontSize: 11),
+                        color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                   ),
                 ],
               ),

@@ -473,9 +473,9 @@ class _StreakBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: _kOrange.withOpacity(0.15),
+        color: _kOrange.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _kOrange.withOpacity(0.3)),
+        border: Border.all(color: _kOrange.withValues(alpha: 0.3)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.local_fire_department_rounded, size: 14, color: _kOrange),
@@ -567,14 +567,14 @@ class _RingRow extends StatelessWidget {
           curve: AppCurves.emphasized,
           builder: (_, v, __) => LinearProgressIndicator(
             value: v,
-            backgroundColor: color.withOpacity(0.15),
+            backgroundColor: color.withValues(alpha: 0.15),
             valueColor: AlwaysStoppedAnimation<Color>(displayColor),
             minHeight: 5,
           ),
         ),
       ),
       const SizedBox(height: 2),
-      Text(value, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11)),
+      Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
     ]);
   }
 }
@@ -634,7 +634,7 @@ class _RingsPainter extends CustomPainter {
 
       // Background track
       canvas.drawCircle(center, r, Paint()
-        ..color = colors[i].withOpacity(0.15)
+        ..color = colors[i].withValues(alpha: 0.15)
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke);
 
@@ -835,7 +835,7 @@ class _CalorieRingPainter extends CustomPainter {
         canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
             startAngle, overflowSweep, false,
             Paint()
-              ..color = _kOrange.withOpacity(0.6)
+              ..color = _kOrange.withValues(alpha: 0.6)
               ..style = PaintingStyle.stroke
               ..strokeWidth = 22
               ..strokeCap = StrokeCap.round);
@@ -1038,9 +1038,9 @@ class _BurnChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(children: [
         Icon(icon, size: 20, color: color),
@@ -1233,9 +1233,9 @@ class _WeightPredictionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: trendColor.withOpacity(0.12),
+                color: trendColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: trendColor.withOpacity(0.3)),
+                border: Border.all(color: trendColor.withValues(alpha: 0.3)),
               ),
               child: Text(
                 '${weekly >= 0 ? '+' : ''}${weekly.toStringAsFixed(2)} kg/wk',
@@ -1269,7 +1269,7 @@ class _WeightPredictionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: _kGreen.withOpacity(0.08),
+              color: _kGreen.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(children: [
@@ -1337,7 +1337,7 @@ class _PredictionPainter extends CustomPainter {
 
     if (goalWeight >= minW && goalWeight <= maxW) {
       final goalY = size.height - ((goalWeight - minW) / range) * size.height;
-      final dashPaint = Paint()..color = _kOrange.withOpacity(0.5)..strokeWidth = 1.5;
+      final dashPaint = Paint()..color = _kOrange.withValues(alpha: 0.5)..strokeWidth = 1.5;
       for (double x = 0; x < size.width; x += 10) {
         canvas.drawLine(Offset(x, goalY), Offset((x + 6).clamp(0, size.width), goalY), dashPaint);
       }
@@ -1370,7 +1370,7 @@ class _PredictionPainter extends CustomPainter {
       shadePath.lineTo(forecastPts.last.dx, size.height);
       shadePath.close();
       canvas.drawPath(shadePath, Paint()
-        ..color = _kBlue.withOpacity(0.07)..style = PaintingStyle.fill);
+        ..color = _kBlue.withValues(alpha: 0.07)..style = PaintingStyle.fill);
       canvas.drawCircle(forecastPts.last, 4, Paint()..color = _kBlue..style = PaintingStyle.fill);
     }
   }
@@ -1392,7 +1392,7 @@ class _WorkoutCard extends StatelessWidget {
         decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
         child: Row(children: [
           Container(padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: _kGreen.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: _kGreen.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: const Icon(Icons.fitness_center_rounded, color: _kGreen, size: 20)),
           const SizedBox(width: 14),
           const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1413,7 +1413,7 @@ class _WorkoutCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kGreen.withOpacity(0.3))),
+        border: Border.all(color: _kGreen.withValues(alpha: 0.3))),
       child: Row(children: [
         const Icon(Icons.check_circle_rounded, color: _kGreen, size: 26),
         const SizedBox(width: 14),
@@ -1421,7 +1421,7 @@ class _WorkoutCard extends StatelessWidget {
           Text(displayName,
             style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold, fontSize: 14)),
           Text(sessionLabel,
-            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
         ])),
       ]),
     );
@@ -1453,9 +1453,9 @@ class _SupplementsCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: item.$2 ? _kGreen.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+              color: item.$2 ? _kGreen.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: item.$2 ? _kGreen.withOpacity(0.4) : Colors.transparent),
+              border: Border.all(color: item.$2 ? _kGreen.withValues(alpha: 0.4) : Colors.transparent),
             ),
             child: Column(children: [
               Text(item.$3, style: const TextStyle(fontSize: 20)),
@@ -1503,8 +1503,8 @@ class _WeeklyReportCard extends StatelessWidget {
               Container(
                 width: 34, height: 34,
                 decoration: BoxDecoration(
-                  color: done ? _kGreen.withOpacity(0.2) : isToday
-                      ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.04),
+                  color: done ? _kGreen.withValues(alpha: 0.2) : isToday
+                      ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.04),
                   shape: BoxShape.circle,
                   border: Border.all(color: done ? _kGreen : isToday ? Colors.white38 : Colors.transparent, width: 1.5),
                 ),
@@ -1588,7 +1588,7 @@ class _WeekStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(child: Container(
     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-    decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(14)),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (icon != null) ...[Icon(icon, color: color, size: 14), const SizedBox(height: 4)],
       Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
@@ -1629,16 +1629,16 @@ class _InsightCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: tip.accent.withOpacity(rank == 0 ? 0.10 : 0.06),
+        color: tip.accent.withValues(alpha: rank == 0 ? 0.10 : 0.06),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: tip.accent.withOpacity(rank == 0 ? 0.3 : 0.18), width: 1),
+            color: tip.accent.withValues(alpha: rank == 0 ? 0.3 : 0.18), width: 1),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: tip.accent.withOpacity(0.12),
+            color: tip.accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Icon(tip.icon, size: 18, color: tip.accent),
@@ -1746,7 +1746,7 @@ class _WeeklyCalorieChart extends StatelessWidget {
               final isGoal = (v - goal).abs() < 1;
               return FlLine(
                 color: isGoal
-                    ? _kOrange.withOpacity(0.6)
+                    ? _kOrange.withValues(alpha: 0.6)
                     : const Color(0xFF38383A),
                 strokeWidth: isGoal ? 1.5 : 0.5,
                 dashArray: isGoal ? [6, 4] : null,
@@ -1764,8 +1764,8 @@ class _WeeklyCalorieChart extends StatelessWidget {
               barColor = atGoal ? _kGreen : _kBlue;
             } else {
               barColor = atGoal
-                  ? _kGreen.withOpacity(0.55)
-                  : _kBlue.withOpacity(0.35);
+                  ? _kGreen.withValues(alpha: 0.55)
+                  : _kBlue.withValues(alpha: 0.35);
             }
             return BarChartGroupData(
               x: idx,
@@ -1782,7 +1782,7 @@ class _WeeklyCalorieChart extends StatelessWidget {
           extraLinesData: ExtraLinesData(horizontalLines: [
             HorizontalLine(
               y: goal,
-              color: _kOrange.withOpacity(0.7),
+              color: _kOrange.withValues(alpha: 0.7),
               strokeWidth: 1.5,
               dashArray: [6, 4],
               label: HorizontalLineLabel(
@@ -1790,7 +1790,7 @@ class _WeeklyCalorieChart extends StatelessWidget {
                 alignment: Alignment.topRight,
                 labelResolver: (_) => '  goal',
                 style: TextStyle(
-                  color: _kOrange.withOpacity(0.8),
+                  color: _kOrange.withValues(alpha: 0.8),
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1851,7 +1851,7 @@ class _MacroDonutCard extends StatelessWidget {
       ),
       PieChartSectionData(
         value: fatCal,
-        color: _kRed.withOpacity(0.85),
+        color: _kRed.withValues(alpha: 0.85),
         radius: 30,
         showTitle: false,
       ),
@@ -1922,7 +1922,7 @@ class _MacroDonutCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 _MacroLegendRow(
-                  color: _kRed.withOpacity(0.85),
+                  color: _kRed.withValues(alpha: 0.85),
                   label: 'Fat',
                   grams: fat.round(),
                   total: total,

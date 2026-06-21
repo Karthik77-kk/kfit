@@ -315,7 +315,7 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
               hintStyle: const TextStyle(color: Color(0xFF48484A), fontSize: 15),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.06),
+              fillColor: Colors.white.withValues(alpha: 0.06),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,

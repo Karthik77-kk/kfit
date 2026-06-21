@@ -43,8 +43,8 @@ abstract final class AppColors {
 abstract final class AppShadows {
   static const List<BoxShadow> card = [
     BoxShadow(
-      color: Color(0x73000814), // blue-black @ ~45%
-      blurRadius: 24,
+      color: Color(0x99000814), // blue-black @ ~60%
+      blurRadius: 16,
       offset: Offset(0, 8),
       spreadRadius: -6,
     ),

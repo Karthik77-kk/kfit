@@ -549,7 +549,7 @@ class _AiPredictionsCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: (weekly < 0 ? _kGreen : _kRed).withOpacity(0.12),
+                color: (weekly < 0 ? _kGreen : _kRed).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -588,9 +588,9 @@ class _AiPredictionsCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: calColor.withOpacity(0.08),
+            color: calColor.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: calColor.withOpacity(0.25)),
+            border: Border.all(color: calColor.withValues(alpha: 0.25)),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Icon(Icons.tips_and_updates_outlined, size: 16, color: Color(0xFFFF9F0A)),
@@ -630,7 +630,7 @@ class _PredChip extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(children: [
@@ -651,7 +651,7 @@ class _MetaChip2 extends StatelessWidget {
   Widget build(BuildContext context) => Expanded(child: Container(
     padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(8),
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -729,7 +729,7 @@ class _BmrTdeeCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: (calibrated ? _kGreen : _kOrange).withOpacity(0.08),
+              color: (calibrated ? _kGreen : _kOrange).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
@@ -791,7 +791,7 @@ class _BodyCompositionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: status.color.withOpacity(0.15),
+                color: status.color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(status.label,
@@ -838,9 +838,9 @@ class _BodyCompositionCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: traj.color.withOpacity(0.1),
+                  color: traj.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: traj.color.withOpacity(0.3)),
+                  border: Border.all(color: traj.color.withValues(alpha: 0.3)),
                 ),
                 child: Row(children: [
                   Icon(Icons.swap_vert_rounded, color: traj.color, size: 18),
@@ -879,7 +879,7 @@ class _BcChip extends StatelessWidget {
         Text(label, style: const TextStyle(color: _kSecond, fontSize: 10)),
         const SizedBox(height: 2),
         Text(value, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w700)),
-        Text(sub, style: TextStyle(color: color.withOpacity(0.8), fontSize: 9)),
+        Text(sub, style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 9)),
       ]),
     );
   }
@@ -901,7 +901,7 @@ class _MetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -967,7 +967,7 @@ class _GoalCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0),
-              backgroundColor: color.withOpacity(0.15),
+              backgroundColor: color.withValues(alpha: 0.15),
               valueColor: AlwaysStoppedAnimation<Color>(color),
               minHeight: 6,
             ),
@@ -1074,7 +1074,7 @@ class _OneRMSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                  color: _kOrange.withOpacity(0.15),
+                  color: _kOrange.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8)),
               child: const Text('Epley Formula',
                   style: TextStyle(color: _kOrange, fontSize: 10)),
@@ -1100,9 +1100,9 @@ class _OneRMSection extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _kGreen.withOpacity(0.15),
+                    color: _kGreen.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: _kGreen.withOpacity(0.3)),
+                    border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     '${d.oneRM.toStringAsFixed(1)} kg',
@@ -1194,7 +1194,7 @@ class _FieldRow extends StatelessWidget {
           Container(
             width: 34, height: 34,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
+              color: iconColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: iconColor, size: 18),
@@ -1504,7 +1504,7 @@ class _MiniWeightChart extends StatelessWidget {
                     radius: isLast ? 4 : 2.5,
                     color: _kGreen,
                     strokeWidth: isLast ? 2 : 0,
-                    strokeColor: _kGreen.withOpacity(0.3),
+                    strokeColor: _kGreen.withValues(alpha: 0.3),
                   );
                 },
               ),
@@ -1514,8 +1514,8 @@ class _MiniWeightChart extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    _kGreen.withOpacity(0.25),
-                    _kGreen.withOpacity(0.0),
+                    _kGreen.withValues(alpha: 0.25),
+                    _kGreen.withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -1526,7 +1526,7 @@ class _MiniWeightChart extends StatelessWidget {
               if (goalVisible)
                 HorizontalLine(
                   y: goalWeightKg,
-                  color: _kOrange.withOpacity(0.7),
+                  color: _kOrange.withValues(alpha: 0.7),
                   strokeWidth: 1.5,
                   dashArray: [6, 4],
                   label: HorizontalLineLabel(
@@ -1582,7 +1582,7 @@ class _BmiBar extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   blurRadius: 4, offset: const Offset(0, 2),
                 )],
               ),
