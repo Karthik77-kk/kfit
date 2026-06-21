@@ -845,11 +845,10 @@ void _showNutritionLookup(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: _kCard,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    backgroundColor: Colors.transparent,
+    builder: (_) => GlassSheet(
+      child: _NutritionLookupSheet(chatController: chatCtrl),
     ),
-    builder: (_) => _NutritionLookupSheet(chatController: chatCtrl),
   );
 }
 

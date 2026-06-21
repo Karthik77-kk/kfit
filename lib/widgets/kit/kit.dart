@@ -6,4 +6,5 @@ export 'app_card.dart';
 export 'app_tappable.dart';
 export 'app_transitions.dart';
 export 'count_up_text.dart';
+export 'glass_sheet.dart';
 export 'section_header.dart';
