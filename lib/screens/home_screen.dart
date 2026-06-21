@@ -1181,7 +1181,7 @@ class _StatChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 18, color: color),
+        Icon(icon, size: 18, color: _kSecond),
         const SizedBox(width: 5),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),

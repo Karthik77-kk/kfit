@@ -6,7 +6,6 @@ import '../main.dart' show MainNavigationScreen;
 
 // ─── Design tokens (mirrors app palette) ───────────────────────────────────────
 const _kGreen  = Color(0xFF30D158);
-const _kBlue   = Color(0xFF40C8E0);
 const _kCard   = Color(0xFF1E1E22);
 const _kSecond = Color(0xFF8E8E93);
 
@@ -333,7 +332,19 @@ class _ProfilePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('📊', style: TextStyle(fontSize: 48)),
+          Container(
+            width: 96,
+            height: 96,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFF30D158), Color(0xFF40C8E0)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: const Icon(Icons.insights_rounded, size: 48, color: Colors.black),
+          ),
           const SizedBox(height: 16),
           const Text(
             'A bit about you',
@@ -550,13 +561,17 @@ class _ActivityPermissionPage extends StatelessWidget {
         children: [
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: _kBlue.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _kBlue.withValues(alpha: 0.3)),
+            width: 96,
+            height: 96,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFF30D158), Color(0xFF40C8E0)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
-            child: const Text('👟', style: TextStyle(fontSize: 48)),
+            child: const Icon(Icons.directions_walk_rounded, size: 48, color: Colors.black),
           ),
           const SizedBox(height: 28),
           const Text(

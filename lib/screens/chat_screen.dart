@@ -764,7 +764,7 @@ class _InputBar extends StatelessWidget {
         ),
         // Nutrition lookup button
         IconButton(
-          icon: const Text('🍎', style: TextStyle(fontSize: 18)),
+          icon: const Icon(Icons.restaurant_rounded, size: 18, color: Color(0xFF40C8E0)),
           tooltip: 'Look up nutrition',
           onPressed: thinking ? null : () => _showNutritionLookup(context, controller),
           style: IconButton.styleFrom(
@@ -1024,8 +1024,7 @@ class _NutritionLookupSheetState extends State<_NutritionLookupSheet> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text('🍽️',
-                                    style: TextStyle(fontSize: 36)),
+                                const Icon(Icons.restaurant_rounded, size: 36, color: Color(0xFF40C8E0)),
                                 const SizedBox(height: 10),
                                 const Text(
                                     'Search for any food item above',
