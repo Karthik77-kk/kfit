@@ -5,6 +5,7 @@ import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/kit/kit.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -268,8 +269,288 @@ class _SessionTile extends StatelessWidget {
 
 // ── Nutrition History ─────────────────────────────────────────────────────────
 
-class _NutritionHistory extends StatelessWidget {
+class _NutritionHistory extends StatefulWidget {
   const _NutritionHistory();
+  @override
+  State<_NutritionHistory> createState() => _NutritionHistoryState();
+}
+
+class _NutritionHistoryState extends State<_NutritionHistory> {
+  // Returns a "YYYY-MM-DD" key for a DateTime — same logic as _WorkoutHistoryState.
+  String _dateKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  // Format a "YYYY-MM-DD" key as a readable label ("Today", "Yesterday", "14 Jun").
+  String _displayDay(String dayKey) {
+    try {
+      final parts = dayKey.split('-');
+      final date = DateTime(
+          int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final diff = today.difference(date).inDays;
+      if (diff == 0) return 'Today';
+      if (diff == 1) return 'Yesterday';
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      return '${date.day} ${months[date.month - 1]}';
+    } catch (_) {
+      return dayKey;
+    }
+  }
+
+  void _showDayDetail(BuildContext context, String dayKey) {
+    final p = context.read<FitnessProvider>();
+    final entries = p.foodHistory[dayKey] ?? [];
+    final supp = p.supplementHistory[dayKey];
+    final waterMl = p.waterHistory[dayKey] ?? 0;
+    final suppCal = (supp?.whey == true) ? 120.0 : 0.0;
+    final suppProt = (supp?.whey == true) ? 25.0 : 0.0;
+    final totalCal = entries.fold(0.0, (s, e) => s + e.calories) + suppCal;
+    final totalProt = entries.fold(0.0, (s, e) => s + e.protein) + suppProt;
+
+    // Workouts for this day.
+    final dayWorkouts = p.workoutHistory
+        .where((w) => _dateKey(w.date) == dayKey)
+        .toList();
+
+    // Group food entries by meal type in canonical order.
+    const mealOrder = [
+      MealType.breakfast,
+      MealType.lunch,
+      MealType.dinner,
+      MealType.snack,
+    ];
+    final byMeal = <MealType, List<FoodEntry>>{};
+    for (final e in entries) {
+      byMeal.putIfAbsent(e.mealType, () => []).add(e);
+    }
+
+    IconData mealIcon(MealType m) => switch (m) {
+      MealType.breakfast => Icons.wb_sunny_rounded,
+      MealType.lunch     => Icons.restaurant_rounded,
+      MealType.dinner    => Icons.nightlight_round,
+      MealType.snack     => Icons.cookie_rounded,
+    };
+
+    String mealLabel(MealType m) => switch (m) {
+      MealType.breakfast => 'Breakfast',
+      MealType.lunch     => 'Lunch',
+      MealType.dinner    => 'Dinner',
+      MealType.snack     => 'Snack',
+    };
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => GlassSheet(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8E8E93).withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // ── Header ──────────────────────────────────────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _displayDay(dayKey),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          color: Colors.white),
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${totalCal.round()} kcal',
+                        style: const TextStyle(
+                            color: Color(0xFFFF9F0A),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15),
+                      ),
+                      Text(
+                        '${totalProt.round()}g protein',
+                        style: const TextStyle(
+                            color: Color(0xFF40C8E0), fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // ── Food by meal ─────────────────────────────────────────────
+              if (entries.isEmpty)
+                const Text(
+                  'No food logged',
+                  style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+                )
+              else ...[
+                for (final meal in mealOrder)
+                  if (byMeal.containsKey(meal)) ...[
+                    // Section label
+                    Row(
+                      children: [
+                        Icon(mealIcon(meal),
+                            color: const Color(0xFF8E8E93), size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          mealLabel(meal).toUpperCase(),
+                          style: const TextStyle(
+                              color: Color(0xFF8E8E93),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.8),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Food entries
+                    for (final e in byMeal[meal]!)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                e.name,
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.white),
+                              ),
+                            ),
+                            Text(
+                              '${e.calories.round()} kcal · ${e.protein.round()}g',
+                              style: const TextStyle(
+                                  color: Color(0xFF8E8E93), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                  ],
+              ],
+
+              // ── Water ────────────────────────────────────────────────────
+              const Divider(color: Color(0xFF38383A), height: 1),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.water_drop_rounded,
+                      color: Color(0xFF40C8E0), size: 16),
+                  const SizedBox(width: 8),
+                  const Text('Water',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500)),
+                  const Spacer(),
+                  Text(
+                    '$waterMl ml',
+                    style: const TextStyle(
+                        color: Color(0xFF40C8E0),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // ── Supplements ──────────────────────────────────────────────
+              if (supp != null) ...[
+                const Divider(color: Color(0xFF38383A), height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.medication_rounded,
+                        color: Color(0xFF8E8E93), size: 16),
+                    const SizedBox(width: 8),
+                    const Text('Supplements',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500)),
+                    const Spacer(),
+                    Text(
+                      '${supp.takenCount}/3 taken',
+                      style: const TextStyle(
+                          color: Color(0xFF8E8E93), fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _SuppChip(label: 'Whey', taken: supp.whey),
+                const SizedBox(height: 4),
+                _SuppChip(label: 'Creatine', taken: supp.creatine),
+                const SizedBox(height: 4),
+                _SuppChip(label: 'Multivitamin', taken: supp.multivitamin),
+                const SizedBox(height: 12),
+              ],
+
+              // ── Workouts ─────────────────────────────────────────────────
+              if (dayWorkouts.isNotEmpty) ...[
+                const Divider(color: Color(0xFF38383A), height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.fitness_center_rounded,
+                        color: Color(0xFF30D158), size: 16),
+                    const SizedBox(width: 8),
+                    const Text('Workouts',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                for (final w in dayWorkouts)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            w.name,
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.white),
+                          ),
+                        ),
+                        Text(
+                          '${w.exercises.length} exercise${w.exercises.length != 1 ? 's' : ''}',
+                          style: const TextStyle(
+                              color: Color(0xFF8E8E93), fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
@@ -294,29 +575,61 @@ class _NutritionHistory extends StatelessWidget {
         final suppProt = (supp?.whey == true) ?  25.0 : 0.0;
         final totalCal  = entries.fold(0.0, (s, e) => s + e.calories)  + suppCal;
         final totalProt = entries.fold(0.0, (s, e) => s + e.protein) + suppProt;
-        final suppLabel = supp != null ? ' · 💊 ${supp.takenCount}/3' : '';
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-              color: const Color(0xFF1E1E22), borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card),
-          child: Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(day, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              Text(
-                '${entries.length} item${entries.length != 1 ? 's' : ''}$suppLabel',
-                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-              ),
-            ])),
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('${totalCal.round()} kcal',
-                  style: const TextStyle(color: Color(0xFFFF9F0A), fontWeight: FontWeight.w600)),
-              Text('${totalProt.round()}g protein',
-                  style: const TextStyle(color: Color(0xFF40C8E0), fontSize: 12)),
+        final suppLabel = supp != null ? ' · ${supp.takenCount}/3 supps' : '';
+        return AppTappable(
+          onTap: () => _showDayDetail(context, day),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+                color: const Color(0xFF1E1E22), borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card),
+            child: Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(day, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(
+                  '${entries.length} item${entries.length != 1 ? 's' : ''}$suppLabel',
+                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                ),
+              ])),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text('${totalCal.round()} kcal',
+                    style: const TextStyle(color: Color(0xFFFF9F0A), fontWeight: FontWeight.w600)),
+                Text('${totalProt.round()}g protein',
+                    style: const TextStyle(color: Color(0xFF40C8E0), fontSize: 12)),
+              ]),
             ]),
-          ]),
+          ),
         );
       },
+    );
+  }
+}
+
+// Small read-only supplement chip used in the day-detail sheet.
+class _SuppChip extends StatelessWidget {
+  final String label;
+  final bool taken;
+  const _SuppChip({required this.label, required this.taken});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          taken ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+          color: taken ? const Color(0xFF30D158) : const Color(0xFF8E8E93),
+          size: 16,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: taken ? Colors.white : const Color(0xFF8E8E93),
+          ),
+        ),
+      ],
     );
   }
 }
