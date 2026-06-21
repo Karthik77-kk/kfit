@@ -10,14 +10,28 @@ import 'package:uuid/uuid.dart';
 /// inconsistent per-exercise emoji with the app's monoline icon language.
 IconData _exerciseIcon(String name) {
   switch (ExerciseDatabase.categoryOf(name)) {
-    case 'Cardio':
-      return Icons.directions_run_rounded;
+    case 'Chest':
+      return Icons.sports_handball_rounded;
+    case 'Back':
+      return Icons.rowing_rounded;
+    case 'Shoulders':
+      return Icons.accessibility_new_rounded;
+    case 'Biceps':
+      return Icons.front_hand_rounded;
+    case 'Triceps':
+      return Icons.back_hand_rounded;
+    case 'Legs':
+      return Icons.directions_walk_rounded;
+    case 'Forearms / Grip':
+      return Icons.pan_tool_rounded;
     case 'Core':
       return Icons.self_improvement_rounded;
     case 'Full Body / Compound':
       return Icons.sports_gymnastics_rounded;
+    case 'Cardio':
+      return Icons.directions_run_rounded;
     default:
-      return Icons.fitness_center_rounded; // all strength categories
+      return Icons.fitness_center_rounded;
   }
 }
 
@@ -133,7 +147,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF9F0A).withOpacity(0.15),
+                  color: const Color(0xFFFF9F0A).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -320,7 +334,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF30D158).withOpacity(0.15),
+                        color: const Color(0xFF30D158).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text('~$_estimatedCalories kcal',
@@ -413,7 +427,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   return ChoiceChip(
                     label: Text(cat),
                     selected: selected,
-                    selectedColor: const Color(0xFF30D158).withOpacity(0.2),
+                    selectedColor: const Color(0xFF30D158).withValues(alpha: 0.2),
                     labelStyle: TextStyle(
                       color: selected ? const Color(0xFF30D158) : const Color(0xFF8E8E93),
                       fontSize: 13,
@@ -462,12 +476,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                           decoration: BoxDecoration(
                             color: alreadyAdded
-                                ? const Color(0xFF30D158).withOpacity(0.12)
+                                ? const Color(0xFF30D158).withValues(alpha: 0.12)
                                 : const Color(0xFF1E1E22),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: alreadyAdded
-                                  ? const Color(0xFF30D158).withOpacity(0.4)
+                                  ? const Color(0xFF30D158).withValues(alpha: 0.4)
                                   : const Color(0xFF38383A),
                             ),
                           ),
@@ -536,7 +550,7 @@ class _TodayWorkoutSummary extends StatelessWidget {
         color: const Color(0xFF1E1E22),
         borderRadius: BorderRadius.circular(14),
         boxShadow: AppShadows.card,
-        border: Border.all(color: const Color(0xFF30D158).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF30D158).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

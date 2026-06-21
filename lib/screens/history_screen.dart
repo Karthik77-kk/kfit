@@ -139,7 +139,7 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
                       Container(
                         width: 44, height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF30D158).withOpacity(0.15),
+                          color: const Color(0xFF30D158).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.fitness_center_rounded,
@@ -460,7 +460,7 @@ class _WeightHistory extends StatelessWidget {
                         FlSpot(0, p.goalWeightKg),
                         FlSpot((entries.length - 1).toDouble(), p.goalWeightKg),
                       ],
-                      color: const Color(0xFF40C8E0).withOpacity(0.5),
+                      color: const Color(0xFF40C8E0).withValues(alpha: 0.5),
                       barWidth: 1.5,
                       dotData: const FlDotData(show: false),
                       dashArray: [6, 4],
@@ -486,8 +486,8 @@ class _WeightHistory extends StatelessWidget {
                       show: true,
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF30D158).withOpacity(0.25),
-                          const Color(0xFF30D158).withOpacity(0.0),
+                          const Color(0xFF30D158).withValues(alpha: 0.25),
+                          const Color(0xFF30D158).withValues(alpha: 0.0),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -503,7 +503,7 @@ class _WeightHistory extends StatelessWidget {
             padding: const EdgeInsets.only(left: 4),
             child: Row(children: [
               Container(width: 16, height: 2,
-                  color: const Color(0xFF40C8E0).withOpacity(0.5)),
+                  color: const Color(0xFF40C8E0).withValues(alpha: 0.5)),
               const SizedBox(width: 6),
               const Text('Goal weight',
                   style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
@@ -551,15 +551,15 @@ class _StatBadge extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.25), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: TextStyle(color: color.withOpacity(0.8), fontSize: 10)),
+                style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 10)),
             const SizedBox(height: 2),
             Text(value,
                 style: TextStyle(

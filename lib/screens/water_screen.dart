@@ -103,7 +103,7 @@ class _WaterScreenState extends State<WaterScreen>
                         child: CircularProgressIndicator(
                           value: pct,
                           strokeWidth: 14,
-                          backgroundColor: const Color(0xFF40C8E0).withOpacity(0.15),
+                          backgroundColor: const Color(0xFF40C8E0).withValues(alpha: 0.15),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             goalMet
                                 ? const Color(0xFF30D158)
@@ -131,7 +131,7 @@ class _WaterScreenState extends State<WaterScreen>
                           Text(
                             'ml',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withValues(alpha: 0.5),
                               fontSize: 14,
                             ),
                           ),
@@ -155,7 +155,7 @@ class _WaterScreenState extends State<WaterScreen>
                     : Text(
                         '${remaining}ml left to reach goal',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 16,
                         ),
                       ),
@@ -163,7 +163,7 @@ class _WaterScreenState extends State<WaterScreen>
                 Text(
                   'Goal: ${p.waterGoalMl}ml · ${(pct * 100).toInt()}% done',
                   style: TextStyle(
-                      color: Colors.white.withOpacity(0.35), fontSize: 13),
+                      color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
                 ),
               ],
             ),
@@ -264,7 +264,7 @@ class _WaterScreenState extends State<WaterScreen>
                       child: Text(
                         'Drinking water before meals helps control hunger and reduces calorie intake.',
                         style: TextStyle(
-                            color: Colors.white.withOpacity(0.4),
+                            color: Colors.white.withValues(alpha: 0.4),
                             fontSize: 12),
                       ),
                     ),
@@ -306,9 +306,9 @@ class _WaterButton extends StatelessWidget {
       onTap: onTap,
       padding: const EdgeInsets.symmetric(vertical: 18),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.5), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Column(
         children: [
@@ -324,7 +324,7 @@ class _WaterButton extends StatelessWidget {
           Text(
             sublabel,
             style: TextStyle(
-                color: Colors.white.withOpacity(0.4), fontSize: 11),
+                color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
           ),
         ],
       ),

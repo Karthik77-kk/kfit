@@ -118,14 +118,14 @@ class _ProgressHeader extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: taken == 3
-              ? [const Color(0xFF30D158).withOpacity(0.25), const Color(0xFF30D158).withOpacity(0.10)]
-              : [const Color(0xFF40C8E0).withOpacity(0.2), const Color(0xFF40C8E0).withOpacity(0.08)],
+              ? [const Color(0xFF30D158).withValues(alpha: 0.25), const Color(0xFF30D158).withValues(alpha: 0.10)]
+              : [const Color(0xFF40C8E0).withValues(alpha: 0.2), const Color(0xFF40C8E0).withValues(alpha: 0.08)],
         ),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: taken == 3
-              ? const Color(0xFF30D158).withOpacity(0.4)
-              : const Color(0xFF40C8E0).withOpacity(0.3),
+              ? const Color(0xFF30D158).withValues(alpha: 0.4)
+              : const Color(0xFF40C8E0).withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -139,7 +139,7 @@ class _ProgressHeader extends StatelessWidget {
                 CircularProgressIndicator(
                   value: taken / 3,
                   strokeWidth: 6,
-                  backgroundColor: Colors.white.withOpacity(0.1),
+                  backgroundColor: Colors.white.withValues(alpha: 0.1),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     taken == 3 ? const Color(0xFF30D158) : const Color(0xFF40C8E0),
                   ),
@@ -210,10 +210,10 @@ class _SupplementCard extends StatelessWidget {
       duration: const Duration(milliseconds: 250),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: taken ? color.withOpacity(0.12) : const Color(0xFF1E1E22),
+        color: taken ? color.withValues(alpha: 0.12) : const Color(0xFF1E1E22),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: taken ? color.withOpacity(0.5) : color.withOpacity(0.2),
+          color: taken ? color.withValues(alpha: 0.5) : color.withValues(alpha: 0.2),
           width: taken ? 1.5 : 1,
         ),
       ),
@@ -235,7 +235,7 @@ class _SupplementCard extends StatelessWidget {
                       ),
                     ),
                     Text(brand,
-                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
                     ),
                     const SizedBox(height: 2),
                     Text(nutritionSubtitle,
@@ -251,7 +251,7 @@ class _SupplementCard extends StatelessWidget {
                   onChanged: (v) => onToggle(v ?? false),
                   activeColor: color,
                   checkColor: Colors.white,
-                  side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
+                  side: BorderSide(color: color.withValues(alpha: 0.5), width: 1.5),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
@@ -265,7 +265,7 @@ class _SupplementCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
+              color: Colors.white.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -275,7 +275,7 @@ class _SupplementCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(tip,
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, height: 1.4),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12, height: 1.4),
                   ),
                 ),
               ],
@@ -297,9 +297,9 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 13, color: color.withOpacity(0.7)),
+        Icon(icon, size: 13, color: color.withValues(alpha: 0.7)),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
       ],
     );
   }
@@ -313,9 +313,9 @@ class _ReminderTip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -331,7 +331,7 @@ class _ReminderTip extends StatelessWidget {
                 Text(
                   'Tick these off after breakfast each day — your streak and the in-app '
                   'coach keep you consistent. (The app sends no phone notifications.)',
-                  style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.4),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11, height: 1.4),
                 ),
               ],
             ),
@@ -348,19 +348,19 @@ class _AvoidSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const avoid = [
-      '❌ Fat burners — waste of money, side effects',
-      '❌ Mass gainers — adds unwanted fat',
-      '❌ BCAAs — not needed if you have whey',
-      '❌ Testosterone boosters — not for your age/goal',
-      '❌ Fancy creatine types (HCl, Kre-Alkalyn) — pure monohydrate is best',
+      'Fat burners — waste of money, side effects',
+      'Mass gainers — adds unwanted fat',
+      'BCAAs — not needed if you have whey',
+      'Testosterone boosters — not for your age/goal',
+      'Fancy creatine types (HCl, Kre-Alkalyn) — pure monohydrate is best',
     ];
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.06),
+        color: Colors.red.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.red.withOpacity(0.15)),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,8 +375,16 @@ class _AvoidSection extends StatelessWidget {
           const SizedBox(height: 8),
           ...avoid.map((s) => Padding(
                 padding: const EdgeInsets.only(bottom: 5),
-                child: Text(s,
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, height: 1.3),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cancel_rounded, size: 14, color: Colors.redAccent),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(s,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12, height: 1.3),
+                      ),
+                    ),
+                  ],
                 ),
               )),
         ],
