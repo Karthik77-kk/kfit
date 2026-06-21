@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../theme/app_tokens.dart';
+import '../widgets/kit/kit.dart';
 import 'package:uuid/uuid.dart';
 
 /// A clean, category-based Material icon for an exercise — replaces the
@@ -145,16 +146,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
+      builder: (ctx) => GlassSheet(
+        child: Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF1E1E22),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
+          color: Colors.transparent,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             child: Column(
@@ -360,6 +356,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
         ),
       ),
+    ),
     ).whenComplete(() {
       setsCtrl.dispose();
       repsCtrl.dispose();

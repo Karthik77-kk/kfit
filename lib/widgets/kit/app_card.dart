@@ -10,7 +10,12 @@ import '../../theme/app_tokens.dart';
 /// 1px top rim-light, so it lifts off the pure-black canvas. Set
 /// `elevated: false` for flat nested tiles, or pass an explicit [boxShadow] /
 /// [border] to override.
-class AppCard extends StatelessWidget {
+///
+/// When [onTap] is provided the card also sinks slightly under the finger
+/// (0.97 scale) for a tactile "press-to-lift" feel. Static cards (no onTap)
+/// are unaffected. The animation is suppressed when the OS reduce-motion
+/// setting is active.
+class AppCard extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double radius;
@@ -35,34 +40,54 @@ class AppCard extends StatelessWidget {
   });
 
   @override
+  State<AppCard> createState() => _AppCardState();
+}
+
+class _AppCardState extends State<AppCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final br = BorderRadius.circular(radius);
+    final br = BorderRadius.circular(widget.radius);
     final effectiveShadow =
-        boxShadow ?? (elevated ? AppShadows.card : null);
-    final effectiveBorder = border ??
-        (elevated
+        widget.boxShadow ?? (widget.elevated ? AppShadows.card : null);
+    final effectiveBorder = widget.border ??
+        (widget.elevated
             ? const Border(top: BorderSide(color: AppColors.rim, width: 1))
             : null);
     final decorated = Container(
       decoration: BoxDecoration(
-        color: gradient == null ? color : null,
-        gradient: gradient,
+        color: widget.gradient == null ? widget.color : null,
+        gradient: widget.gradient,
         borderRadius: br,
         border: effectiveBorder,
         boxShadow: effectiveShadow,
       ),
-      child: onTap == null
-          ? Padding(padding: padding, child: child)
+      child: widget.onTap == null
+          ? Padding(padding: widget.padding, child: widget.child)
           // Material + InkWell so the ripple is clipped to the rounded shape.
           : Material(
               type: MaterialType.transparency,
               child: InkWell(
                 borderRadius: br,
-                onTap: onTap,
-                child: Padding(padding: padding, child: child),
+                onTap: widget.onTap,
+                onHighlightChanged: widget.onTap != null
+                    ? (v) => setState(() => _pressed = v)
+                    : null,
+                child: Padding(padding: widget.padding, child: widget.child),
               ),
             ),
     );
-    return decorated;
+
+    // Only animate when tappable and motion is not reduced.
+    final scale = (widget.onTap != null && !reduceMotion(context))
+        ? (_pressed ? 0.97 : 1.0)
+        : 1.0;
+    return AnimatedScale(
+      scale: scale,
+      duration: const Duration(milliseconds: 110),
+      curve: Curves.easeOut,
+      child: decorated,
+    );
   }
 }

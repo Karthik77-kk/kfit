@@ -15,11 +15,8 @@ void showAddFoodSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: const Color(0xFF1E1E22),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (_) => const _AddFoodSheet(),
+    backgroundColor: Colors.transparent,
+    builder: (_) => const GlassSheet(child: _AddFoodSheet()),
   );
 }
 

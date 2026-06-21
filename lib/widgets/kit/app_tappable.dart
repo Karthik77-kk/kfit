@@ -11,7 +11,11 @@ import '../../theme/app_tokens.dart';
 /// `Container(decoration: …)`: the decoration is painted via [Ink] so the ripple
 /// renders *on top* of it (a plain InkWell behind an opaque Container shows no
 /// splash). Use [AppCard] for full cards; this is for everything smaller.
-class AppTappable extends StatelessWidget {
+///
+/// When tappable, the widget sinks slightly under the finger (0.97 scale) for a
+/// tactile "press-to-lift" feel. The animation is suppressed when the OS
+/// reduce-motion setting is active.
+class AppTappable extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final BorderRadius borderRadius;
@@ -35,27 +39,44 @@ class AppTappable extends StatelessWidget {
   });
 
   @override
+  State<AppTappable> createState() => _AppTappableState();
+}
+
+class _AppTappableState extends State<AppTappable> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final tap = onTap == null
+    final tap = widget.onTap == null
         ? null
         : () {
-            if (haptic) HapticFeedback.selectionClick();
-            onTap!();
+            if (widget.haptic) HapticFeedback.selectionClick();
+            widget.onTap!();
           };
-    final content =
-        padding == null ? child : Padding(padding: padding!, child: child);
+    final content = widget.padding == null
+        ? widget.child
+        : Padding(padding: widget.padding!, child: widget.child);
     final inkWell = InkWell(
-      borderRadius: customBorder == null ? borderRadius : null,
-      customBorder: customBorder,
+      borderRadius: widget.customBorder == null ? widget.borderRadius : null,
+      customBorder: widget.customBorder,
       onTap: tap,
+      onHighlightChanged: (v) => setState(() => _pressed = v),
       child: content,
     );
 
-    return Material(
+    final inner = Material(
       type: MaterialType.transparency,
-      child: decoration == null
+      child: widget.decoration == null
           ? inkWell
-          : Ink(decoration: decoration, child: inkWell),
+          : Ink(decoration: widget.decoration, child: inkWell),
+    );
+
+    final scale = reduceMotion(context) ? 1.0 : (_pressed ? 0.97 : 1.0);
+    return AnimatedScale(
+      scale: scale,
+      duration: const Duration(milliseconds: 110),
+      curve: Curves.easeOut,
+      child: inner,
     );
   }
 }
