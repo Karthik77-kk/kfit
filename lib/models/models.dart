@@ -475,6 +475,197 @@ class ExerciseDatabase {
   /// meaningless for running, cycling, etc. Minutes are stored in SetData.reps.
   static bool isCardio(String exercise) => categoryOf(exercise) == 'Cardio';
 
+  static const Map<String, (String primary, String secondary, String tip)>
+      _exerciseInfo = {
+    // ── Chest ──────────────────────────────────────────────────────────────
+    'Bench Press': (
+      'Chest',
+      'Triceps · Shoulders',
+      'Lie flat, grip just wider than shoulders, lower to mid-chest, drive up.',
+    ),
+    'Incline Bench Press': (
+      'Upper Chest',
+      'Triceps · Shoulders',
+      'Set bench to 30–45°, press the bar up and slightly back, control descent.',
+    ),
+    'Dumbbell Flyes': (
+      'Chest',
+      'Shoulders',
+      'Slight bend in elbows, lower in wide arc to chest height, squeeze up.',
+    ),
+    'Chest Dips': (
+      'Chest',
+      'Triceps · Shoulders',
+      'Lean forward slightly, elbows flared out, lower until chest dips below bar level.',
+    ),
+    // ── Back ───────────────────────────────────────────────────────────────
+    'Pull-ups': (
+      'Back',
+      'Biceps',
+      'Dead hang, pull chest to bar, control the descent.',
+    ),
+    'Barbell Rows': (
+      'Back',
+      'Biceps',
+      'Hinge ~45°, flat back, pull to lower ribs, squeeze shoulder blades.',
+    ),
+    'Lat Pulldown': (
+      'Back',
+      'Biceps',
+      'Pull bar to upper chest, elbows drive down and back, avoid swinging.',
+    ),
+    'Face Pulls': (
+      'Rear Delts',
+      'Traps · Rotator Cuff',
+      'Cable at head height, pull to face with elbows flared high, external rotation at end.',
+    ),
+    // ── Shoulders ──────────────────────────────────────────────────────────
+    'Overhead Press': (
+      'Shoulders',
+      'Triceps',
+      'Brace, press straight overhead, squeeze glutes, bar finishes over ears.',
+    ),
+    'Dumbbell Shoulder Press': (
+      'Shoulders',
+      'Triceps',
+      'Dumbbells at ear level, press overhead, avoid arching lower back excessively.',
+    ),
+    'Arnold Press': (
+      'Shoulders',
+      'Triceps',
+      'Start palms facing you, rotate outward as you press overhead, reverse on way down.',
+    ),
+    'Lateral Raises': (
+      'Side Delts',
+      '',
+      'Slight elbow bend, raise to shoulder height, lead with elbows, lower slowly.',
+    ),
+    // ── Biceps ─────────────────────────────────────────────────────────────
+    'Barbell Curls': (
+      'Biceps',
+      '',
+      'Elbows pinned to sides, curl up, no swinging, lower slowly.',
+    ),
+    'Hammer Curls': (
+      'Biceps · Brachialis',
+      '',
+      'Neutral grip (thumbs up), curl without rotating wrist, control descent.',
+    ),
+    // ── Triceps ────────────────────────────────────────────────────────────
+    'Tricep Pushdowns': (
+      'Triceps',
+      '',
+      'Elbows at sides, push bar down to full extension, squeeze at bottom, control up.',
+    ),
+    'Skull Crushers': (
+      'Triceps',
+      '',
+      'Lower bar to forehead by bending elbows only, elbows stay vertical, press back up.',
+    ),
+    'Close-Grip Bench Press': (
+      'Triceps',
+      'Chest · Shoulders',
+      'Grip slightly narrower than shoulder width, elbows tucked, lower to lower chest.',
+    ),
+    // ── Legs ───────────────────────────────────────────────────────────────
+    'Squats': (
+      'Quads · Glutes',
+      'Hamstrings · Core',
+      'Bar on traps, brace core, knees track over toes, hips to ~parallel.',
+    ),
+    'Deadlift': (
+      'Back · Glutes',
+      'Hamstrings · Core',
+      'Bar over mid-foot, flat back, push the floor away, lock out tall.',
+    ),
+    'Romanian Deadlift': (
+      'Hamstrings · Glutes',
+      'Back',
+      'Soft knees, push hips back, feel the hamstring stretch, stand tall.',
+    ),
+    'Leg Press': (
+      'Quads · Glutes',
+      'Hamstrings',
+      'Feet shoulder-width, lower until knees at 90°, press through heels, never lock out fully.',
+    ),
+    'Leg Extensions': (
+      'Quads',
+      '',
+      'Sit upright, extend fully, hold 1 s at top, lower slowly — avoid swinging.',
+    ),
+    'Leg Curls': (
+      'Hamstrings',
+      '',
+      'Curl heels to glutes, pause briefly at top, control the eccentric phase.',
+    ),
+    'Bulgarian Split Squats': (
+      'Quads · Glutes',
+      'Hamstrings · Core',
+      'Rear foot elevated, front shin vertical, lower rear knee toward floor, drive up through heel.',
+    ),
+    'Walking Lunges': (
+      'Quads · Glutes',
+      'Hamstrings · Core',
+      'Step forward, lower back knee toward floor, push off front foot, keep torso upright.',
+    ),
+    'Calf Raises': (
+      'Calves',
+      '',
+      'Full range of motion — press up high on toes, lower heel below platform level.',
+    ),
+    'Hip Thrusts': (
+      'Glutes',
+      'Hamstrings',
+      'Bar across hips, shoulders on bench, drive hips up to full extension, squeeze glutes at top.',
+    ),
+    // ── Core ───────────────────────────────────────────────────────────────
+    'Plank': (
+      'Core',
+      'Shoulders · Glutes',
+      'Neutral spine, brace abs as if bracing for a punch, breathe normally, hips level.',
+    ),
+    'Crunches': (
+      'Abs',
+      '',
+      'Feet flat, curl shoulders off floor only, exhale at top — no neck pulling.',
+    ),
+    'Russian Twists': (
+      'Obliques',
+      'Abs',
+      'Lean back ~45°, feet off floor, rotate from torso not arms, control the twist.',
+    ),
+    'Hanging Leg Raises': (
+      'Lower Abs',
+      'Hip Flexors',
+      'Dead hang, raise straight legs to 90°, avoid swinging, lower with control.',
+    ),
+    // ── Cardio ─────────────────────────────────────────────────────────────
+    'Running': (
+      'Cardiovascular',
+      'Legs · Core',
+      'Land midfoot, slight forward lean, arms at 90°, breathe rhythmically.',
+    ),
+    'Cycling': (
+      'Cardiovascular',
+      'Quads · Glutes',
+      'Seat height lets knee reach slight bend at bottom, smooth pedal circles.',
+    ),
+    'Jump Rope': (
+      'Cardiovascular',
+      'Calves · Shoulders',
+      'Jump low (1–2 cm clearance), stay on balls of feet, elbows tucked in.',
+    ),
+    'Burpees': (
+      'Full Body',
+      'Cardiovascular',
+      'Explosive jump up, soft landing, keep core tight throughout the movement.',
+    ),
+  };
+
+  /// Returns (primary, secondary, tip) info if known, else null.
+  static (String primary, String secondary, String tip)? infoFor(String name) =>
+      _exerciseInfo[name];
+
   /// Suggest next session weight/reps based on completed performance.
   /// Returns a string like "+2.5 kg next session" or "Add 1 more rep"
   static String progressiveOverloadTip(
