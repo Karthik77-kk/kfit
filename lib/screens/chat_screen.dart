@@ -8,6 +8,7 @@ import '../services/on_device_ai_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/food_api_service.dart';
 import '../widgets/kit/kit.dart';
+import '../widgets/markdown_text.dart';
 import 'chat_sessions_screen.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -270,7 +271,7 @@ class _SetupView extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
       child: Column(children: [
-        const Text('🤖', style: TextStyle(fontSize: 56)),
+        const Icon(Icons.auto_awesome_rounded, size: 52, color: _kGreen),
         const SizedBox(height: 16),
         const Text('On-Device AI Coach',
             style: TextStyle(color: Colors.white, fontSize: 20,
@@ -607,7 +608,7 @@ class _BubbleTile extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Center(
-                child: Text('🤖', style: TextStyle(fontSize: 14)),
+                child: Icon(Icons.auto_awesome, size: 15, color: _kGreen),
               ),
             ),
             const SizedBox(width: 8),
@@ -633,11 +634,17 @@ class _BubbleTile extends StatelessWidget {
               ),
               child: isEmpty
                   ? const _TypingDots()
-                  : Text(
-                      msg.text,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 14, height: 1.55),
-                    ),
+                  : isUser
+                      ? Text(
+                          msg.text,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14, height: 1.55),
+                        )
+                      : MarkdownText(
+                          msg.text,
+                          baseStyle: const TextStyle(
+                              color: Colors.white, fontSize: 14, height: 1.55),
+                        ),
             ),
           ),
           if (isUser) const SizedBox(width: 36),
@@ -931,13 +938,16 @@ class _NutritionLookupSheetState extends State<_NutritionLookupSheet> {
           ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '🍎 Nutrition Lookup',
-                style: TextStyle(color: Colors.white, fontSize: 16,
-                    fontWeight: FontWeight.w700),
-              ),
+            child: Row(
+              children: [
+                Icon(Icons.restaurant_rounded, size: 18, color: _kGreen),
+                SizedBox(width: 8),
+                Text(
+                  'Nutrition Lookup',
+                  style: TextStyle(color: Colors.white, fontSize: 16,
+                      fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
           ),
           const Padding(
