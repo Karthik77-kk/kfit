@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
@@ -6,6 +7,8 @@ import '../app_info.dart';
 import '../theme/app_tokens.dart';
 import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
+import '../services/update_service.dart';
+import '../widgets/update_dialog.dart';
 import 'chat_screen.dart' show openChat;
 
 class SettingsScreen extends StatefulWidget {
@@ -317,6 +320,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ]),
           ),
+          const SizedBox(height: 20),
+
+          // ── APP UPDATES ───────────────────────────────────────────
+          _Header('App Updates'),
+          _AutoUpdateEnabledTile(),
+          _CheckForUpdatesTile(),
           const SizedBox(height: 20),
 
           // ── ABOUT ─────────────────────────────────────────────────
@@ -750,6 +759,103 @@ class _AiAutoLoadTile extends StatelessWidget {
         value: ai.autoLoad,
         activeColor: const Color(0xFF30D158),
         onChanged: (v) => context.read<OnDeviceAiService>().saveAutoLoad(v),
+      ),
+    );
+  }
+}
+
+// ── Auto-update enable/disable toggle ────────────────────────────────────────
+class _AutoUpdateEnabledTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<FitnessProvider>();
+    return Material(
+      color: const Color(0xFF1E1E22),
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        secondary: const Icon(Icons.system_update_rounded, color: Color(0xFF30D158)),
+        title: const Text('Check for updates on launch',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          p.autoUpdateCheck
+              ? 'Notified when a new version is available'
+              : 'Updates won\'t be checked automatically',
+          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+        ),
+        value: p.autoUpdateCheck,
+        activeColor: const Color(0xFF30D158),
+        onChanged: (v) => context.read<FitnessProvider>().saveAutoUpdateCheck(v),
+      ),
+    );
+  }
+}
+
+// ── Manual "Check for updates" tile ──────────────────────────────────────────
+class _CheckForUpdatesTile extends StatefulWidget {
+  @override
+  State<_CheckForUpdatesTile> createState() => _CheckForUpdatesTileState();
+}
+
+class _CheckForUpdatesTileState extends State<_CheckForUpdatesTile> {
+  bool _checking = false;
+
+  Future<void> _check() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    try {
+      final pkgInfo = await PackageInfo.fromPlatform();
+      final currentBuild = int.tryParse(pkgInfo.buildNumber) ?? 0;
+      final service = UpdateService();
+      final info = await service.checkForUpdate(currentBuild);
+      if (!mounted) return;
+      if (info == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('K Fitness is up to date')),
+        );
+      } else {
+        await showUpdateDialog(context, info, service);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not check for updates')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8, top: 8),
+      child: Material(
+        color: const Color(0xFF1E1E22),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: _checking
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Color(0xFF30D158)),
+                )
+              : const Icon(Icons.refresh_rounded, color: Color(0xFF30D158)),
+          title: const Text('Check for updates',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          subtitle: const Text('Manually check for a new version',
+              style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+          trailing: _checking
+              ? null
+              : const Icon(Icons.chevron_right, color: Color(0xFF8E8E93)),
+          onTap: _checking ? null : _check,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
       ),
     );
   }

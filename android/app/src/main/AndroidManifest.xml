@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
     <!-- ── AI model download (flutter_gemma) ──────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- ── APK self-update installer ──────────────────────────────────────── -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
     <application
         android:label="K Fitness"
