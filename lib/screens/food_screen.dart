@@ -17,7 +17,9 @@ void showAddFoodSheet(BuildContext context) {
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => const GlassSheet(child: _AddFoodSheet()),
-  );
+  ).then((_) {
+    if (context.mounted) FocusScope.of(context).unfocus();
+  });
 }
 
 class FoodScreen extends StatelessWidget {
@@ -808,6 +810,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: TextField(
                 controller: _searchCtrl,
+                autofocus: true,
                 style: const TextStyle(color: Colors.white),
                 onChanged: (v) => setState(() {
                   _search = v;
