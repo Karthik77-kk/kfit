@@ -8,7 +8,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:confetti/confetti.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
-import '../services/smart_insight_engine.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/kit/kit.dart';
 import 'settings_screen.dart';
@@ -210,8 +209,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: _kGreen.withValues(alpha: 0.7), size: 22),
                     ]),
                   ),
-                  const SizedBox(height: 10),
-                  _AiCoachSection(provider: p),
                   const SizedBox(height: 20),
                   ],
 
@@ -1595,72 +1592,6 @@ class _WeekStat extends StatelessWidget {
       Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
     ]),
   ));
-}
-
-// ─── AI Coach ──────────────────────────────────────────────────────────────────
-// Insight selection lives in lib/services/smart_insight_engine.dart (pure + unit-tested).
-
-class _AiCoachSection extends StatelessWidget {
-  final FitnessProvider provider;
-  const _AiCoachSection({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    final insights = topInsights(provider, DateTime.now(), count: 3);
-    return Column(
-      children: [
-        for (int i = 0; i < insights.length; i++) ...[
-          _InsightCard(insight: insights[i], rank: i),
-          if (i < insights.length - 1) const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class _InsightCard extends StatelessWidget {
-  final Insight insight;
-  final int rank;
-  const _InsightCard({required this.insight, required this.rank});
-
-  @override
-  Widget build(BuildContext context) {
-    final tip = insight;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: tip.accent.withValues(alpha: rank == 0 ? 0.10 : 0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: tip.accent.withValues(alpha: rank == 0 ? 0.3 : 0.18), width: 1),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: tip.accent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(tip.icon, size: 18, color: tip.accent),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tip.title, style: TextStyle(
-              color: tip.accent,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            )),
-            const SizedBox(height: 3),
-            Text(tip.body, style: const TextStyle(
-              color: Colors.white70, fontSize: 12, height: 1.5,
-            )),
-          ],
-        )),
-      ]),
-    );
-  }
 }
 
 // ─── Weekly Calorie Bar Chart ──────────────────────────────────────────────────
