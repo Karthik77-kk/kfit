@@ -2,13 +2,16 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
 import 'services/on_device_ai_service.dart';
+import 'services/update_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
 import 'widgets/brand_splash.dart';
+import 'widgets/update_dialog.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
@@ -132,6 +135,30 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     WidgetsBinding.instance.addObserver(this);
     _tabFade = AnimationController(
         vsync: this, duration: AppDurations.normal, value: 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (!mounted) return;
+    final provider = context.read<FitnessProvider>();
+    if (!provider.autoUpdateCheck) return;
+
+    try {
+      final pkgInfo = await PackageInfo.fromPlatform();
+      final currentBuild = int.tryParse(pkgInfo.buildNumber) ?? 0;
+      if (currentBuild == 0) return;
+
+      final service = UpdateService();
+      final info = await service.checkForUpdate(currentBuild);
+      if (info == null) return;
+      if (info.build == provider.updateSkippedBuild) return;
+
+      if (mounted) {
+        await showUpdateDialog(context, info, service);
+      }
+    } catch (_) {
+      // Never crash the app on update check failure.
+    }
   }
 
   @override

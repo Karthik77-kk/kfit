@@ -92,6 +92,12 @@ class FitnessProvider extends ChangeNotifier {
   bool _aiCoachEnabled = true;
   bool get aiCoachEnabled => _aiCoachEnabled;
 
+  bool _autoUpdateCheck = true;
+  bool get autoUpdateCheck => _autoUpdateCheck;
+
+  int _updateSkippedBuild = 0;
+  int get updateSkippedBuild => _updateSkippedBuild;
+
   Future<void> markOnboardingDone() async {
     _onboardingDone = true;
     final prefs = await SharedPreferences.getInstance();
@@ -104,6 +110,19 @@ class FitnessProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('ai_coach_enabled', value);
     notifyListeners();
+  }
+
+  Future<void> saveAutoUpdateCheck(bool value) async {
+    _autoUpdateCheck = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('auto_update_check', value);
+    notifyListeners();
+  }
+
+  Future<void> skipUpdateBuild(int build) async {
+    _updateSkippedBuild = build;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('update_skipped_build', build);
   }
 
   /// One-shot flag set when a NEW milestone (streak / goal reached) is detected,
@@ -1460,6 +1479,8 @@ class FitnessProvider extends ChangeNotifier {
     _userName = prefs.getString('user_name') ?? 'Friend';
     _onboardingDone = prefs.getBool('onboarding_done') ?? false;
     _aiCoachEnabled = prefs.getBool('ai_coach_enabled') ?? true;
+    _autoUpdateCheck = prefs.getBool('auto_update_check') ?? true;
+    _updateSkippedBuild = prefs.getInt('update_skipped_build') ?? 0;
 
     // User-defined goals
     _calorieGoal = prefs.getInt('calorie_goal') ?? kDefaultCalorieGoal;
@@ -1479,6 +1500,7 @@ class FitnessProvider extends ChangeNotifier {
     if (!prefs.containsKey('water_goal_ml')) await prefs.setInt('water_goal_ml', _waterGoalMl);
     if (!prefs.containsKey('step_goal'))    await prefs.setInt('step_goal',       _stepGoal);
     if (!prefs.containsKey('ai_coach_enabled')) await prefs.setBool('ai_coach_enabled', _aiCoachEnabled);
+    if (!prefs.containsKey('auto_update_check')) await prefs.setBool('auto_update_check', _autoUpdateCheck);
 
     // Always reset today's data first (handles midnight day-change case)
     _todayFood = [];
