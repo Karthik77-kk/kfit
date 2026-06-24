@@ -154,7 +154,7 @@ class _UpdateSheetState extends State<_UpdateSheet> {
                       valueColor:
                           const AlwaysStoppedAnimation<Color>(Color(0xFF30D158)),
                       minHeight: 6,
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -239,7 +239,7 @@ class _Button extends StatelessWidget {
                 backgroundColor: const Color(0xFF30D158),
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: Text(label,
                   style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -250,7 +250,7 @@ class _Button extends StatelessWidget {
                 foregroundColor: const Color(0xFF8E8E93),
                 side: const BorderSide(color: Color(0xFF3A3A3C)),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: Text(label),
             ),
