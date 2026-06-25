@@ -236,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (_showEmptySections || p.weeklyAvgCalories > 0) ...[
                     const _SectionHdr('7-DAY CALORIES'),
                     const SizedBox(height: 10),
-                    _WeeklyCalorieChart(provider: p),
+                    RepaintBoundary(child: _WeeklyCalorieChart(provider: p)),
                     const SizedBox(height: 20),
                   ],
 
@@ -244,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (_showEmptySections || p.todayFood.isNotEmpty) ...[
                     const _SectionHdr('TODAY\'S MACROS'),
                     const SizedBox(height: 10),
-                    _MacroDonutCard(provider: p),
+                    RepaintBoundary(child: _MacroDonutCard(provider: p)),
                     const SizedBox(height: 20),
                   ],
 
@@ -268,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (p.getRecentBodyEntries(days: 90).length >= 3) ...[
                     const _SectionHdr('WEIGHT PREDICTION (AI TREND)'),
                     const SizedBox(height: 10),
-                    _WeightPredictionCard(provider: p),
+                    RepaintBoundary(child: _WeightPredictionCard(provider: p)),
                     const SizedBox(height: 20),
                   ],
 
@@ -617,6 +617,12 @@ class _RingsPainter extends CustomPainter {
   const _RingsPainter({required this.values, required this.colors});
 
   @override
+  bool shouldRepaint(_RingsPainter old) =>
+      old.values[0] != values[0] ||
+      old.values[1] != values[1] ||
+      old.values[2] != values[2];
+
+  @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     const stroke = 10.0;
@@ -674,9 +680,6 @@ class _RingsPainter extends CustomPainter {
       }
     }
   }
-
-  @override
-  bool shouldRepaint(_) => true;
 }
 
 // ─── Calorie Ring Tile ─────────────────────────────────────────────────────────
@@ -1197,6 +1200,12 @@ class _WeightPredictionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = provider;
+    // Compute once — used both for the subtitle count and the painter (was 2 sorts).
+    final recent90 = p.getRecentBodyEntries(days: 90);
+    final cutoff30 = DateTime.now().subtract(const Duration(days: 30));
+    final recent30 = recent90
+        .where((e) => !e.date.isBefore(cutoff30))
+        .toList();
     final forecast = p.weightForecast(days: 30);
     final current = p.latestWeightKg ?? 0.0;
     final weekly = p.weeklyWeightChange;
@@ -1222,7 +1231,7 @@ class _WeightPredictionCard extends StatelessWidget {
             const Text('AI Weight Forecast', style: TextStyle(
               color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600,
             )),
-            Text('Linear trend from your last ${p.getRecentBodyEntries(days: 90).length} logs',
+            Text('Linear trend from your last ${recent90.length} logs',
                 style: const TextStyle(color: _kSecond, fontSize: 11)),
           ]),
           const Spacer(),
@@ -1245,7 +1254,7 @@ class _WeightPredictionCard extends StatelessWidget {
           height: 120,
           child: CustomPaint(
             painter: _PredictionPainter(
-              history: p.getRecentBodyEntries(days: 30),
+              history: recent30,
               forecast: forecast,
               goalWeight: p.goalWeightKg,
             ),
@@ -1303,6 +1312,12 @@ class _PredictionPainter extends CustomPainter {
   const _PredictionPainter({
     required this.history, required this.forecast, required this.goalWeight,
   });
+
+  @override
+  bool shouldRepaint(_PredictionPainter old) =>
+      old.history != history ||
+      old.forecast != forecast ||
+      old.goalWeight != goalWeight;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1371,9 +1386,6 @@ class _PredictionPainter extends CustomPainter {
       canvas.drawCircle(forecastPts.last, 4, Paint()..color = _kBlue..style = PaintingStyle.fill);
     }
   }
-
-  @override
-  bool shouldRepaint(_) => true;
 }
 
 // ─── Workout Card ──────────────────────────────────────────────────────────────

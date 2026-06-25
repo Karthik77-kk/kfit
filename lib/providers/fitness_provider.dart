@@ -160,12 +160,22 @@ class FitnessProvider extends ChangeNotifier {
   int _livePedometerTotal = 0;   // cumulative total from sensor
   int _pedometerDayBaseline = -1; // sensor total at start of today
   String _pedometerBaselineDate = '';
+  // Cached prefs instance so the hot-path listener avoids re-fetching it.
+  SharedPreferences? _cachedPrefs;
+  // Throttle: avoid rebuilding all screens on every single step event.
+  DateTime? _lastPedometerNotify;
 
   // ── Day-reset detection ────────────────────────────────────────────────────
   String _loadedForDate = '';
   Timer? _dayResetTimer;
 
   // ── Getters ────────────────────────────────────────────────────────────────
+
+  /// True when the calendar date has advanced since the last full loadData().
+  /// Used by the lifecycle observer to skip redundant same-day reloads.
+  bool get dateChanged =>
+      _loadedForDate.isNotEmpty && _loadedForDate != _todayKey;
+
   List<FoodEntry> get todayFood => _todayFood;
   int get todayWaterMl => _todayWaterMl;
   SupplementStatus get supplements => _supplements;
@@ -2218,10 +2228,15 @@ class FitnessProvider extends ChangeNotifier {
     }
 
     _stepSubscription?.cancel();
+    // Pre-warm the prefs cache so the per-step callback never blocks on a
+    // getInstance() call — the singleton is always ready after the first await.
+    _cachedPrefs ??= await SharedPreferences.getInstance();
+
     try {
       _stepSubscription = Pedometer.stepCountStream.listen(
         (StepCount event) async {
-          final prefs = await SharedPreferences.getInstance();
+          // Use the cached instance; fall back to a fresh fetch only if somehow null.
+          final prefs = _cachedPrefs ?? await SharedPreferences.getInstance();
 
           if (_livePedometerTotal > 0) {
             if (event.steps < _livePedometerTotal) {
@@ -2248,7 +2263,16 @@ class FitnessProvider extends ChangeNotifier {
             await prefs.setString('pedometer_date', _pedometerBaselineDate);
           }
 
-          notifyListeners();
+          // Throttle UI rebuilds: the step sensor can fire several times/second
+          // while walking. Notifying every event rebuilds all 5 mounted screens.
+          // 2-second cadence is imperceptible for a step counter and removes jank.
+          final now = DateTime.now();
+          if (_lastPedometerNotify == null ||
+              now.difference(_lastPedometerNotify!) >=
+                  const Duration(seconds: 2)) {
+            _lastPedometerNotify = now;
+            notifyListeners();
+          }
         },
         onError: (_) {},
         cancelOnError: false,

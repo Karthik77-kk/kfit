@@ -178,12 +178,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     }
   }
 
-  /// Refresh all data whenever the app returns to the foreground so the
-  /// summary (and every screen) is always current — same as pull-to-refresh.
+  /// Refresh data when the app returns to the foreground.
+  /// Within the same calendar day the data is already current in memory, so
+  /// a full reload (60-day JSON re-parse + prefs scan) is wasteful and makes
+  /// the resume feel sluggish. We only do a full reload when the date has
+  /// advanced since the last load (midnight crossover while backgrounded).
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      context.read<FitnessProvider>().loadData();
+      final provider = context.read<FitnessProvider>();
+      if (provider.dateChanged) provider.loadData();
     }
   }
 
