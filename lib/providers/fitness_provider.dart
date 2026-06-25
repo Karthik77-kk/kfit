@@ -2288,32 +2288,85 @@ class FitnessProvider extends ChangeNotifier {
   }
 
   // ── Home widget ────────────────────────────────────────────────────────────
-  // The Android side (KFitnessWidgetProvider.kt) draws the concentric rings to a
-  // Bitmap natively from these values — no Flutter engine / renderFlutterWidget
-  // (that crashed at cold start) and no file URIs.
+  // The Android side (KFitnessWidgetProvider.kt) draws the widget natively from
+  // these values — no Flutter engine / renderFlutterWidget (that crashed at cold
+  // start) and no file URIs.
+
+  /// Returns the last [maxPoints] weight readings, merging body + scale history.
+  ///
+  /// Pure (no I/O) — safe to unit-test without a running app.
+  List<double> widgetWeightSeries({int maxPoints = 7}) {
+    // Merge both histories into (date, weightKg) pairs.
+    final merged = <(DateTime, double)>[];
+    for (final e in _bodyHistory) {
+      if (e.weightKg > 0) merged.add((e.date, e.weightKg));
+    }
+    for (final e in _scaleHistory) {
+      if (e.weightKg > 0) merged.add((e.date, e.weightKg));
+    }
+    if (merged.isEmpty) return [];
+    merged.sort((a, b) => a.$1.compareTo(b.$1));
+    final weights = merged.map((p) => p.$2).toList();
+    if (weights.length <= maxPoints) return weights;
+    return weights.sublist(weights.length - maxPoints);
+  }
+
   Future<void> _updateWidget() async {
     try {
-      await HomeWidget.saveWidgetData<int>('calories', todayCaloriesTotal.round());
-      await HomeWidget.saveWidgetData<int>('calorieGoal', calorieGoal);
-      await HomeWidget.saveWidgetData<int>('protein', todayProteinTotal.round());
-      await HomeWidget.saveWidgetData<int>('proteinGoal', proteinGoal);
-      await HomeWidget.saveWidgetData<int>('water', todayWaterMl);
-      await HomeWidget.saveWidgetData<int>('waterGoal', waterGoalMl);
-      // Raw unclamped percentages (can be >100) so the widget can draw overflow laps.
-      await HomeWidget.saveWidgetData<int>('calPct',
-          calorieGoal  > 0 ? (todayCaloriesTotal / calorieGoal  * 100).round() : 0);
-      await HomeWidget.saveWidgetData<int>('protPct',
-          proteinGoal  > 0 ? (todayProteinTotal  / proteinGoal  * 100).round() : 0);
-      await HomeWidget.saveWidgetData<int>('waterPct',
-          waterGoalMl  > 0 ? (todayWaterMl       / waterGoalMl  * 100).round() : 0);
-      await HomeWidget.saveWidgetData<int>('steps', todaySteps);
-      await HomeWidget.saveWidgetData<int>('stepGoal', stepGoal);
-      await HomeWidget.saveWidgetData<int>('stepPct',
-          stepGoal > 0 ? (todaySteps / stepGoal * 100).round() : 0);
-
       final insight = topInsight(this, DateTime.now());
-      await HomeWidget.saveWidgetData<String>('insightEmoji', insight.emoji);
-      await HomeWidget.saveWidgetData<String>('insightTitle', insight.title);
+
+      // Workout label: "A" / "B" / "—"
+      final wl = todayWorkout;
+      final String workoutLabel;
+      if (wl == null) {
+        workoutLabel = '—';
+      } else if (wl.workoutType == WorkoutType.a) {
+        workoutLabel = 'A';
+      } else if (wl.workoutType == WorkoutType.b) {
+        workoutLabel = 'B';
+      } else {
+        workoutLabel = '—';
+      }
+
+      // Weight sparkline series.
+      final series = widgetWeightSeries();
+      final weightSeriesStr = series.map((w) => w.toStringAsFixed(1)).join(',');
+      final weightDelta = series.length >= 2 ? series.last - series.first : 0.0;
+      final latestWeight = latestWeightKg ?? 0.0;
+
+      // Batch all saveWidgetData calls in parallel, then trigger a single redraw.
+      await Future.wait([
+        // Existing keys (unchanged).
+        HomeWidget.saveWidgetData<int>('calories', todayCaloriesTotal.round()),
+        HomeWidget.saveWidgetData<int>('calorieGoal', calorieGoal),
+        HomeWidget.saveWidgetData<int>('protein', todayProteinTotal.round()),
+        HomeWidget.saveWidgetData<int>('proteinGoal', proteinGoal),
+        HomeWidget.saveWidgetData<int>('water', todayWaterMl),
+        HomeWidget.saveWidgetData<int>('waterGoal', waterGoalMl),
+        // Raw unclamped percentages (>100 allowed) so the widget can draw overflow.
+        HomeWidget.saveWidgetData<int>('calPct',
+            calorieGoal  > 0 ? (todayCaloriesTotal / calorieGoal  * 100).round() : 0),
+        HomeWidget.saveWidgetData<int>('protPct',
+            proteinGoal  > 0 ? (todayProteinTotal  / proteinGoal  * 100).round() : 0),
+        HomeWidget.saveWidgetData<int>('waterPct',
+            waterGoalMl  > 0 ? (todayWaterMl       / waterGoalMl  * 100).round() : 0),
+        HomeWidget.saveWidgetData<int>('steps', todaySteps),
+        HomeWidget.saveWidgetData<int>('stepGoal', stepGoal),
+        HomeWidget.saveWidgetData<int>('stepPct',
+            stepGoal > 0 ? (todaySteps / stepGoal * 100).round() : 0),
+        HomeWidget.saveWidgetData<String>('insightEmoji', insight.emoji),
+        HomeWidget.saveWidgetData<String>('insightTitle', insight.title),
+        // New keys for the expanded dashboard widget.
+        HomeWidget.saveWidgetData<int>('burned', totalCaloriesBurned.round()),
+        HomeWidget.saveWidgetData<int>('net', netCalories),
+        HomeWidget.saveWidgetData<int>('deficit', calorieDeficit),
+        HomeWidget.saveWidgetData<bool>('workoutDone', todayWorkout != null),
+        HomeWidget.saveWidgetData<String>('workoutLabel', workoutLabel),
+        HomeWidget.saveWidgetData<int>('workoutBurn', todayCaloriesBurned),
+        HomeWidget.saveWidgetData<double>('weight', latestWeight),
+        HomeWidget.saveWidgetData<String>('weightSeries', weightSeriesStr),
+        HomeWidget.saveWidgetData<double>('weightDelta', weightDelta),
+      ]);
 
       await HomeWidget.updateWidget(
         name: 'KFitnessWidgetProvider',

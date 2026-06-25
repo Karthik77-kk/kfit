@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:kfit/providers/fitness_provider.dart';
+import 'package:kfit/services/nav_router.dart';
 import 'package:kfit/main.dart';
 import 'package:kfit/screens/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// App with provider. Seeds onboarding_done=true so main nav is shown.
+/// App with providers. Seeds onboarding_done=true so main nav is shown.
 Widget _appWithProvider({bool onboardingDone = true}) {
   SharedPreferences.setMockInitialValues(
     onboardingDone ? {'onboarding_done': true} : {},
   );
-  return ChangeNotifierProvider(
-    create: (_) => FitnessProvider()..loadData(),
+  return MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (_) => FitnessProvider()..loadData()),
+      ChangeNotifierProvider(create: (_) => NavRouter()),
+    ],
     child: const KfitApp(),
   );
 }
@@ -151,8 +155,11 @@ void main() {
     SharedPreferences.setMockInitialValues({'onboarding_done': true});
     // Provider starts loading; before pumpAndSettle the splash is shown.
     await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => FitnessProvider()..loadData(),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => FitnessProvider()..loadData()),
+          ChangeNotifierProvider(create: (_) => NavRouter()),
+        ],
         child: const KfitApp(),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
+import '../services/nav_router.dart';
 import 'food_screen.dart';
 import 'water_screen.dart';
 import 'supplements_screen.dart';
@@ -16,6 +17,11 @@ class _NutritionScreenState extends State<NutritionScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
 
+  // NavRouter integration — drives deep-link sub-tab jumps from widget taps.
+  NavRouter? _navRouter;
+  VoidCallback? _navListener;
+  int _lastRequestId = -1;
+
   @override
   void initState() {
     super.initState();
@@ -23,10 +29,36 @@ class _NutritionScreenState extends State<NutritionScreen>
     _tab.addListener(() {
       if (!_tab.indexIsChanging) setState(() {});
     });
+    // Attach NavRouter listener after the first frame so context is stable.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initNavListener());
+  }
+
+  void _initNavListener() {
+    if (!mounted) return;
+    // NavRouter is provided in production; tolerate its absence in focused
+    // widget tests by skipping deep-link sub-tab wiring rather than throwing.
+    final NavRouter router;
+    try {
+      router = context.read<NavRouter>();
+    } catch (_) {
+      return;
+    }
+    _navRouter = router;
+    _navListener = () {
+      if (!mounted) return;
+      final r = _navRouter!;
+      // Only react if this is a new request targeting the Nutrition tab (1).
+      if (r.tabIndex == 1 && r.requestId != _lastRequestId) {
+        _lastRequestId = r.requestId;
+        _tab.animateTo(r.nutritionSubTab.clamp(0, 2));
+      }
+    };
+    router.addListener(_navListener!);
   }
 
   @override
   void dispose() {
+    if (_navListener != null) _navRouter?.removeListener(_navListener!);
     _tab.dispose();
     super.dispose();
   }
