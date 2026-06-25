@@ -1,19 +1,103 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Single ImageView: KFitnessWidgetProvider draws the entire widget
-    to a Canvas bitmap for full design control (rings, metrics,
-    progress bars, header, insight strip — no RemoteViews colour limits).
+    Multi-region widget layout.
+    Each ImageView is a separate tap-target; KFitnessWidgetProvider renders
+    one Bitmap per region and wires its own PendingIntent per view.
+    The root LinearLayout fills the widget cell and clips to the rounded
+    black widget_bg drawable.
 -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:clipToOutline="true">
 
+    <!-- Header: "K FITNESS" + date -->
     <ImageView
-        android:id="@+id/widget_canvas"
+        android:id="@+id/widget_header"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.2"
         android:scaleType="fitXY"
-        android:contentDescription="K Fitness widget"/>
+        android:background="@android:color/transparent"
+        android:contentDescription="K Fitness header"/>
 
-</FrameLayout>
+    <!-- Hero: calorie squircle + protein bar + net -->
+    <ImageView
+        android:id="@+id/widget_hero"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="3.2"
+        android:scaleType="fitXY"
+        android:background="@android:color/transparent"
+        android:contentDescription="Calories and protein"/>
+
+    <!-- Tiles row: WATER · STEPS · BURN · GYM -->
+    <LinearLayout
+        android:id="@+id/widget_tiles"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="2.2"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_tile_water"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="fitXY"
+            android:background="@android:color/transparent"
+            android:contentDescription="Water"/>
+
+        <ImageView
+            android:id="@+id/widget_tile_steps"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="fitXY"
+            android:background="@android:color/transparent"
+            android:contentDescription="Steps"/>
+
+        <ImageView
+            android:id="@+id/widget_tile_burn"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="fitXY"
+            android:background="@android:color/transparent"
+            android:contentDescription="Calories burned"/>
+
+        <ImageView
+            android:id="@+id/widget_tile_gym"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="fitXY"
+            android:background="@android:color/transparent"
+            android:contentDescription="Gym workout"/>
+
+    </LinearLayout>
+
+    <!-- Sparkline: weight trend chart -->
+    <ImageView
+        android:id="@+id/widget_chart"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.6"
+        android:scaleType="fitXY"
+        android:background="@android:color/transparent"
+        android:contentDescription="Weight chart"/>
+
+    <!-- Insight strip -->
+    <ImageView
+        android:id="@+id/widget_insight"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.2"
+        android:scaleType="fitXY"
+        android:background="@android:color/transparent"
+        android:contentDescription="Insight"/>
+
+</LinearLayout>

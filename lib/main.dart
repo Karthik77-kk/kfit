@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
+import 'services/nav_router.dart';
 import 'services/on_device_ai_service.dart';
 import 'services/update_service.dart';
 import 'theme/app_theme.dart';
@@ -50,6 +52,7 @@ void main() async {
               lazy: false,
               create: (_) => OnDeviceAiService()..init(),
             ),
+            ChangeNotifierProvider(create: (_) => NavRouter()),
           ],
           child: const KfitApp(),
         ),
@@ -121,6 +124,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   // the newly-shown one in.
   late final AnimationController _tabFade;
 
+  // Widget-tap routing.
+  StreamSubscription<Uri?>? _widgetClickSub;
+  NavRouter? _navRouter;
+  VoidCallback? _navRouterListener;
+
   final List<Widget> _screens = const [
     HomeScreen(),
     NutritionScreen(),
@@ -135,7 +143,46 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     WidgetsBinding.instance.addObserver(this);
     _tabFade = AnimationController(
         vsync: this, duration: AppDurations.normal, value: 1);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdate();
+      _initWidgetRouting();
+    });
+  }
+
+  void _initWidgetRouting() {
+    if (!mounted) return;
+
+    // NavRouter is always provided in production (see MultiProvider in main()).
+    // Focused widget tests may build this screen without it — skip widget-tap
+    // routing gracefully in that case instead of throwing.
+    final NavRouter router;
+    try {
+      router = context.read<NavRouter>();
+    } catch (_) {
+      return;
+    }
+
+    // Register NavRouter listener — when the router fires, jump to its tab.
+    _navRouter = router;
+    _navRouterListener = () {
+      if (!mounted) return;
+      setState(() => _index = router.tabIndex);
+    };
+    router.addListener(_navRouterListener!);
+
+    // Handle warm-launch taps (app already running).
+    _widgetClickSub = HomeWidget.widgetClicked.listen((Uri? uri) {
+      if (!mounted) return;
+      context.read<NavRouter>().open(uri?.host ?? 'home');
+    }, onError: (_) {/* platform channel hiccup — ignore */});
+
+    // Handle cold-launch taps (app started from widget tap).
+    HomeWidget.initiallyLaunchedFromHomeWidget().then((Uri? uri) {
+      if (!mounted) return;
+      if (uri != null) {
+        context.read<NavRouter>().open(uri.host.isEmpty ? 'home' : uri.host);
+      }
+    }).catchError((_) {/* plugin unavailable (e.g. in tests) — ignore */});
   }
 
   Future<void> _checkForUpdate() async {
@@ -165,6 +212,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _tabFade.dispose();
+    _widgetClickSub?.cancel();
+    if (_navRouterListener != null) {
+      _navRouter?.removeListener(_navRouterListener!);
+    }
     super.dispose();
   }
 
