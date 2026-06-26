@@ -35,11 +35,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Timer _refreshTimer;
   bool _showEmptySections = false;
-  // The entrance stagger is a ONE-SHOT for the initial load only. After this
-  // flips true, sections render with no animation — so fast-scrolling never
-  // leaves later sections blank (they appear instantly as they enter view).
-  bool _entered = false;
-  Timer? _entryTimer;
   final ConfettiController _confetti =
       ConfettiController(duration: const Duration(seconds: 2));
 
@@ -49,15 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (mounted) setState(() {});
     });
-    // End the entrance window after the above-the-fold sweep has played.
-    _entryTimer = Timer(const Duration(milliseconds: 700), () {
-      if (mounted) setState(() => _entered = true);
-    });
   }
 
   @override
   void dispose() {
-    _entryTimer?.cancel();
     _refreshTimer.cancel();
     _confetti.dispose();
     super.dispose();
@@ -348,11 +338,18 @@ class _HomeScreenState extends State<HomeScreen> {
   /// unchanged when the OS "reduce motion" setting is on. Spacers are passed
   /// through untouched so the stagger reads as one section after another.
   List<Widget> _staggerIn(BuildContext context, List<Widget> items) {
-    // After the one-shot entrance window (or under reduce-motion) render plainly
-    // so scrolling is instant and nothing ever waits behind a delay.
-    if (_entered || reduceMotion(context)) return items;
-    // Only the first few (above-the-fold) sections animate. Sections reached by
-    // scrolling are never wrapped, so a fast scroll can't leave them blank.
+    if (reduceMotion(context)) return items;
+    // Only the first few (above-the-fold) sections animate, and they stay wrapped
+    // for the screen's lifetime. We must NOT unwrap them after an entrance window:
+    // swapping `Animate(child: x)` back to `x` changes the widget type at that
+    // slot, so Flutter remounts the section and its inner TweenAnimationBuilder
+    // replays its 0→value sweep — that was the cold-start "double animation"
+    // (the unwrap fired at 700ms, exactly when the 700ms ring sweep finished).
+    // flutter_animate plays each entry once on mount and never again on a plain
+    // rebuild (it only replays on a duration/target change — see Animate
+    // .didUpdateWidget), so leaving the wrappers in place is cheap and correct.
+    // Sections past the cap are never wrapped, so a fast scroll can't leave them
+    // blank waiting behind a delay.
     const cap = 6;
     final out = <Widget>[];
     var step = 0;
