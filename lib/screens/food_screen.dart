@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -356,6 +357,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   String?             _onlineError;
   String              _lastOnlineQuery = '';
 
+  Timer? _searchDebounce;
+
   @override
   void initState() {
     super.initState();
@@ -368,6 +371,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     _nameCtrl.dispose();
     _calCtrl.dispose();
@@ -812,15 +816,22 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 controller: _searchCtrl,
                 autofocus: true,
                 style: const TextStyle(color: Colors.white),
-                onChanged: (v) => setState(() {
-                  _search = v;
-                  // Reset online results when query changes
-                  if (v != _lastOnlineQuery) {
-                    _onlineResults  = [];
-                    _onlineError    = null;
-                    _searchingOnline = false;
-                  }
-                }),
+                onChanged: (v) {
+                  // 150 ms debounce: avoids filtering on every keystroke which
+                  // causes keyboard stutter on the 200+ item food database.
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 150), () {
+                    if (!mounted) return;
+                    setState(() {
+                      _search = v;
+                      if (v != _lastOnlineQuery) {
+                        _onlineResults   = [];
+                        _onlineError     = null;
+                        _searchingOnline = false;
+                      }
+                    });
+                  });
+                },
                 decoration: InputDecoration(
                   hintText: 'Search 200+ Indian foods...',
                   hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),

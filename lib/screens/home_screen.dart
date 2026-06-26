@@ -236,6 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (_showEmptySections || p.weeklyAvgCalories > 0) ...[
                     const _SectionHdr('7-DAY CALORIES'),
                     const SizedBox(height: 10),
+                    // Has touch tooltips — leave pointer events enabled.
                     RepaintBoundary(child: _WeeklyCalorieChart(provider: p)),
                     const SizedBox(height: 20),
                   ],
@@ -244,7 +245,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (_showEmptySections || p.todayFood.isNotEmpty) ...[
                     const _SectionHdr('TODAY\'S MACROS'),
                     const SizedBox(height: 10),
-                    RepaintBoundary(child: _MacroDonutCard(provider: p)),
+                    // Display-only donut — no tap handlers, so exclude from hit-test
+                    // tree to avoid intercepting scroll events.
+                    RepaintBoundary(child: IgnorePointer(child: _MacroDonutCard(provider: p))),
                     const SizedBox(height: 20),
                   ],
 
@@ -268,7 +271,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (p.getRecentBodyEntries(days: 90).length >= 3) ...[
                     const _SectionHdr('WEIGHT PREDICTION (AI TREND)'),
                     const SizedBox(height: 10),
-                    RepaintBoundary(child: _WeightPredictionCard(provider: p)),
+                    // CustomPaint chart with no touch interaction.
+                    RepaintBoundary(child: IgnorePointer(child: _WeightPredictionCard(provider: p))),
                     const SizedBox(height: 20),
                   ],
 
