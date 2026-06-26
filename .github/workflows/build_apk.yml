@@ -342,19 +342,54 @@ jobs:
           APK_SIZE=$(du -h build/app/outputs/flutter-apk/kfit.apk | cut -f1)
           echo "✅ APK verified: $APK_SIZE"
 
+      - name: Compose dynamic release notes
+        id: notes
+        run: |
+          set -e
+          # Previous release tag (this run's release doesn't exist yet, so
+          # `gh release view` returns the most recent prior release).
+          PREV=$(gh release view --json tagName -q .tagName 2>/dev/null || true)
+          echo "Previous release: ${PREV:-<none>}"
+          if [ -n "$PREV" ] && git merge-base --is-ancestor "$PREV" HEAD 2>/dev/null; then
+            RANGE="${PREV}..HEAD"
+          else
+            RANGE="HEAD~10..HEAD"
+          fi
+          # Each squash-merged PR is one commit whose subject is the PR title.
+          # Strip the "Build N: " prefix and "(#NN)" suffix for a clean changelog.
+          CHANGES=$(git log "$RANGE" --no-merges --pretty=format:'%s' \
+            | grep -viE '^(Merge|wip|fixup)' \
+            | sed -E 's/^Build [0-9]+:[[:space:]]*//; s/[[:space:]]*\(#[0-9]+\)$//' \
+            | sed -E 's/^/- /' \
+            | head -15)
+          [ -z "$CHANGES" ] && CHANGES="- Maintenance and improvements"
+          # Actual APK size (dynamic — no more hardcoded ~295 MB).
+          BYTES=$(stat -c%s build/app/outputs/flutter-apk/kfit.apk)
+          MB=$(awk -v b="$BYTES" 'BEGIN{printf "%.0f", b/1048576}')
+          {
+            echo "### What's new in ${{ steps.ver.outputs.tag }}"
+            echo ""
+            echo "$CHANGES"
+            echo ""
+            echo "---"
+            echo "~${MB} MB · Requires Android 8.0+ · Includes on-device Gemma 3 AI model"
+            echo ""
+            echo "### Install"
+            echo "1. Download \`kfit.apk\` below"
+            echo "2. Android Settings → Install unknown apps → Allow"
+            echo "3. Tap the downloaded file to install"
+          } > release_notes.md
+          echo "----- release_notes.md -----"
+          cat release_notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release with APK
         run: |
           gh release create "${{ steps.ver.outputs.tag }}" \
             build/app/outputs/flutter-apk/kfit.apk \
             --title "${{ steps.ver.outputs.label }}" \
-            --notes "**K Fitness** · Private AI Fitness Tracker for Android
-
-          ### Install
-          1. Download \`kfit.apk\` below
-          2. Android Settings → Install unknown apps → Allow
-          3. Tap the downloaded file to install
-
-          Requires Android 8.0+ · ~295 MB · Includes on-device Gemma 3 AI model" \
+            --notes-file release_notes.md \
             --latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
