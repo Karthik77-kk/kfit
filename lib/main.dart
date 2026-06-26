@@ -15,6 +15,7 @@ import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
 import 'widgets/brand_splash.dart';
 import 'widgets/update_dialog.dart';
+import 'widgets/heart_splash.dart';
 import 'screens/home_screen.dart';
 import 'screens/nutrition_screen.dart';
 import 'screens/workout_screen.dart';
@@ -120,6 +121,10 @@ class _SplashScreen extends StatelessWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   int _index = 0;
+  // One-shot launch greeting, shown once per launch for a matching profile.
+  bool _showHeart = false;
+  // Suppress the greeting whenever the update dialog is on screen.
+  bool _updateDialogVisible = false;
 
   // Drives a quick fade-through of the active tab on switch. IndexedStack keeps
   // every screen mounted (state + correct offstage semantics); this just fades
@@ -150,6 +155,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         vsync: this, duration: AppDurations.normal, value: 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initWidgetRouting();
+      // One-shot launch greeting, gated on the profile name and skipped under
+      // reduce-motion. No-op for every other profile.
+      if (!mounted) return;
+      final name = context.read<FitnessProvider>().userName.trim().toLowerCase();
+      if (name == 'jaswini' && !MediaQuery.of(context).disableAnimations) {
+        setState(() => _showHeart = true);
+      }
     });
     // Delay the update check so it doesn't compete with loadData() and AI init
     // during the critical first few seconds. 4 s is enough for loadData() to
@@ -213,7 +225,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       if (info == null) return;
 
       if (mounted) {
-        await showUpdateDialog(context, info, service);
+        // Keep the launch greeting out of the update flow.
+        setState(() => _updateDialogVisible = true);
+        try {
+          await showUpdateDialog(context, info, service);
+        } finally {
+          if (mounted) setState(() => _updateDialogVisible = false);
+        }
       }
     } catch (_) {
       // Never crash the app on update check failure.
@@ -268,10 +286,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       // IndexedStack keeps all tabs mounted (scroll positions, sub-tab
       // selections, Home's entrance animation) and offstage-hides the inactive
       // ones; the FadeTransition fades the active tab in on each switch.
-      body: FadeTransition(
-        opacity: _tabFade,
-        child: IndexedStack(index: _index, children: _screens),
-      ),
+      body: Stack(children: [
+        FadeTransition(
+          opacity: _tabFade,
+          child: IndexedStack(index: _index, children: _screens),
+        ),
+        // Gated launch greeting. IgnorePointer so it never traps taps; it
+        // auto-dismisses after ~3s via onDone.
+        if (_showHeart && !_updateDialogVisible)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: HeartSplash(
+                onDone: () {
+                  if (mounted) setState(() => _showHeart = false);
+                },
+              ),
+            ),
+          ),
+      ]),
       bottomNavigationBar: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
