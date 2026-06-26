@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -18,11 +19,11 @@ import 'weekly_recap_screen.dart';
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 // These local aliases now point at the single source of truth in app_tokens.dart
 // so the palette is defined in exactly one place (call sites stay unchanged).
-const _kGreen  = AppColors.green;
-const _kBlue   = AppColors.blue;
-const _kRed    = AppColors.red;
+const _kGreen = AppColors.green;
+const _kBlue = AppColors.blue;
+const _kRed = AppColors.red;
 const _kOrange = AppColors.orange;
-const _kCard   = AppColors.card;
+const _kCard = AppColors.card;
 const _kSecond = AppColors.muted;
 
 // ─── Home Screen ───────────────────────────────────────────────────────────────
@@ -56,13 +57,13 @@ class _HomeScreenState extends State<HomeScreen> {
   int _hiddenCount(FitnessProvider p) {
     int n = 0;
     if (p.weeklyAvgCalories == 0) n++; // 7-day chart
-    if (p.todayFood.isEmpty) n++;       // macro donut
+    if (p.todayFood.isEmpty) n++; // macro donut
     return n;
   }
 
   String _greeting() {
     final h = DateTime.now().hour;
-    if (h < 6)  return 'night';
+    if (h < 6) return 'night';
     if (h < 12) return 'morning';
     if (h < 17) return 'afternoon';
     if (h < 21) return 'evening';
@@ -92,230 +93,250 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.black,
       body: Stack(children: [
         RefreshIndicator(
-        color: _kGreen,
-        backgroundColor: _kCard,
-        onRefresh: () async {
-          await context.read<FitnessProvider>().loadData();
-        },
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 84,
-              pinned: true,
-              backgroundColor: Colors.black,
-              surfaceTintColor: Colors.transparent,
-              // Greeting + streak live in the collapsing background so they fade
-              // out on scroll and never overlap the pinned action icons.
-              flexibleSpace: FlexibleSpaceBar(
-                background: SafeArea(
-                  child: Padding(
-                    // right padding clears the pinned bell + settings icons
-                    padding: const EdgeInsets.fromLTRB(20, 6, 96, 0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(today, style: const TextStyle(
-                            color: _kSecond, fontSize: 11, fontWeight: FontWeight.w400)),
-                        const SizedBox(height: 2),
-                        Row(children: [
-                          Flexible(
-                            child: Text(
-                              'Good ${_greeting()}, ${context.watch<FitnessProvider>().userName}! 👋',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white, fontSize: 20,
-                                fontWeight: FontWeight.w700, letterSpacing: -0.5,
-                              ),
-                            ),
+          color: _kGreen,
+          backgroundColor: _kCard,
+          onRefresh: () async {
+            await context.read<FitnessProvider>().loadData();
+          },
+          child: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 84,
+                pinned: true,
+                // Translucent + a backdrop blur so the scrolled feed frosts under
+                // the pinned header (content already scrolls beneath a pinned
+                // SliverAppBar, so no extendBodyBehindAppBar / top-inset audit).
+                backgroundColor: Colors.black.withValues(alpha: 0.55),
+                surfaceTintColor: Colors.transparent,
+                // Greeting + streak live in the collapsing background so they fade
+                // out on scroll and never overlap the pinned action icons.
+                flexibleSpace: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: FlexibleSpaceBar(
+                      background: SafeArea(
+                        child: Padding(
+                          // right padding clears the pinned bell + settings icons
+                          padding: const EdgeInsets.fromLTRB(20, 6, 96, 0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(today,
+                                  style: const TextStyle(
+                                      color: _kSecond,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w400)),
+                              const SizedBox(height: 2),
+                              Row(children: [
+                                Flexible(
+                                  child: Text(
+                                    'Good ${_greeting()}, ${context.watch<FitnessProvider>().userName}! 👋',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ),
+                                if (p.workoutStreak > 0) ...[
+                                  const SizedBox(width: 8),
+                                  _StreakBadge(streak: p.workoutStreak),
+                                ],
+                              ]),
+                            ],
                           ),
-                          if (p.workoutStreak > 0) ...[
-                            const SizedBox(width: 8),
-                            _StreakBadge(streak: p.workoutStreak),
-                          ],
-                        ]),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                _NotificationBell(unread: p.unreadNotifications),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined, size: 22),
-                  onPressed: () => Navigator.push(
-                      context, sharedAxisRoute(const SettingsScreen())),
-                ),
-              ],
-            ),
-
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottomPad),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate(_staggerIn(context, [
-
-                  // ── AI Coach (top) — hidden when disabled in Settings ─────
-                  if (p.aiCoachEnabled) ...[
-                  const _SectionHdr('AI COACH'),
-                  const SizedBox(height: 8),
-                  AppCard(
-                    onTap: () => openChat(context),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    radius: 14,
-                    gradient: LinearGradient(
-                      colors: [
-                        _kGreen.withValues(alpha: 0.14),
-                        _kBlue.withValues(alpha: 0.07),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
-                    child: Row(children: [
-                      Container(
-                        padding: const EdgeInsets.all(9),
-                        decoration: BoxDecoration(
-                          color: _kGreen.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Text('🤖', style: TextStyle(fontSize: 22)),
                       ),
-                      const SizedBox(width: 12),
-                      const Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Ask AI Coach',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700)),
-                          SizedBox(height: 2),
-                          Text('Ask about your diet, workouts & progress',
-                              style: TextStyle(color: _kSecond, fontSize: 12)),
-                        ],
-                      )),
-                      Icon(Icons.chevron_right_rounded,
-                          color: _kGreen.withValues(alpha: 0.7), size: 22),
-                    ]),
-                  ),
-                  const SizedBox(height: 20),
-                  ],
-
-                  // ── Getting-started card (shows until user logs weight, food, or workout) ─
-                  if (p.latestWeightKg == null && p.todayFood.isEmpty && p.workoutHistory.isEmpty)
-                    const _GettingStartedCard(),
-                  if (p.latestWeightKg == null && p.todayFood.isEmpty && p.workoutHistory.isEmpty)
-                    const SizedBox(height: 20),
-
-                  // ── Activity rings ────────────────────────────────────────
-                  const _SectionHdr('TODAY\'S ACTIVITY'),
-                  const SizedBox(height: 10),
-                  _ActivityRingsCard(provider: p),
-                  const SizedBox(height: 20),
-
-                  // ── Calorie ring tile ─────────────────────────────────────
-                  const _SectionHdr('CALORIE BALANCE'),
-                  const SizedBox(height: 10),
-                  const _CalorieRingTile(),
-                  const SizedBox(height: 10),
-                  const _MacroRow(),
-                  const SizedBox(height: 20),
-
-                  // ── Weekly calorie bar chart (hidden when no data logged yet) ──
-                  if (_showEmptySections || p.weeklyAvgCalories > 0) ...[
-                    const _SectionHdr('7-DAY CALORIES'),
-                    const SizedBox(height: 10),
-                    // Has touch tooltips — leave pointer events enabled.
-                    RepaintBoundary(child: _WeeklyCalorieChart(provider: p)),
-                    const SizedBox(height: 20),
-                  ],
-
-                  // ── Macro donut (hidden when no food logged today) ────────
-                  if (_showEmptySections || p.todayFood.isNotEmpty) ...[
-                    const _SectionHdr('TODAY\'S MACROS'),
-                    const SizedBox(height: 10),
-                    // Display-only donut — no tap handlers, so exclude from hit-test
-                    // tree to avoid intercepting scroll events.
-                    RepaintBoundary(child: IgnorePointer(child: _MacroDonutCard(provider: p))),
-                    const SizedBox(height: 20),
-                  ],
-
-                  // ── Burn breakdown ────────────────────────────────────────
-                  const _SectionHdr('BURN BREAKDOWN'),
-                  const SizedBox(height: 10),
-                  const _BurnBreakdownTile(),
-                  const SizedBox(height: 20),
-
-                  // ── Steps + Water ─────────────────────────────────────────
-                  const _SectionHdr('MOVE & HYDRATE'),
-                  const SizedBox(height: 10),
-                  const _StepsWaterRow(),
-                  const SizedBox(height: 20),
-
-                  // ── Body stats ────────────────────────────────────────────
-                  const _BodyStatsTile(),
-                  const SizedBox(height: 20),
-
-                  // ── Weight prediction chart ───────────────────────────────
-                  if (p.getRecentBodyEntries(days: 90).length >= 3) ...[
-                    const _SectionHdr('WEIGHT PREDICTION (AI TREND)'),
-                    const SizedBox(height: 10),
-                    // CustomPaint chart with no touch interaction.
-                    RepaintBoundary(child: IgnorePointer(child: _WeightPredictionCard(provider: p))),
-                    const SizedBox(height: 20),
-                  ],
-
-                  // ── Workout ───────────────────────────────────────────────
-                  const _SectionHdr('WORKOUT'),
-                  const SizedBox(height: 10),
-                  _WorkoutCard(workouts: p.todayWorkouts),
-                  const SizedBox(height: 20),
-
-                  // ── Supplements ───────────────────────────────────────────
-                  const _SectionHdr('SUPPLEMENTS'),
-                  const SizedBox(height: 10),
-                  _SupplementsCard(supp: p.supplements),
-                  const SizedBox(height: 20),
-
-                  // ── Weekly report ─────────────────────────────────────────
-                  Row(children: [
-                    const _SectionHdr('LAST 7 DAYS'),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.push(
-                          context, sharedAxisRoute(const WeeklyRecapScreen())),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text('Recap',
-                            style: TextStyle(
-                                color: _kGreen,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600)),
-                        SizedBox(width: 2),
-                        Icon(Icons.auto_awesome_rounded, color: _kGreen, size: 14),
-                      ]),
                     ),
-                  ]),
-                  const SizedBox(height: 10),
-                  _WeeklyReportCard(provider: p),
-                  const SizedBox(height: 20),
-
-                  // ── Progressive-disclosure toggle ─────────────────────────
-                  Builder(builder: (ctx) {
-                    final hidden = _hiddenCount(p); // computed once per build
-                    if (hidden == 0) return const SizedBox.shrink();
-                    return _ShowMoreSections(
-                      count: _showEmptySections ? 0 : hidden,
-                      onTap: () => setState(() => _showEmptySections = !_showEmptySections),
-                    );
-                  }),
-                  const SizedBox(height: 8),
-                ])),
+                  ),
+                ),
+                actions: [
+                  _NotificationBell(unread: p.unreadNotifications),
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined, size: 22),
+                    onPressed: () => Navigator.push(
+                        context, sharedAxisRoute(const SettingsScreen())),
+                  ),
+                ],
               ),
-            ),
-          ],
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 32 + bottomPad),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate(_staggerIn(context, [
+                    // ── AI Coach (top) — hidden when disabled in Settings ─────
+                    if (p.aiCoachEnabled) ...[
+                      const _SectionHdr('AI COACH'),
+                      const SizedBox(height: 8),
+                      AppCard(
+                        onTap: () => openChat(context),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        radius: 14,
+                        gradient: LinearGradient(
+                          colors: [
+                            _kGreen.withValues(alpha: 0.14),
+                            _kBlue.withValues(alpha: 0.07),
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        border:
+                            Border.all(color: _kGreen.withValues(alpha: 0.3)),
+                        child: Row(children: [
+                          Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: _kGreen.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.smart_toy_rounded,
+                                color: _kGreen, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                              child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Ask AI Coach',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700)),
+                              SizedBox(height: 2),
+                              Text('Ask about your diet, workouts & progress',
+                                  style:
+                                      TextStyle(color: _kSecond, fontSize: 12)),
+                            ],
+                          )),
+                          Icon(Icons.chevron_right_rounded,
+                              color: _kGreen.withValues(alpha: 0.7), size: 22),
+                        ]),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // ── Getting-started card (shows until user logs weight, food, or workout) ─
+                    if (p.latestWeightKg == null &&
+                        p.todayFood.isEmpty &&
+                        p.workoutHistory.isEmpty)
+                      const _GettingStartedCard(),
+                    if (p.latestWeightKg == null &&
+                        p.todayFood.isEmpty &&
+                        p.workoutHistory.isEmpty)
+                      const SizedBox(height: 20),
+
+                    // ── Activity rings ────────────────────────────────────────
+                    const _SectionHdr('TODAY\'S ACTIVITY'),
+                    const SizedBox(height: 10),
+                    _ActivityRingsCard(provider: p),
+                    const SizedBox(height: 20),
+
+                    // ── Calorie balance hero (eaten vs burned + burn breakdown) ─
+                    const _SectionHdr('CALORIE BALANCE'),
+                    const SizedBox(height: 10),
+                    const _CalorieRingTile(),
+                    const SizedBox(height: 20),
+
+                    // ── Weekly calorie bar chart (hidden when no data logged yet) ──
+                    if (_showEmptySections || p.weeklyAvgCalories > 0) ...[
+                      const _SectionHdr('7-DAY CALORIES'),
+                      const SizedBox(height: 10),
+                      // Has touch tooltips — leave pointer events enabled.
+                      RepaintBoundary(child: _WeeklyCalorieChart(provider: p)),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // ── Macro donut (hidden when no food logged today) ────────
+                    if (_showEmptySections || p.todayFood.isNotEmpty) ...[
+                      const _SectionHdr('TODAY\'S MACROS'),
+                      const SizedBox(height: 10),
+                      // Display-only donut — no tap handlers, so exclude from hit-test
+                      // tree to avoid intercepting scroll events.
+                      RepaintBoundary(
+                          child: IgnorePointer(
+                              child: _MacroDonutCard(provider: p))),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // ── Steps + Water ─────────────────────────────────────────
+                    const _SectionHdr('MOVE & HYDRATE'),
+                    const SizedBox(height: 10),
+                    const _StepsWaterRow(),
+                    const SizedBox(height: 20),
+
+                    // ── Body stats ────────────────────────────────────────────
+                    const _BodyStatsTile(),
+                    const SizedBox(height: 20),
+
+                    // ── Weight prediction chart ───────────────────────────────
+                    if (p.getRecentBodyEntries(days: 90).length >= 3) ...[
+                      const _SectionHdr('WEIGHT PREDICTION (AI TREND)'),
+                      const SizedBox(height: 10),
+                      // CustomPaint chart with no touch interaction.
+                      RepaintBoundary(
+                          child: IgnorePointer(
+                              child: _WeightPredictionCard(provider: p))),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // ── Workout ───────────────────────────────────────────────
+                    const _SectionHdr('WORKOUT'),
+                    const SizedBox(height: 10),
+                    _WorkoutCard(workouts: p.todayWorkouts),
+                    const SizedBox(height: 20),
+
+                    // ── Supplements ───────────────────────────────────────────
+                    const _SectionHdr('SUPPLEMENTS'),
+                    const SizedBox(height: 10),
+                    _SupplementsCard(supp: p.supplements),
+                    const SizedBox(height: 20),
+
+                    // ── Weekly report ─────────────────────────────────────────
+                    Row(children: [
+                      const _SectionHdr('LAST 7 DAYS'),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.push(context,
+                            sharedAxisRoute(const WeeklyRecapScreen())),
+                        child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Recap',
+                                  style: TextStyle(
+                                      color: _kGreen,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                              SizedBox(width: 2),
+                              Icon(Icons.auto_awesome_rounded,
+                                  color: _kGreen, size: 14),
+                            ]),
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                    _WeeklyReportCard(provider: p),
+                    const SizedBox(height: 20),
+
+                    // ── Progressive-disclosure toggle ─────────────────────────
+                    Builder(builder: (ctx) {
+                      final hidden = _hiddenCount(p); // computed once per build
+                      if (hidden == 0) return const SizedBox.shrink();
+                      return _ShowMoreSections(
+                        count: _showEmptySections ? 0 : hidden,
+                        onTap: () => setState(
+                            () => _showEmptySections = !_showEmptySections),
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                  ])),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
         Align(
           alignment: Alignment.topCenter,
           child: ConfettiWidget(
@@ -439,7 +460,8 @@ class _NotificationBell extends StatelessWidget {
         ),
         if (unread > 0)
           Positioned(
-            top: 8, right: 7,
+            top: 8,
+            right: 7,
             child: Container(
               padding: const EdgeInsets.all(2),
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
@@ -452,7 +474,9 @@ class _NotificationBell extends StatelessWidget {
                 unread > 9 ? '9+' : '$unread',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -476,11 +500,15 @@ class _StreakBadge extends StatelessWidget {
         border: Border.all(color: _kOrange.withValues(alpha: 0.3)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.local_fire_department_rounded, size: 14, color: _kOrange),
+        const Icon(Icons.local_fire_department_rounded,
+            size: 14, color: _kOrange),
         const SizedBox(width: 4),
-        Text('$streak day${streak == 1 ? '' : 's'}', style: const TextStyle(
-          color: _kOrange, fontSize: 12, fontWeight: FontWeight.w600,
-        )),
+        Text('$streak day${streak == 1 ? '' : 's'}',
+            style: const TextStyle(
+              color: _kOrange,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            )),
       ]),
     );
   }
@@ -495,9 +523,11 @@ class _ActivityRingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = provider;
     // Raw unclamped ratios so the painter and rows can show overflow > 100%.
-    final calRaw  = p.calorieGoal  > 0 ? p.todayCaloriesTotal / p.calorieGoal  : 0.0;
-    final protRaw = p.proteinGoal  > 0 ? p.todayProteinTotal  / p.proteinGoal  : 0.0;
-    final watRaw  = p.waterGoalMl  > 0 ? p.todayWaterMl       / p.waterGoalMl  : 0.0;
+    final calRaw =
+        p.calorieGoal > 0 ? p.todayCaloriesTotal / p.calorieGoal : 0.0;
+    final protRaw =
+        p.proteinGoal > 0 ? p.todayProteinTotal / p.proteinGoal : 0.0;
+    final watRaw = p.waterGoalMl > 0 ? p.todayWaterMl / p.waterGoalMl : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -509,27 +539,36 @@ class _ActivityRingsCard extends StatelessWidget {
       ),
       child: Row(children: [
         SizedBox(
-          width: 110, height: 110,
+          width: 110,
+          height: 110,
           child: Semantics(
-            label: 'Activity rings: calories ${(calRaw * 100).round()} percent, '
+            label:
+                'Activity rings: calories ${(calRaw * 100).round()} percent, '
                 'protein ${(protRaw * 100).round()} percent, '
                 'water ${(watRaw * 100).round()} percent of goal',
             child: _AnimatedRings(values: [calRaw, protRaw, watRaw]),
           ),
         ),
         const SizedBox(width: 18),
-        Expanded(child: Column(children: [
-          _RingRow(color: _kRed, label: 'Calories',
-            value: '${p.todayCaloriesTotal.round()} / ${p.calorieGoal} kcal',
-            progress: calRaw),
+        Expanded(
+            child: Column(children: [
+          _RingRow(
+              color: _kRed,
+              label: 'Calories',
+              value: '${p.todayCaloriesTotal.round()} / ${p.calorieGoal} kcal',
+              progress: calRaw),
           const SizedBox(height: 10),
-          _RingRow(color: _kGreen, label: 'Protein',
-            value: '${p.todayProteinTotal.round()} / ${p.proteinGoal}g',
-            progress: protRaw),
+          _RingRow(
+              color: _kGreen,
+              label: 'Protein',
+              value: '${p.todayProteinTotal.round()} / ${p.proteinGoal}g',
+              progress: protRaw),
           const SizedBox(height: 10),
-          _RingRow(color: _kBlue, label: 'Water',
-            value: '${p.todayWaterMl} / ${p.waterGoalMl} ml',
-            progress: watRaw),
+          _RingRow(
+              color: _kBlue,
+              label: 'Water',
+              value: '${p.todayWaterMl} / ${p.waterGoalMl} ml',
+              progress: watRaw),
         ])),
       ]),
     );
@@ -540,21 +579,34 @@ class _RingRow extends StatelessWidget {
   final Color color;
   final String label, value;
   final double progress; // unclamped — can be > 1.0
-  const _RingRow({required this.color, required this.label, required this.value, required this.progress});
+  const _RingRow(
+      {required this.color,
+      required this.label,
+      required this.value,
+      required this.progress});
 
   @override
   Widget build(BuildContext context) {
     final isOver = progress > 1.0;
     // When over goal, shift colour toward white so it visually pops.
-    final displayColor = isOver ? Color.lerp(color, Colors.white, 0.45)! : color;
+    final displayColor =
+        isOver ? Color.lerp(color, Colors.white, 0.45)! : color;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: displayColor, shape: BoxShape.circle)),
+        Container(
+            width: 8,
+            height: 8,
+            decoration:
+                BoxDecoration(color: displayColor, shape: BoxShape.circle)),
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
         const Spacer(),
-        CountUpText(progress * 100, suffix: '%',
-            style: TextStyle(color: displayColor, fontSize: 11, fontWeight: FontWeight.w600)),
+        CountUpText(progress * 100,
+            suffix: '%',
+            style: TextStyle(
+                color: displayColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600)),
       ]),
       const SizedBox(height: 4),
       ClipRRect(
@@ -572,7 +624,9 @@ class _RingRow extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 2),
-      Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
+      Text(value,
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
     ]);
   }
 }
@@ -582,7 +636,8 @@ class _RingRow extends StatelessWidget {
 /// animates from the current value to the new `end`, so logging food now glides
 /// the ring to its new fill instead of snapping.
 class _AnimatedRings extends StatelessWidget {
-  final List<double> values; // [calories, protein, water] raw ratios (unclamped)
+  final List<double>
+      values; // [calories, protein, water] raw ratios (unclamped)
   const _AnimatedRings({required this.values});
 
   @override
@@ -637,10 +692,13 @@ class _RingsPainter extends CustomPainter {
       final v = values[i];
 
       // Background track
-      canvas.drawCircle(center, r, Paint()
-        ..color = colors[i].withValues(alpha: 0.15)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke);
+      canvas.drawCircle(
+          center,
+          r,
+          Paint()
+            ..color = colors[i].withValues(alpha: 0.15)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = stroke);
 
       if (v <= 0) continue;
 
@@ -648,7 +706,9 @@ class _RingsPainter extends CustomPainter {
         // Normal fill
         canvas.drawArc(
           Rect.fromCircle(center: center, radius: r),
-          startAngle, fullSweep * v, false,
+          startAngle,
+          fullSweep * v,
+          false,
           Paint()
             ..color = colors[i]
             ..style = PaintingStyle.stroke
@@ -659,7 +719,9 @@ class _RingsPainter extends CustomPainter {
         // Over goal: fill the full ring with a flat join so the overflow sits cleanly on top.
         canvas.drawArc(
           Rect.fromCircle(center: center, radius: r),
-          startAngle, fullSweep, false,
+          startAngle,
+          fullSweep,
+          false,
           Paint()
             ..color = colors[i]
             ..style = PaintingStyle.stroke
@@ -671,7 +733,9 @@ class _RingsPainter extends CustomPainter {
         final overflowSweep = fullSweep * (v - 1.0).clamp(0.0, 1.0);
         canvas.drawArc(
           Rect.fromCircle(center: center, radius: r),
-          startAngle, overflowSweep, false,
+          startAngle,
+          overflowSweep,
+          false,
           Paint()
             ..color = Color.lerp(colors[i], Colors.white, 0.45)!
             ..style = PaintingStyle.stroke
@@ -684,8 +748,18 @@ class _RingsPainter extends CustomPainter {
 }
 
 // ─── Calorie Ring Tile ─────────────────────────────────────────────────────────
-class _CalorieRingTile extends StatelessWidget {
+/// The single energy-balance hero: eaten-vs-burned ring + an expandable
+/// resting/walking/workout split. The old standalone "Burn Breakdown" card is
+/// now this drill-down, so eaten/burned aren't shown twice on the Summary.
+class _CalorieRingTile extends StatefulWidget {
   const _CalorieRingTile();
+  @override
+  State<_CalorieRingTile> createState() => _CalorieRingTileState();
+}
+
+class _CalorieRingTileState extends State<_CalorieRingTile> {
+  bool _burnExpanded = false;
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
@@ -723,29 +797,38 @@ class _CalorieRingTile extends StatelessWidget {
                 ),
                 TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: eaten),
-                  duration: reduceMotion(context) ? Duration.zero : AppDurations.ring,
+                  duration:
+                      reduceMotion(context) ? Duration.zero : AppDurations.ring,
                   curve: AppCurves.emphasized,
                   builder: (_, e, __) => TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0, end: burned),
-                    duration:
-                        reduceMotion(context) ? Duration.zero : AppDurations.ring,
+                    duration: reduceMotion(context)
+                        ? Duration.zero
+                        : AppDurations.ring,
                     curve: AppCurves.emphasized,
                     builder: (_, b, __) => CustomPaint(
                       size: const Size(180, 180),
-                      painter: _CalorieRingPainter(eaten: e, burned: b, goal: goal),
+                      painter:
+                          _CalorieRingPainter(eaten: e, burned: b, goal: goal),
                     ),
                   ),
                 ),
                 Semantics(
                   // Announce status in words so it doesn't rely on colour alone.
-                  label: 'Net ${net >= 0 ? '+' : ''}${net.round()} kilocalories, '
+                  label:
+                      'Net ${net >= 0 ? '+' : ''}${net.round()} kilocalories, '
                       '${net >= 0 ? 'surplus' : 'deficit'}',
                   child: CountUpText(
                     net,
                     signed: true,
                     style: TextStyle(
-                      fontSize: 34, fontWeight: FontWeight.w800,
-                      color: net > 200 ? _kRed : net < -200 ? _kGreen : Colors.white,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      color: net > 200
+                          ? _kRed
+                          : net < -200
+                              ? _kGreen
+                              : Colors.white,
                     ),
                   ),
                 ),
@@ -756,10 +839,152 @@ class _CalorieRingTile extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _RingLegend(color: _kOrange, label: 'Eaten', value: '${eaten.round()} kcal'),
-              _RingLegend(color: _kGreen, label: 'Burned', value: '${burned.round()} kcal'),
-              _RingLegend(color: _kBlue, label: 'Goal', value: '${goal.round()} kcal'),
+              _RingLegend(
+                  color: _kOrange,
+                  label: 'Eaten',
+                  value: '${eaten.round()} kcal'),
+              _RingLegend(
+                  color: _kGreen,
+                  label: 'Burned',
+                  value: '${burned.round()} kcal'),
+              _RingLegend(
+                  color: _kBlue, label: 'Goal', value: '${goal.round()} kcal'),
             ],
+          ),
+
+          // ── Burn breakdown (expandable drill-down of the "Burned" total) ──
+          const SizedBox(height: 14),
+          const Divider(color: AppColors.border, thickness: 0.5, height: 1),
+          InkWell(
+            onTap: () => setState(() => _burnExpanded = !_burnExpanded),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(children: [
+                const Icon(Icons.local_fire_department_rounded,
+                    size: 16, color: _kGreen),
+                const SizedBox(width: 6),
+                const Text('Burn breakdown',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                GestureDetector(
+                  onTap: () => _showBurnInfo(context),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.info_outline_rounded,
+                        color: _kSecond, size: 16),
+                  ),
+                ),
+                const Spacer(),
+                Text('${burned.round()} kcal',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _kGreen)),
+                const SizedBox(width: 4),
+                Icon(
+                  _burnExpanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  color: _kSecond,
+                  size: 20,
+                ),
+              ]),
+            ),
+          ),
+          AnimatedSize(
+            duration: reduceMotion(context) ? Duration.zero : AppDurations.fast,
+            curve: AppCurves.emphasized,
+            alignment: Alignment.topCenter,
+            child: _burnExpanded
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(children: [
+                      Expanded(
+                          child: _BurnChip(
+                              icon: Icons.bedtime_rounded,
+                              label: 'Resting',
+                              value: p.restingCaloriesBurned.round(),
+                              color: _kBlue)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: _BurnChip(
+                              icon: Icons.directions_walk_rounded,
+                              label: 'Walking',
+                              value: p.walkingCaloriesBurned.round(),
+                              color: _kBlue)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: _BurnChip(
+                              icon: Icons.fitness_center_rounded,
+                              label: 'Workout',
+                              value: p.todayCaloriesBurned,
+                              color: _kGreen)),
+                    ]),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The "how calories burned is calculated" explainer (moved here from the
+  /// former Burn Breakdown card so the info is still reachable).
+  void _showBurnInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E22),
+        title: const Text('How calories burned is calculated'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.bedtime_rounded, size: 16, color: Color(0xFF40C8E0)),
+              SizedBox(width: 6),
+              Text('Resting (BMR)',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            ]),
+            SizedBox(height: 4),
+            Text(
+                'Your body burns calories just to stay alive — breathing, heart beating, organs working. This is called your Basal Metabolic Rate (BMR). It\'s prorated based on how many hours of the day have passed.',
+                style: TextStyle(
+                    color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
+            SizedBox(height: 14),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.directions_walk_rounded,
+                  size: 16, color: Color(0xFF40C8E0)),
+              SizedBox(width: 6),
+              Text('Walking',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            ]),
+            SizedBox(height: 4),
+            Text(
+                'Calculated from your step count using a formula that scales with your body weight. Heavier = more calories per step.',
+                style: TextStyle(
+                    color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
+            SizedBox(height: 14),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.fitness_center_rounded,
+                  size: 16, color: Color(0xFF30D158)),
+              SizedBox(width: 6),
+              Text('Workout',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            ]),
+            SizedBox(height: 4),
+            Text(
+                'Calculated from each exercise\'s MET value × your weight × duration. Log your exercises in the Workout tab to see this update.',
+                style: TextStyle(
+                    color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it',
+                style: TextStyle(color: Color(0xFF30D158))),
           ),
         ],
       ),
@@ -770,25 +995,30 @@ class _CalorieRingTile extends StatelessWidget {
 class _RingLegend extends StatelessWidget {
   final Color color;
   final String label, value;
-  const _RingLegend({required this.color, required this.label, required this.value});
+  const _RingLegend(
+      {required this.color, required this.label, required this.value});
   @override
   Widget build(BuildContext context) {
     return Column(children: [
       Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 10, height: 10,
+        Container(
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
       ]),
       const SizedBox(height: 2),
-      Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      Text(value,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
     ]);
   }
 }
 
 class _CalorieRingPainter extends CustomPainter {
   final double eaten, burned, goal;
-  const _CalorieRingPainter({required this.eaten, required this.burned, required this.goal});
+  const _CalorieRingPainter(
+      {required this.eaten, required this.burned, required this.goal});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -819,8 +1049,12 @@ class _CalorieRingPainter extends CustomPainter {
 
     canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
         startAngle, fullCircle, false, bgPaint);
-    canvas.drawArc(Rect.fromCircle(center: center, radius: innerRadius),
-        startAngle, fullCircle, false, bgPaint..color = const Color(0xFF2C2C2E));
+    canvas.drawArc(
+        Rect.fromCircle(center: center, radius: innerRadius),
+        startAngle,
+        fullCircle,
+        false,
+        bgPaint..color = const Color(0xFF2C2C2E));
 
     // Eaten ring — shows overflow lap when calories exceed goal.
     final eatenRatio = goal > 0 ? eaten / goal : 0.0;
@@ -830,11 +1064,18 @@ class _CalorieRingPainter extends CustomPainter {
             startAngle, fullCircle * eatenRatio, false, eatenPaint);
       } else {
         // Full ring with flat join, then overflow lap in lighter orange.
-        canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
-            startAngle, fullCircle, false, eatenPaint..strokeCap = StrokeCap.butt);
+        canvas.drawArc(
+            Rect.fromCircle(center: center, radius: outerRadius),
+            startAngle,
+            fullCircle,
+            false,
+            eatenPaint..strokeCap = StrokeCap.butt);
         final overflowSweep = fullCircle * (eatenRatio - 1.0).clamp(0.0, 1.0);
-        canvas.drawArc(Rect.fromCircle(center: center, radius: outerRadius),
-            startAngle, overflowSweep, false,
+        canvas.drawArc(
+            Rect.fromCircle(center: center, radius: outerRadius),
+            startAngle,
+            overflowSweep,
+            false,
             Paint()
               ..color = _kOrange.withValues(alpha: 0.6)
               ..style = PaintingStyle.stroke
@@ -857,183 +1098,17 @@ class _CalorieRingPainter extends CustomPainter {
       old.eaten != eaten || old.burned != burned || old.goal != goal;
 }
 
-// ─── Macro Row ─────────────────────────────────────────────────────────────────
-class _MacroRow extends StatelessWidget {
-  const _MacroRow();
-  @override
-  Widget build(BuildContext context) {
-    final p = context.watch<FitnessProvider>();
-    final protein = p.todayProteinTotal;
-    final proteinGoal = p.proteinGoal;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
-      child: Row(
-        children: [
-          Expanded(child: _MacroChip(
-            label: 'Protein',
-            value: '${protein.round()}g',
-            goal: '/ ${proteinGoal}g',
-            color: _kBlue,
-            progress: (protein / proteinGoal).clamp(0.0, 1.0),
-          )),
-          const SizedBox(width: 8),
-          Expanded(child: _MacroChip(
-            label: 'Calories in',
-            value: '${p.todayCaloriesTotal.round()}',
-            goal: '/ ${p.calorieGoal} kcal',
-            color: _kOrange,
-            progress: p.calorieProgress,
-          )),
-          const SizedBox(width: 8),
-          Expanded(child: _MacroChip(
-            label: 'Burned',
-            value: '${p.totalCaloriesBurned.round()}',
-            goal: 'kcal burned',
-            color: _kGreen,
-            progress: 1.0,
-          )),
-        ],
-      ),
-    );
-  }
-}
-
-class _MacroChip extends StatelessWidget {
-  final String label, value, goal;
-  final Color color;
-  final double progress;
-  const _MacroChip({required this.label, required this.value, required this.goal, required this.color, required this.progress});
-  @override
-  Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
-      const SizedBox(height: 4),
-      Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
-      Text(goal, style: const TextStyle(color: _kSecond, fontSize: 11)),
-      const SizedBox(height: 6),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: LinearProgressIndicator(
-          value: progress,
-          backgroundColor: const Color(0xFF2C2C2E),
-          valueColor: AlwaysStoppedAnimation(color),
-          minHeight: 4,
-        ),
-      ),
-    ]);
-  }
-}
-
-// ─── Burn Breakdown Tile ───────────────────────────────────────────────────────
-class _BurnBreakdownTile extends StatelessWidget {
-  const _BurnBreakdownTile();
-  @override
-  Widget build(BuildContext context) {
-    final p = context.watch<FitnessProvider>();
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            const Expanded(child: Text('Calories Burned Today',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
-            GestureDetector(
-              onTap: () => showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  backgroundColor: const Color(0xFF1E1E22),
-                  title: const Text('How calories burned is calculated'),
-                  content: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.bedtime_rounded, size: 16, color: Color(0xFF40C8E0)),
-                        SizedBox(width: 6),
-                        Text('Resting (BMR)',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                      ]),
-                      SizedBox(height: 4),
-                      Text('Your body burns calories just to stay alive — breathing, heart beating, organs working. This is called your Basal Metabolic Rate (BMR). It\'s prorated based on how many hours of the day have passed.',
-                          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
-                      SizedBox(height: 14),
-                      Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.directions_walk_rounded, size: 16, color: Color(0xFF40C8E0)),
-                        SizedBox(width: 6),
-                        Text('Walking',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                      ]),
-                      SizedBox(height: 4),
-                      Text('Calculated from your step count using a formula that scales with your body weight. Heavier = more calories per step.',
-                          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
-                      SizedBox(height: 14),
-                      Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.fitness_center_rounded, size: 16, color: Color(0xFF30D158)),
-                        SizedBox(width: 6),
-                        Text('Workout',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                      ]),
-                      SizedBox(height: 4),
-                      Text('Calculated from each exercise\'s MET value × your weight × duration. Log your exercises in the Workout tab to see this update.',
-                          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13, height: 1.5)),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Got it', style: TextStyle(color: Color(0xFF30D158))),
-                    ),
-                  ],
-                ),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Icon(Icons.info_outline_rounded, color: Color(0xFF8E8E93), size: 18),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: _BurnChip(icon: Icons.bedtime_rounded, label: 'Resting',
-                value: p.restingCaloriesBurned.round(), color: _kBlue)),
-            const SizedBox(width: 8),
-            Expanded(child: _BurnChip(icon: Icons.directions_walk_rounded, label: 'Walking',
-                value: p.walkingCaloriesBurned.round(), color: _kBlue)),
-            const SizedBox(width: 8),
-            Expanded(child: _BurnChip(icon: Icons.fitness_center_rounded, label: 'Workout',
-                value: p.todayCaloriesBurned, color: _kGreen)),
-          ]),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2C2C2E),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total Burned', style: TextStyle(fontSize: 13, color: _kSecond)),
-                Text('${p.totalCaloriesBurned.round()} kcal',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kGreen)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+// ─── Burn chip ─────────────────────────────────────────────────────────────────
 class _BurnChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final int value;
   final Color color;
-  const _BurnChip({required this.icon, required this.label, required this.value, required this.color});
+  const _BurnChip(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.color});
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1047,9 +1122,9 @@ class _BurnChip extends StatelessWidget {
         Icon(icon, size: 20, color: color),
         const SizedBox(height: 4),
         Text('$value kcal',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
-        Text(label,
-            style: const TextStyle(fontSize: 11, color: _kSecond)),
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+        Text(label, style: const TextStyle(fontSize: 11, color: _kSecond)),
       ]),
     );
   }
@@ -1062,7 +1137,8 @@ class _StepsWaterRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
     return Row(children: [
-      Expanded(child: _MiniRingCard(
+      Expanded(
+          child: _MiniRingCard(
         icon: Icons.directions_walk_rounded,
         label: 'Steps',
         current: p.todaySteps.toDouble(),
@@ -1072,7 +1148,8 @@ class _StepsWaterRow extends StatelessWidget {
         color: _kBlue,
       )),
       const SizedBox(width: 10),
-      Expanded(child: _MiniRingCard(
+      Expanded(
+          child: _MiniRingCard(
         icon: Icons.water_drop_rounded,
         label: 'Water',
         current: p.todayWaterMl.toDouble(),
@@ -1090,23 +1167,38 @@ class _MiniRingCard extends StatelessWidget {
   final String label, valueText, goalText;
   final double current, goal;
   final Color color;
-  const _MiniRingCard({required this.icon, required this.label, required this.current,
-      required this.goal, required this.valueText, required this.goalText, required this.color});
+  const _MiniRingCard(
+      {required this.icon,
+      required this.label,
+      required this.current,
+      required this.goal,
+      required this.valueText,
+      required this.goalText,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
     final progress = (current / goal).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
+      decoration: BoxDecoration(
+          color: _kCard,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppShadows.card,
+          border:
+              const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          Text(label,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         ]),
         const SizedBox(height: 10),
-        Text(valueText, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+        Text(valueText,
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.w800, color: color)),
         Text(goalText, style: const TextStyle(color: _kSecond, fontSize: 11)),
         const SizedBox(height: 8),
         ClipRRect(
@@ -1135,10 +1227,16 @@ class _BodyStatsTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 0),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
+      decoration: BoxDecoration(
+          color: _kCard,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppShadows.card,
+          border:
+              const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('Body Stats', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          const Text('Body Stats',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           const Spacer(),
           if (scale != null)
             Text(
@@ -1152,14 +1250,20 @@ class _BodyStatsTile extends StatelessWidget {
           runSpacing: 8,
           children: [
             if (p.latestWeightKg != null)
-              _StatChip(Icons.monitor_weight_rounded, 'Weight', '${p.latestWeightKg!.toStringAsFixed(1)} kg', Colors.white),
+              _StatChip(Icons.monitor_weight_rounded, 'Weight',
+                  '${p.latestWeightKg!.toStringAsFixed(1)} kg', Colors.white),
             if (bmi != null)
-              _StatChip(Icons.straighten_rounded, 'BMI', bmi.toStringAsFixed(1), p.bmiColor(context)),
+              _StatChip(Icons.straighten_rounded, 'BMI', bmi.toStringAsFixed(1),
+                  p.bmiColor(context)),
             if (scale != null) ...[
-              _StatChip(Icons.local_fire_department_rounded, 'Body Fat', '${scale.bodyFatPercent.toStringAsFixed(1)}%', _kOrange),
-              _StatChip(Icons.fitness_center_rounded, 'Muscle', '${scale.muscleMassKg.toStringAsFixed(1)} kg', _kGreen),
-              _StatChip(Icons.water_drop_rounded, 'Water', '${scale.bodyWaterPercent.toStringAsFixed(1)}%', _kBlue),
-              _StatChip(Icons.science_rounded, 'Bio Age', '${scale.biologicalAge} yr', _kBlue),
+              _StatChip(Icons.local_fire_department_rounded, 'Body Fat',
+                  '${scale.bodyFatPercent.toStringAsFixed(1)}%', _kOrange),
+              _StatChip(Icons.fitness_center_rounded, 'Muscle',
+                  '${scale.muscleMassKg.toStringAsFixed(1)} kg', _kGreen),
+              _StatChip(Icons.water_drop_rounded, 'Water',
+                  '${scale.bodyWaterPercent.toStringAsFixed(1)}%', _kBlue),
+              _StatChip(Icons.science_rounded, 'Bio Age',
+                  '${scale.biologicalAge} yr', _kBlue),
             ],
           ],
         ),
@@ -1186,7 +1290,9 @@ class _StatChip extends StatelessWidget {
         const SizedBox(width: 5),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
-          Text(value, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(value,
+              style: TextStyle(
+                  color: color, fontSize: 13, fontWeight: FontWeight.w600)),
         ]),
       ]),
     );
@@ -1204,9 +1310,7 @@ class _WeightPredictionCard extends StatelessWidget {
     // Compute once — used both for the subtitle count and the painter (was 2 sorts).
     final recent90 = p.getRecentBodyEntries(days: 90);
     final cutoff30 = DateTime.now().subtract(const Duration(days: 30));
-    final recent30 = recent90
-        .where((e) => !e.date.isBefore(cutoff30))
-        .toList();
+    final recent30 = recent90.where((e) => !e.date.isBefore(cutoff30)).toList();
     final forecast = p.weightForecast(days: 30);
     final current = p.latestWeightKg ?? 0.0;
     final weekly = p.weeklyWeightChange;
@@ -1229,9 +1333,12 @@ class _WeightPredictionCard extends StatelessWidget {
           const Text('🤖', style: TextStyle(fontSize: 18)),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('AI Weight Forecast', style: TextStyle(
-              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600,
-            )),
+            const Text('AI Weight Forecast',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                )),
             Text('Linear trend from your last ${recent90.length} logs',
                 style: const TextStyle(color: _kSecond, fontSize: 11)),
           ]),
@@ -1246,7 +1353,10 @@ class _WeightPredictionCard extends StatelessWidget {
               ),
               child: Text(
                 '${weekly >= 0 ? '+' : ''}${weekly.toStringAsFixed(2)} kg/wk',
-                style: TextStyle(color: trendColor, fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: trendColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold),
               ),
             ),
         ]),
@@ -1265,11 +1375,18 @@ class _WeightPredictionCard extends StatelessWidget {
         const SizedBox(height: 12),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           _PredStat('Now', '${current.toStringAsFixed(1)} kg', Colors.white),
-          _PredStat('In 30 days', predicted30 != null
-              ? '${predicted30.toStringAsFixed(1)} kg' : '—', trendColor),
-          _PredStat('Goal', '${p.goalWeightKg.toStringAsFixed(1)} kg', _kOrange),
-          _PredStat('ETA', goalDate != null
-              ? DateFormat('d MMM').format(goalDate) : '—', _kBlue),
+          _PredStat(
+              'In 30 days',
+              predicted30 != null
+                  ? '${predicted30.toStringAsFixed(1)} kg'
+                  : '—',
+              trendColor),
+          _PredStat(
+              'Goal', '${p.goalWeightKg.toStringAsFixed(1)} kg', _kOrange),
+          _PredStat(
+              'ETA',
+              goalDate != null ? DateFormat('d MMM').format(goalDate) : '—',
+              _kBlue),
         ]),
         if (goalDate != null) ...[
           const SizedBox(height: 10),
@@ -1282,9 +1399,11 @@ class _WeightPredictionCard extends StatelessWidget {
             child: Row(children: [
               const Icon(Icons.flag_rounded, size: 15, color: _kGreen),
               const SizedBox(width: 8),
-              Expanded(child: Text(
+              Expanded(
+                  child: Text(
                 'At this rate you\'ll reach ${p.goalWeightKg.toStringAsFixed(1)} kg by ${DateFormat('d MMMM yyyy').format(goalDate)}',
-                style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 12, height: 1.4),
               )),
             ]),
           ),
@@ -1300,9 +1419,11 @@ class _PredStat extends StatelessWidget {
   const _PredStat(this.l, this.v, this.c);
   @override
   Widget build(BuildContext context) => Column(children: [
-    Text(v, style: TextStyle(color: c, fontSize: 14, fontWeight: FontWeight.bold)),
-    Text(l, style: const TextStyle(color: _kSecond, fontSize: 11)),
-  ]);
+        Text(v,
+            style:
+                TextStyle(color: c, fontSize: 14, fontWeight: FontWeight.bold)),
+        Text(l, style: const TextStyle(color: _kSecond, fontSize: 11)),
+      ]);
 }
 
 class _PredictionPainter extends CustomPainter {
@@ -1311,7 +1432,9 @@ class _PredictionPainter extends CustomPainter {
   final double goalWeight;
 
   const _PredictionPainter({
-    required this.history, required this.forecast, required this.goalWeight,
+    required this.history,
+    required this.forecast,
+    required this.goalWeight,
   });
 
   @override
@@ -1350,9 +1473,12 @@ class _PredictionPainter extends CustomPainter {
 
     if (goalWeight >= minW && goalWeight <= maxW) {
       final goalY = size.height - ((goalWeight - minW) / range) * size.height;
-      final dashPaint = Paint()..color = _kOrange.withValues(alpha: 0.5)..strokeWidth = 1.5;
+      final dashPaint = Paint()
+        ..color = _kOrange.withValues(alpha: 0.5)
+        ..strokeWidth = 1.5;
       for (double x = 0; x < size.width; x += 10) {
-        canvas.drawLine(Offset(x, goalY), Offset((x + 6).clamp(0, size.width), goalY), dashPaint);
+        canvas.drawLine(Offset(x, goalY),
+            Offset((x + 6).clamp(0, size.width), goalY), dashPaint);
       }
     }
 
@@ -1361,8 +1487,13 @@ class _PredictionPainter extends CustomPainter {
       final histPts = history.map((e) => toOff(e.date, e.weightKg)).toList();
       histPath.moveTo(histPts.first.dx, histPts.first.dy);
       for (final pt in histPts.skip(1)) histPath.lineTo(pt.dx, pt.dy);
-      canvas.drawPath(histPath, Paint()
-        ..color = _kGreen..strokeWidth = 2.5..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
+      canvas.drawPath(
+          histPath,
+          Paint()
+            ..color = _kGreen
+            ..strokeWidth = 2.5
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round);
       for (final pt in histPts) {
         canvas.drawCircle(pt, 3, Paint()..color = _kGreen);
       }
@@ -1372,9 +1503,13 @@ class _PredictionPainter extends CustomPainter {
       final startPt = toOff(history.last.date, history.last.weightKg);
       final forecastPts = [startPt, ...forecast.map((f) => toOff(f.$1, f.$2))];
       final dashPaint = Paint()
-        ..color = _kBlue..strokeWidth = 2..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
+        ..color = _kBlue
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
       for (int i = 0; i < forecastPts.length - 1; i++) {
-        if (i % 3 == 0) canvas.drawLine(forecastPts[i], forecastPts[i + 1], dashPaint);
+        if (i % 3 == 0)
+          canvas.drawLine(forecastPts[i], forecastPts[i + 1], dashPaint);
       }
       final shadePath = Path()
         ..moveTo(startPt.dx, size.height)
@@ -1382,9 +1517,17 @@ class _PredictionPainter extends CustomPainter {
       for (final pt in forecastPts.skip(1)) shadePath.lineTo(pt.dx, pt.dy);
       shadePath.lineTo(forecastPts.last.dx, size.height);
       shadePath.close();
-      canvas.drawPath(shadePath, Paint()
-        ..color = _kBlue.withValues(alpha: 0.07)..style = PaintingStyle.fill);
-      canvas.drawCircle(forecastPts.last, 4, Paint()..color = _kBlue..style = PaintingStyle.fill);
+      canvas.drawPath(
+          shadePath,
+          Paint()
+            ..color = _kBlue.withValues(alpha: 0.07)
+            ..style = PaintingStyle.fill);
+      canvas.drawCircle(
+          forecastPts.last,
+          4,
+          Paint()
+            ..color = _kBlue
+            ..style = PaintingStyle.fill);
     }
   }
 }
@@ -1399,16 +1542,29 @@ class _WorkoutCard extends StatelessWidget {
     if (workouts.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
+        decoration: BoxDecoration(
+            color: _kCard,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: AppShadows.card,
+            border:
+                const Border(top: BorderSide(color: AppColors.rim, width: 1))),
         child: Row(children: [
-          Container(padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: _kGreen.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.fitness_center_rounded, color: _kGreen, size: 20)),
+          Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: _kGreen.withValues(alpha: 0.1),
+                  shape: BoxShape.circle),
+              child: const Icon(Icons.fitness_center_rounded,
+                  color: _kGreen, size: 20)),
           const SizedBox(width: 14),
           const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('No workout logged yet', style: TextStyle(
-              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-            Text('Tap Workout tab to start', style: TextStyle(color: _kSecond, fontSize: 12)),
+            Text('No workout logged yet',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600)),
+            Text('Tap Workout tab to start',
+                style: TextStyle(color: _kSecond, fontSize: 12)),
           ]),
         ]),
       );
@@ -1422,16 +1578,22 @@ class _WorkoutCard extends StatelessWidget {
         : '$totalExercises exercises across ${workouts.length} sessions';
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kGreen.withValues(alpha: 0.3))),
+      decoration: BoxDecoration(
+          color: _kCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _kGreen.withValues(alpha: 0.3))),
       child: Row(children: [
         const Icon(Icons.check_circle_rounded, color: _kGreen, size: 26),
         const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(displayName,
-            style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold, fontSize: 14)),
+              style: const TextStyle(
+                  color: _kGreen, fontWeight: FontWeight.bold, fontSize: 14)),
           Text(sessionLabel,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
         ])),
       ]),
     );
@@ -1445,36 +1607,60 @@ class _SupplementsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = [('Whey', supp.whey, '🥛'), ('Creatine', supp.creatine, '⚡'), ('Multivitamin', supp.multivitamin, '💊')];
+    final items = [
+      ('Whey', supp.whey, '🥛'),
+      ('Creatine', supp.creatine, '⚡'),
+      ('Multivitamin', supp.multivitamin, '💊')
+    ];
     final done = items.where((e) => e.$2).length;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
+      decoration: BoxDecoration(
+          color: _kCard,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppShadows.card,
+          border:
+              const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text('$done/${items.length} taken', style: const TextStyle(color: _kSecond, fontSize: 12)),
+          Text('$done/${items.length} taken',
+              style: const TextStyle(color: _kSecond, fontSize: 12)),
           const Spacer(),
-          if (done == items.length) const Text('✅ All done!',
-              style: TextStyle(color: _kGreen, fontSize: 12, fontWeight: FontWeight.w600)),
+          if (done == items.length)
+            const Text('✅ All done!',
+                style: TextStyle(
+                    color: _kGreen, fontSize: 12, fontWeight: FontWeight.w600)),
         ]),
         const SizedBox(height: 10),
-        Row(children: items.map((item) => Expanded(child: Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: item.$2 ? _kGreen.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: item.$2 ? _kGreen.withValues(alpha: 0.4) : Colors.transparent),
-            ),
-            child: Column(children: [
-              Text(item.$3, style: const TextStyle(fontSize: 20)),
-              const SizedBox(height: 4),
-              Text(item.$1, style: TextStyle(
-                color: item.$2 ? _kGreen : _kSecond, fontSize: 11, fontWeight: FontWeight.w500)),
-            ]),
-          ),
-        ))).toList()),
+        Row(
+            children: items
+                .map((item) => Expanded(
+                        child: Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: item.$2
+                              ? _kGreen.withValues(alpha: 0.15)
+                              : Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: item.$2
+                                  ? _kGreen.withValues(alpha: 0.4)
+                                  : Colors.transparent),
+                        ),
+                        child: Column(children: [
+                          Text(item.$3, style: const TextStyle(fontSize: 20)),
+                          const SizedBox(height: 4),
+                          Text(item.$1,
+                              style: TextStyle(
+                                  color: item.$2 ? _kGreen : _kSecond,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500)),
+                        ]),
+                      ),
+                    )))
+                .toList()),
       ]),
     );
   }
@@ -1505,26 +1691,45 @@ class _WeeklyReportCard extends StatelessWidget {
       ),
       child: Column(children: [
         // ── 7-day workout grid (rolling, today = last) ──────────────────
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(7, (i) {
             final done = rolling[i].done;
             final isToday = i == 6; // last cell is today
             return Column(children: [
               Container(
-                width: 34, height: 34,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: done ? _kGreen.withValues(alpha: 0.2) : isToday
-                      ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.04),
+                  color: done
+                      ? _kGreen.withValues(alpha: 0.2)
+                      : isToday
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.white.withValues(alpha: 0.04),
                   shape: BoxShape.circle,
-                  border: Border.all(color: done ? _kGreen : isToday ? Colors.white38 : Colors.transparent, width: 1.5),
+                  border: Border.all(
+                      color: done
+                          ? _kGreen
+                          : isToday
+                              ? Colors.white38
+                              : Colors.transparent,
+                      width: 1.5),
                 ),
-                child: done ? const Icon(Icons.check_rounded, color: _kGreen, size: 16) : null,
+                child: done
+                    ? const Icon(Icons.check_rounded, color: _kGreen, size: 16)
+                    : null,
               ),
               const SizedBox(height: 4),
-              Text(rolling[i].label, style: TextStyle(
-                color: done ? _kGreen : isToday ? Colors.white : _kSecond,
-                fontSize: 11, fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-              )),
+              Text(rolling[i].label,
+                  style: TextStyle(
+                    color: done
+                        ? _kGreen
+                        : isToday
+                            ? Colors.white
+                            : _kSecond,
+                    fontSize: 11,
+                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                  )),
             ]);
           }),
         ),
@@ -1534,13 +1739,17 @@ class _WeeklyReportCard extends StatelessWidget {
 
         // ── Row 1: workouts / burned / streaks ──────────────────────────
         Row(children: [
-          _WeekStat('Workouts', '${p.weeklyWorkoutDays}/7', _kGreen, Icons.fitness_center_rounded),
+          _WeekStat('Workouts', '${p.weeklyWorkoutDays}/7', _kGreen,
+              Icons.fitness_center_rounded),
           const SizedBox(width: 8),
-          _WeekStat('Kcal Burned', '${p.weeklyCaloriesBurned}', _kRed, Icons.local_fire_department_rounded),
+          _WeekStat('Kcal Burned', '${p.weeklyCaloriesBurned}', _kRed,
+              Icons.local_fire_department_rounded),
           const SizedBox(width: 8),
-          _WeekStat('Workout', '${p.workoutStreak}d', _kOrange, Icons.local_fire_department_rounded),
+          _WeekStat('Workout', '${p.workoutStreak}d', _kOrange,
+              Icons.local_fire_department_rounded),
           const SizedBox(width: 8),
-          _WeekStat('Diet', '${p.calorieStreak}d', const Color(0xFF40C8E0), Icons.restaurant_rounded),
+          _WeekStat('Diet', '${p.calorieStreak}d', const Color(0xFF40C8E0),
+              Icons.restaurant_rounded),
         ]),
         const SizedBox(height: 8),
 
@@ -1548,7 +1757,8 @@ class _WeeklyReportCard extends StatelessWidget {
         Row(children: [
           _WeekStat('Avg Cal', '${avgCal.round()}', avgCalColor, null),
           const SizedBox(width: 8),
-          _WeekStat('Avg Protein', '${p.weeklyAvgProtein.round()}g', _kBlue, null),
+          _WeekStat(
+              'Avg Protein', '${p.weeklyAvgProtein.round()}g', _kBlue, null),
           const SizedBox(width: 8),
           _WeekStat('Water Goal', '${p.weeklyWaterGoalHitDays}/7d',
               p.weeklyWaterGoalHitDays >= 4 ? _kGreen : _kSecond, null),
@@ -1564,10 +1774,16 @@ class _WeeklyReportCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(children: [
             Icon(
-              weekly < 0 ? Icons.trending_down_rounded
-                  : weekly > 0 ? Icons.trending_up_rounded
-                  : Icons.trending_flat_rounded,
-              color: weekly < 0 ? _kGreen : weekly > 0 ? _kRed : _kSecond,
+              weekly < 0
+                  ? Icons.trending_down_rounded
+                  : weekly > 0
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_flat_rounded,
+              color: weekly < 0
+                  ? _kGreen
+                  : weekly > 0
+                      ? _kRed
+                      : _kSecond,
               size: 16,
             ),
             const SizedBox(width: 6),
@@ -1578,7 +1794,11 @@ class _WeeklyReportCard extends StatelessWidget {
                       ? '${weekly.toStringAsFixed(2)} kg gained this week'
                       : 'Weight stable this week',
               style: TextStyle(
-                color: weekly < 0 ? _kGreen : weekly > 0 ? _kRed : _kSecond,
+                color: weekly < 0
+                    ? _kGreen
+                    : weekly > 0
+                        ? _kRed
+                        : _kSecond,
                 fontSize: 12,
               ),
             ),
@@ -1596,15 +1816,23 @@ class _WeekStat extends StatelessWidget {
   const _WeekStat(this.label, this.value, this.color, this.icon);
 
   @override
-  Widget build(BuildContext context) => Expanded(child: Container(
-    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (icon != null) ...[Icon(icon, color: color, size: 14), const SizedBox(height: 4)],
-      Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
-      Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
-    ]),
-  ));
+  Widget build(BuildContext context) => Expanded(
+          child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (icon != null) ...[
+            Icon(icon, color: color, size: 14),
+            const SizedBox(height: 4)
+          ],
+          Text(value,
+              style: TextStyle(
+                  color: color, fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(color: _kSecond, fontSize: 11)),
+        ]),
+      ));
 }
 
 // ─── Weekly Calorie Bar Chart ──────────────────────────────────────────────────
@@ -1616,7 +1844,8 @@ class _WeeklyCalorieChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = provider.weeklyCalorieData;
     final goal = provider.calorieGoal.toDouble();
-    final maxCal = data.fold(goal, (m, d) => math.max(m, (d['calories'] as double)));
+    final maxCal =
+        data.fold(goal, (m, d) => math.max(m, (d['calories'] as double)));
     final yMax = (maxCal * 1.15).ceilToDouble();
 
     return Container(
@@ -1626,121 +1855,133 @@ class _WeeklyCalorieChart extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       height: 190,
-      child: BarChart(
-        BarChartData(
-          maxY: yMax,
-          alignment: BarChartAlignment.spaceAround,
-          barTouchData: BarTouchData(
-            touchTooltipData: BarTouchTooltipData(
-              getTooltipColor: (_) => const Color(0xFF2C2C2E),
-              getTooltipItem: (group, _, rod, __) {
-                final cal = rod.toY.round();
-                return BarTooltipItem(
-                  '$cal kcal',
-                  const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+      child: ChartEntrance(
+        builder: (context, t) => BarChart(
+          swapAnimationDuration: Duration.zero,
+          BarChartData(
+            maxY: yMax,
+            alignment: BarChartAlignment.spaceAround,
+            barTouchData: BarTouchData(
+              touchTooltipData: BarTouchTooltipData(
+                getTooltipColor: (_) => const Color(0xFF2C2C2E),
+                getTooltipItem: (group, _, rod, __) {
+                  final cal = rod.toY.round();
+                  return BarTooltipItem(
+                    '$cal kcal',
+                    const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600),
+                  );
+                },
+              ),
+            ),
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 26,
+                  getTitlesWidget: (v, _) {
+                    final idx = v.toInt();
+                    if (idx < 0 || idx >= data.length)
+                      return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        data[idx]['label'] as String,
+                        style: TextStyle(
+                          color: idx == data.length - 1 ? _kGreen : _kSecond,
+                          fontSize: 11,
+                          fontWeight: idx == data.length - 1
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 30,
+                  interval: goal,
+                  getTitlesWidget: (v, _) {
+                    if (v <= 0 || v > yMax) return const SizedBox.shrink();
+                    final k = v / 1000;
+                    return Text(
+                      '${k.toStringAsFixed(v % 1000 == 0 ? 0 : 1)}k',
+                      style: const TextStyle(color: _kSecond, fontSize: 11),
+                    );
+                  },
+                ),
+              ),
+              rightTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            ),
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: goal,
+              getDrawingHorizontalLine: (v) {
+                final isGoal = (v - goal).abs() < 1;
+                return FlLine(
+                  color: isGoal
+                      ? _kOrange.withValues(alpha: 0.6)
+                      : const Color(0xFF38383A),
+                  strokeWidth: isGoal ? 1.5 : 0.5,
+                  dashArray: isGoal ? [6, 4] : null,
                 );
               },
             ),
-          ),
-          titlesData: FlTitlesData(
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 26,
-                getTitlesWidget: (v, _) {
-                  final idx = v.toInt();
-                  if (idx < 0 || idx >= data.length) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      data[idx]['label'] as String,
-                      style: TextStyle(
-                        color: idx == data.length - 1 ? _kGreen : _kSecond,
-                        fontSize: 11,
-                        fontWeight: idx == data.length - 1 ? FontWeight.w700 : FontWeight.w400,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                interval: goal,
-                getTitlesWidget: (v, _) {
-                  if (v <= 0 || v > yMax) return const SizedBox.shrink();
-                  final k = v / 1000;
-                  return Text(
-                    '${k.toStringAsFixed(v % 1000 == 0 ? 0 : 1)}k',
-                    style: const TextStyle(color: _kSecond, fontSize: 11),
-                  );
-                },
-              ),
-            ),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: goal,
-            getDrawingHorizontalLine: (v) {
-              final isGoal = (v - goal).abs() < 1;
-              return FlLine(
-                color: isGoal
-                    ? _kOrange.withValues(alpha: 0.6)
-                    : const Color(0xFF38383A),
-                strokeWidth: isGoal ? 1.5 : 0.5,
-                dashArray: isGoal ? [6, 4] : null,
+            borderData: FlBorderData(show: false),
+            barGroups: data.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final cal = (entry.value['calories'] as double);
+              final isToday = idx == data.length - 1;
+              final atGoal = cal >= goal;
+              Color barColor;
+              if (isToday) {
+                barColor = atGoal ? _kGreen : _kBlue;
+              } else {
+                barColor = atGoal
+                    ? _kGreen.withValues(alpha: 0.55)
+                    : _kBlue.withValues(alpha: 0.35);
+              }
+              return BarChartGroupData(
+                x: idx,
+                barRods: [
+                  BarChartRodData(
+                    toY: cal * t,
+                    color: barColor,
+                    width: 22,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(8)),
+                  ),
+                ],
               );
-            },
-          ),
-          borderData: FlBorderData(show: false),
-          barGroups: data.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final cal = (entry.value['calories'] as double);
-            final isToday = idx == data.length - 1;
-            final atGoal = cal >= goal;
-            Color barColor;
-            if (isToday) {
-              barColor = atGoal ? _kGreen : _kBlue;
-            } else {
-              barColor = atGoal
-                  ? _kGreen.withValues(alpha: 0.55)
-                  : _kBlue.withValues(alpha: 0.35);
-            }
-            return BarChartGroupData(
-              x: idx,
-              barRods: [
-                BarChartRodData(
-                  toY: cal,
-                  color: barColor,
-                  width: 22,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                ),
-              ],
-            );
-          }).toList(),
-          extraLinesData: ExtraLinesData(horizontalLines: [
-            HorizontalLine(
-              y: goal,
-              color: _kOrange.withValues(alpha: 0.7),
-              strokeWidth: 1.5,
-              dashArray: [6, 4],
-              label: HorizontalLineLabel(
-                show: true,
-                alignment: Alignment.topRight,
-                labelResolver: (_) => '  goal',
-                style: TextStyle(
-                  color: _kOrange.withValues(alpha: 0.8),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+            }).toList(),
+            extraLinesData: ExtraLinesData(horizontalLines: [
+              HorizontalLine(
+                y: goal,
+                color: _kOrange.withValues(alpha: 0.7),
+                strokeWidth: 1.5,
+                dashArray: [6, 4],
+                label: HorizontalLineLabel(
+                  show: true,
+                  alignment: Alignment.topRight,
+                  labelResolver: (_) => '  goal',
+                  style: TextStyle(
+                    color: _kOrange.withValues(alpha: 0.8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-          ]),
+            ]),
+          ),
         ),
       ),
     );
@@ -1755,9 +1996,9 @@ class _MacroDonutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final protein = provider.todayProteinTotal;
-    final carbs   = provider.todayCarbsEstimate;
-    final fat     = provider.todayFatEstimate;
-    final total   = protein + carbs + fat; // grams — used by the legend rows
+    final carbs = provider.todayCarbsEstimate;
+    final fat = provider.todayFatEstimate;
+    final total = protein + carbs + fat; // grams — used by the legend rows
     // Only flag carbs/fat as "estimated" when at least one logged item actually
     // lacked real macros (custom entry or a DB item with none). A day of foods
     // that all carry real carbs/fat shows no estimate footnote.
@@ -1766,13 +2007,18 @@ class _MacroDonutCard extends StatelessWidget {
     // Size donut slices by CALORIE contribution (4/4/9 kcal per g), not grams, so
     // each slice reflects its true share of energy (fat is 9 kcal/g vs 4 for the rest).
     final proteinCal = protein * 4.0;
-    final carbsCal   = carbs   * 4.0;
-    final fatCal     = fat     * 9.0;
+    final carbsCal = carbs * 4.0;
+    final fatCal = fat * 9.0;
 
     if (total < 1) {
       return Container(
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
+        decoration: BoxDecoration(
+            color: _kCard,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: AppShadows.card,
+            border:
+                const Border(top: BorderSide(color: AppColors.rim, width: 1))),
         child: const Center(
           child: Text('Log food to see macro breakdown',
               style: TextStyle(color: _kSecond, fontSize: 13)),
@@ -1803,7 +2049,12 @@ class _MacroDonutCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card, border: const Border(top: BorderSide(color: AppColors.rim, width: 1))),
+      decoration: BoxDecoration(
+          color: _kCard,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppShadows.card,
+          border:
+              const Border(top: BorderSide(color: AppColors.rim, width: 1))),
       child: Row(
         children: [
           SizedBox(
@@ -1905,7 +2156,8 @@ class _MacroLegendRow extends StatelessWidget {
     return Row(
       children: [
         Container(
-            width: 10, height: 10,
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 8),
         Expanded(
@@ -1930,9 +2182,21 @@ class _GettingStartedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const steps = [
-      (Icons.monitor_weight_rounded, 'Log your weight',    'Body tab → Stats → Log Today'),
-      (Icons.restaurant_rounded,     'Log your first meal', 'Nutrition tab → + Add Food'),
-      (Icons.fitness_center_rounded, 'Log a workout',       'Workout tab → pick an exercise'),
+      (
+        Icons.monitor_weight_rounded,
+        'Log your weight',
+        'Body tab → Stats → Log Today'
+      ),
+      (
+        Icons.restaurant_rounded,
+        'Log your first meal',
+        'Nutrition tab → + Add Food'
+      ),
+      (
+        Icons.fitness_center_rounded,
+        'Log a workout',
+        'Workout tab → pick an exercise'
+      ),
     ];
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1946,7 +2210,9 @@ class _GettingStartedCard extends StatelessWidget {
           Icon(Icons.rocket_launch_rounded, size: 18, color: _kGreen),
           SizedBox(width: 8),
           Text('Get started',
-              style: TextStyle(color: Colors.white, fontSize: 15,
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700)),
         ]),
         const SizedBox(height: 4),
@@ -1954,18 +2220,27 @@ class _GettingStartedCard extends StatelessWidget {
             style: TextStyle(color: _kSecond, fontSize: 12)),
         const SizedBox(height: 14),
         ...steps.map((s) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(children: [
-            Icon(s.$1, size: 20, color: _kGreen),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(s.$2, style: const TextStyle(color: Colors.white, fontSize: 13,
-                  fontWeight: FontWeight.w600)),
-              Text(s.$3, style: const TextStyle(color: _kSecond, fontSize: 11)),
-            ])),
-            const Icon(Icons.arrow_forward_ios_rounded, color: _kSecond, size: 13),
-          ]),
-        )),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                Icon(s.$1, size: 20, color: _kGreen),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(s.$2,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                      Text(s.$3,
+                          style:
+                              const TextStyle(color: _kSecond, fontSize: 11)),
+                    ])),
+                const Icon(Icons.arrow_forward_ios_rounded,
+                    color: _kSecond, size: 13),
+              ]),
+            )),
       ]),
     );
   }

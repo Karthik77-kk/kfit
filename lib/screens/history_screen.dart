@@ -78,12 +78,24 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
   String _displayDate(DateTime d) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final date  = DateTime(d.year, d.month, d.day);
-    final diff  = today.difference(date).inDays;
+    final date = DateTime(d.year, d.month, d.day);
+    final diff = today.difference(date).inDays;
     if (diff == 0) return 'Today';
     if (diff == 1) return 'Yesterday';
-    const months = ['Jan','Feb','Mar','Apr','May','Jun',
-                    'Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${d.day} ${months[d.month - 1]}';
   }
 
@@ -108,15 +120,17 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
     final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
       itemCount: sortedKeys.length,
       itemBuilder: (ctx, i) {
         final key = sortedKeys[i];
         final sessions = grouped[key]!;
-        final totalCal = sessions.fold(0, (s, w) => s + p.calculateWorkoutCalories(w));
-        final totalEx  = sessions.fold(0, (s, w) => s + w.exercises.length);
-        final isOpen   = _expanded.contains(key);
-        final date     = sessions.first.date;
+        final totalCal =
+            sessions.fold(0, (s, w) => s + p.calculateWorkoutCalories(w));
+        final totalEx = sessions.fold(0, (s, w) => s + w.exercises.length);
+        final isOpen = _expanded.contains(key);
+        final date = sessions.first.date;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -131,16 +145,21 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
               InkWell(
                 borderRadius: BorderRadius.circular(14),
                 onTap: () => setState(() {
-                  if (isOpen) _expanded.remove(key); else _expanded.add(key);
+                  if (isOpen)
+                    _expanded.remove(key);
+                  else
+                    _expanded.add(key);
                 }),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Row(
                     children: [
                       Container(
-                        width: 44, height: 44,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF30D158).withValues(alpha: 0.15),
+                          color:
+                              const Color(0xFF30D158).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.fitness_center_rounded,
@@ -174,10 +193,11 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
                                   fontSize: 14)),
                           const SizedBox(height: 2),
                           Icon(
-                            isOpen
-                                ? Icons.keyboard_arrow_up_rounded
-                                : Icons.keyboard_arrow_down_rounded,
-                            color: const Color(0xFF8E8E93), size: 20),
+                              isOpen
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              color: const Color(0xFF8E8E93),
+                              size: 20),
                         ],
                       ),
                     ],
@@ -187,10 +207,14 @@ class _WorkoutHistoryState extends State<_WorkoutHistory> {
 
               // ── Expandable session details ──────────────────────────────
               if (isOpen) ...[
-                const Divider(color: Color(0xFF38383A), height: 1, indent: 14, endIndent: 14),
+                const Divider(
+                    color: Color(0xFF38383A),
+                    height: 1,
+                    indent: 14,
+                    endIndent: 14),
                 ...sessions.asMap().entries.map((entry) {
                   final idx = entry.key;
-                  final w   = entry.value;
+                  final w = entry.value;
                   final cal = p.calculateWorkoutCalories(w);
                   return _SessionTile(
                     workout: w,
@@ -213,7 +237,8 @@ class _SessionTile extends StatelessWidget {
   final WorkoutLog workout;
   final int calories;
   final String? sessionLabel;
-  const _SessionTile({required this.workout, required this.calories, this.sessionLabel});
+  const _SessionTile(
+      {required this.workout, required this.calories, this.sessionLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -226,41 +251,48 @@ class _SessionTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  sessionLabel != null ? '${workout.name}  ($sessionLabel)' : workout.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  sessionLabel != null
+                      ? '${workout.name}  ($sessionLabel)'
+                      : workout.name,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14),
                 ),
               ),
               Text('$calories kcal',
                   style: const TextStyle(
-                      color: Color(0xFFFF9F0A), fontSize: 12,
+                      color: Color(0xFFFF9F0A),
+                      fontSize: 12,
                       fontWeight: FontWeight.w500)),
             ],
           ),
           const SizedBox(height: 8),
           ...workout.exercises.map((ex) => Padding(
-            padding: const EdgeInsets.only(bottom: 5),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 3),
-                  child: Icon(Icons.circle, size: 5, color: Color(0xFF8E8E93)),
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 3),
+                      child:
+                          Icon(Icons.circle, size: 5, color: Color(0xFF8E8E93)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(ex.name,
+                          style: const TextStyle(
+                              fontSize: 13, color: Colors.white70)),
+                    ),
+                    if (ex.sets.isNotEmpty)
+                      Text(
+                        '${ex.sets.length} set${ex.sets.length > 1 ? 's' : ''}'
+                        '${ex.sets.first.reps > 0 ? '  ×${ex.sets.first.reps}' : ''}'
+                        '${ex.sets.first.weight > 0 ? '  @${ex.sets.first.weight.toStringAsFixed(1)}kg' : ''}',
+                        style: const TextStyle(
+                            color: Color(0xFF8E8E93), fontSize: 12),
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(ex.name,
-                      style: const TextStyle(fontSize: 13, color: Colors.white70)),
-                ),
-                if (ex.sets.isNotEmpty)
-                  Text(
-                    '${ex.sets.length} set${ex.sets.length > 1 ? 's' : ''}'
-                    '${ex.sets.first.reps > 0 ? '  ×${ex.sets.first.reps}' : ''}'
-                    '${ex.sets.first.weight > 0 ? '  @${ex.sets.first.weight.toStringAsFixed(1)}kg' : ''}',
-                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-                  ),
-              ],
-            ),
-          )),
+              )),
         ],
       ),
     );
@@ -292,8 +324,18 @@ class _NutritionHistoryState extends State<_NutritionHistory> {
       if (diff == 0) return 'Today';
       if (diff == 1) return 'Yesterday';
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       return '${date.day} ${months[date.month - 1]}';
     } catch (_) {
@@ -312,9 +354,8 @@ class _NutritionHistoryState extends State<_NutritionHistory> {
     final totalProt = entries.fold(0.0, (s, e) => s + e.protein) + suppProt;
 
     // Workouts for this day.
-    final dayWorkouts = p.workoutHistory
-        .where((w) => _dateKey(w.date) == dayKey)
-        .toList();
+    final dayWorkouts =
+        p.workoutHistory.where((w) => _dateKey(w.date) == dayKey).toList();
 
     // Group food entries by meal type in canonical order.
     const mealOrder = [
@@ -329,18 +370,18 @@ class _NutritionHistoryState extends State<_NutritionHistory> {
     }
 
     IconData mealIcon(MealType m) => switch (m) {
-      MealType.breakfast => Icons.wb_sunny_rounded,
-      MealType.lunch     => Icons.restaurant_rounded,
-      MealType.dinner    => Icons.nightlight_round,
-      MealType.snack     => Icons.cookie_rounded,
-    };
+          MealType.breakfast => Icons.wb_sunny_rounded,
+          MealType.lunch => Icons.restaurant_rounded,
+          MealType.dinner => Icons.nightlight_round,
+          MealType.snack => Icons.cookie_rounded,
+        };
 
     String mealLabel(MealType m) => switch (m) {
-      MealType.breakfast => 'Breakfast',
-      MealType.lunch     => 'Lunch',
-      MealType.dinner    => 'Dinner',
-      MealType.snack     => 'Snack',
-    };
+          MealType.breakfast => 'Breakfast',
+          MealType.lunch => 'Lunch',
+          MealType.dinner => 'Dinner',
+          MealType.snack => 'Snack',
+        };
 
     showModalBottomSheet(
       context: context,
@@ -565,15 +606,16 @@ class _NutritionHistoryState extends State<_NutritionHistory> {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
       itemCount: sortedDays.length,
       itemBuilder: (ctx, i) {
         final day = sortedDays[i];
         final entries = history[day] ?? [];
         final supp = suppHistory[day];
-        final suppCal  = (supp?.whey == true) ? 120.0 : 0.0;
-        final suppProt = (supp?.whey == true) ?  25.0 : 0.0;
-        final totalCal  = entries.fold(0.0, (s, e) => s + e.calories)  + suppCal;
+        final suppCal = (supp?.whey == true) ? 120.0 : 0.0;
+        final suppProt = (supp?.whey == true) ? 25.0 : 0.0;
+        final totalCal = entries.fold(0.0, (s, e) => s + e.calories) + suppCal;
         final totalProt = entries.fold(0.0, (s, e) => s + e.protein) + suppProt;
         final suppLabel = supp != null ? ' · ${supp.takenCount}/3 supps' : '';
         return AppTappable(
@@ -583,20 +625,30 @@ class _NutritionHistoryState extends State<_NutritionHistory> {
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-                color: const Color(0xFF1E1E22), borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card),
+                color: const Color(0xFF1E1E22),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: AppShadows.card),
             child: Row(children: [
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(day, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                Text(
-                  '${entries.length} item${entries.length != 1 ? 's' : ''}$suppLabel',
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-                ),
-              ])),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(day,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(
+                      '${entries.length} item${entries.length != 1 ? 's' : ''}$suppLabel',
+                      style: const TextStyle(
+                          color: Color(0xFF8E8E93), fontSize: 12),
+                    ),
+                  ])),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Text('${totalCal.round()} kcal',
-                    style: const TextStyle(color: Color(0xFFFF9F0A), fontWeight: FontWeight.w600)),
+                    style: const TextStyle(
+                        color: Color(0xFFFF9F0A), fontWeight: FontWeight.w600)),
                 Text('${totalProt.round()}g protein',
-                    style: const TextStyle(color: Color(0xFF40C8E0), fontSize: 12)),
+                    style: const TextStyle(
+                        color: Color(0xFF40C8E0), fontSize: 12)),
               ]),
             ]),
           ),
@@ -617,7 +669,9 @@ class _SuppChip extends StatelessWidget {
     return Row(
       children: [
         Icon(
-          taken ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+          taken
+              ? Icons.check_circle_rounded
+              : Icons.radio_button_unchecked_rounded,
           color: taken ? const Color(0xFF30D158) : const Color(0xFF8E8E93),
           size: 16,
         ),
@@ -640,8 +694,20 @@ class _WeightHistory extends StatelessWidget {
   const _WeightHistory();
 
   String _shortDate(DateTime d) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun',
-                    'Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${d.day} ${months[d.month - 1]}';
   }
 
@@ -653,14 +719,17 @@ class _WeightHistory extends StatelessWidget {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32),
-          child: Text('Log at least 2 weight entries\nto see your progress chart',
+          child: Text(
+              'Log at least 2 weight entries\nto see your progress chart',
               textAlign: TextAlign.center,
               style: TextStyle(color: Color(0xFF8E8E93), height: 1.6)),
         ),
       );
     }
 
-    final spots = entries.asMap().entries
+    final spots = entries
+        .asMap()
+        .entries
         .map((e) => FlSpot(e.key.toDouble(), e.value.weightKg))
         .toList();
 
@@ -675,7 +744,8 @@ class _WeightHistory extends StatelessWidget {
     final isLoss = change <= 0;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -690,8 +760,10 @@ class _WeightHistory extends StatelessWidget {
               const SizedBox(width: 10),
               _StatBadge(
                 label: 'Total change',
-                value: '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)} kg',
-                color: isLoss ? const Color(0xFF30D158) : const Color(0xFFFF9F0A),
+                value:
+                    '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)} kg',
+                color:
+                    isLoss ? const Color(0xFF30D158) : const Color(0xFFFF9F0A),
               ),
               const SizedBox(width: 10),
               _StatBadge(
@@ -712,102 +784,114 @@ class _WeightHistory extends StatelessWidget {
               boxShadow: AppShadows.card,
             ),
             height: 220,
-            child: LineChart(
-              LineChartData(
-                minY: yMin,
-                maxY: yMax,
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: padding.clamp(0.5, 2.0),
-                  getDrawingHorizontalLine: (_) => FlLine(
-                    color: const Color(0xFF38383A),
-                    strokeWidth: 0.8,
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 42,
-                      interval: padding.clamp(0.5, 2.0),
-                      getTitlesWidget: (v, _) => Text(
-                        v.toStringAsFixed(1),
-                        style: const TextStyle(
-                            color: Color(0xFF8E8E93), fontSize: 10),
+            child: ChartEntrance(
+              builder: (context, t) => ClipRect(
+                clipper: RevealClipper(t),
+                child: LineChart(
+                  duration: reduceMotion(context)
+                      ? Duration.zero
+                      : AppDurations.normal,
+                  curve: AppCurves.emphasized,
+                  LineChartData(
+                    minY: yMin,
+                    maxY: yMax,
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      horizontalInterval: padding.clamp(0.5, 2.0),
+                      getDrawingHorizontalLine: (_) => FlLine(
+                        color: const Color(0xFF38383A),
+                        strokeWidth: 0.8,
                       ),
                     ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      interval: (entries.length / 4).ceilToDouble().clamp(1.0, 20.0),
-                      getTitlesWidget: (v, _) {
-                        final idx = v.toInt();
-                        if (idx < 0 || idx >= entries.length) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            _shortDate(entries[idx].date),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 42,
+                          interval: padding.clamp(0.5, 2.0),
+                          getTitlesWidget: (v, _) => Text(
+                            v.toStringAsFixed(1),
                             style: const TextStyle(
                                 color: Color(0xFF8E8E93), fontSize: 10),
                           ),
-                        );
-                      },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 28,
+                          interval: (entries.length / 4)
+                              .ceilToDouble()
+                              .clamp(1.0, 20.0),
+                          getTitlesWidget: (v, _) {
+                            final idx = v.toInt();
+                            if (idx < 0 || idx >= entries.length) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                _shortDate(entries[idx].date),
+                                style: const TextStyle(
+                                    color: Color(0xFF8E8E93), fontSize: 10),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
                     ),
-                  ),
-                  rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  // Goal line (dashed)
-                  if (p.goalWeightKg >= yMin && p.goalWeightKg <= yMax)
-                    LineChartBarData(
-                      spots: [
-                        FlSpot(0, p.goalWeightKg),
-                        FlSpot((entries.length - 1).toDouble(), p.goalWeightKg),
-                      ],
-                      color: const Color(0xFF40C8E0).withValues(alpha: 0.5),
-                      barWidth: 1.5,
-                      dotData: const FlDotData(show: false),
-                      dashArray: [6, 4],
-                    ),
-                  // Weight trend line
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    curveSmoothness: 0.3,
-                    color: const Color(0xFF30D158),
-                    barWidth: 2.5,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, _, __, ___) =>
-                          FlDotCirclePainter(
+                    borderData: FlBorderData(show: false),
+                    lineBarsData: [
+                      // Goal line (dashed)
+                      if (p.goalWeightKg >= yMin && p.goalWeightKg <= yMax)
+                        LineChartBarData(
+                          spots: [
+                            FlSpot(0, p.goalWeightKg),
+                            FlSpot((entries.length - 1).toDouble(),
+                                p.goalWeightKg),
+                          ],
+                          color: const Color(0xFF40C8E0).withValues(alpha: 0.5),
+                          barWidth: 1.5,
+                          dotData: const FlDotData(show: false),
+                          dashArray: [6, 4],
+                        ),
+                      // Weight trend line
+                      LineChartBarData(
+                        spots: spots,
+                        isCurved: true,
+                        curveSmoothness: 0.3,
+                        color: const Color(0xFF30D158),
+                        barWidth: 2.5,
+                        dotData: FlDotData(
+                          show: true,
+                          getDotPainter: (spot, _, __, ___) =>
+                              FlDotCirclePainter(
                             radius: 3,
                             color: const Color(0xFF30D158),
                             strokeColor: Colors.black,
                             strokeWidth: 1.5,
                           ),
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF30D158).withValues(alpha: 0.25),
-                          const Color(0xFF30D158).withValues(alpha: 0.0),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        ),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF30D158).withValues(alpha: 0.25),
+                              const Color(0xFF30D158).withValues(alpha: 0.0),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -815,7 +899,9 @@ class _WeightHistory extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: Row(children: [
-              Container(width: 16, height: 2,
+              Container(
+                  width: 16,
+                  height: 2,
                   color: const Color(0xFF40C8E0).withValues(alpha: 0.5)),
               const SizedBox(width: 6),
               const Text('Goal weight',
@@ -826,26 +912,28 @@ class _WeightHistory extends StatelessWidget {
 
           // ── Log list ───────────────────────────────────────────────────
           ...entries.reversed.take(10).map((e) => Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E22),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: AppShadows.card,
-            ),
-            child: Row(
-              children: [
-                Text(_shortDate(e.date),
-                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13)),
-                const Spacer(),
-                Text('${e.weightKg.toStringAsFixed(1)} kg',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF30D158),
-                        fontSize: 14)),
-              ],
-            ),
-          )),
+                margin: const EdgeInsets.only(bottom: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E22),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: AppShadows.card,
+                ),
+                child: Row(
+                  children: [
+                    Text(_shortDate(e.date),
+                        style: const TextStyle(
+                            color: Color(0xFF8E8E93), fontSize: 13)),
+                    const Spacer(),
+                    Text('${e.weightKg.toStringAsFixed(1)} kg',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF30D158),
+                            fontSize: 14)),
+                  ],
+                ),
+              )),
         ],
       ),
     );
@@ -856,7 +944,8 @@ class _StatBadge extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _StatBadge({required this.label, required this.value, required this.color});
+  const _StatBadge(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -872,7 +961,8 @@ class _StatBadge extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 10)),
+                style: TextStyle(
+                    color: color.withValues(alpha: 0.8), fontSize: 10)),
             const SizedBox(height: 2),
             Text(value,
                 style: TextStyle(
@@ -901,7 +991,8 @@ class _WaterHistory extends StatelessWidget {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
       itemCount: sortedDays.length,
       itemBuilder: (ctx, i) {
         final day = sortedDays[i];
@@ -912,14 +1003,21 @@ class _WaterHistory extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-              color: const Color(0xFF1E1E22), borderRadius: BorderRadius.circular(14), boxShadow: AppShadows.card),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              color: const Color(0xFF1E1E22),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: AppShadows.card),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text(day,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+              Expanded(
+                  child: Text(day,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14))),
               Text('$ml ml',
                   style: TextStyle(
-                    color: ml >= goal ? const Color(0xFF30D158) : const Color(0xFF40C8E0),
+                    color: ml >= goal
+                        ? const Color(0xFF30D158)
+                        : const Color(0xFF40C8E0),
                     fontWeight: FontWeight.w600,
                   )),
             ]),
@@ -929,8 +1027,9 @@ class _WaterHistory extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 backgroundColor: const Color(0xFF2C2C2E),
-                valueColor: AlwaysStoppedAnimation(
-                    ml >= goal ? const Color(0xFF30D158) : const Color(0xFF40C8E0)),
+                valueColor: AlwaysStoppedAnimation(ml >= goal
+                    ? const Color(0xFF30D158)
+                    : const Color(0xFF40C8E0)),
                 minHeight: 5,
               ),
             ),

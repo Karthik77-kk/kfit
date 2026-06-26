@@ -68,8 +68,15 @@ class _NutritionScreenState extends State<NutritionScreen>
     // Select only the scalar fields shown in the AppBar so this screen does NOT
     // rebuild when unrelated fields change (e.g. pedometer step updates every 2 s).
     // Dart 3 records have structural equality so context.select compares correctly.
-    final (calTotal, calGoal, protInt, waterMl, waterGoal, waterProgPct, suppCount) =
-        context.select<FitnessProvider, (double, int, int, int, int, int, int)>(
+    final (
+      calTotal,
+      calGoal,
+      protInt,
+      waterMl,
+      waterGoal,
+      waterProgPct,
+      suppCount
+    ) = context.select<FitnessProvider, (double, int, int, int, int, int, int)>(
       (p) => (
         p.todayCaloriesTotal,
         p.calorieGoal,
@@ -106,7 +113,8 @@ class _NutritionScreenState extends State<NutritionScreen>
                   Text(
                     '${protInt}g protein',
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 11),
                   ),
                 ],
               ),
@@ -132,7 +140,8 @@ class _NutritionScreenState extends State<NutritionScreen>
                   Text(
                     '$waterProgPct% of goal',
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 11),
                   ),
                 ],
               ),
@@ -158,7 +167,8 @@ class _NutritionScreenState extends State<NutritionScreen>
                   Text(
                     'today',
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 11),
                   ),
                 ],
               ),
@@ -191,12 +201,19 @@ class _NutritionScreenState extends State<NutritionScreen>
       ),
       // FAB only appears on the Food tab
       floatingActionButton: _tab.index == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => showAddFoodSheet(context),
-              backgroundColor: const Color(0xFF30D158),
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Add Food',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ? Padding(
+              // Lift the FAB above the glass nav — with extendBody on the root
+              // Scaffold, padding.bottom reports the nav's height here.
+              padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).padding.bottom),
+              child: FloatingActionButton.extended(
+                onPressed: () => showAddFoodSheet(context),
+                backgroundColor: const Color(0xFF30D158),
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text('Add Food',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+              ),
             )
           : null,
       body: TabBarView(
