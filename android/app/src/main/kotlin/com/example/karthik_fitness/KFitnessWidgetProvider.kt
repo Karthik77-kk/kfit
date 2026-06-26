@@ -1,8 +1,8 @@
 package com.example.karthik_fitness
 
-import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
@@ -21,20 +21,20 @@ import es.antonborri.home_widget.HomeWidgetPlugin
 import java.util.Calendar
 
 /**
- * Full-screen multi-region home-screen widget.
+ * Modern full-screen home-screen widget on a translucent panel.
  *
- * Each region is drawn to its own Bitmap (capped at ≤720px longest side to
- * keep the RemoteViews Binder transaction under ~1 MB) and set into its own
+ * Each region is drawn to its own Bitmap (capped at ≤720px longest side so the
+ * RemoteViews Binder transaction stays under ~1 MB) and set into its own
  * ImageView, giving each section its own PendingIntent tap target.
  *
- * Layout (vertical weighted LinearLayout):
- *   widget_header  – "K FITNESS" / date                     → home
- *   widget_hero    – calorie squircle + protein bar + net    → food
- *   widget_tiles   – WATER / STEPS / BURN / GYM (4×horizontal) → water/home/workout/workout
- *   widget_chart   – weight sparkline                        → body
- *   widget_insight – insight strip                           → home
+ * Layout (see kfitness_widget.xml):
+ *   widget_header  – date (right-aligned)                         → home
+ *   row: widget_rings  – cal/protein/water concentric squircles   → home
+ *        widget_water  – water tile                               → water
+ *   widget_steps   – elongated live-steps card                    → home
+ *   widget_notifs  – top-3 notifications                          → home
  *
- * Responsive: regions hide via setViewVisibility(GONE) as height shrinks.
+ * Responsive: lower regions hide via setViewVisibility(GONE) as height shrinks.
  */
 class KFitnessWidgetProvider : AppWidgetProvider() {
 
@@ -70,122 +70,91 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
         private val GREEN  = Color.parseColor("#30D158")
         private val CYAN   = Color.parseColor("#40C8E0")
         private val ORANGE = Color.parseColor("#FF9F0A")
-        private val STRIP  = Color.parseColor("#141416")
-        private val MUTED  = Color.parseColor("#8E8E93")
+        private val MUTED  = Color.parseColor("#9A9AA0")
         private val WHITE  = Color.WHITE
+        // Subtle translucent fill for the "cards" (steps + notifications) so they
+        // read as panels over the mostly-transparent widget background.
+        private const val CARD_FILL = 0x24FFFFFF
 
-        // Maximum pixels on the longest side of any single region bitmap.
-        // Keeps the RemoteViews Binder transaction well under ~1 MB.
+        // Cap on the longest side of any region bitmap — keeps the RemoteViews
+        // Binder transaction well under ~1 MB on large/full-screen widgets.
         private const val MAX_REGION_PX = 720
 
         fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int) {
             val views = RemoteViews(context.packageName, R.layout.kfitness_widget)
             val prefs = HomeWidgetPlugin.getData(context)
 
-            // ── Read all widget data ──────────────────────────────────────────
-            val cal       = prefs.getInt("calories",    0)
-            val calGoal   = prefs.getInt("calorieGoal", 1700)
-            val prot      = prefs.getInt("protein",     0)
-            val protGoal  = prefs.getInt("proteinGoal", 100)
-            val water     = prefs.getInt("water",       0)
-            val waterGoal = prefs.getInt("waterGoal",   2500)
-            val steps     = prefs.getInt("steps",       0)
-            val stepGoal  = prefs.getInt("stepGoal",    8000)
+            // ── Read widget data ──────────────────────────────────────────────
+            val cal      = prefs.getInt("calories", 0)
+            val prot     = prefs.getInt("protein",  0)
+            val water    = prefs.getInt("water",    0)
+            val steps    = prefs.getInt("steps",    0)
+            val stepGoal = prefs.getInt("stepGoal", 8000)
 
             val calPct   = prefs.getInt("calPct",  0).coerceAtLeast(0) / 100f
             val protPct  = prefs.getInt("protPct", 0).coerceAtLeast(0) / 100f
             val waterPct = prefs.getInt("waterPct",0).coerceAtLeast(0) / 100f
             val stepPct  = prefs.getInt("stepPct", 0).coerceAtLeast(0) / 100f
 
-            val insightEmoji = prefs.getString("insightEmoji", "💡") ?: "💡"
-            val insightTitle = prefs.getString("insightTitle", "Open K Fitness") ?: "Open K Fitness"
-            val insight      = if (insightEmoji.isBlank()) insightTitle else "$insightEmoji  $insightTitle"
-
-            val burned       = prefs.getInt("burned",      0)
-            val net          = prefs.getInt("net",         0)
-            val deficit      = prefs.getInt("deficit",     0)
-            val workoutDone  = prefs.getBoolean("workoutDone", false)
-            val workoutLabel = prefs.getString("workoutLabel", "—") ?: "—"
-            val workoutBurn  = prefs.getInt("workoutBurn", 0)
-            val weightSeries = prefs.getString("weightSeries", "") ?: ""
-            // home_widget stores Dart `double` as Long bits (doubleToRawLongBits).
-            // Read with getLong + longBitsToDouble; fall back to 0.0 if absent.
-            val weight       = java.lang.Double.longBitsToDouble(prefs.getLong("weight",      0L)).toFloat()
-            val weightDelta  = java.lang.Double.longBitsToDouble(prefs.getLong("weightDelta", 0L)).toFloat()
+            // Top-3 notifications (emoji + title), pushed from the provider.
+            val notifs = ArrayList<Pair<String, String>>(3)
+            for (i in 1..3) {
+                val t = prefs.getString("notif${i}Title", "") ?: ""
+                if (t.isNotBlank()) {
+                    notifs.add(Pair(prefs.getString("notif${i}Emoji", "") ?: "", t))
+                }
+            }
 
             // ── Widget dimensions from launcher ──────────────────────────────
             val opts = manager.getAppWidgetOptions(widgetId)
-            val wDp  = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,  250).coerceAtLeast(200)
-            val hDp  = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 160).coerceAtLeast(110)
+            val wDp  = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,  250).coerceAtLeast(180)
+            val hDp  = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 220).coerceAtLeast(110)
             val dp   = context.resources.displayMetrics.density
-            val wPx  = (wDp * dp).toInt().coerceAtLeast(200)
+            val wPx  = (wDp * dp).toInt().coerceAtLeast(180)
             val hPx  = (hDp * dp).toInt().coerceAtLeast(110)
 
-            // ── Responsive visibility thresholds (dp) ────────────────────────
-            // very small (<190dp) : header + hero + insight only
-            // medium    (190–270)  : + tiles row
-            // large     (>270)     : + chart
-            val showTiles = hDp >= 190
-            val showChart = hDp >= 270
+            // ── Responsive visibility ────────────────────────────────────────
+            // small (<200dp): top row only.  medium: + steps.  large: + notifs.
+            val showSteps  = hDp >= 200
+            val showNotifs = hDp >= 290
+            views.setViewVisibility(R.id.widget_steps,  if (showSteps)  View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_notifs, if (showNotifs) View.VISIBLE else View.GONE)
 
-            if (showTiles) {
-                views.setViewVisibility(R.id.widget_tiles,  View.VISIBLE)
-            } else {
-                views.setViewVisibility(R.id.widget_tiles,  View.GONE)
+            // ── Region heights from weights ──────────────────────────────────
+            // header 0.55, topRow 3.1, steps 1.05, notifs 2.3
+            val totalWeight = 0.55f + 3.1f +
+                (if (showSteps) 1.05f else 0f) + (if (showNotifs) 2.3f else 0f)
+            fun hFor(w: Float) = (hPx * w / totalWeight).toInt().coerceAtLeast(12)
+            val hdrH   = hFor(0.55f)
+            val rowH   = hFor(3.1f)
+            val stepsH = if (showSteps)  hFor(1.05f) else 0
+            val notifH = if (showNotifs) hFor(2.3f)  else 0
+
+            // Top row is split into two ImageViews (rings | water).
+            val ringsW = (wPx * 0.56f).toInt().coerceAtLeast(60)
+            val waterW = (wPx - ringsW).coerceAtLeast(60)
+
+            // ── Render regions ───────────────────────────────────────────────
+            views.setImageViewBitmap(R.id.widget_header, drawHeader(wPx, hdrH, dp))
+            views.setImageViewBitmap(R.id.widget_rings,
+                drawRingsSquare(ringsW, rowH, dp, cal, prot, water, calPct, protPct, waterPct))
+            views.setImageViewBitmap(R.id.widget_water,
+                drawWaterTile(waterW, rowH, dp, water, waterPct))
+            if (showSteps) {
+                views.setImageViewBitmap(R.id.widget_steps,
+                    drawStepsCard(wPx, stepsH, dp, steps, stepGoal, stepPct))
             }
-            if (showChart) {
-                views.setViewVisibility(R.id.widget_chart,  View.VISIBLE)
-            } else {
-                views.setViewVisibility(R.id.widget_chart,  View.GONE)
+            if (showNotifs) {
+                views.setImageViewBitmap(R.id.widget_notifs,
+                    drawNotifs(wPx, notifH, dp, notifs))
             }
 
-            // ── Proportional region heights (pixels) ─────────────────────────
-            // Weights: header 1.2, hero 3.2, tiles 2.2, chart 1.6, insight 1.2
-            val totalWeight = 1.2f + 3.2f + (if (showTiles) 2.2f else 0f) +
-                              (if (showChart) 1.6f else 0f) + 1.2f
-            fun hFor(w: Float) = ((hPx * w / totalWeight).toInt()).coerceAtLeast(16)
-            val hdrH    = hFor(1.2f)
-            val heroH   = hFor(3.2f)
-            val tilesH  = if (showTiles) hFor(2.2f) else 0
-            val chartH  = if (showChart) hFor(1.6f) else 0
-            val insH    = hFor(1.2f)
-
-            // ── Build bitmaps ─────────────────────────────────────────────────
-            views.setImageViewBitmap(R.id.widget_header,
-                drawHeader(wPx, hdrH, dp))
-            views.setImageViewBitmap(R.id.widget_hero,
-                drawHero(wPx, heroH, dp, cal, calGoal, calPct, prot, protGoal, protPct, net, deficit))
-            if (showTiles) {
-                val tilePx = wPx / 4
-                val waterBmp  = drawTile(tilePx, tilesH, dp, CYAN,   "WATER",  fmtWaterShort(water), waterPct, false)
-                val stepsBmp  = drawTile(tilePx, tilesH, dp, ORANGE, "STEPS",  fmtStepsShort(steps), stepPct, false)
-                val burnBmp   = drawTile(tilePx, tilesH, dp, RED,    "BURN",   "${burned} kc", 0f, false)
-                val gymBmp    = drawTile(tilePx, tilesH, dp, GREEN,  "GYM",    if (workoutDone) "✓ $workoutLabel" else "—", if (workoutDone) 1f else 0f, false)
-                views.setImageViewBitmap(R.id.widget_tile_water, waterBmp)
-                views.setImageViewBitmap(R.id.widget_tile_steps, stepsBmp)
-                views.setImageViewBitmap(R.id.widget_tile_burn,  burnBmp)
-                views.setImageViewBitmap(R.id.widget_tile_gym,   gymBmp)
-            }
-            if (showChart) {
-                views.setImageViewBitmap(R.id.widget_chart,
-                    drawSparkline(wPx, chartH, dp, weightSeries, weight, weightDelta))
-            }
-            views.setImageViewBitmap(R.id.widget_insight,
-                drawInsight(wPx, insH, dp, insight))
-
-            // ── Per-region tap intents ────────────────────────────────────────
-            views.setOnClickPendingIntent(R.id.widget_header,    routePI(context, "home"))
-            views.setOnClickPendingIntent(R.id.widget_hero,      routePI(context, "food"))
-            if (showTiles) {
-                views.setOnClickPendingIntent(R.id.widget_tile_water, routePI(context, "water"))
-                views.setOnClickPendingIntent(R.id.widget_tile_steps, routePI(context, "home"))
-                views.setOnClickPendingIntent(R.id.widget_tile_burn,  routePI(context, "workout"))
-                views.setOnClickPendingIntent(R.id.widget_tile_gym,   routePI(context, "workout"))
-            }
-            if (showChart) {
-                views.setOnClickPendingIntent(R.id.widget_chart,  routePI(context, "body"))
-            }
-            views.setOnClickPendingIntent(R.id.widget_insight,   routePI(context, "home"))
+            // ── Per-region tap intents ───────────────────────────────────────
+            views.setOnClickPendingIntent(R.id.widget_header, routePI(context, "home"))
+            views.setOnClickPendingIntent(R.id.widget_rings,  routePI(context, "home"))
+            views.setOnClickPendingIntent(R.id.widget_water,  routePI(context, "water"))
+            if (showSteps)  views.setOnClickPendingIntent(R.id.widget_steps,  routePI(context, "home"))
+            if (showNotifs) views.setOnClickPendingIntent(R.id.widget_notifs, routePI(context, "home"))
 
             manager.updateAppWidget(widgetId, views)
         }
@@ -193,367 +162,272 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
         // ── Route PendingIntent ───────────────────────────────────────────────
 
         /**
-         * Builds a PendingIntent that opens MainActivity with the given kfit:// URI,
-         * delegating to the home_widget library (handles the API-34/35 ActivityOptions
-         * background-start flags for us).
-         *
-         * Each region passes a distinct route → distinct intent `data` URI, so the
-         * resulting PendingIntents differ under Intent.filterEquals even though the
-         * library uses requestCode=0 — no FLAG_UPDATE_CURRENT collision. Regions that
-         * share a route ("home" for header/steps/insight) intentionally share one
-         * PendingIntent (they all open Home).
+         * PendingIntent that opens MainActivity with a kfit://<route> URI, delegating
+         * to the home_widget library. Distinct routes have distinct intent `data`, so
+         * the PendingIntents differ under Intent.filterEquals even though the library
+         * uses requestCode=0; regions sharing a route share one PendingIntent.
          */
         private fun routePI(context: Context, route: String): PendingIntent =
             HomeWidgetLaunchIntent.getActivity(
                 context, MainActivity::class.java, Uri.parse("kfit://$route"))
 
-        // ── Region drawing functions ─────────────────────────────────────────
+        // ── Header (date only) ────────────────────────────────────────────────
 
-        /** Header: "K FITNESS"  ·  date right-aligned */
         private fun drawHeader(wPx: Int, hPx: Int, dp: Float): Bitmap {
             val (bmp, cv) = regionCanvas(wPx, hPx); val p = Paint(Paint.ANTI_ALIAS_FLAG)
-            val pad = 10f * dp
-            val cy  = hPx / 2f
-
-            p.color = GREEN
-            p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            p.textSize = (hPx * 0.48f).coerceIn(8f * dp, 14f * dp)
-            cv.drawText("K FITNESS", pad, cy + p.textSize * 0.36f, p)
-
             p.color = MUTED
-            p.typeface = Typeface.DEFAULT
-            p.textSize = (hPx * 0.40f).coerceIn(7f * dp, 12f * dp)
+            p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            p.textSize = (hPx * 0.52f).coerceIn(8f * dp, 13f * dp)
             p.textAlign = Paint.Align.RIGHT
-            cv.drawText(todayLabel(), wPx - pad, cy + p.textSize * 0.36f, p)
-            p.textAlign = Paint.Align.LEFT
-
-            // Separator line at bottom
-            p.color = 0x1AFFFFFF; p.style = Paint.Style.STROKE; p.strokeWidth = 0.6f * dp
-            cv.drawLine(pad, hPx - 1f, wPx - pad, hPx - 1f, p)
+            cv.drawText(todayLabel(), wPx - 12f * dp, hPx * 0.72f, p)
             return bmp
         }
 
-        /**
-         * Hero: large squircle (calorie pct) on the left, two bars + net line on the right.
-         */
-        private fun drawHero(
+        // ── Rings square: cal / protein / water concentric squircles ──────────
+
+        private fun drawRingsSquare(
             wPx: Int, hPx: Int, dp: Float,
-            cal: Int, calGoal: Int, calPct: Float,
-            prot: Int, protGoal: Int, protPct: Float,
-            net: Int, deficit: Int
+            cal: Int, prot: Int, water: Int,
+            calPct: Float, protPct: Float, waterPct: Float
         ): Bitmap {
             val (bmp, cv) = regionCanvas(wPx, hPx); val p = Paint(Paint.ANTI_ALIAS_FLAG)
-            val pad   = 10f * dp
+            val pad     = 8f * dp
+            val legendH = (hPx * 0.16f).coerceIn(10f * dp, 22f * dp)
+            val areaH   = (hPx - legendH).coerceAtLeast(20f)
+            val size    = (minOf(wPx.toFloat(), areaH) - pad * 2f).coerceAtLeast(20f)
+            val cx      = wPx / 2f
+            val cy      = areaH / 2f
 
-            // Squircle: sits in left square region, full height minus padding.
-            val sqSize  = (hPx - pad * 2f).coerceAtLeast(16f)
-            val sqL     = pad
-            val sqT     = pad
-            val sqRect  = RectF(sqL, sqT, sqL + sqSize, sqT + sqSize)
-            val sqCorner= sqSize * 0.28f
-            val strokeW = sqSize * 0.10f
-
-            drawSquircle(cv, sqRect, sqCorner, calPct, RED, strokeW)
-
-            // Calorie number centered inside the squircle, auto-shrunk to fit.
-            p.color = WHITE
-            p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            p.textAlign = Paint.Align.CENTER
-            val cx = sqL + sqSize / 2f
-            val cy = sqT + sqSize / 2f
-            var cs = (sqSize * 0.30f).coerceIn(10f * dp, 22f * dp)
-            p.textSize = cs
-            val maxCalW = sqSize * 0.72f
-            while (p.measureText("$cal") > maxCalW && cs > 8f * dp) { cs -= 1f; p.textSize = cs }
-            cv.drawText("$cal", cx, cy + p.textSize * 0.35f, p)
-            p.textAlign = Paint.Align.LEFT
-
-            // Right section: two bars (Calories, Protein) + net line
-            val metL   = sqL + sqSize + 8f * dp
-            val metR   = wPx - pad
-            val mW     = (metR - metL).coerceAtLeast(1f)
-            val labelSz = (hPx * 0.090f).coerceIn(7f * dp, 11f * dp)
-            val valueSz = (hPx * 0.110f).coerceIn(8f * dp, 13f * dp)
-            val barH    = (hPx * 0.040f).coerceIn(2f * dp, 5f * dp)
-            val rowH    = hPx / 2.5f
-
-            data class Row(val color: Int, val label: String, val value: String, val pct: Float)
-            val rows = listOf(
-                Row(RED,   "CALORIES", "$cal / $calGoal",          calPct),
-                Row(GREEN, "PROTEIN",  "${prot}g / ${protGoal}g",  protPct),
-            )
-
-            for ((i, row) in rows.withIndex()) {
-                val rT   = pad + i * rowH
-                val midY = rT + rowH * 0.28f
-
-                p.color = row.color; p.style = Paint.Style.FILL
-                cv.drawCircle(metL + 3.5f * dp, midY + labelSz * 0.35f, 3f * dp, p)
-
-                p.textSize = labelSz; p.color = MUTED
-                p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                cv.drawText(row.label, metL + 9f * dp, midY + labelSz * 0.70f, p)
-
-                p.textSize = valueSz; p.color = WHITE
-                p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                cv.drawText(row.value, metL + 9f * dp, midY + labelSz * 0.70f + valueSz + 1f * dp, p)
-
-                val barT  = midY + labelSz * 0.70f + valueSz + 4f * dp
-                val barR2 = barH / 2f
-                p.typeface = Typeface.DEFAULT
-
-                p.color = (row.color and 0x00FFFFFF) or 0x2E000000
-                cv.drawRoundRect(RectF(metL, barT, metR, barT + barH), barR2, barR2, p)
-
-                val fill = row.pct.coerceIn(0f, 1f) * mW
-                if (fill > barR2 * 2f) {
-                    p.color = row.color
-                    cv.drawRoundRect(RectF(metL, barT, metL + fill, barT + barH), barR2, barR2, p)
-                }
-                if (row.pct > 1f) {
-                    p.color = blendWithWhite(row.color, 0.55f)
-                    cv.drawCircle(metR - 3f * dp, barT + barH / 2f, 4f * dp, p)
-                }
+            // 3 concentric squircles: outer cal, middle protein, inner water.
+            val stroke  = size * 0.085f
+            val spacing = size * 0.035f
+            val rings = listOf(Triple(RED, calPct, 0), Triple(GREEN, protPct, 1), Triple(CYAN, waterPct, 2))
+            for ((color, pct, i) in rings) {
+                val inset = stroke / 2f + i * (stroke + spacing)
+                val half  = size / 2f - inset
+                if (half <= stroke) continue
+                val rect  = RectF(cx - half, cy - half, cx + half, cy + half)
+                drawSquircle(cv, rect, half * 0.5f, pct, color, stroke)
             }
 
-            // Net / deficit line — clamp so it never renders past the hero's bottom.
-            val netY   = minOf(pad + 2f * rowH, hPx - labelSz - pad * 0.5f)
-            val isDeficit = deficit >= 0
-            val netColor  = if (isDeficit) GREEN else RED
-            val netLabel  = if (isDeficit) "net −$deficit kcal deficit" else "net +${-deficit} kcal surplus"
-            p.textSize = labelSz * 0.95f; p.color = netColor
-            p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            cv.drawText(netLabel, metL, netY + labelSz, p)
-
-            return bmp
-        }
-
-        /**
-         * Single tile: squircle progress ring, label, value.
-         * [ringFull] can be used to force a full ring (not currently used, false by default).
-         */
-        private fun drawTile(
-            wPx: Int, hPx: Int, dp: Float,
-            color: Int, label: String, value: String, pct: Float,
-            @Suppress("SameParameterValue") ringFull: Boolean
-        ): Bitmap {
-            val (bmp, cv) = regionCanvas(wPx, hPx); val p = Paint(Paint.ANTI_ALIAS_FLAG)
-            val pad     = 6f * dp
-            // Reserve a label band at the bottom so the squircle never overlaps it;
-            // the squircle fills (and is centered in) the area above the band.
-            val labelSz = (hPx * 0.16f).coerceIn(7f * dp, 10f * dp)
-            val labelH  = labelSz + 5f * dp
-            val areaH   = (hPx - labelH).coerceAtLeast(12f)
-            val size    = (minOf(wPx.toFloat(), areaH) - pad * 2f).coerceAtLeast(12f)
-            val sqL     = (wPx - size) / 2f
-            val sqT     = ((areaH - size) / 2f).coerceAtLeast(0f)
-            val sqRect  = RectF(sqL, sqT, sqL + size, sqT + size)
-            val sqCR    = size * 0.28f
-            val strokeW = size * 0.10f
-            val cx      = sqL + size / 2f
-            val cy      = sqT + size / 2f
-
-            drawSquircle(cv, sqRect, sqCR, if (ringFull) 1f else pct, color, strokeW)
-
-            // Value centered in the squircle, auto-shrunk to fit inside the ring.
+            // Centre: big calorie number + "KCAL".
             p.color = WHITE
             p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             p.textAlign = Paint.Align.CENTER
-            var vs = (size * 0.28f).coerceIn(8f * dp, 15f * dp)
+            // Clear space inside the innermost (water) ring = centreline diameter
+            // minus its stroke; keep the number within it so it never overlaps.
+            val innerW = (size / 2f - (stroke / 2f + 2 * (stroke + spacing))) * 2f
+            var ns = (size * 0.22f).coerceIn(11f * dp, 24f * dp)
+            p.textSize = ns
+            val maxW = ((innerW - stroke) * 0.95f).coerceAtLeast(8f * dp)
+            while (p.measureText("$cal") > maxW && ns > 8f * dp) { ns -= 1f; p.textSize = ns }
+            cv.drawText("$cal", cx, cy + ns * 0.18f, p)
+            p.color = MUTED
+            p.textSize = (ns * 0.42f).coerceAtLeast(6f * dp)
+            cv.drawText("KCAL", cx, cy + ns * 0.78f, p)
+
+            // Legend row: protein (green) · water (cyan) values.
+            val legY = hPx - legendH * 0.32f
+            val legSz = (legendH * 0.50f).coerceIn(7f * dp, 11f * dp)
+            p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            p.textSize = legSz
+            drawLegendItem(cv, p, dp, wPx * 0.30f, legY, GREEN, "${prot}g")
+            drawLegendItem(cv, p, dp, wPx * 0.70f, legY, CYAN, fmtWaterShort(water))
+            return bmp
+        }
+
+        private fun drawLegendItem(
+            cv: Canvas, p: Paint, dp: Float, cx: Float, cy: Float, color: Int, text: String
+        ) {
+            p.textAlign = Paint.Align.LEFT
+            val tw = p.measureText(text)
+            val dot = 3f * dp
+            val startX = cx - (tw + dot * 3f) / 2f
+            p.color = color
+            cv.drawCircle(startX + dot, cy - p.textSize * 0.30f, dot, p)
+            p.color = WHITE
+            cv.drawText(text, startX + dot * 3f, cy, p)
+        }
+
+        // ── Water tile ────────────────────────────────────────────────────────
+
+        private fun drawWaterTile(
+            wPx: Int, hPx: Int, dp: Float, water: Int, waterPct: Float
+        ): Bitmap {
+            val (bmp, cv) = regionCanvas(wPx, hPx); val p = Paint(Paint.ANTI_ALIAS_FLAG)
+            val pad     = 8f * dp
+            val labelH  = (hPx * 0.16f).coerceIn(10f * dp, 22f * dp)
+            val areaH   = (hPx - labelH).coerceAtLeast(20f)
+            val size    = (minOf(wPx.toFloat(), areaH) - pad * 2f).coerceAtLeast(20f)
+            val cx      = wPx / 2f
+            val cy      = areaH / 2f
+            val rect    = RectF(cx - size / 2f, cy - size / 2f, cx + size / 2f, cy + size / 2f)
+            val stroke  = size * 0.10f
+            drawSquircle(cv, rect, size * 0.28f, waterPct, CYAN, stroke)
+
+            // Centre value "1.5 L".
+            p.color = WHITE
+            p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            p.textAlign = Paint.Align.CENTER
+            var vs = (size * 0.24f).coerceIn(10f * dp, 20f * dp)
             p.textSize = vs
-            val maxValW = size * 0.74f
-            while (p.measureText(value) > maxValW && vs > 7f * dp) { vs -= 1f; p.textSize = vs }
-            cv.drawText(value, cx, cy + p.textSize * 0.35f, p)
+            val maxW = size * 0.66f
+            val value = fmtWaterShort(water)
+            while (p.measureText(value) > maxW && vs > 8f * dp) { vs -= 1f; p.textSize = vs }
+            cv.drawText(value, cx, cy + vs * 0.35f, p)
 
-            // Label centered in the reserved bottom band.
+            // Label band: "WATER · 60%".
             p.color = MUTED
-            p.textSize = labelSz
-            cv.drawText(label, cx, hPx - labelH / 2f + labelSz * 0.35f, p)
-            p.textAlign = Paint.Align.LEFT
-
+            p.textSize = (labelH * 0.50f).coerceIn(7f * dp, 11f * dp)
+            val pct = (waterPct * 100f).toInt().coerceAtLeast(0)
+            cv.drawText("WATER · ${pct}%", cx, hPx - labelH * 0.32f, p)
             return bmp
         }
 
-        /** Weight sparkline with label and delta annotation. */
-        private fun drawSparkline(
-            wPx: Int, hPx: Int, dp: Float,
-            seriesStr: String, latestWeight: Float, weightDelta: Float
+        // ── Elongated live-steps card ─────────────────────────────────────────
+
+        private fun drawStepsCard(
+            wPx: Int, hPx: Int, dp: Float, steps: Int, stepGoal: Int, stepPct: Float
         ): Bitmap {
             val (bmp, cv) = regionCanvas(wPx, hPx); val p = Paint(Paint.ANTI_ALIAS_FLAG)
-            val pad = 10f * dp
+            val mx   = 8f * dp
+            val my   = 4f * dp
+            val card = RectF(mx, my, wPx - mx, hPx - my)
+            val rad  = (card.height() * 0.42f).coerceAtMost(card.height() / 2f)
 
-            // Top separator
-            p.color = 0x1AFFFFFF; p.style = Paint.Style.STROKE; p.strokeWidth = 0.6f * dp
-            cv.drawLine(pad, 0f, wPx - pad, 0f, p)
-            p.style = Paint.Style.FILL
+            // Card background.
+            p.color = CARD_FILL; p.style = Paint.Style.FILL
+            cv.drawRoundRect(card, rad, rad, p)
 
-            val labelSz = (hPx * 0.22f).coerceIn(7f * dp, 10f * dp)
+            val padL = card.left + 14f * dp
+            val padR = card.right - 14f * dp
 
-            // Parse series
-            val pts = if (seriesStr.isBlank()) floatArrayOf() else
-                seriesStr.split(',').mapNotNull { it.trim().toFloatOrNull() }.toFloatArray()
-
-            // Label
-            p.color = MUTED
+            // Label + value.
+            p.color = ORANGE
             p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            p.textSize = labelSz
-            val weightLabel = if (latestWeight > 0f) "WEIGHT  %.1f kg".format(latestWeight) else "WEIGHT  —"
-            cv.drawText(weightLabel, pad, labelSz + pad * 0.5f, p)
+            p.textSize = (hPx * 0.18f).coerceIn(8f * dp, 12f * dp)
+            p.textAlign = Paint.Align.LEFT
+            cv.drawText("STEPS", padL, card.top + card.height() * 0.34f, p)
 
-            if (pts.size >= 2) {
-                // Delta annotation
-                val deltaStr = "%+.1f kg".format(weightDelta)
-                val deltaColor = if (weightDelta <= 0f) GREEN else RED
-                p.color = deltaColor
-                p.textAlign = Paint.Align.RIGHT
-                cv.drawText(deltaStr, wPx - pad, labelSz + pad * 0.5f, p)
-                p.textAlign = Paint.Align.LEFT
+            p.color = WHITE
+            p.textSize = (hPx * 0.30f).coerceIn(11f * dp, 20f * dp)
+            cv.drawText("%,d".format(steps), padL, card.top + card.height() * 0.74f, p)
 
-                // Sparkline area (below label row)
-                val lineT  = labelSz + pad * 1.5f
-                val lineB  = hPx - pad * 0.5f
-                val lineH  = (lineB - lineT).coerceAtLeast(1f)
-                val lineW  = wPx - pad * 2f
-                val minV   = pts.min()
-                val maxV   = pts.max()
-                val range  = (maxV - minV).takeIf { it > 0f } ?: 1f
+            p.color = MUTED
+            p.textSize = (hPx * 0.17f).coerceIn(7f * dp, 11f * dp)
+            p.textAlign = Paint.Align.RIGHT
+            cv.drawText("/ %,d".format(stepGoal), padR, card.top + card.height() * 0.34f, p)
+            cv.drawText("${(stepPct * 100).toInt()}%", padR, card.top + card.height() * 0.74f, p)
+            p.textAlign = Paint.Align.LEFT
 
-                fun xFor(i: Int) = pad + i * lineW / (pts.size - 1)
-                fun yFor(v: Float) = lineB - (v - minV) / range * lineH
-
-                val path = Path()
-                path.moveTo(xFor(0), yFor(pts[0]))
-                for (i in 1 until pts.size) path.lineTo(xFor(i), yFor(pts[i]))
-
-                p.style = Paint.Style.STROKE
-                p.strokeWidth = 2f * dp
-                p.color = CYAN
-                p.strokeCap = Paint.Cap.ROUND
-                p.strokeJoin = Paint.Join.ROUND
-                cv.drawPath(path, p)
-                p.style = Paint.Style.FILL
-
-                // Latest dot
-                p.color = WHITE
-                cv.drawCircle(xFor(pts.size - 1), yFor(pts.last()), 3f * dp, p)
-            } else {
-                // No data — show dash
-                p.color = MUTED; p.textSize = labelSz
+            // Progress bar along the bottom of the card.
+            val barH = (hPx * 0.07f).coerceIn(2f * dp, 4f * dp)
+            val barT = card.bottom - my - barH - 2f * dp
+            val barR = barH / 2f
+            p.color = dimColor(ORANGE)
+            cv.drawRoundRect(RectF(padL, barT, padR, barT + barH), barR, barR, p)
+            val fill = stepPct.coerceIn(0f, 1f) * (padR - padL)
+            if (fill > barR * 2f) {
+                p.color = ORANGE
+                cv.drawRoundRect(RectF(padL, barT, padL + fill, barT + barH), barR, barR, p)
             }
-
             return bmp
         }
 
-        /** Insight strip — slightly lighter background, truncated insight text. */
-        private fun drawInsight(wPx: Int, hPx: Int, dp: Float, insight: String): Bitmap {
+        // ── Top-3 notifications ───────────────────────────────────────────────
+
+        private fun drawNotifs(
+            wPx: Int, hPx: Int, dp: Float, notifs: List<Pair<String, String>>
+        ): Bitmap {
             val (bmp, cv) = regionCanvas(wPx, hPx); val p = Paint(Paint.ANTI_ALIAS_FLAG)
-            val pad = 10f * dp
-            val rad = 18f * dp
-
-            // Slightly-lighter background to visually separate from the widget body.
-            val stripPath = Path().apply {
-                addRoundRect(
-                    RectF(0f, 0f, wPx.toFloat(), hPx.toFloat()),
-                    floatArrayOf(0f, 0f, 0f, 0f, rad, rad, rad, rad),
-                    Path.Direction.CW
-                )
+            val mx = 8f * dp
+            if (notifs.isEmpty()) {
+                p.color = MUTED
+                p.typeface = Typeface.DEFAULT
+                p.textSize = (hPx * 0.16f).coerceIn(8f * dp, 12f * dp)
+                cv.drawText("All caught up — no new insights", mx + 6f * dp, hPx * 0.5f, p)
+                return bmp
             }
-            p.color = STRIP; p.style = Paint.Style.FILL
-            cv.drawPath(stripPath, p)
 
-            // Separator line at top
-            p.color = 0x1AFFFFFF; p.style = Paint.Style.STROKE; p.strokeWidth = 0.6f * dp
-            cv.drawLine(pad, 0f, wPx - pad, 0f, p)
-            p.style = Paint.Style.FILL
+            val n      = notifs.size.coerceAtMost(3)
+            val gap    = 5f * dp
+            val cardH  = ((hPx - gap * (n - 1)) / n).coerceAtLeast(16f)
+            val rad    = (cardH * 0.34f).coerceAtMost(cardH / 2f)
+            for (i in 0 until n) {
+                val top  = i * (cardH + gap)
+                val card = RectF(mx, top, wPx - mx, top + cardH)
+                p.color = CARD_FILL; p.style = Paint.Style.FILL
+                cv.drawRoundRect(card, rad, rad, p)
 
-            val textSz = (hPx * 0.42f).coerceIn(8f * dp, 11f * dp)
-            p.textSize = textSz; p.color = 0xCCFFFFFF.toInt(); p.typeface = Typeface.DEFAULT
-            cv.drawText(truncate(p, insight, wPx - pad * 2f), pad, hPx * 0.68f, p)
-
+                val (emoji, title) = notifs[i]
+                val cy = card.top + cardH * 0.64f
+                var x  = card.left + 12f * dp
+                p.textAlign = Paint.Align.LEFT
+                p.typeface = Typeface.DEFAULT
+                if (emoji.isNotBlank()) {
+                    p.color = WHITE
+                    p.textSize = (cardH * 0.42f).coerceIn(9f * dp, 15f * dp)
+                    cv.drawText(emoji, x, cy, p)
+                    x += p.measureText(emoji) + 8f * dp
+                }
+                p.color = 0xE8FFFFFF.toInt()
+                p.textSize = (cardH * 0.36f).coerceIn(8f * dp, 13f * dp)
+                cv.drawText(truncate(p, title, card.right - x - 10f * dp), x, cy, p)
+            }
             return bmp
         }
 
         // ── Squircle progress ────────────────────────────────────────────────
 
         /**
-         * Draws a rounded-rect (squircle) progress track + filled arc via PathMeasure.
-         *
-         * The path starts at the TOP-CENTER of the rect and proceeds clockwise by
-         * rotating the canvas -90° around the rect's center before drawing, then
-         * restoring. This ensures progress reads left→top→right→bottom starting from
-         * top-center, matching Apple Watch / activity ring conventions.
-         *
-         * Overflow (pct > 1): full track in [color], then a second-lap segment in a
-         * lighter blend of [color].
+         * Rounded-rect (squircle) progress: dim full track + a progress arc drawn
+         * via PathMeasure, starting top-centre and going clockwise. Overflow (pct>1)
+         * draws a full lap then a lighter second-lap segment.
          */
         private fun drawSquircle(
-            cv: Canvas, rect: RectF, cornerR: Float,
-            pct: Float, color: Int, strokeW: Float
+            cv: Canvas, rect: RectF, cornerR: Float, pct: Float, color: Int, strokeW: Float
         ) {
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style      = Paint.Style.STROKE
-                strokeWidth = strokeW
-                strokeCap  = Paint.Cap.ROUND
+                style = Paint.Style.STROKE; strokeWidth = strokeW; strokeCap = Paint.Cap.ROUND
             }
-
-            // Build the rounded-rect path once (used for both track and progress).
             val cx = rect.centerX(); val cy = rect.centerY()
-
-            // Rotate canvas so top-center is the 0° point (path starts at right-edge
-            // in default orientation; rotating -90° moves that to the top).
             cv.save()
             cv.rotate(-90f, cx, cy)
-
             val trackPath = Path().apply { addRoundRect(rect, cornerR, cornerR, Path.Direction.CW) }
-            val pm = PathMeasure(trackPath, false)
+            val pm  = PathMeasure(trackPath, false)
             val len = pm.length
 
-            // Draw dim track
-            paint.color     = dimColor(color)
-            paint.strokeCap = Paint.Cap.ROUND
+            paint.color = dimColor(color)
             cv.drawPath(trackPath, paint)
 
             if (pct > 0f) {
-                val dst  = Path()
-                val fill = pct.coerceIn(0f, 1f)
+                val dst = Path()
                 if (pct <= 1f) {
-                    // Normal progress segment
-                    pm.getSegment(0f, len * fill, dst, true)
+                    pm.getSegment(0f, len * pct.coerceIn(0f, 1f), dst, true)
                     paint.color = color
                     cv.drawPath(dst, paint)
                 } else {
-                    // Full lap in solid color
                     pm.getSegment(0f, len, dst, true)
-                    paint.color     = color
-                    paint.strokeCap = Paint.Cap.BUTT
+                    paint.color = color; paint.strokeCap = Paint.Cap.BUTT
                     cv.drawPath(dst, paint)
-                    // Overflow second lap in lighter blend
-                    val dst2  = Path()
-                    val extra = (pct - 1f).coerceIn(0f, 1f)
-                    pm.getSegment(0f, len * extra, dst2, true)
-                    paint.color     = blendWithWhite(color, 0.45f)
-                    paint.strokeCap = Paint.Cap.ROUND
+                    val dst2 = Path()
+                    pm.getSegment(0f, len * (pct - 1f).coerceIn(0f, 1f), dst2, true)
+                    paint.color = blendWithWhite(color, 0.45f); paint.strokeCap = Paint.Cap.ROUND
                     cv.drawPath(dst2, paint)
                 }
             }
-
             cv.restore()
         }
 
-        /** Returns the track color: full alpha stripped, then `0x2E` alpha applied. */
-        private fun dimColor(color: Int): Int = (color and 0x00FFFFFF) or 0x2E000000
+        private fun dimColor(color: Int): Int = (color and 0x00FFFFFF) or 0x33000000
 
         // ── Helpers ──────────────────────────────────────────────────────────
 
         /**
-         * Creates a region Bitmap clamped so its longest side ≤ [MAX_REGION_PX],
-         * and returns a Canvas pre-scaled by the same factor so the drawing code
-         * can keep using the logical [wPx]/[hPx] coordinates without clipping when
-         * the on-screen region exceeds the cap. scaleType="fitXY" on the ImageView
-         * upscales the smaller bitmap back to size, keeping the Binder payload small.
-         *
-         * (Previously the bitmap was downscaled but drawing still used full logical
-         * coords, so on a large/full-screen widget the right & bottom were clipped.)
+         * Region Bitmap clamped so its longest side ≤ MAX_REGION_PX, with a Canvas
+         * pre-scaled by the same factor so drawing code keeps using logical wPx/hPx
+         * coordinates without clipping on large widgets. fitXY on the ImageView
+         * upscales the smaller bitmap, keeping the Binder payload small.
          */
         private fun regionCanvas(wPx: Int, hPx: Int): Pair<Bitmap, Canvas> {
             val scale = (MAX_REGION_PX.toFloat() / maxOf(wPx, hPx)).coerceAtMost(1f)
@@ -573,6 +447,7 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
         }
 
         private fun truncate(p: Paint, text: String, maxW: Float): String {
+            if (maxW <= 0f) return ""
             if (p.measureText(text) <= maxW) return text
             val ew = p.measureText("…")
             var i = text.length
@@ -580,23 +455,18 @@ class KFitnessWidgetProvider : AppWidgetProvider() {
             return text.substring(0, i) + "…"
         }
 
-        private fun todayLabel(): String {
-            val cal    = Calendar.getInstance()
-            val days   = arrayOf("SUN","MON","TUE","WED","THU","FRI","SAT")
-            val months = arrayOf("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
-            return "${days[cal.get(Calendar.DAY_OF_WEEK) - 1]} ${cal.get(Calendar.DAY_OF_MONTH)} ${months[cal.get(Calendar.MONTH)]}"
-        }
-
         private fun fmtWaterShort(ml: Int): String = "%.1f L".format(ml / 1000f)
 
-        private fun fmtStepsShort(steps: Int): String =
-            if (steps >= 1000) "%.1fk".format(steps / 1000f) else "$steps"
+        private fun todayLabel(): String {
+            val c      = Calendar.getInstance()
+            val days   = arrayOf("SUN","MON","TUE","WED","THU","FRI","SAT")
+            val months = arrayOf("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+            return "${days[c.get(Calendar.DAY_OF_WEEK) - 1]} ${c.get(Calendar.DAY_OF_MONTH)} ${months[c.get(Calendar.MONTH)]}"
+        }
 
         fun triggerUpdate(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(
-                ComponentName(context, KFitnessWidgetProvider::class.java)
-            )
+            val ids = manager.getAppWidgetIds(ComponentName(context, KFitnessWidgetProvider::class.java))
             if (ids.isNotEmpty()) KFitnessWidgetProvider().onUpdate(context, manager, ids)
         }
     }

@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Multi-region widget layout.
-    Each ImageView is a separate tap-target; KFitnessWidgetProvider renders
-    one Bitmap per region and wires its own PendingIntent per view.
-    The root LinearLayout fills the widget cell and clips to the rounded
-    black widget_bg drawable.
+    Multi-region widget layout on a translucent rounded panel.
+    KFitnessWidgetProvider renders one Bitmap per region and wires its own
+    PendingIntent per ImageView (each section is its own tap target).
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
@@ -12,92 +10,65 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_bg"
-    android:clipToOutline="true">
+    android:clipToOutline="true"
+    android:padding="2dp">
 
-    <!-- Header: "K FITNESS" + date -->
+    <!-- Date (right-aligned) -->
     <ImageView
         android:id="@+id/widget_header"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1.2"
+        android:layout_weight="0.55"
         android:scaleType="fitXY"
         android:background="@android:color/transparent"
-        android:contentDescription="K Fitness header"/>
+        android:contentDescription="Date"/>
 
-    <!-- Hero: calorie squircle + protein bar + net -->
-    <ImageView
-        android:id="@+id/widget_hero"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="3.2"
-        android:scaleType="fitXY"
-        android:background="@android:color/transparent"
-        android:contentDescription="Calories and protein"/>
-
-    <!-- Tiles row: WATER · STEPS · BURN · GYM -->
+    <!-- Top row: cal/protein/water rings | water tile -->
     <LinearLayout
-        android:id="@+id/widget_tiles"
+        android:id="@+id/widget_toprow"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="2.2"
+        android:layout_weight="3.1"
         android:orientation="horizontal">
 
         <ImageView
-            android:id="@+id/widget_tile_water"
+            android:id="@+id/widget_rings"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"
+            android:layout_weight="56"
+            android:scaleType="fitXY"
+            android:background="@android:color/transparent"
+            android:contentDescription="Calories, protein and water"/>
+
+        <ImageView
+            android:id="@+id/widget_water"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="44"
             android:scaleType="fitXY"
             android:background="@android:color/transparent"
             android:contentDescription="Water"/>
 
-        <ImageView
-            android:id="@+id/widget_tile_steps"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:scaleType="fitXY"
-            android:background="@android:color/transparent"
-            android:contentDescription="Steps"/>
-
-        <ImageView
-            android:id="@+id/widget_tile_burn"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:scaleType="fitXY"
-            android:background="@android:color/transparent"
-            android:contentDescription="Calories burned"/>
-
-        <ImageView
-            android:id="@+id/widget_tile_gym"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:scaleType="fitXY"
-            android:background="@android:color/transparent"
-            android:contentDescription="Gym workout"/>
-
     </LinearLayout>
 
-    <!-- Sparkline: weight trend chart -->
+    <!-- Elongated live-steps card -->
     <ImageView
-        android:id="@+id/widget_chart"
+        android:id="@+id/widget_steps"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1.6"
+        android:layout_weight="1.05"
         android:scaleType="fitXY"
         android:background="@android:color/transparent"
-        android:contentDescription="Weight chart"/>
+        android:contentDescription="Steps"/>
 
-    <!-- Insight strip -->
+    <!-- Top-3 notifications -->
     <ImageView
-        android:id="@+id/widget_insight"
+        android:id="@+id/widget_notifs"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1.2"
+        android:layout_weight="2.3"
         android:scaleType="fitXY"
         android:background="@android:color/transparent"
-        android:contentDescription="Insight"/>
+        android:contentDescription="Notifications"/>
 
 </LinearLayout>
