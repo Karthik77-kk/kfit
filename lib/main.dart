@@ -45,11 +45,11 @@ void main() async {
         MultiProvider(
           providers: [
             ChangeNotifierProvider(create: (_) => FitnessProvider()..loadData()),
-            // lazy:false → service created at app start, not at first chat open.
-            // Model loading begins immediately in background so it's ready
-            // (or nearly ready) by the time the user taps Ask AI.
+            // lazy:true → service is only created the first time Settings or
+            // Chat is opened. Defers model loading out of the cold-start window
+            // so loadData() gets full CPU/IO priority at launch.
             ChangeNotifierProvider(
-              lazy: false,
+              lazy: true,
               create: (_) => OnDeviceAiService()..init(),
             ),
             ChangeNotifierProvider(create: (_) => NavRouter()),
@@ -129,6 +129,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   NavRouter? _navRouter;
   VoidCallback? _navRouterListener;
 
+  // ignore: unused_field — Dart lint doesn't recognise ?.cancel() as a "use"
+  Timer? _updateCheckTimer;
+
   final List<Widget> _screens = const [
     HomeScreen(),
     NutritionScreen(),
@@ -144,8 +147,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     _tabFade = AnimationController(
         vsync: this, duration: AppDurations.normal, value: 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForUpdate();
       _initWidgetRouting();
+    });
+    // Delay the update check so it doesn't compete with loadData() and AI init
+    // during the critical first few seconds. 4 s is enough for loadData() to
+    // finish its 60-day JSON parse; the update dialog has no urgency.
+    // Stored so dispose() can cancel it and tests don't leak pending timers.
+    _updateCheckTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) _checkForUpdate();
     });
   }
 
@@ -213,6 +222,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     WidgetsBinding.instance.removeObserver(this);
     _tabFade.dispose();
     _widgetClickSub?.cancel();
+    _updateCheckTimer?.cancel();
     if (_navRouterListener != null) {
       _navRouter?.removeListener(_navRouterListener!);
     }

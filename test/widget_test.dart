@@ -21,6 +21,13 @@ Widget _appWithProvider({bool onboardingDone = true}) {
   );
 }
 
+/// Disposes the current widget tree so pending startup timers (e.g. the
+/// 4-second update-check timer in MainNavigationScreen) are cancelled before
+/// the test framework checks for pending timers.
+Future<void> _disposeTree(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -34,6 +41,7 @@ void main() {
     await tester.pumpWidget(_appWithProvider());
     await tester.pumpAndSettle();
     expect(find.byType(MaterialApp), findsOneWidget);
+    await _disposeTree(tester);
   });
 
   testWidgets('Bottom nav has 5 tabs (Stats merged into Body)', (tester) async {
@@ -44,6 +52,7 @@ void main() {
     final nav = tester.widget<BottomNavigationBar>(
         find.byType(BottomNavigationBar));
     expect(nav.items.length, 5);
+    await _disposeTree(tester);
   });
 
   testWidgets('Bottom nav labels are correct', (tester) async {
@@ -56,6 +65,7 @@ void main() {
     expect(find.text('Body'),      findsWidgets);   // merged tab
     expect(find.text('History'),   findsWidgets);
     // Stats is now a sub-tab inside Body, not a bottom nav tab
+    await _disposeTree(tester);
   });
 
   testWidgets('Tapping Nutrition tab navigates to nutrition screen',
@@ -67,6 +77,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Nutrition'), findsWidgets);
+    await _disposeTree(tester);
   });
 
   testWidgets('Tapping Workout tab navigates to workout screen',
@@ -78,6 +89,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Workout'), findsWidgets);
+    await _disposeTree(tester);
   });
 
   testWidgets('App uses dark theme', (tester) async {
@@ -86,6 +98,7 @@ void main() {
 
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(app.theme?.brightness, Brightness.dark);
+    await _disposeTree(tester);
   });
 
   // ── Onboarding gate ───────────────────────────────────────────────────────
@@ -106,6 +119,7 @@ void main() {
 
     expect(find.byType(MainNavigationScreen), findsOneWidget);
     expect(find.byType(OnboardingScreen),     findsNothing);
+    await _disposeTree(tester);
   });
 
   testWidgets('Onboarding page 1 has name text field', (tester) async {
