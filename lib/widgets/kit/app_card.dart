@@ -49,16 +49,25 @@ class _AppCardState extends State<AppCard> {
   @override
   Widget build(BuildContext context) {
     final br = BorderRadius.circular(widget.radius);
+    // Default elevated cards get the fake-glass sheen + all-side hairline edge.
+    // Accent cards (caller passed a gradient/border/shadow) and flat nested
+    // tiles (elevated:false) keep their existing look untouched.
+    final useGlass =
+        widget.gradient == null && widget.elevated && widget.boxShadow == null;
+    final effectiveGradient =
+        widget.gradient ?? (useGlass ? AppGlass.sheen(widget.color) : null);
     final effectiveShadow =
         widget.boxShadow ?? (widget.elevated ? AppShadows.card : null);
     final effectiveBorder = widget.border ??
-        (widget.elevated
-            ? const Border(top: BorderSide(color: AppColors.rim, width: 1))
-            : null);
+        (useGlass
+            ? AppGlass.edge
+            : (widget.elevated
+                ? const Border(top: BorderSide(color: AppColors.rim, width: 1))
+                : null));
     final decorated = Container(
       decoration: BoxDecoration(
-        color: widget.gradient == null ? widget.color : null,
-        gradient: widget.gradient,
+        color: effectiveGradient == null ? widget.color : null,
+        gradient: effectiveGradient,
         borderRadius: br,
         border: effectiveBorder,
         boxShadow: effectiveShadow,
