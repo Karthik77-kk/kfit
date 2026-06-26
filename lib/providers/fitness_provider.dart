@@ -10,7 +10,7 @@ import 'package:pedometer/pedometer.dart';
 import 'package:home_widget/home_widget.dart';
 
 import '../models/models.dart';
-import '../services/smart_insight_engine.dart' show topInsight, topInsights;
+import '../services/smart_insight_engine.dart' show topInsights;
 import '../services/notification_center.dart';
 import '../services/chat_session_service.dart';
 
@@ -164,6 +164,9 @@ class FitnessProvider extends ChangeNotifier {
   SharedPreferences? _cachedPrefs;
   // Throttle: avoid rebuilding all screens on every single step event.
   DateTime? _lastPedometerNotify;
+  // Throttle: push live steps to the home widget at most this often (a widget
+  // redraw is heavier than a notifyListeners, so it's throttled separately).
+  DateTime? _lastWidgetStepPush;
 
   // ── Day-reset detection ────────────────────────────────────────────────────
   String _loadedForDate = '';
@@ -2273,6 +2276,15 @@ class FitnessProvider extends ChangeNotifier {
             _lastPedometerNotify = now;
             notifyListeners();
           }
+          // Keep the home-screen widget's step count live while the app runs.
+          // Throttled to 15 s — a widget redraw is heavier than a rebuild, and
+          // a step counter doesn't need finer granularity than that.
+          if (_lastWidgetStepPush == null ||
+              now.difference(_lastWidgetStepPush!) >=
+                  const Duration(seconds: 15)) {
+            _lastWidgetStepPush = now;
+            _updateWidget();
+          }
         },
         onError: (_) {},
         cancelOnError: false,
@@ -2292,80 +2304,58 @@ class FitnessProvider extends ChangeNotifier {
   // these values — no Flutter engine / renderFlutterWidget (that crashed at cold
   // start) and no file URIs.
 
-  /// Returns the last [maxPoints] weight readings, merging body + scale history.
-  ///
-  /// Pure (no I/O) — safe to unit-test without a running app.
-  List<double> widgetWeightSeries({int maxPoints = 7}) {
-    // Merge both histories into (date, weightKg) pairs.
-    final merged = <(DateTime, double)>[];
-    for (final e in _bodyHistory) {
-      if (e.weightKg > 0) merged.add((e.date, e.weightKg));
+  /// Top [n] notifications for the home-screen widget — persisted milestones
+  /// first (newest), then live AI insights — deduped by title.
+  List<AppNotification> widgetNotifications({int n = 3}) =>
+      mergeWidgetNotifications(milestoneFeed, liveInsightFeed, n: n);
+
+  /// Pure merge/dedup for [widgetNotifications]: concatenates [milestones] then
+  /// [insights], skips blank titles, dedupes by title, and takes the first [n].
+  /// Pure (no provider state) so it's deterministically unit-testable.
+  static List<AppNotification> mergeWidgetNotifications(
+    List<AppNotification> milestones,
+    List<AppNotification> insights, {
+    int n = 3,
+  }) {
+    final seen = <String>{};
+    final out = <AppNotification>[];
+    for (final f in [...milestones, ...insights]) {
+      if (f.title.trim().isEmpty) continue;
+      if (seen.add(f.title)) out.add(f);
+      if (out.length >= n) break;
     }
-    for (final e in _scaleHistory) {
-      if (e.weightKg > 0) merged.add((e.date, e.weightKg));
-    }
-    if (merged.isEmpty) return [];
-    merged.sort((a, b) => a.$1.compareTo(b.$1));
-    final weights = merged.map((p) => p.$2).toList();
-    if (weights.length <= maxPoints) return weights;
-    return weights.sublist(weights.length - maxPoints);
+    return out;
   }
 
   Future<void> _updateWidget() async {
     try {
-      final insight = topInsight(this, DateTime.now());
-
-      // Workout label: "A" / "B" / "—"
-      final wl = todayWorkout;
-      final String workoutLabel;
-      if (wl == null) {
-        workoutLabel = '—';
-      } else if (wl.workoutType == WorkoutType.a) {
-        workoutLabel = 'A';
-      } else if (wl.workoutType == WorkoutType.b) {
-        workoutLabel = 'B';
-      } else {
-        workoutLabel = '—';
-      }
-
-      // Weight sparkline series.
-      final series = widgetWeightSeries();
-      final weightSeriesStr = series.map((w) => w.toStringAsFixed(1)).join(',');
-      final weightDelta = series.length >= 2 ? series.last - series.first : 0.0;
-      final latestWeight = latestWeightKg ?? 0.0;
+      final notifs = widgetNotifications(n: 3);
+      String nEmoji(int i) => i < notifs.length ? notifs[i].emoji : '';
+      String nTitle(int i) => i < notifs.length ? notifs[i].title : '';
 
       // Batch all saveWidgetData calls in parallel, then trigger a single redraw.
       await Future.wait([
-        // Existing keys (unchanged).
         HomeWidget.saveWidgetData<int>('calories', todayCaloriesTotal.round()),
-        HomeWidget.saveWidgetData<int>('calorieGoal', calorieGoal),
         HomeWidget.saveWidgetData<int>('protein', todayProteinTotal.round()),
-        HomeWidget.saveWidgetData<int>('proteinGoal', proteinGoal),
         HomeWidget.saveWidgetData<int>('water', todayWaterMl),
-        HomeWidget.saveWidgetData<int>('waterGoal', waterGoalMl),
-        // Raw unclamped percentages (>100 allowed) so the widget can draw overflow.
-        HomeWidget.saveWidgetData<int>('calPct',
-            calorieGoal  > 0 ? (todayCaloriesTotal / calorieGoal  * 100).round() : 0),
-        HomeWidget.saveWidgetData<int>('protPct',
-            proteinGoal  > 0 ? (todayProteinTotal  / proteinGoal  * 100).round() : 0),
-        HomeWidget.saveWidgetData<int>('waterPct',
-            waterGoalMl  > 0 ? (todayWaterMl       / waterGoalMl  * 100).round() : 0),
         HomeWidget.saveWidgetData<int>('steps', todaySteps),
         HomeWidget.saveWidgetData<int>('stepGoal', stepGoal),
+        // Raw unclamped percentages (>100 allowed) so the widget can draw overflow.
+        HomeWidget.saveWidgetData<int>('calPct',
+            calorieGoal > 0 ? (todayCaloriesTotal / calorieGoal * 100).round() : 0),
+        HomeWidget.saveWidgetData<int>('protPct',
+            proteinGoal > 0 ? (todayProteinTotal / proteinGoal * 100).round() : 0),
+        HomeWidget.saveWidgetData<int>('waterPct',
+            waterGoalMl > 0 ? (todayWaterMl / waterGoalMl * 100).round() : 0),
         HomeWidget.saveWidgetData<int>('stepPct',
             stepGoal > 0 ? (todaySteps / stepGoal * 100).round() : 0),
-        HomeWidget.saveWidgetData<String>('insightEmoji', insight.emoji),
-        HomeWidget.saveWidgetData<String>('insightTitle', insight.title),
-        // New keys for the expanded dashboard widget.
-        HomeWidget.saveWidgetData<int>('burned', totalCaloriesBurned.round()),
-        HomeWidget.saveWidgetData<int>('net', netCalories),
-        HomeWidget.saveWidgetData<int>('deficit', calorieDeficit),
-        HomeWidget.saveWidgetData<bool>('workoutDone', todayWorkout != null),
-        HomeWidget.saveWidgetData<String>('workoutLabel', workoutLabel),
-        HomeWidget.saveWidgetData<int>('workoutBurn', todayCaloriesBurned),
-        HomeWidget.saveWidgetData<double>('weight', latestWeight),
-        HomeWidget.saveWidgetData<String>('weightSeries', weightSeriesStr),
-        HomeWidget.saveWidgetData<double>('weightDelta', weightDelta),
+        // Top-3 notifications (emoji + title).
+        HomeWidget.saveWidgetData<String>('notif1Emoji', nEmoji(0)),
+        HomeWidget.saveWidgetData<String>('notif1Title', nTitle(0)),
+        HomeWidget.saveWidgetData<String>('notif2Emoji', nEmoji(1)),
+        HomeWidget.saveWidgetData<String>('notif2Title', nTitle(1)),
+        HomeWidget.saveWidgetData<String>('notif3Emoji', nEmoji(2)),
+        HomeWidget.saveWidgetData<String>('notif3Title', nTitle(2)),
       ]);
 
       await HomeWidget.updateWidget(
