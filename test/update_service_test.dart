@@ -108,6 +108,61 @@ void main() {
     });
   });
 
+  group('UpdateService.fetchLatestInfo', () {
+    Map<String, dynamic> makeReleaseJsonFetch(int build) => {
+          'tag_name': 'v2.3.$build',
+          'body': 'Release notes',
+          'assets': [
+            {
+              'name': 'kfit.apk',
+              'browser_download_url': 'https://example.com/kfit.apk',
+              'size': 10000000,
+            }
+          ],
+        };
+
+    http.Client mockClientFetch(int statusCode, Map<String, dynamic> body) {
+      return MockClient((_) async => http.Response(
+            jsonEncode(body),
+            statusCode,
+            headers: {'content-type': 'application/json'},
+          ));
+    }
+
+    test('returns info regardless of current build (unconditional)', () async {
+      final client = mockClientFetch(200, makeReleaseJsonFetch(282));
+      final service = UpdateService(httpClient: client);
+      // No currentBuild comparison — always returns the release if it has an APK
+      final info = await service.fetchLatestInfo();
+      expect(info, isNotNull);
+      expect(info!.build, 282);
+    });
+
+    test('returns null when response is 500', () async {
+      final client = mockClientFetch(500, {});
+      final service = UpdateService(httpClient: client);
+      expect(await service.fetchLatestInfo(), isNull);
+    });
+
+    test('returns null when APK asset is missing', () async {
+      final client = mockClientFetch(200, {
+        'tag_name': 'v2.3.282',
+        'body': '',
+        'assets': [
+          {'name': 'wrong.apk', 'browser_download_url': 'https://x.com/wrong.apk', 'size': 1},
+        ],
+      });
+      final service = UpdateService(httpClient: client);
+      expect(await service.fetchLatestInfo(), isNull);
+    });
+
+    test('returns null on network exception', () async {
+      final service = UpdateService(
+          httpClient: MockClient((_) async => throw Exception('net')));
+      expect(await service.fetchLatestInfo(), isNull);
+    });
+  });
+
   group('UpdateService.checkForUpdate', () {
     Map<String, dynamic> makeReleaseJson(int build) => {
           'tag_name': 'v2.3.$build',
