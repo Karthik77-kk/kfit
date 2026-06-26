@@ -447,6 +447,13 @@ proves Actions is up.
 > ⚠️ This **supersedes the manual-bump guidance** in Rules 4 / 4a / 12 above: those
 > predate the commit-count `versionCode` automation. Do not hand-bump `+N` anymore.
 
+### Rule 17 — arm64-only APK needs `--target-platform` AND a jniLibs filter (not `abiFilters`)
+The APK weight is `flutter_gemma`'s MediaPipe/LiteRT **native inference runtime**, NOT the model — the ~600 MB Gemma 3 is **downloaded at runtime**, never bundled (`assets/` is ~0.4 MB). A true single-ABI APK needs BOTH, each targeting a different lib source:
+- `flutter build apk --target-platform android-arm64` → strips the **Flutter**-built libs (libflutter/libapp/libdartjni) for other ABIs.
+- `packagingOptions { jniLibs { excludes += ['**/x86_64/**','**/armeabi-v7a/**'] } }` in the **CI-generated** `build.gradle` (inside `build_apk.yml`) → strips the **AAR-shipped MediaPipe `.so`** for other ABIs.
+
+`ndk { abiFilters "arm64-v8a" }` alone does **not** filter prebuilt `.so` from dependency AARs — that's why #72's filter never shrank the APK. Size path: 297 → (#78 image-gen excl.) 260 → (#81 `--target-platform`) 220 → (packaging filter) ~170 MB. **Always edit the gradle in `build_apk.yml`**, never the committed `android/app/build.gradle` (CI regenerates it).
+
 ---
 
 ## Build & Run Commands
