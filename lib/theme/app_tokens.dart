@@ -57,6 +57,29 @@ abstract final class AppShadows {
       ];
 }
 
+/// Fake "frosted glass" surface treatment for cards on the black canvas — a
+/// cheap top-lit gradient + hairline edge, NOT a real [BackdropFilter] (blur
+/// only frosts black on our #000 background and tanks scroll perf). Real glass
+/// stays on chrome/overlays (nav, bottom sheets) only.
+abstract final class AppGlass {
+  /// Top-lit translucent sheen blended onto [base] — fakes frosted glass on
+  /// black without a saveLayer/blur.
+  static LinearGradient sheen(Color base) => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.alphaBlend(Colors.white.withValues(alpha: 0.06), base),
+          base,
+        ],
+        stops: const [0.0, 0.65],
+      );
+
+  /// Hairline glass edge (all sides) — replaces the top-only [AppColors.rim]
+  /// for the default elevated card so the whole edge catches "light".
+  static const Border edge = Border.fromBorderSide(
+      BorderSide(color: Color(0x0FFFFFFF), width: 1)); // white @ ~6%
+}
+
 /// 8-pt-ish spacing scale. Named steps keep padding/gaps consistent.
 abstract final class AppSpacing {
   static const double xs = 4;
@@ -84,7 +107,8 @@ abstract final class AppDurations {
   static const Duration normal = Duration(milliseconds: 300);
   static const Duration count = Duration(milliseconds: 800); // number roll-ups
   static const Duration ring = Duration(milliseconds: 700); // ring sweep
-  static const Duration stagger = Duration(milliseconds: 40); // list entrance interval
+  static const Duration stagger =
+      Duration(milliseconds: 40); // list entrance interval
 }
 
 /// Easing curves. `easeOutCubic` gives the "snap into place" premium feel.
@@ -98,9 +122,15 @@ abstract final class AppCurves {
 /// AppBar text elsewhere in the app.
 abstract final class AppText {
   static const TextStyle display = TextStyle(
-      fontSize: 34, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: AppColors.textPrimary);
+      fontSize: 34,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.5,
+      color: AppColors.textPrimary);
   static const TextStyle title = TextStyle(
-      fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: AppColors.textPrimary);
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.3,
+      color: AppColors.textPrimary);
   static const TextStyle headline = TextStyle(
       fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary);
   static const TextStyle body = TextStyle(
@@ -108,7 +138,10 @@ abstract final class AppText {
   static const TextStyle bodySmall = TextStyle(
       fontSize: 13, fontWeight: FontWeight.w400, color: AppColors.textPrimary);
   static const TextStyle caption = TextStyle(
-      fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8, color: AppColors.muted);
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.8,
+      color: AppColors.muted);
   static const TextStyle label = TextStyle(
       fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.muted);
 }

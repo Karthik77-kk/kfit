@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/date_picker_chip.dart';
+import '../widgets/kit/kit.dart';
 
 class SmartScaleScreen extends StatefulWidget {
   final bool embedded;
@@ -298,7 +299,14 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
                     letterSpacing: 0.6)),
           ]),
         ),
-        ...fields,
+        // Card the field group so it matches the carded Body › Stats form
+        // and inherits the shared glass-look surface.
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: fields,
+          ),
+        ),
         const SizedBox(height: 4),
       ],
     );
