@@ -65,7 +65,21 @@ class _NutritionScreenState extends State<NutritionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final p = context.watch<FitnessProvider>();
+    // Select only the scalar fields shown in the AppBar so this screen does NOT
+    // rebuild when unrelated fields change (e.g. pedometer step updates every 2 s).
+    // Dart 3 records have structural equality so context.select compares correctly.
+    final (calTotal, calGoal, protInt, waterMl, waterGoal, waterProgPct, suppCount) =
+        context.select<FitnessProvider, (double, int, int, int, int, int, int)>(
+      (p) => (
+        p.todayCaloriesTotal,
+        p.calorieGoal,
+        p.todayProteinTotal.round(),
+        p.todayWaterMl,
+        p.waterGoalMl,
+        (p.waterProgress * 100).round(),
+        p.supplements.takenCount,
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -80,9 +94,9 @@ class _NutritionScreenState extends State<NutritionScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${p.todayCaloriesTotal.toInt()} / ${p.calorieGoal} kcal',
+                    '${calTotal.toInt()} / $calGoal kcal',
                     style: TextStyle(
-                      color: p.todayCaloriesTotal > p.calorieGoal
+                      color: calTotal > calGoal
                           ? Colors.redAccent
                           : const Color(0xFF30D158),
                       fontSize: 12,
@@ -90,7 +104,7 @@ class _NutritionScreenState extends State<NutritionScreen>
                     ),
                   ),
                   Text(
-                    '${p.todayProteinTotal.toInt()}g protein',
+                    '${protInt}g protein',
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                   ),
@@ -106,9 +120,9 @@ class _NutritionScreenState extends State<NutritionScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${p.todayWaterMl} / ${p.waterGoalMl} ml',
+                    '$waterMl / $waterGoal ml',
                     style: TextStyle(
-                      color: p.todayWaterMl >= p.waterGoalMl
+                      color: waterMl >= waterGoal
                           ? const Color(0xFF30D158)
                           : const Color(0xFF40C8E0),
                       fontSize: 12,
@@ -116,7 +130,7 @@ class _NutritionScreenState extends State<NutritionScreen>
                     ),
                   ),
                   Text(
-                    '${(p.waterProgress * 100).toInt()}% of goal',
+                    '$waterProgPct% of goal',
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                   ),
@@ -132,9 +146,9 @@ class _NutritionScreenState extends State<NutritionScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${p.supplements.takenCount}/3 taken',
+                    '$suppCount/3 taken',
                     style: TextStyle(
-                      color: p.supplements.takenCount == 3
+                      color: suppCount == 3
                           ? const Color(0xFF30D158)
                           : const Color(0xFF40C8E0),
                       fontSize: 12,
