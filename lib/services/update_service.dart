@@ -70,6 +70,22 @@ class UpdateService {
     }
   }
 
+  /// Fetches the latest release from GitHub unconditionally.
+  /// Returns [AppUpdateInfo] if the release has a kfit.apk asset, null otherwise.
+  /// Use this right before downloading to get a fresher URL than the initial check.
+  Future<AppUpdateInfo?> fetchLatestInfo() async {
+    try {
+      final response = await _client
+          .get(Uri.parse(_apiUrl), headers: {'Accept': 'application/vnd.github.v3+json'})
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return null;
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return parseLatest(json);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Checks GitHub for a newer release. Returns [AppUpdateInfo] if an update
   /// exists, null if already up-to-date, network fails, or the API errors.
   Future<AppUpdateInfo?> checkForUpdate(int currentBuild) async {

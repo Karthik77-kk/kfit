@@ -40,8 +40,21 @@ class _UpdateSheetState extends State<_UpdateSheet> {
       _error = null;
     });
     try {
+      // Mark update as initiated so the check on next launch is suppressed for
+      // 2 hours — prevents "update available" immediately after an install.
+      await context.read<FitnessProvider>().markUpdateInitiated();
+
+      // Re-fetch the latest release right before downloading. If a newer build
+      // was published between the initial check and the user tapping Update,
+      // this ensures we download the TRUE latest rather than latest-1.
+      final freshInfo = await widget.service.fetchLatestInfo();
+      final infoToDownload =
+          (freshInfo != null && freshInfo.build >= widget.info.build)
+              ? freshInfo
+              : widget.info;
+
       final file = await widget.service.downloadApk(
-        widget.info,
+        infoToDownload,
         onProgress: (p) {
           if (mounted) setState(() => _progress = p);
         },
@@ -61,7 +74,7 @@ class _UpdateSheetState extends State<_UpdateSheet> {
   }
 
   void _later() {
-    context.read<FitnessProvider>().skipUpdateBuild(widget.info.build);
+    context.read<FitnessProvider>().snoozeUpdate();
     Navigator.of(context).pop();
   }
 

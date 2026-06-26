@@ -95,8 +95,22 @@ class FitnessProvider extends ChangeNotifier {
   bool _autoUpdateCheck = true;
   bool get autoUpdateCheck => _autoUpdateCheck;
 
-  int _updateSkippedBuild = 0;
-  int get updateSkippedBuild => _updateSkippedBuild;
+  /// Epoch ms until which the user has snoozed update prompts (via "Later").
+  int _updateSnoozedUntilMs = 0;
+  /// Epoch ms when the user last tapped "Update" — suppresses re-prompts for 2 h
+  /// so the app doesn't immediately ask for another update right after an install.
+  int _updateInitiatedAtMs = 0;
+
+  /// True when the update dialog should be suppressed — either the user snoozed
+  /// it for 3 days via "Later", or they just initiated an install (2-h window).
+  bool get shouldSuppressUpdateCheck {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now < _updateSnoozedUntilMs) return true;
+    if (now - _updateInitiatedAtMs < const Duration(hours: 2).inMilliseconds) {
+      return true;
+    }
+    return false;
+  }
 
   Future<void> markOnboardingDone() async {
     _onboardingDone = true;
@@ -119,10 +133,20 @@ class FitnessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> skipUpdateBuild(int build) async {
-    _updateSkippedBuild = build;
+  /// Called when the user taps "Later" — suppresses update prompts for 3 days.
+  Future<void> snoozeUpdate() async {
+    _updateSnoozedUntilMs =
+        DateTime.now().add(const Duration(days: 3)).millisecondsSinceEpoch;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('update_skipped_build', build);
+    await prefs.setInt('update_snoozed_until_ms', _updateSnoozedUntilMs);
+  }
+
+  /// Called when the user taps "Update" — suppresses re-prompts for 2 hours so
+  /// the app doesn't immediately ask for another update right after an install.
+  Future<void> markUpdateInitiated() async {
+    _updateInitiatedAtMs = DateTime.now().millisecondsSinceEpoch;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('update_initiated_at_ms', _updateInitiatedAtMs);
   }
 
   /// One-shot flag set when a NEW milestone (streak / goal reached) is detected,
@@ -1493,7 +1517,8 @@ class FitnessProvider extends ChangeNotifier {
     _onboardingDone = prefs.getBool('onboarding_done') ?? false;
     _aiCoachEnabled = prefs.getBool('ai_coach_enabled') ?? true;
     _autoUpdateCheck = prefs.getBool('auto_update_check') ?? true;
-    _updateSkippedBuild = prefs.getInt('update_skipped_build') ?? 0;
+    _updateSnoozedUntilMs = prefs.getInt('update_snoozed_until_ms') ?? 0;
+    _updateInitiatedAtMs = prefs.getInt('update_initiated_at_ms') ?? 0;
 
     // User-defined goals
     _calorieGoal = prefs.getInt('calorie_goal') ?? kDefaultCalorieGoal;

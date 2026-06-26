@@ -204,10 +204,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       final currentBuild = int.tryParse(pkgInfo.buildNumber) ?? 0;
       if (currentBuild == 0) return;
 
+      if (provider.shouldSuppressUpdateCheck) return;
+
       final service = UpdateService();
       final info = await service.checkForUpdate(currentBuild);
       if (info == null) return;
-      if (info.build == provider.updateSkippedBuild) return;
 
       if (mounted) {
         await showUpdateDialog(context, info, service);
