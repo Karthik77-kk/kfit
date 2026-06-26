@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 75% transparent (25% black) rounded panel — wallpaper shows through. -->
+<!-- ~50% transparent (50% black) rounded panel — readable, wallpaper still shows. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#40000000"/>
+    <solid android:color="#80000000"/>
     <corners android:radius="26dp"/>
 </shape>
