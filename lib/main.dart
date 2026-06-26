@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
@@ -44,7 +45,8 @@ void main() async {
       runApp(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider(create: (_) => FitnessProvider()..loadData()),
+            ChangeNotifierProvider(
+                create: (_) => FitnessProvider()..loadData()),
             // lazy:true → service is only created the first time Settings or
             // Chat is opened. Defers model loading out of the cold-start window
             // so loadData() gets full CPU/IO priority at launch.
@@ -71,7 +73,7 @@ void _appendCrashLog(String type, String error, String stack) {
   getApplicationDocumentsDirectory().then((dir) {
     try {
       final file = File('${dir.path}/crash_log.txt');
-      final ts   = DateTime.now().toIso8601String();
+      final ts = DateTime.now().toIso8601String();
       file.writeAsStringSync(
         '[$ts] [$type]\n$error\n$stack\n---\n',
         mode: FileMode.append,
@@ -256,10 +258,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // NOTE: a true frosted nav (extendBody + BackdropFilter) was reverted — it
-      // tucked bottom-anchored controls (e.g. Water's +150/+250/+500 buttons)
-      // under the nav. The nav reserves its own space; a proper glass pass needs
-      // a per-screen bottom-inset audit first.
+      // Frosted-glass nav: `extendBody` lets content scroll *under* the bar so
+      // the BackdropFilter has something to blur (without it there's only black
+      // behind the bar and the blur is invisible). This was reverted once (#53)
+      // because bottom-anchored controls got tucked under the nav — every screen
+      // now pads its bottom content by MediaQuery.padding.bottom (which, with
+      // extendBody on, reports the nav's height) so nothing is occluded.
+      extendBody: true,
       // IndexedStack keeps all tabs mounted (scroll positions, sub-tab
       // selections, Home's entrance animation) and offstage-hides the inactive
       // ones; the FadeTransition fades the active tab in on each switch.
@@ -267,46 +272,52 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         opacity: _tabFade,
         child: IndexedStack(index: _index, children: _screens),
       ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: AppColors.navBackground,
-          border: Border(
-            top: BorderSide(color: AppColors.border, width: 0.5),
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              // Translucent so the blurred content shows through the bar.
+              color: AppColors.navBackground.withValues(alpha: 0.80),
+              border: const Border(
+                top: BorderSide(color: AppColors.border, width: 0.5),
+              ),
+            ),
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              currentIndex: _index,
+              onTap: _onTabTap,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.house_outlined, size: 24),
+                  activeIcon: Icon(Icons.house_rounded, size: 24),
+                  label: 'Summary',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.restaurant_menu_outlined, size: 24),
+                  activeIcon: Icon(Icons.restaurant_menu_rounded, size: 24),
+                  label: 'Nutrition',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.fitness_center_outlined, size: 24),
+                  activeIcon: Icon(Icons.fitness_center_rounded, size: 24),
+                  label: 'Workout',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline_rounded, size: 24),
+                  activeIcon: Icon(Icons.person_rounded, size: 24),
+                  label: 'Body',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.history_outlined, size: 24),
+                  activeIcon: Icon(Icons.history_rounded, size: 24),
+                  label: 'History',
+                ),
+              ],
+            ),
           ),
         ),
-        child: BottomNavigationBar(
-          backgroundColor: Colors.transparent,
-          currentIndex: _index,
-          onTap: _onTabTap,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.house_outlined, size: 24),
-              activeIcon: Icon(Icons.house_rounded, size: 24),
-              label: 'Summary',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.restaurant_menu_outlined, size: 24),
-              activeIcon: Icon(Icons.restaurant_menu_rounded, size: 24),
-              label: 'Nutrition',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center_outlined, size: 24),
-              activeIcon: Icon(Icons.fitness_center_rounded, size: 24),
-              label: 'Workout',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded, size: 24),
-              activeIcon: Icon(Icons.person_rounded, size: 24),
-              label: 'Body',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined, size: 24),
-              activeIcon: Icon(Icons.history_rounded, size: 24),
-              label: 'History',
-            ),
-          ],
-            ),
-          ),
+      ),
     );
   }
 }

@@ -27,15 +27,33 @@ class FoodScreen extends StatelessWidget {
   final bool embedded;
   const FoodScreen({super.key, this.embedded = false});
 
-  Widget _buildBody(FitnessProvider p) {
+  Widget _buildBody(BuildContext context, FitnessProvider p) {
     if (p.todayFood.isEmpty) return const _EmptyState();
     return ListView(
-      padding: const EdgeInsets.only(bottom: 100, top: 8),
+      // +nav inset so the last meal clears the glass nav and the Add-Food FAB.
+      padding: EdgeInsets.only(
+          bottom: 100 + MediaQuery.of(context).padding.bottom, top: 8),
       children: [
-        _MealSection(icon: Icons.wb_sunny_rounded, title: 'Breakfast', entries: p.breakfastEntries, provider: p),
-        _MealSection(icon: Icons.restaurant_rounded, title: 'Lunch', entries: p.lunchEntries, provider: p),
-        _MealSection(icon: Icons.nightlight_round, title: 'Dinner', entries: p.dinnerEntries, provider: p),
-        _MealSection(icon: Icons.cookie_rounded, title: 'Snacks', entries: p.snackEntries, provider: p),
+        _MealSection(
+            icon: Icons.wb_sunny_rounded,
+            title: 'Breakfast',
+            entries: p.breakfastEntries,
+            provider: p),
+        _MealSection(
+            icon: Icons.restaurant_rounded,
+            title: 'Lunch',
+            entries: p.lunchEntries,
+            provider: p),
+        _MealSection(
+            icon: Icons.nightlight_round,
+            title: 'Dinner',
+            entries: p.dinnerEntries,
+            provider: p),
+        _MealSection(
+            icon: Icons.cookie_rounded,
+            title: 'Snacks',
+            entries: p.snackEntries,
+            provider: p),
       ],
     );
   }
@@ -45,11 +63,11 @@ class FoodScreen extends StatelessWidget {
     final p = context.watch<FitnessProvider>();
 
     // When embedded inside NutritionScreen, just return the body
-    if (embedded) return _buildBody(p);
+    if (embedded) return _buildBody(context, p);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Food Tracker 🍽️'),
+        title: const Text('Food Tracker'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
@@ -83,7 +101,7 @@ class FoodScreen extends StatelessWidget {
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Add Food', style: TextStyle(color: Colors.white)),
       ),
-      body: _buildBody(p),
+      body: _buildBody(context, p),
     );
   }
 }
@@ -96,18 +114,21 @@ class _EmptyState extends StatelessWidget {
   Future<void> _copyYesterday(BuildContext context) async {
     final p = context.read<FitnessProvider>();
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final key = '${yesterday.year}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
+    final key =
+        '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
     final yEntries = p.foodHistory[key] ?? [];
     if (yEntries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No food logged yesterday to copy'),
+        const SnackBar(
+            content: Text('No food logged yesterday to copy'),
             backgroundColor: Color(0xFFFF9F0A)),
       );
       return;
     }
     for (final e in yEntries) {
       await p.addFoodEntry(FoodEntry(
-        id: p.newId(), // UUID — millisecond ids collide in a loop -> duplicate Dismissible keys crash
+        id: p
+            .newId(), // UUID — millisecond ids collide in a loop -> duplicate Dismissible keys crash
         name: e.name, calories: e.calories, protein: e.protein,
         carbs: e.carbs, fat: e.fat,
         mealType: e.mealType, servingNote: e.servingNote,
@@ -127,23 +148,27 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.watch<FitnessProvider>();
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final key = '${yesterday.year}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
+    final key =
+        '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
     final hasYesterday = (p.foodHistory[key] ?? []).isNotEmpty;
 
     return AppEmptyState(
       icon: '🍽️',
       title: 'No food logged today',
       subtitle: 'Tap + Add Food to start logging',
-      action: hasYesterday ? OutlinedButton.icon(
+      action: hasYesterday
+          ? OutlinedButton.icon(
               onPressed: () => _copyYesterday(context),
               icon: const Icon(Icons.copy_rounded, size: 16),
               label: const Text('Copy yesterday\'s meals'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF30D158),
                 side: const BorderSide(color: Color(0xFF30D158)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
-            ) : null,
+            )
+          : null,
     );
   }
 }
@@ -156,7 +181,11 @@ class _MealSection extends StatelessWidget {
   final List<FoodEntry> entries;
   final FitnessProvider provider;
 
-  const _MealSection({required this.icon, required this.title, required this.entries, required this.provider});
+  const _MealSection(
+      {required this.icon,
+      required this.title,
+      required this.entries,
+      required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -169,12 +198,17 @@ class _MealSection extends StatelessWidget {
             children: [
               Icon(icon, size: 17, color: Colors.white70),
               const SizedBox(width: 7),
-              Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              Text(title,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold)),
               const Spacer(),
               if (entries.isNotEmpty)
                 Text(
                   '${entries.fold(0.0, (s, e) => s + e.calories).toInt()} kcal',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
                 ),
             ],
           ),
@@ -183,14 +217,16 @@ class _MealSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
             child: Text('Nothing logged',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 12)),
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.25), fontSize: 12)),
           )
         else
           ...entries.map((entry) => Dismissible(
                 key: Key(entry.id),
                 direction: DismissDirection.endToStart,
                 background: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.red.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(14),
@@ -204,7 +240,8 @@ class _MealSection extends StatelessWidget {
                   provider.removeFoodEntry(removed.id);
                   // CRITICAL: capture messenger BEFORE any navigation/pop
                   final messenger = ScaffoldMessenger.of(context);
-                  messenger.clearSnackBars(); // dismiss any previous removal notification
+                  messenger
+                      .clearSnackBars(); // dismiss any previous removal notification
                   messenger.showSnackBar(SnackBar(
                     content: Text('${removed.name} removed'),
                     backgroundColor: const Color(0xFF2C2C2E),
@@ -234,43 +271,52 @@ class _FoodEntryTile extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showEditFoodDialog(context, entry),
       child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E22),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: AppShadows.card,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E22),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppShadows.card,
+          border:
+              Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.name,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  if (entry.servingNote.isNotEmpty)
+                    Text(entry.servingNote,
+                        style: const TextStyle(
+                            color: Color(0xFF8E8E93), fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(entry.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (entry.servingNote.isNotEmpty)
-                  Text(entry.servingNote,
-                      style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text('${entry.calories.toInt()} kcal',
+                    style: const TextStyle(
+                        color: Color(0xFF30D158),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13)),
+                Text('${entry.protein.toStringAsFixed(1)}g protein',
+                    style: TextStyle(
+                        color: const Color(0xFF40C8E0).withValues(alpha: 0.8),
+                        fontSize: 11)),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('${entry.calories.toInt()} kcal',
-                  style: const TextStyle(color: Color(0xFF30D158), fontWeight: FontWeight.bold, fontSize: 13)),
-              Text('${entry.protein.toStringAsFixed(1)}g protein',
-                  style: TextStyle(color: const Color(0xFF40C8E0).withValues(alpha: 0.8), fontSize: 11)),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -278,8 +324,10 @@ class _FoodEntryTile extends StatelessWidget {
 /// Edit dialog for a logged food entry — adjust calories/protein or delete.
 /// Operates on today's log (the only place entry tiles are shown).
 void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
-  final calCtrl = TextEditingController(text: entry.calories.toInt().toString());
-  final protCtrl = TextEditingController(text: entry.protein.toStringAsFixed(0));
+  final calCtrl =
+      TextEditingController(text: entry.calories.toInt().toString());
+  final protCtrl =
+      TextEditingController(text: entry.protein.toStringAsFixed(0));
   final provider = context.read<FitnessProvider>();
   showDialog(
     context: context,
@@ -287,11 +335,18 @@ void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
       backgroundColor: const Color(0xFF1E1E22),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       title: Text(entry.name,
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          style: const TextStyle(
+              color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
       content: Row(children: [
-        Expanded(child: _MiniField(ctrl: calCtrl, hint: 'kcal', keyboard: TextInputType.number)),
+        Expanded(
+            child: _MiniField(
+                ctrl: calCtrl, hint: 'kcal', keyboard: TextInputType.number)),
         const SizedBox(width: 8),
-        Expanded(child: _MiniField(ctrl: protCtrl, hint: 'protein g', keyboard: TextInputType.number)),
+        Expanded(
+            child: _MiniField(
+                ctrl: protCtrl,
+                hint: 'protein g',
+                keyboard: TextInputType.number)),
       ]),
       actions: [
         TextButton(
@@ -299,19 +354,26 @@ void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
             provider.removeFoodEntry(entry.id);
             Navigator.pop(dCtx);
           },
-          child: const Text('Delete', style: TextStyle(color: Color(0xFFFF453A))),
+          child:
+              const Text('Delete', style: TextStyle(color: Color(0xFFFF453A))),
         ),
         ElevatedButton(
           onPressed: () {
             final cal = double.tryParse(calCtrl.text.trim()) ?? entry.calories;
-            final prot = (double.tryParse(protCtrl.text.trim()) ?? entry.protein)
-                .clamp(0.0, 100000.0);
+            final prot =
+                (double.tryParse(protCtrl.text.trim()) ?? entry.protein)
+                    .clamp(0.0, 100000.0);
             provider.updateFoodEntry(
               entry.id,
               FoodEntry(
-                id: entry.id, name: entry.name, calories: cal.clamp(0, double.infinity),
-                protein: prot, carbs: entry.carbs, fat: entry.fat,
-                mealType: entry.mealType, timestamp: entry.timestamp,
+                id: entry.id,
+                name: entry.name,
+                calories: cal.clamp(0, double.infinity),
+                protein: prot,
+                carbs: entry.carbs,
+                fat: entry.fat,
+                mealType: entry.mealType,
+                timestamp: entry.timestamp,
                 servingNote: entry.servingNote,
               ),
             );
@@ -319,9 +381,12 @@ void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF30D158),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          child: const Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          child: const Text('Save',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     ),
@@ -352,10 +417,10 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   final _protCtrl = TextEditingController();
 
   // Online search state
-  List<FoodApiResult> _onlineResults  = [];
-  bool                _searchingOnline = false;
-  String?             _onlineError;
-  String              _lastOnlineQuery = '';
+  List<FoodApiResult> _onlineResults = [];
+  bool _searchingOnline = false;
+  String? _onlineError;
+  String _lastOnlineQuery = '';
 
   Timer? _searchDebounce;
 
@@ -363,10 +428,14 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   void initState() {
     super.initState();
     final h = DateTime.now().hour;
-    if (h >= 5 && h < 11) _selectedMeal = MealType.breakfast;
-    else if (h >= 11 && h < 16) _selectedMeal = MealType.lunch;
-    else if (h >= 16 && h < 21) _selectedMeal = MealType.dinner;
-    else _selectedMeal = MealType.snack;
+    if (h >= 5 && h < 11)
+      _selectedMeal = MealType.breakfast;
+    else if (h >= 11 && h < 16)
+      _selectedMeal = MealType.lunch;
+    else if (h >= 16 && h < 21)
+      _selectedMeal = MealType.dinner;
+    else
+      _selectedMeal = MealType.snack;
   }
 
   @override
@@ -388,16 +457,18 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       final results = <FoodItem>[];
       for (final f in kFoodDatabase) {
         if (f.category == 'Popular') continue;
-        if ((f.name.toLowerCase().contains(q) || f.category.toLowerCase().contains(q))
-            && seen.add(f.name.toLowerCase())) {
+        if ((f.name.toLowerCase().contains(q) ||
+                f.category.toLowerCase().contains(q)) &&
+            seen.add(f.name.toLowerCase())) {
           results.add(f);
         }
       }
       // Pass 2: Popular items not already shown
       for (final f in kFoodDatabase) {
         if (f.category != 'Popular') continue;
-        if ((f.name.toLowerCase().contains(q) || f.category.toLowerCase().contains(q))
-            && seen.add(f.name.toLowerCase())) {
+        if ((f.name.toLowerCase().contains(q) ||
+                f.category.toLowerCase().contains(q)) &&
+            seen.add(f.name.toLowerCase())) {
           results.add(f);
         }
       }
@@ -423,8 +494,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
 
     setState(() {
       _searchingOnline = true;
-      _onlineError     = null;
-      _onlineResults   = [];
+      _onlineError = null;
+      _onlineResults = [];
       _lastOnlineQuery = query;
     });
 
@@ -433,16 +504,17 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       if (!mounted) return;
       setState(() {
         _searchingOnline = false;
-        _onlineResults   = results;
+        _onlineResults = results;
         if (results.isEmpty) {
-          _onlineError = 'No online results for "$query".\nTry a different name or add a custom entry.';
+          _onlineError =
+              'No online results for "$query".\nTry a different name or add a custom entry.';
         }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _searchingOnline = false;
-        _onlineError     = 'No internet connection. Try again later.';
+        _onlineError = 'No internet connection. Try again later.';
       });
     }
   }
@@ -457,16 +529,17 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       barrierColor: Colors.black87,
       builder: (dCtx) => StatefulBuilder(
         builder: (dCtx, setD) {
-          final raw    = double.tryParse(gCtrl.text) ?? 100.0;
-          final grams  = raw.clamp(1.0, 5000.0);
-          final cal    = item.caloriesForGrams(grams).round();
-          final prot   = item.proteinForGrams(grams);
-          final carbs  = item.carbsForGrams(grams);
-          final fat    = item.fatForGrams(grams);
+          final raw = double.tryParse(gCtrl.text) ?? 100.0;
+          final grams = raw.clamp(1.0, 5000.0);
+          final cal = item.caloriesForGrams(grams).round();
+          final prot = item.proteinForGrams(grams);
+          final carbs = item.carbsForGrams(grams);
+          final fat = item.fatForGrams(grams);
 
           return AlertDialog(
             backgroundColor: const Color(0xFF1E1E22),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             title: Column(
@@ -474,16 +547,23 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(item.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Row(children: [
-                  const Icon(Icons.public_rounded, size: 12, color: Color(0xFF40C8E0)),
+                  const Icon(Icons.public_rounded,
+                      size: 12, color: Color(0xFF40C8E0)),
                   const SizedBox(width: 4),
                   Text(
                     '${item.source} · per 100g: ${item.calories100g.round()} kcal, '
                     '${item.protein100g.toStringAsFixed(1)}g protein',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.38), fontSize: 10),
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.38),
+                        fontSize: 10),
                   ),
                 ]),
               ],
@@ -491,34 +571,39 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
             content: Column(mainAxisSize: MainAxisSize.min, children: [
               const SizedBox(height: 4),
               // Quick gram presets
-              Row(children: [50, 100, 150, 200].map((g) {
+              Row(
+                  children: [50, 100, 150, 200].map((g) {
                 final sel = grams.round() == g;
-                return Expanded(child: Padding(
+                return Expanded(
+                    child: Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: AppTappable(
-                    onTap: () { gCtrl.text = '$g'; setD(() {}); },
+                    onTap: () {
+                      gCtrl.text = '$g';
+                      setD(() {});
+                    },
                     borderRadius: BorderRadius.circular(8),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
+                      color: sel
+                          ? const Color(0xFF40C8E0).withValues(alpha: 0.18)
+                          : Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
                         color: sel
-                            ? const Color(0xFF40C8E0).withValues(alpha: 0.18)
-                            : Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: sel
-                              ? const Color(0xFF40C8E0).withValues(alpha: 0.5)
-                              : Colors.transparent,
-                        ),
+                            ? const Color(0xFF40C8E0).withValues(alpha: 0.5)
+                            : Colors.transparent,
                       ),
-                      child: Text('${g}g',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: sel
-                                ? const Color(0xFF40C8E0)
-                                : Colors.white.withValues(alpha: 0.5),
-                            fontSize: 12,
-                            fontWeight: sel ? FontWeight.bold : FontWeight.normal,
-                          )),
+                    ),
+                    child: Text('${g}g',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: sel
+                              ? const Color(0xFF40C8E0)
+                              : Colors.white.withValues(alpha: 0.5),
+                          fontSize: 12,
+                          fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                        )),
                   ),
                 ));
               }).toList()),
@@ -526,50 +611,82 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               // Custom gram field
               TextField(
                 controller: gCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
-                  suffix: Text('g', style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 16)),
+                  suffix: Text('g',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          fontSize: 16)),
                   hintText: '100',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  hintStyle:
+                      TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 ),
                 onChanged: (_) => setD(() {}),
               ),
               const SizedBox(height: 12),
               // Live macro preview
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  _NutCol(label: 'Calories', value: '$cal kcal', color: const Color(0xFF30D158)),
-                  _NutCol(label: 'Protein',  value: '${prot.toStringAsFixed(1)}g', color: const Color(0xFF40C8E0)),
-                  _NutCol(label: 'Carbs',    value: '${carbs.toStringAsFixed(1)}g', color: const Color(0xFFFF9F0A)),
-                  _NutCol(label: 'Fat',      value: '${fat.toStringAsFixed(1)}g',   color: const Color(0xFF8E8E93)),
-                ]),
+                child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _NutCol(
+                          label: 'Calories',
+                          value: '$cal kcal',
+                          color: const Color(0xFF30D158)),
+                      _NutCol(
+                          label: 'Protein',
+                          value: '${prot.toStringAsFixed(1)}g',
+                          color: const Color(0xFF40C8E0)),
+                      _NutCol(
+                          label: 'Carbs',
+                          value: '${carbs.toStringAsFixed(1)}g',
+                          color: const Color(0xFFFF9F0A)),
+                      _NutCol(
+                          label: 'Fat',
+                          value: '${fat.toStringAsFixed(1)}g',
+                          color: const Color(0xFF8E8E93)),
+                    ]),
               ),
               const SizedBox(height: 4),
             ]),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dCtx),
-                child: Text('Cancel', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                child: Text('Cancel',
+                    style:
+                        TextStyle(color: Colors.white.withValues(alpha: 0.5))),
               ),
               ElevatedButton(
-                onPressed: raw < 1 ? null : () {
-                  Navigator.pop(dCtx);
-                  _addApiItem(ctx, item, grams);
-                },
+                onPressed: raw < 1
+                    ? null
+                    : () {
+                        Navigator.pop(dCtx);
+                        _addApiItem(ctx, item, grams);
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF30D158),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
-                child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text('Add',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -584,17 +701,19 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     final gStr = grams == grams.roundToDouble()
         ? '${grams.toInt()}g'
         : '${grams.toStringAsFixed(1)}g';
-    provider.addFoodEntry(FoodEntry(
-      id:          provider.newId(),
-      name:        item.name,
-      calories:    item.caloriesForGrams(grams),
-      protein:     item.proteinForGrams(grams),
-      carbs:       item.carbsForGrams(grams),
-      fat:         item.fatForGrams(grams),
-      mealType:    _selectedMeal,
-      timestamp:   _selectedDate,
-      servingNote: '$gStr · 🌐 ${item.source}',
-    ), date: _selectedDate);
+    provider.addFoodEntry(
+        FoodEntry(
+          id: provider.newId(),
+          name: item.name,
+          calories: item.caloriesForGrams(grams),
+          protein: item.proteinForGrams(grams),
+          carbs: item.carbsForGrams(grams),
+          fat: item.fatForGrams(grams),
+          mealType: _selectedMeal,
+          timestamp: _selectedDate,
+          servingNote: '$gStr · 🌐 ${item.source}',
+        ),
+        date: _selectedDate);
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
     messenger.showSnackBar(SnackBar(
@@ -616,49 +735,81 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
         final prot = item.protein * servings;
         return AlertDialog(
           backgroundColor: const Color(0xFF1E1E22),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(children: [
             Text(item.emoji, style: const TextStyle(fontSize: 22)),
             const SizedBox(width: 8),
-            Expanded(child: Text(item.name,
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold))),
+            Expanded(
+                child: Text(item.name,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold))),
           ]),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('Per serving: ${item.serving}',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12)),
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.45), fontSize: 12)),
             const SizedBox(height: 20),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _QtyBtn(icon: Icons.remove, onTap: () {
-                if (servings > 0.5) setDState(() => servings = (servings - 0.5).clamp(0.5, 10.0));
-              }),
+              _QtyBtn(
+                  icon: Icons.remove,
+                  onTap: () {
+                    if (servings > 0.5)
+                      setDState(
+                          () => servings = (servings - 0.5).clamp(0.5, 10.0));
+                  }),
               const SizedBox(width: 20),
               Column(children: [
                 Text(
-                  servings == servings.roundToDouble() ? '${servings.toInt()}' : servings.toStringAsFixed(1),
-                  style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold),
+                  servings == servings.roundToDouble()
+                      ? '${servings.toInt()}'
+                      : servings.toStringAsFixed(1),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold),
                 ),
                 Text('serving${servings != 1.0 ? 's' : ''}',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 12)),
               ]),
               const SizedBox(width: 20),
-              _QtyBtn(icon: Icons.add, onTap: () {
-                if (servings < 10) setDState(() => servings = (servings + 0.5).clamp(0.5, 10.0));
-              }),
+              _QtyBtn(
+                  icon: Icons.add,
+                  onTap: () {
+                    if (servings < 10)
+                      setDState(
+                          () => servings = (servings + 0.5).clamp(0.5, 10.0));
+                  }),
             ]),
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(14)),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                _NutCol(label: 'Calories', value: '$cal kcal', color: const Color(0xFF30D158)),
-                _NutCol(label: 'Protein', value: '${prot.toStringAsFixed(1)}g', color: const Color(0xFF40C8E0)),
-              ]),
+              decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(14)),
+              child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _NutCol(
+                        label: 'Calories',
+                        value: '$cal kcal',
+                        color: const Color(0xFF30D158)),
+                    _NutCol(
+                        label: 'Protein',
+                        value: '${prot.toStringAsFixed(1)}g',
+                        color: const Color(0xFF40C8E0)),
+                  ]),
             ),
           ]),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dCtx),
-              child: Text('Cancel', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+              child: Text('Cancel',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
             ),
             ElevatedButton(
               onPressed: () {
@@ -667,9 +818,12 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF30D158),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
-              child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: const Text('Add',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -685,20 +839,22 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
         ? servings.toInt().toString()
         : servings.toStringAsFixed(1);
     final label = servings == 1.0 ? item.serving : '$qtyStr× ${item.serving}';
-    provider.addFoodEntry(FoodEntry(
-      id: provider.newId(),
-      name: item.name,
-      calories: item.calories * servings,
-      protein: item.protein * servings,
-      // Store the food's REAL macros (0 when the DB item has none) so the entry
-      // honestly records whether its carbs/fat are known. The macro donut
-      // estimates per-entry at display time via FoodEntry.effectiveCarbs/Fat.
-      carbs: item.carbs * servings,
-      fat: item.fat * servings,
-      mealType: _selectedMeal,
-      timestamp: _selectedDate,
-      servingNote: label,
-    ), date: _selectedDate);
+    provider.addFoodEntry(
+        FoodEntry(
+          id: provider.newId(),
+          name: item.name,
+          calories: item.calories * servings,
+          protein: item.protein * servings,
+          // Store the food's REAL macros (0 when the DB item has none) so the entry
+          // honestly records whether its carbs/fat are known. The macro donut
+          // estimates per-entry at display time via FoodEntry.effectiveCarbs/Fat.
+          carbs: item.carbs * servings,
+          fat: item.fat * servings,
+          mealType: _selectedMeal,
+          timestamp: _selectedDate,
+          servingNote: label,
+        ),
+        date: _selectedDate);
     // Capture messenger BEFORE pop (avoids using deactivated context)
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
@@ -713,28 +869,33 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     final name = _nameCtrl.text.trim();
     final cal = double.tryParse(_calCtrl.text.trim()) ?? 0;
     // Clamp protein to >= 0 so a stray "-5" can't subtract from the day's total.
-    final prot = (double.tryParse(_protCtrl.text.trim()) ?? 0).clamp(0.0, 100000.0);
+    final prot =
+        (double.tryParse(_protCtrl.text.trim()) ?? 0).clamp(0.0, 100000.0);
     if (name.isEmpty) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(content: Text('⚠️ Enter a food name'), duration: Duration(seconds: 1)));
+      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+          content: Text('⚠️ Enter a food name'),
+          duration: Duration(seconds: 1)));
       return;
     }
     if (cal <= 0) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(content: Text('⚠️ Enter calories > 0'), duration: Duration(seconds: 1)));
+      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+          content: Text('⚠️ Enter calories > 0'),
+          duration: Duration(seconds: 1)));
       return;
     }
     HapticFeedback.lightImpact();
     final provider = ctx.read<FitnessProvider>();
-    provider.addFoodEntry(FoodEntry(
-      id: provider.newId(),
-      name: name,
-      calories: cal,
-      protein: prot,
-      mealType: _selectedMeal,
-      timestamp: _selectedDate,
-      servingNote: 'custom entry',
-    ), date: _selectedDate);
+    provider.addFoodEntry(
+        FoodEntry(
+          id: provider.newId(),
+          name: name,
+          calories: cal,
+          protein: prot,
+          mealType: _selectedMeal,
+          timestamp: _selectedDate,
+          servingNote: 'custom entry',
+        ),
+        date: _selectedDate);
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
     messenger.showSnackBar(SnackBar(
@@ -753,12 +914,14 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       maxChildSize: 0.96,
       builder: (ctx, scrollCtrl) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Column(children: [
             // Handle bar
             Container(
               margin: const EdgeInsets.only(top: 10, bottom: 6),
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
@@ -768,7 +931,11 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
-                  const Text('Add Food', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Add Food',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold)),
                   const Spacer(),
                   // Backdate: pick the day this entry should be logged to.
                   DatePickerChip(
@@ -792,16 +959,22 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                     child: AppTappable(
                       onTap: () => setState(() => _selectedMeal = mt),
                       borderRadius: BorderRadius.circular(20),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 7),
                       decoration: BoxDecoration(
-                        color: sel ? const Color(0xFF30D158) : Colors.white.withValues(alpha: 0.08),
+                        color: sel
+                            ? const Color(0xFF30D158)
+                            : Colors.white.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(labels[mt.index],
                           style: TextStyle(
-                            color: sel ? Colors.white : Colors.white.withValues(alpha: 0.6),
+                            color: sel
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.6),
                             fontSize: 13,
-                            fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                            fontWeight:
+                                sel ? FontWeight.bold : FontWeight.normal,
                           )),
                     ),
                   );
@@ -820,13 +993,14 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                   // 150 ms debounce: avoids filtering on every keystroke which
                   // causes keyboard stutter on the 200+ item food database.
                   _searchDebounce?.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 150), () {
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 150), () {
                     if (!mounted) return;
                     setState(() {
                       _search = v;
                       if (v != _lastOnlineQuery) {
-                        _onlineResults   = [];
-                        _onlineError     = null;
+                        _onlineResults = [];
+                        _onlineError = null;
                         _searchingOnline = false;
                       }
                     });
@@ -834,17 +1008,26 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 },
                 decoration: InputDecoration(
                   hintText: 'Search 200+ Indian foods...',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                  prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.4)),
+                  hintStyle:
+                      TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                  prefixIcon: Icon(Icons.search,
+                      color: Colors.white.withValues(alpha: 0.4)),
                   suffixIcon: _search.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.clear, color: Colors.white.withValues(alpha: 0.4), size: 18),
-                          onPressed: () { _searchCtrl.clear(); setState(() => _search = ''); },
+                          icon: Icon(Icons.clear,
+                              color: Colors.white.withValues(alpha: 0.4),
+                              size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _search = '');
+                          },
                         )
                       : null,
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.07),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
@@ -869,19 +1052,27 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       onTap: () => setState(() => _selectedCategory = cat),
                       child: Container(
                         margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: sel ? const Color(0xFF30D158).withValues(alpha: 0.2) : Colors.transparent,
+                          color: sel
+                              ? const Color(0xFF30D158).withValues(alpha: 0.2)
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: sel ? const Color(0xFF30D158) : Colors.white.withValues(alpha: 0.15),
+                            color: sel
+                                ? const Color(0xFF30D158)
+                                : Colors.white.withValues(alpha: 0.15),
                           ),
                         ),
                         child: Text(cat,
                             style: TextStyle(
-                              color: sel ? const Color(0xFF30D158) : Colors.white.withValues(alpha: 0.55),
+                              color: sel
+                                  ? const Color(0xFF30D158)
+                                  : Colors.white.withValues(alpha: 0.55),
                               fontSize: 12,
-                              fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                              fontWeight:
+                                  sel ? FontWeight.bold : FontWeight.normal,
                             )),
                       ),
                     );
@@ -894,26 +1085,42 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
               child: TextButton.icon(
                 onPressed: () => setState(() => _showCustom = !_showCustom),
-                icon: Icon(_showCustom ? Icons.expand_less : Icons.add, size: 16, color: const Color(0xFF40C8E0)),
-                label: Text(_showCustom ? 'Hide custom entry' : 'Add custom food',
-                    style: const TextStyle(color: Color(0xFF40C8E0), fontSize: 12)),
+                icon: Icon(_showCustom ? Icons.expand_less : Icons.add,
+                    size: 16, color: const Color(0xFF40C8E0)),
+                label: Text(
+                    _showCustom ? 'Hide custom entry' : 'Add custom food',
+                    style: const TextStyle(
+                        color: Color(0xFF40C8E0), fontSize: 12)),
               ),
             ),
             if (_showCustom)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                 child: Row(children: [
-                  Expanded(flex: 3, child: _MiniField(ctrl: _nameCtrl, hint: 'Food name')),
+                  Expanded(
+                      flex: 3,
+                      child: _MiniField(ctrl: _nameCtrl, hint: 'Food name')),
                   const SizedBox(width: 6),
-                  Expanded(child: _MiniField(ctrl: _calCtrl, hint: 'kcal', keyboard: TextInputType.number)),
+                  Expanded(
+                      child: _MiniField(
+                          ctrl: _calCtrl,
+                          hint: 'kcal',
+                          keyboard: TextInputType.number)),
                   const SizedBox(width: 6),
-                  Expanded(child: _MiniField(ctrl: _protCtrl, hint: 'prot g', keyboard: TextInputType.number)),
+                  Expanded(
+                      child: _MiniField(
+                          ctrl: _protCtrl,
+                          hint: 'prot g',
+                          keyboard: TextInputType.number)),
                   const SizedBox(width: 6),
                   ElevatedButton(
                     onPressed: () => _addCustom(context),
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF30D158), padding: const EdgeInsets.all(12), minimumSize: Size.zero),
-                    child: const Icon(Icons.check, color: Colors.white, size: 18),
+                        backgroundColor: const Color(0xFF30D158),
+                        padding: const EdgeInsets.all(12),
+                        minimumSize: Size.zero),
+                    child:
+                        const Icon(Icons.check, color: Colors.white, size: 18),
                   ),
                 ]),
               ),
@@ -927,32 +1134,45 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                   // ── Local results ───────────────────────────────────────
                   if (_filtered.isNotEmpty)
                     ..._filtered.map((item) => ListTile(
-                      leading: Text(item.emoji, style: const TextStyle(fontSize: 22)),
-                      title: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                      subtitle: Text(
-                        '${item.calories.toInt()} kcal · ${item.protein.toStringAsFixed(1)}g protein · ${item.serving}',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.add_circle, color: Color(0xFF30D158)),
-                        onPressed: () => _showQuantityPicker(context, item),
-                      ),
-                    )),
+                          leading: Text(item.emoji,
+                              style: const TextStyle(fontSize: 22)),
+                          title: Text(item.name,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 14)),
+                          subtitle: Text(
+                            '${item.calories.toInt()} kcal · ${item.protein.toStringAsFixed(1)}g protein · ${item.serving}',
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                fontSize: 11),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.add_circle,
+                                color: Color(0xFF30D158)),
+                            onPressed: () => _showQuantityPicker(context, item),
+                          ),
+                        )),
 
                   // ── Online search section ────────────────────────────────
                   if (_search.length > 2 && _filtered.isEmpty) ...[
                     // Divider
-                    if (_onlineResults.isNotEmpty || _searchingOnline || _onlineError != null)
+                    if (_onlineResults.isNotEmpty ||
+                        _searchingOnline ||
+                        _onlineError != null)
                       const Divider(color: Color(0xFF2C2C2E), height: 1),
 
                     // "Search online" button (idle state)
-                    if (!_searchingOnline && _onlineResults.isEmpty && _onlineError == null)
+                    if (!_searchingOnline &&
+                        _onlineResults.isEmpty &&
+                        _onlineError == null)
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         child: Column(children: [
                           Text(
                             'No local results for "$_search"',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                fontSize: 12),
                           ),
                           const SizedBox(height: 10),
                           SizedBox(
@@ -963,9 +1183,12 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                               label: const Text('Search online food database'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF40C8E0),
-                                side: const BorderSide(color: Color(0xFF40C8E0), width: 1),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                padding: const EdgeInsets.symmetric(vertical: 11),
+                                side: const BorderSide(
+                                    color: Color(0xFF40C8E0), width: 1),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 11),
                               ),
                             ),
                           ),
@@ -983,13 +1206,16 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                         child: Column(children: [
                           Text(_onlineError!,
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 13)),
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                  fontSize: 13)),
                           const SizedBox(height: 8),
                           TextButton.icon(
                             onPressed: () => _searchOnline(context),
                             icon: const Icon(Icons.refresh_rounded, size: 16),
                             label: const Text('Try again'),
-                            style: TextButton.styleFrom(foregroundColor: const Color(0xFF40C8E0)),
+                            style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF40C8E0)),
                           ),
                         ]),
                       ),
@@ -999,7 +1225,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
                         child: Row(children: [
-                          const Icon(Icons.public_rounded, size: 12, color: Color(0xFF40C8E0)),
+                          const Icon(Icons.public_rounded,
+                              size: 12, color: Color(0xFF40C8E0)),
                           const SizedBox(width: 4),
                           Text(
                             'Online results  ·  values per 100 g',
@@ -1012,46 +1239,58 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                         ]),
                       ),
                       ..._onlineResults.map((item) => ListTile(
-                        leading: Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF40C8E0).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.public_rounded, size: 18, color: Color(0xFF40C8E0)),
-                          ),
-                        ),
-                        title: Text(
-                          item.name,
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          '${item.calories100g.round()} kcal · '
-                          '${item.protein100g.toStringAsFixed(1)}g prot · '
-                          '${item.carbs100g.toStringAsFixed(1)}g carbs per 100g',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.add_circle, color: Color(0xFF40C8E0)),
-                          onPressed: () => _showGramPicker(context, item),
-                        ),
-                      )),
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF40C8E0)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.public_rounded,
+                                    size: 18, color: Color(0xFF40C8E0)),
+                              ),
+                            ),
+                            title: Text(
+                              item.name,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 13),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              '${item.calories100g.round()} kcal · '
+                              '${item.protein100g.toStringAsFixed(1)}g prot · '
+                              '${item.carbs100g.toStringAsFixed(1)}g carbs per 100g',
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                  fontSize: 10),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.add_circle,
+                                  color: Color(0xFF40C8E0)),
+                              onPressed: () => _showGramPicker(context, item),
+                            ),
+                          )),
                     ],
                   ],
 
                   // ── Catch-all: empty local + not searching online ─────────
-                  if (_search.isNotEmpty && _filtered.isEmpty &&
-                      _onlineResults.isEmpty && !_searchingOnline &&
-                      _onlineError == null && _search.length <= 2)
+                  if (_search.isNotEmpty &&
+                      _filtered.isEmpty &&
+                      _onlineResults.isEmpty &&
+                      !_searchingOnline &&
+                      _onlineError == null &&
+                      _search.length <= 2)
                     Padding(
                       padding: const EdgeInsets.all(24),
                       child: Center(
                         child: Text(
                           'Type more to search…',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 13),
                         ),
                       ),
                     ),
@@ -1078,20 +1317,25 @@ class _OnlineSearchSkeleton extends StatelessWidget {
     return Skeletonizer(
       enabled: true,
       child: Column(
-        children: List.generate(4, (i) => ListTile(
-          leading: Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFF40C8E0).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          title: const Text('Online food item name',
-              style: TextStyle(color: Colors.white, fontSize: 13)),
-          subtitle: const Text('123 kcal · 12.0g prot · 20.0g carbs per 100g',
-              style: TextStyle(fontSize: 10)),
-          trailing: const Icon(Icons.add_circle, color: Color(0xFF40C8E0)),
-        )),
+        children: List.generate(
+            4,
+            (i) => ListTile(
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF40C8E0).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  title: const Text('Online food item name',
+                      style: TextStyle(color: Colors.white, fontSize: 13)),
+                  subtitle: const Text(
+                      '123 kcal · 12.0g prot · 20.0g carbs per 100g',
+                      style: TextStyle(fontSize: 10)),
+                  trailing:
+                      const Icon(Icons.add_circle, color: Color(0xFF40C8E0)),
+                )),
       ),
     );
   }
@@ -1109,10 +1353,12 @@ class _QtyBtn extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF30D158).withValues(alpha: 0.15),
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF30D158).withValues(alpha: 0.4)),
+        border:
+            Border.all(color: const Color(0xFF30D158).withValues(alpha: 0.4)),
       ),
       child: SizedBox(
-        width: 44, height: 44,
+        width: 44,
+        height: 44,
         child: Icon(icon, color: const Color(0xFF30D158), size: 20),
       ),
     );
@@ -1122,12 +1368,17 @@ class _QtyBtn extends StatelessWidget {
 class _NutCol extends StatelessWidget {
   final String label, value;
   final Color color;
-  const _NutCol({required this.label, required this.value, required this.color});
+  const _NutCol(
+      {required this.label, required this.value, required this.color});
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
-      Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11)),
+      Text(value,
+          style: TextStyle(
+              color: color, fontSize: 18, fontWeight: FontWeight.bold)),
+      Text(label,
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45), fontSize: 11)),
     ]);
   }
 }
@@ -1136,7 +1387,10 @@ class _MiniField extends StatelessWidget {
   final TextEditingController ctrl;
   final String hint;
   final TextInputType keyboard;
-  const _MiniField({required this.ctrl, required this.hint, this.keyboard = TextInputType.text});
+  const _MiniField(
+      {required this.ctrl,
+      required this.hint,
+      this.keyboard = TextInputType.text});
   @override
   Widget build(BuildContext context) {
     return TextField(
@@ -1145,11 +1399,15 @@ class _MiniField extends StatelessWidget {
       style: const TextStyle(color: Colors.white, fontSize: 13),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 12),
+        hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.35), fontSize: 12),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.07),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide.none),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
     );
   }
@@ -1169,10 +1427,10 @@ class _RecentFoodsRow extends StatelessWidget {
     // Re-adding works for ANY past food — DB items, custom entries, and
     // OpenFoodFacts results alike — because we replay the stored entry's own
     // calories/protein/macros rather than re-looking it up in the local DB.
-    final seen    = <String>{};
+    final seen = <String>{};
     final recents = <FoodEntry>[];
-    final hist    = p.foodHistory;
-    final keys    = hist.keys.toList()..sort((a, b) => b.compareTo(a));
+    final hist = p.foodHistory;
+    final keys = hist.keys.toList()..sort((a, b) => b.compareTo(a));
     for (final key in keys) {
       for (final e in (hist[key] ?? <FoodEntry>[])) {
         if (seen.add(e.name.toLowerCase())) recents.add(e);
@@ -1185,27 +1443,34 @@ class _RecentFoodsRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('RECENT', style: TextStyle(color: Color(0xFF8E8E93),
-            fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+        const Text('RECENT',
+            style: TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5)),
         const SizedBox(height: 6),
         Wrap(
-          spacing: 8, runSpacing: 6,
+          spacing: 8,
+          runSpacing: 6,
           children: recents.map((src) {
             return AppTappable(
               onTap: () {
                 // Replay the stored entry into the current meal with a fresh id
                 // and timestamp (UUID, not ms — avoids duplicate-key crashes).
-                context.read<FitnessProvider>().addFoodEntry(FoodEntry(
-                  id: context.read<FitnessProvider>().newId(),
-                  name: src.name,
-                  calories: src.calories,
-                  protein: src.protein,
-                  carbs: src.carbs,
-                  fat: src.fat,
-                  mealType: meal,
-                  servingNote: src.servingNote,
-                  timestamp: date,
-                ), date: date);
+                context.read<FitnessProvider>().addFoodEntry(
+                    FoodEntry(
+                      id: context.read<FitnessProvider>().newId(),
+                      name: src.name,
+                      calories: src.calories,
+                      protein: src.protein,
+                      carbs: src.carbs,
+                      fat: src.fat,
+                      mealType: meal,
+                      servingNote: src.servingNote,
+                      timestamp: date,
+                    ),
+                    date: date);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text('Added ${src.name}'),
@@ -1216,21 +1481,26 @@ class _RecentFoodsRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                  color: const Color(0xFF2C2C2E),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF3A3A3C)),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.history_rounded, size: 12, color: Color(0xFF8E8E93)),
-                  const SizedBox(width: 4),
-                  Text(src.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 12,
-                          fontWeight: FontWeight.w500),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(width: 4),
-                  Text('${src.calories.round()}kcal',
-                      style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
-                ]),
+                color: const Color(0xFF2C2C2E),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF3A3A3C)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.history_rounded,
+                    size: 12, color: Color(0xFF8E8E93)),
+                const SizedBox(width: 4),
+                Text(src.name,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(width: 4),
+                Text('${src.calories.round()}kcal',
+                    style: const TextStyle(
+                        color: Color(0xFF8E8E93), fontSize: 11)),
+              ]),
             );
           }).toList(),
         ),

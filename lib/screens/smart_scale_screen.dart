@@ -128,18 +128,32 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
 
   @override
   void dispose() {
-    for (final c in [_weight, _bodyFatPct, _bodyFatKg, _muscleMassKg,
-        _muscleMassPct, _leanBodyMass, _bioAge, _visceralFat, _bmr,
-        _bodyWater, _boneMass, _proteinPct, _skeletalMuscle]) {
+    for (final c in [
+      _weight,
+      _bodyFatPct,
+      _bodyFatKg,
+      _muscleMassKg,
+      _muscleMassPct,
+      _leanBodyMass,
+      _bioAge,
+      _visceralFat,
+      _bmr,
+      _bodyWater,
+      _boneMass,
+      _proteinPct,
+      _skeletalMuscle
+    ]) {
       c.dispose();
     }
     super.dispose();
   }
 
   Future<void> _save() async {
-    if (_formKey.currentState == null || !_formKey.currentState!.validate()) return;
+    if (_formKey.currentState == null || !_formKey.currentState!.validate())
+      return;
     final weightVal = double.tryParse(_weight.text);
-    if (weightVal == null) return; // form validator should catch this, but guard anyway
+    if (weightVal == null)
+      return; // form validator should catch this, but guard anyway
     final entry = SmartScaleEntry(
       id: const Uuid().v4(),
       date: _logDate,
@@ -181,13 +195,15 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
     // When latestScaleEntry goes from null → non-null while the screen is alive,
     // build() re-runs but initState doesn't — schedule a prefill for next frame.
     if (latest != null && !_didAutoPrefill && _weight.text.isEmpty) {
-      _didAutoPrefill = true; // one-shot: don't re-fill after the user clears a field
+      _didAutoPrefill =
+          true; // one-shot: don't re-fill after the user clears a field
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _weight.text.isEmpty) _prefill();
       });
     }
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
       child: Form(
         key: _formKey,
         child: Column(
@@ -196,8 +212,10 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
             Row(
               children: [
                 Expanded(
-                  child: Text(subtitle,
-                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+                  child: Text(
+                    subtitle,
+                    style:
+                        const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -226,8 +244,10 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
               _Field('Body Water (%)', _bodyWater, min: 30, max: 80),
               _Field('Bone Mass (kg)', _boneMass, min: 0.5, max: 10),
               _Field('Protein (%)', _proteinPct, min: 5, max: 30),
-              _Field('Visceral Fat Index', _visceralFat, isDecimal: false, min: 1, max: 59),
-              _Field('Biological Age (yrs)', _bioAge, isDecimal: false, min: 10, max: 120),
+              _Field('Visceral Fat Index', _visceralFat,
+                  isDecimal: false, min: 1, max: 59),
+              _Field('Biological Age (yrs)', _bioAge,
+                  isDecimal: false, min: 10, max: 120),
             ]),
             const SizedBox(height: 16),
             SizedBox(
@@ -238,10 +258,12 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
                   backgroundColor: const Color(0xFF30D158),
                   foregroundColor: Colors.black,
                   minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 child: const Text('Save Scale Data',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(height: 32),
@@ -260,7 +282,8 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
           padding: const EdgeInsets.only(top: 20, bottom: 12),
           child: Row(children: [
             Container(
-              width: 3, height: 14,
+              width: 3,
+              height: 14,
               decoration: BoxDecoration(
                 color: const Color(0xFF30D158),
                 borderRadius: BorderRadius.circular(2),
@@ -282,8 +305,10 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _Field(String label, TextEditingController ctrl,
-      {bool required = false, bool isDecimal = true,
-       double? min, double? max}) {
+      {bool required = false,
+      bool isDecimal = true,
+      double? min,
+      double? max}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(children: [
@@ -294,7 +319,11 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
               text: label,
               style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
               children: required
-                  ? [const TextSpan(text: ' *', style: TextStyle(color: Color(0xFFFF453A)))]
+                  ? [
+                      const TextSpan(
+                          text: ' *',
+                          style: TextStyle(color: Color(0xFFFF453A)))
+                    ]
                   : [],
             ),
           ),
@@ -307,13 +336,15 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
             keyboardType: isDecimal
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : TextInputType.number,
-            style: const TextStyle(color: Colors.white, fontSize: 15,
-                fontWeight: FontWeight.w600),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
             textAlign: TextAlign.right,
             decoration: InputDecoration(
               hintText: '—',
-              hintStyle: const TextStyle(color: Color(0xFF48484A), fontSize: 15),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              hintStyle:
+                  const TextStyle(color: Color(0xFF48484A), fontSize: 15),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.06),
               border: OutlineInputBorder(
@@ -343,7 +374,8 @@ class _HistoryTab extends StatelessWidget {
   const _HistoryTab();
   @override
   Widget build(BuildContext context) {
-    final history = context.watch<FitnessProvider>().scaleHistory.reversed.toList();
+    final history =
+        context.watch<FitnessProvider>().scaleHistory.reversed.toList();
     if (history.isEmpty) {
       return const AppEmptyState(
         icon: '⚖️',
@@ -352,7 +384,8 @@ class _HistoryTab extends StatelessWidget {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
       itemCount: history.length,
       itemBuilder: (ctx, i) {
         final e = history[i];
@@ -364,22 +397,30 @@ class _HistoryTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             boxShadow: AppShadows.card,
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text('${e.date.day}/${e.date.month}/${e.date.year}',
+              Text(
+                '${e.date.day}/${e.date.month}/${e.date.year}',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               Text('${e.weightKg.toStringAsFixed(1)} kg',
                   style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF30D158))),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF30D158))),
             ]),
             const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 6, children: [
-              _Pill('Fat ${e.bodyFatPercent.toStringAsFixed(1)}%', const Color(0xFFFF9F0A)),
-              _Pill('Muscle ${e.muscleMassKg.toStringAsFixed(1)}kg', const Color(0xFF30D158)),
-              _Pill('Water ${e.bodyWaterPercent.toStringAsFixed(1)}%', const Color(0xFF40C8E0)),
-              _Pill('BMR ${e.bmr.toStringAsFixed(0)} kcal', const Color(0xFFFF9F0A)),
+              _Pill('Fat ${e.bodyFatPercent.toStringAsFixed(1)}%',
+                  const Color(0xFFFF9F0A)),
+              _Pill('Muscle ${e.muscleMassKg.toStringAsFixed(1)}kg',
+                  const Color(0xFF30D158)),
+              _Pill('Water ${e.bodyWaterPercent.toStringAsFixed(1)}%',
+                  const Color(0xFF40C8E0)),
+              _Pill('BMR ${e.bmr.toStringAsFixed(0)} kcal',
+                  const Color(0xFFFF9F0A)),
               _Pill('Bio Age ${e.biologicalAge}', Colors.white54),
               _Pill('Visceral ${e.visceralFatIndex}', Colors.white54),
             ]),
@@ -398,9 +439,16 @@ class _HistoryTab extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
+        Text(text,
+            style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w500)),
       ]),
     );
   }
