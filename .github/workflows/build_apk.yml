@@ -320,7 +320,13 @@ jobs:
         # HF model-download token is hardcoded in lib/services/on_device_ai_service.dart
         # (no secret needed, by design). --build-number sets the Android versionCode
         # from the auto-computed commit count (overrides pubspec).
-        run: flutter build apk --release --no-tree-shake-icons --build-number=${{ steps.ver.outputs.code }} --dart-define=HF_TOKEN=${{ secrets.HF_TOKEN }}
+        # --target-platform android-arm64: ship a single-ABI APK. Without it the
+        # Flutter Gradle plugin builds all three ABIs (arm/arm64/x64) and overrides
+        # the manual `ndk.abiFilters arm64-v8a` in the generated build.gradle — which
+        # is why x86_64 (emulator-only) and armeabi-v7a (32-bit, can't run the ~600 MB
+        # model anyway) were still packaged, ~90 MB of dead weight. arm64-v8a is the
+        # only arch a real target device uses.
+        run: flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons --build-number=${{ steps.ver.outputs.code }} --dart-define=HF_TOKEN=${{ secrets.HF_TOKEN }}
 
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/kfit.apk
