@@ -722,8 +722,13 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     final gStr = grams == grams.roundToDouble()
         ? '${grams.toInt()}g'
         : '${grams.toStringAsFixed(1)}g';
-    // IFCT is a bundled offline source; OFF/USDA are online — label accordingly.
-    final tag = item.source == 'IFCT' ? '🇮🇳 IFCT' : '🌐 ${item.source}';
+    // IFCT is a bundled offline source; Manual is a remembered scan; OFF/USDA
+    // are online — label the serving note accordingly.
+    final tag = switch (item.source) {
+      'IFCT' => '🇮🇳 IFCT',
+      'Manual' => '📷 scan',
+      _ => '🌐 ${item.source}',
+    };
     provider.addFoodEntry(
         FoodEntry(
           id: provider.newId(),
@@ -908,6 +913,14 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     }
     HapticFeedback.lightImpact();
     final provider = ctx.read<FitnessProvider>();
+    // If this custom add is filling a barcode gap (a scan that resolved
+    // nothing), remember the product BY BARCODE so the next scan is instant and
+    // offline. Stored per-100g defaulting to a 100 g serving = the entered value.
+    final barcode = _pendingBarcode;
+    if (barcode != null) {
+      FoodApiService.cacheManualBarcode(
+          barcode: barcode, name: name, calories: cal, protein: prot);
+    }
     provider.addFoodEntry(
         FoodEntry(
           id: provider.newId(),
@@ -916,7 +929,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           protein: prot,
           mealType: _selectedMeal,
           timestamp: _selectedDate,
-          servingNote: 'custom entry',
+          servingNote:
+              barcode != null ? 'custom entry · 📷 scan' : 'custom entry',
         ),
         date: _selectedDate);
     final messenger = ScaffoldMessenger.of(ctx);
@@ -926,6 +940,279 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       backgroundColor: const Color(0xFF30D158),
       duration: const Duration(seconds: 1),
     ));
+  }
+
+  // ── Unified result rows ───────────────────────────────────────────────────────
+
+  /// One row in the unified ranked search list. Curated items use the per-serving
+  /// quantity picker; IFCT / OFF / USDA use the per-100g gram picker.
+  Widget _unifiedTile(UnifiedFoodResult r) {
+    if (r.isLocal && r.source == 'curated') {
+      final item = r.local!;
+      return ListTile(
+        leading: Text(item.emoji, style: const TextStyle(fontSize: 22)),
+        title: Row(children: [
+          Flexible(
+            child: Text(item.name,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(width: 6),
+          _sourceChip('curated'),
+        ]),
+        subtitle: Text(
+          '${item.calories.toInt()} kcal · ${item.protein.toStringAsFixed(1)}g protein · ${item.serving}',
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.add_circle, color: Color(0xFF30D158)),
+          onPressed: () => _showQuantityPicker(context, item),
+        ),
+      );
+    }
+
+    // IFCT (local, per-100g) or remote OFF/USDA — both use the gram picker.
+    final api = r.isLocal ? _ifctAsApi(r.local!) : r.remote!;
+    final isIfct = api.source == 'IFCT';
+    return ListTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: (isIfct ? const Color(0xFFFF9F0A) : const Color(0xFF40C8E0))
+              .withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: isIfct
+              ? const Text('🇮🇳', style: TextStyle(fontSize: 16))
+              : const Icon(Icons.public_rounded,
+                  size: 18, color: Color(0xFF40C8E0)),
+        ),
+      ),
+      title: Row(children: [
+        Flexible(
+          child: Text(api.name,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ),
+        const SizedBox(width: 6),
+        _sourceChip(api.source),
+      ]),
+      subtitle: Text(
+        '${api.calories100g.round()} kcal · '
+        '${api.protein100g.toStringAsFixed(1)}g prot · '
+        '${api.carbs100g.toStringAsFixed(1)}g carbs per 100g',
+        style:
+            TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10),
+      ),
+      trailing: IconButton(
+        icon: Icon(Icons.add_circle,
+            color: isIfct ? const Color(0xFFFF9F0A) : const Color(0xFF40C8E0)),
+        onPressed: () => _showGramPicker(context, api),
+      ),
+    );
+  }
+
+  /// Small provenance chip shown on each result row.
+  Widget _sourceChip(String source) {
+    late final String label;
+    late final Color color;
+    switch (source) {
+      case 'curated':
+        label = 'DB';
+        color = const Color(0xFF30D158);
+        break;
+      case 'IFCT':
+        label = 'IFCT';
+        color = const Color(0xFFFF9F0A);
+        break;
+      case 'USDA':
+        label = 'USDA';
+        color = const Color(0xFF40C8E0);
+        break;
+      case 'OpenFoodFacts':
+        label = 'OFF';
+        color = const Color(0xFF40C8E0);
+        break;
+      default:
+        label = source;
+        color = const Color(0xFF8E8E93);
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+    );
+  }
+
+  // ── Barcode scanning ──────────────────────────────────────────────────────────
+
+  /// Opens the camera scanner after a permission check, then resolves the code.
+  Future<void> _openScanner(BuildContext ctx) async {
+    var status = await Permission.camera.status;
+    if (!status.isGranted) status = await Permission.camera.request();
+    if (!ctx.mounted) return;
+
+    if (!status.isGranted) {
+      _showCameraDeniedSheet(ctx,
+          permanentlyDenied: status.isPermanentlyDenied);
+      return;
+    }
+
+    final code = await Navigator.of(ctx).push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+    );
+    if (code == null || code.isEmpty || !ctx.mounted) return;
+    await _resolveBarcode(ctx, code);
+  }
+
+  /// Camera permission denied — explain + offer settings; manual entry still works.
+  void _showCameraDeniedSheet(BuildContext ctx,
+      {required bool permanentlyDenied}) {
+    showDialog(
+      context: ctx,
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Camera needed to scan',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Text(
+          permanentlyDenied
+              ? 'Enable camera access in Settings to scan barcodes, or enter a barcode manually.'
+              : 'Allow camera access to scan barcodes, or enter a barcode manually.',
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dCtx);
+              _manualBarcodeEntry(ctx);
+            },
+            child: const Text('Enter manually',
+                style: TextStyle(color: Color(0xFF40C8E0))),
+          ),
+          if (permanentlyDenied)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dCtx);
+                openAppSettings();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF30D158),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: const Text('Open settings',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Manual barcode text entry (used when the camera is unavailable/denied).
+  Future<void> _manualBarcodeEntry(BuildContext ctx) async {
+    final ctrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: ctx,
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Enter barcode',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'e.g. 8901234567890',
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.07),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx),
+            child: Text('Cancel',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dCtx, ctrl.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF30D158),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Text('Look up',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (code == null || code.isEmpty || !ctx.mounted) return;
+    await _resolveBarcode(ctx, code);
+  }
+
+  /// Resolves a barcode → confirm/gram picker, or the manual gap-filler on a miss.
+  Future<void> _resolveBarcode(BuildContext ctx, String code) async {
+    // Brief blocking spinner — lookup hits cache (instant) or network (≤8s).
+    showDialog(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF30D158))),
+    );
+    FoodApiResult? result;
+    try {
+      result = await FoodApiService.lookupByBarcode(code);
+    } catch (_) {
+      result = null;
+    }
+    if (!ctx.mounted) return;
+    Navigator.pop(ctx); // dismiss spinner
+
+    if (result != null) {
+      _showGramPicker(ctx, result); // confirm card + quantity in one step
+      return;
+    }
+
+    // Nothing matched anywhere → manual gap-fill with the barcode remembered.
+    _startManualGapFill(barcode: code);
+    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+      content: Text('No match for barcode $code — add it manually'),
+      backgroundColor: const Color(0xFFFF9F0A),
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
+  /// Reveals the custom-entry form for a permanent gap-fill. When [barcode] is
+  /// given, the saved food is cached by that barcode (next scan is instant).
+  void _startManualGapFill({String? barcode}) {
+    setState(() {
+      _pendingBarcode = barcode;
+      _showCustom = true;
+      if (barcode == null && _search.trim().isNotEmpty) {
+        _nameCtrl.text = _search.trim(); // pre-fill the partial name
+      }
+    });
   }
 
   @override

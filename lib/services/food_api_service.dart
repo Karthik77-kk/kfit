@@ -10,7 +10,7 @@ class FoodApiResult {
   final double protein100g;  // g per 100 g
   final double carbs100g;    // g per 100 g
   final double fat100g;      // g per 100 g
-  final String source;       // 'OpenFoodFacts' | 'USDA' | 'IFCT'
+  final String source;       // 'OpenFoodFacts' | 'USDA' | 'IFCT' | 'Manual'
   final String? barcode;     // set for barcode lookups (null for text search)
   final double? servingSizeG; // OFF/USDA declared serving in grams, when known
 
@@ -56,13 +56,14 @@ class FoodApiResult {
 /// Resolves food nutrition from open data sources not covered by the local DB.
 ///
 /// Hierarchy (caller searches the LOCAL set — curated + IFCT — first):
-///   text   : OpenFoodFacts → USDA (USDA only when [FDC_API_KEY] is set)
+///   text   : OpenFoodFacts → USDA (USDA only when [fdcApiKey] is set)
 ///   barcode: OpenFoodFacts product/{code} → USDA branded-by-UPC → null
 ///
 /// Network errors and timeouts return [] / null silently — callers handle UX.
 /// The app builds and runs fully WITHOUT a USDA key (forks / local dev): when
 /// the key is empty, every USDA call short-circuits and the other sources still
-/// work.
+/// work. The body→result mappers are pure & public so they can be unit-tested
+/// against fixtures without hitting the network.
 class FoodApiService {
   static const _timeout  = Duration(seconds: 8);
   static const _maxItems = 5;
@@ -94,17 +95,19 @@ class FoodApiService {
   static Future<List<FoodApiResult>> searchByText(String query) async {
     final q = query.trim();
     if (q.length < 2) return [];
-    if (_textMem.containsKey(q.toLowerCase())) return _textMem[q.toLowerCase()]!;
+    final cacheKey = q.toLowerCase();
+    if (_textMem.containsKey(cacheKey)) return _textMem[cacheKey]!;
     try {
       // Race both sources; either may fail independently without sinking the other.
       final results = await Future.wait([
         _searchOpenFoodFacts(q).catchError((_) => <FoodApiResult>[]),
         _searchUsdaText(q).catchError((_) => <FoodApiResult>[]),
-      ]).timeout(_timeout, onTimeout: () => [<FoodApiResult>[], <FoodApiResult>[]]);
-      // OFF first (India market relevance), then USDA — final cross-layer rank
-      // happens in food_screen; here we just concatenate in source priority.
+      ]).timeout(_timeout,
+          onTimeout: () => [<FoodApiResult>[], <FoodApiResult>[]]);
+      // OFF first (India market relevance), then USDA — the final cross-layer
+      // rank happens in food_screen; here we concatenate in source priority.
       final merged = [...results[0], ...results[1]];
-      _textMem[q.toLowerCase()] = merged;
+      _textMem[cacheKey] = merged;
       return merged;
     } catch (_) {
       return [];
@@ -164,29 +167,29 @@ class FoodApiService {
         .timeout(_timeout);
 
     if (response.statusCode != 200) return [];
+    return parseOffSearchBody(jsonDecode(response.body) as Map<String, dynamic>);
+  }
 
-    final body    = jsonDecode(response.body) as Map<String, dynamic>;
+  /// Pure mapper: OFF `cgi/search.pl` body → per-100g results. Dedupes by name.
+  static List<FoodApiResult> parseOffSearchBody(Map<String, dynamic> body) {
     final products = (body['products'] as List?) ?? [];
     final results  = <FoodApiResult>[];
     final seen     = <String>{};
-
     for (final raw in products) {
       if (results.length >= _maxItems) break;
-
+      if (raw is! Map) continue;
       final name = (raw['product_name'] as String?)?.trim() ?? '';
       if (name.isEmpty) continue;
-
-      // Deduplicate by case-insensitive name
-      if (!seen.add(name.toLowerCase())) continue;
-
-      final n = raw['nutriments'] as Map<String, dynamic>?;
-      if (n == null) continue;
-
-      final parsed = _parseOffNutriments(n, name: name,
-          servingSizeG: _num(raw['serving_quantity']));
+      if (!seen.add(name.toLowerCase())) continue; // dedupe by name
+      final n = raw['nutriments'];
+      if (n is! Map) continue;
+      final parsed = _mapOffNutriments(
+        n.cast<String, dynamic>(),
+        name: name,
+        servingSizeG: _num(raw['serving_quantity']),
+      );
       if (parsed != null) results.add(parsed);
     }
-
     return results;
   }
 
@@ -200,28 +203,37 @@ class FoodApiService {
         .get(uri, headers: {'User-Agent': _ua})
         .timeout(_timeout);
     if (response.statusCode != 200) return null;
+    return parseOffProductBody(
+        jsonDecode(response.body) as Map<String, dynamic>, barcode);
+  }
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+  /// Pure mapper: OFF v2 product body → per-100g result (null when not found).
+  /// `status == 1` ⇒ found.
+  static FoodApiResult? parseOffProductBody(
+      Map<String, dynamic> body, String barcode) {
     if ((body['status'] as num?)?.toInt() != 1) return null;
-
-    final product = body['product'] as Map<String, dynamic>?;
-    if (product == null) return null;
+    final product = body['product'];
+    if (product is! Map) return null;
 
     var name = (product['product_name'] as String?)?.trim() ?? '';
     final brand = (product['brands'] as String?)?.trim() ?? '';
     if (name.isEmpty) name = brand;
     if (name.isEmpty) return null;
 
-    final n = product['nutriments'] as Map<String, dynamic>?;
-    if (n == null) return null;
+    final n = product['nutriments'];
+    if (n is! Map) return null;
 
-    return _parseOffNutriments(n, name: name, barcode: barcode,
-        servingSizeG: _num(product['serving_quantity']));
+    return _mapOffNutriments(
+      n.cast<String, dynamic>(),
+      name: name,
+      barcode: barcode,
+      servingSizeG: _num(product['serving_quantity']),
+    );
   }
 
   /// Shared OFF nutriment parsing + clamps (identical for text + barcode).
   /// Returns null for missing/zero-calorie or implausible entries.
-  static FoodApiResult? _parseOffNutriments(
+  static FoodApiResult? _mapOffNutriments(
     Map<String, dynamic> n, {
     required String name,
     String? barcode,
@@ -241,9 +253,9 @@ class FoodApiService {
     return FoodApiResult(
       name:          name,
       calories100g:  cal,
-      protein100g:   prot.clamp(0, 100),
-      carbs100g:     carb.clamp(0, 100),
-      fat100g:       fat.clamp(0, 100),
+      protein100g:   prot.clamp(0, 100).toDouble(),
+      carbs100g:     carb.clamp(0, 100).toDouble(),
+      fat100g:       fat.clamp(0, 100).toDouble(),
       source:        'OpenFoodFacts',
       barcode:       barcode,
       servingSizeG:  (servingSizeG != null && servingSizeG > 0) ? servingSizeG : null,
@@ -268,14 +280,18 @@ class FoodApiService {
         .get(uri, headers: {'User-Agent': _ua})
         .timeout(_timeout);
     if (response.statusCode != 200) return [];
+    return parseUsdaSearchBody(jsonDecode(response.body) as Map<String, dynamic>);
+  }
 
-    final body  = jsonDecode(response.body) as Map<String, dynamic>;
+  /// Pure mapper: USDA `/foods/search` body → per-100g results. Dedupes by name.
+  static List<FoodApiResult> parseUsdaSearchBody(Map<String, dynamic> body) {
     final foods = (body['foods'] as List?) ?? [];
     final out   = <FoodApiResult>[];
     final seen  = <String>{};
     for (final raw in foods) {
       if (out.length >= _maxItems) break;
-      final r = _parseUsdaFood(raw as Map<String, dynamic>);
+      if (raw is! Map) continue;
+      final r = _mapUsdaFood(raw.cast<String, dynamic>());
       if (r == null) continue;
       if (!seen.add(r.name.toLowerCase())) continue;
       out.add(r);
@@ -296,21 +312,28 @@ class FoodApiService {
         .get(uri, headers: {'User-Agent': _ua})
         .timeout(_timeout);
     if (response.statusCode != 200) return null;
+    return parseUsdaBarcodeBody(
+        jsonDecode(response.body) as Map<String, dynamic>, barcode);
+  }
 
-    final body  = jsonDecode(response.body) as Map<String, dynamic>;
+  /// Pure mapper: USDA branded search body → the food whose `gtinUpc` matches
+  /// [barcode], or null.
+  static FoodApiResult? parseUsdaBarcodeBody(
+      Map<String, dynamic> body, String barcode) {
     final foods = (body['foods'] as List?) ?? [];
     for (final raw in foods) {
-      final m = raw as Map<String, dynamic>;
+      if (raw is! Map) continue;
+      final m = raw.cast<String, dynamic>();
       final upc = (m['gtinUpc'] as String?)?.trim();
       if (upc != barcode) continue;
-      final r = _parseUsdaFood(m, barcode: barcode);
+      final r = _mapUsdaFood(m, barcode: barcode);
       if (r != null) return r;
     }
     return null;
   }
 
   /// Maps one USDA food object → per-100g [FoodApiResult] via nutrient numbers.
-  static FoodApiResult? _parseUsdaFood(Map<String, dynamic> m, {String? barcode}) {
+  static FoodApiResult? _mapUsdaFood(Map<String, dynamic> m, {String? barcode}) {
     final name = (m['description'] as String?)?.trim() ?? '';
     if (name.isEmpty) return null;
 
@@ -318,10 +341,10 @@ class FoodApiService {
     double? cal;
     double prot = 0, fat = 0, carb = 0;
     for (final raw in nutrients) {
-      final n = raw as Map<String, dynamic>;
+      if (raw is! Map) continue;
       // Search results expose `nutrientNumber` + `value`.
-      final number = (n['nutrientNumber'] ?? n['number'])?.toString();
-      final value = _num(n['value'] ?? n['amount']);
+      final number = (raw['nutrientNumber'] ?? raw['number'])?.toString();
+      final value = _num(raw['value'] ?? raw['amount']);
       if (number == null || value == null) continue;
       switch (number) {
         case '208':
@@ -345,13 +368,39 @@ class FoodApiService {
     return FoodApiResult(
       name:          name,
       calories100g:  cal,
-      protein100g:   prot.clamp(0, 100),
-      carbs100g:     carb.clamp(0, 100),
-      fat100g:       fat.clamp(0, 100),
+      protein100g:   prot.clamp(0, 100).toDouble(),
+      carbs100g:     carb.clamp(0, 100).toDouble(),
+      fat100g:       fat.clamp(0, 100).toDouble(),
       source:        'USDA',
       barcode:       barcode,
       servingSizeG:  _num(m['servingSize']),
     );
+  }
+
+  /// Remembers a user-supplied product (a barcode the open sources didn't have)
+  /// so the next scan resolves instantly and offline. The entered values are
+  /// stored as per-100g with a 100 g serving, so the gram picker defaults to
+  /// exactly what the user typed.
+  static Future<void> cacheManualBarcode({
+    required String barcode,
+    required String name,
+    required double calories,
+    required double protein,
+  }) async {
+    final code = barcode.trim();
+    if (code.isEmpty || name.trim().isEmpty || calories < 1) return;
+    final r = FoodApiResult(
+      name: name.trim(),
+      calories100g: calories.clamp(1, 900).toDouble(),
+      protein100g: protein.clamp(0, 100).toDouble(),
+      carbs100g: 0,
+      fat100g: 0,
+      source: 'Manual',
+      barcode: code,
+      servingSizeG: 100,
+    );
+    _barcodeMem[code] = r;
+    await _writeBarcodeCache(code, r);
   }
 
   // ── Barcode cache (SharedPreferences) ────────────────────────────────────────

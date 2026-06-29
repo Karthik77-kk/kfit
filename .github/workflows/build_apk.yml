@@ -336,7 +336,7 @@ jobs:
         # is why x86_64 (emulator-only) and armeabi-v7a (32-bit, can't run the ~600 MB
         # model anyway) were still packaged, ~90 MB of dead weight. arm64-v8a is the
         # only arch a real target device uses.
-        run: flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons --build-number=${{ steps.ver.outputs.code }} --dart-define=HF_TOKEN=${{ secrets.HF_TOKEN }}
+        run: flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons --build-number=${{ steps.ver.outputs.code }} --dart-define=HF_TOKEN=${{ secrets.HF_TOKEN }} --dart-define=FDC_API_KEY=${{ secrets.FDC_API_KEY }}
 
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/kfit.apk

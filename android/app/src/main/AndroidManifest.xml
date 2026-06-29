@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- ── APK self-update installer ──────────────────────────────────────── -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- ── Barcode scanner (mobile_scanner / MLKit) ───────────────────────── -->
+    <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
         android:label="K Fitness"

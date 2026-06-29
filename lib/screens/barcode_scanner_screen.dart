@@ -64,7 +64,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
             filled: true,
             fillColor: Colors.white.withValues(alpha: 0.07),
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none),
           ),
         ),
@@ -79,7 +79,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF30D158),
               shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             child: const Text('Look up',
                 style:
@@ -109,7 +109,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
               width: 260,
               height: 180,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: const Color(0xFF30D158), width: 3),
               ),
             ),
