@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/food_api_service.dart';
+import '../services/food_repository.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/date_picker_chip.dart';
 import '../widgets/kit/kit.dart';
 import '../theme/app_tokens.dart';
+import 'barcode_scanner_screen.dart';
 
 /// Call this from any context (standalone or embedded) to open the Add Food sheet.
 void showAddFoodSheet(BuildContext context) {
@@ -422,6 +425,9 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   String? _onlineError;
   String _lastOnlineQuery = '';
 
+  // Barcode awaiting a manual gap-fill (set when a scan resolves nothing).
+  String? _pendingBarcode;
+
   Timer? _searchDebounce;
 
   @override
@@ -436,6 +442,14 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       _selectedMeal = MealType.dinner;
     else
       _selectedMeal = MealType.snack;
+
+    // Ensure the bundled IFCT source is in memory (usually already warmed at
+    // startup); rebuild once loaded so offline Indian foods appear in search.
+    if (!FoodRepository.instance.isLoaded) {
+      FoodRepository.instance.ensureLoaded().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   @override
@@ -448,34 +462,10 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     super.dispose();
   }
 
-  List<FoodItem> get _filtered {
-    if (_search.isNotEmpty) {
-      final q = _search.toLowerCase();
-      // Deduplicate by name — keep first occurrence (specific category wins over Popular)
-      final seen = <String>{};
-      // Pass 1: non-Popular items first (more specific)
-      final results = <FoodItem>[];
-      for (final f in kFoodDatabase) {
-        if (f.category == 'Popular') continue;
-        if ((f.name.toLowerCase().contains(q) ||
-                f.category.toLowerCase().contains(q)) &&
-            seen.add(f.name.toLowerCase())) {
-          results.add(f);
-        }
-      }
-      // Pass 2: Popular items not already shown
-      for (final f in kFoodDatabase) {
-        if (f.category != 'Popular') continue;
-        if ((f.name.toLowerCase().contains(q) ||
-                f.category.toLowerCase().contains(q)) &&
-            seen.add(f.name.toLowerCase())) {
-          results.add(f);
-        }
-      }
-      return results;
-    }
-    // Browse: dedupe by name within the category so a food curated more than
-    // once (e.g. an extra serving variant) doesn't appear two or three times.
+  /// Category browse list (empty-search state). Dedupes by name within the
+  /// category so a food curated more than once doesn't appear twice.
+  /// Live text search now flows through [_unifiedResults] instead.
+  List<FoodItem> get _browseItems {
     final seen = <String>{};
     final out = <FoodItem>[];
     for (final f in kFoodDatabase) {
@@ -484,6 +474,30 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     }
     return out;
   }
+
+  /// Unified, ranked Add-Food search list: LOCAL (curated + IFCT, instant) +
+  /// REMOTE (OpenFoodFacts + USDA, when fetched), deduped by name and ranked
+  /// `exact > curated > IFCT > OFF > USDA`, capped at 8.
+  List<UnifiedFoodResult> get _unifiedResults {
+    final q = _search.trim();
+    if (q.isEmpty) return const [];
+    final local = FoodRepository.instance
+        .searchLocal(q)
+        .map(UnifiedFoodResult.fromLocal);
+    final remote = _onlineResults.map(UnifiedFoodResult.fromRemote);
+    return mergeFoodResults(q, [...local, ...remote], cap: 8);
+  }
+
+  /// Treats an IFCT [FoodItem] (per 100 g) as a [FoodApiResult] so it can reuse
+  /// the per-100g gram picker / add path.
+  FoodApiResult _ifctAsApi(FoodItem f) => FoodApiResult(
+        name: f.name,
+        calories100g: f.calories,
+        protein100g: f.protein,
+        carbs100g: f.carbs,
+        fat100g: f.fat,
+        source: 'IFCT',
+      );
 
   // ── Online search ────────────────────────────────────────────────────────────
 
@@ -500,15 +514,15 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     });
 
     try {
-      final results = await FoodApiService.search(query);
+      // Combined REMOTE half: OpenFoodFacts + USDA (USDA only when a key is set).
+      final results = await FoodApiService.searchByText(query);
       if (!mounted) return;
       setState(() {
         _searchingOnline = false;
         _onlineResults = results;
-        if (results.isEmpty) {
-          _onlineError =
-              'No online results for "$query".\nTry a different name or add a custom entry.';
-        }
+        // No "no results" error here — remote rows just merge into the unified
+        // list; an empty remote set is fine when local already has matches.
+        _onlineError = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -522,7 +536,11 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   // ── Gram picker (for API results — per-100g basis) ───────────────────────────
 
   void _showGramPicker(BuildContext ctx, FoodApiResult item) {
-    final gCtrl = TextEditingController(text: '100');
+    // Default to the product's declared serving when known (e.g. a scanned
+    // 30 g biscuit pack), else 100 g.
+    final hasServing = item.servingSizeG != null && item.servingSizeG! > 0;
+    final gCtrl = TextEditingController(
+        text: hasServing ? item.servingSizeG!.round().toString() : '100');
 
     showDialog(
       context: ctx,
@@ -558,12 +576,15 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                   const Icon(Icons.public_rounded,
                       size: 12, color: Color(0xFF40C8E0)),
                   const SizedBox(width: 4),
-                  Text(
-                    '${item.source} · per 100g: ${item.calories100g.round()} kcal, '
-                    '${item.protein100g.toStringAsFixed(1)}g protein',
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.38),
-                        fontSize: 10),
+                  Expanded(
+                    child: Text(
+                      '${item.source} · per 100g: ${item.calories100g.round()} kcal, '
+                      '${item.protein100g.toStringAsFixed(1)}g protein'
+                      '${hasServing ? ' · 1 serving ≈ ${item.servingSizeG!.round()}g' : ''}',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.38),
+                          fontSize: 10),
+                    ),
                   ),
                 ]),
               ],
@@ -701,6 +722,8 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     final gStr = grams == grams.roundToDouble()
         ? '${grams.toInt()}g'
         : '${grams.toStringAsFixed(1)}g';
+    // IFCT is a bundled offline source; OFF/USDA are online — label accordingly.
+    final tag = item.source == 'IFCT' ? '🇮🇳 IFCT' : '🌐 ${item.source}';
     provider.addFoodEntry(
         FoodEntry(
           id: provider.newId(),
@@ -711,7 +734,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           fat: item.fatForGrams(grams),
           mealType: _selectedMeal,
           timestamp: _selectedDate,
-          servingNote: '$gStr · 🌐 ${item.source}',
+          servingNote: '$gStr · $tag',
         ),
         date: _selectedDate);
     final messenger = ScaffoldMessenger.of(ctx);
@@ -982,55 +1005,80 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               ),
             ),
 
-            // Search bar
+            // Search bar + barcode scanner
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-              child: TextField(
-                controller: _searchCtrl,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                onChanged: (v) {
-                  // 150 ms debounce: avoids filtering on every keystroke which
-                  // causes keyboard stutter on the 200+ item food database.
-                  _searchDebounce?.cancel();
-                  _searchDebounce =
-                      Timer(const Duration(milliseconds: 150), () {
-                    if (!mounted) return;
-                    setState(() {
-                      _search = v;
-                      if (v != _lastOnlineQuery) {
-                        _onlineResults = [];
-                        _onlineError = null;
-                        _searchingOnline = false;
-                      }
-                    });
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: 'Search 200+ Indian foods...',
-                  hintStyle:
-                      TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                  prefixIcon: Icon(Icons.search,
-                      color: Colors.white.withValues(alpha: 0.4)),
-                  suffixIcon: _search.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(Icons.clear,
-                              color: Colors.white.withValues(alpha: 0.4),
-                              size: 18),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            setState(() => _search = '');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.07),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    autofocus: true,
+                    style: const TextStyle(color: Colors.white),
+                    onChanged: (v) {
+                      // 200 ms debounce: avoids filtering on every keystroke
+                      // (keyboard stutter on the 700+ curated+IFCT list) and
+                      // auto-kicks the REMOTE (OFF+USDA) search once settled.
+                      _searchDebounce?.cancel();
+                      _searchDebounce =
+                          Timer(const Duration(milliseconds: 200), () {
+                        if (!mounted) return;
+                        setState(() {
+                          _search = v;
+                          if (v != _lastOnlineQuery) {
+                            _onlineResults = [];
+                            _onlineError = null;
+                            _searchingOnline = false;
+                          }
+                        });
+                        // LOCAL shows instantly (above); REMOTE appends async.
+                        if (v.trim().length >= 2) _searchOnline(context);
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search foods or scan a barcode…',
+                      hintStyle:
+                          TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                      prefixIcon: Icon(Icons.search,
+                          color: Colors.white.withValues(alpha: 0.4)),
+                      suffixIcon: _search.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear,
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                  size: 18),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _search = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.07),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                // Barcode scanner button
+                AppTappable(
+                  onTap: () => _openScanner(context),
+                  borderRadius: BorderRadius.circular(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF40C8E0).withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: const Color(0xFF40C8E0).withValues(alpha: 0.4)),
+                  ),
+                  child: const SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Icon(Icons.qr_code_scanner_rounded,
+                        color: Color(0xFF40C8E0), size: 22),
+                  ),
+                ),
+              ]),
             ),
 
             // ── Recent foods (5 most recent unique food names logged today or ever) ──
@@ -1125,15 +1173,15 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 ]),
               ),
 
-            // Food list (local DB + online results)
+            // Food list — browse (empty search) OR unified ranked search
             Expanded(
               child: ListView(
                 controller: scrollCtrl,
                 padding: const EdgeInsets.only(bottom: 20),
                 children: [
-                  // ── Local results ───────────────────────────────────────
-                  if (_filtered.isNotEmpty)
-                    ..._filtered.map((item) => ListTile(
+                  // ── Browse by category (empty search) ───────────────────
+                  if (_search.isEmpty)
+                    ..._browseItems.map((item) => ListTile(
                           leading: Text(item.emoji,
                               style: const TextStyle(fontSize: 22)),
                           title: Text(item.name,
@@ -1152,148 +1200,77 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                           ),
                         )),
 
-                  // ── Online search section ────────────────────────────────
-                  if (_search.length > 2 && _filtered.isEmpty) ...[
-                    // Divider
-                    if (_onlineResults.isNotEmpty ||
-                        _searchingOnline ||
-                        _onlineError != null)
-                      const Divider(color: Color(0xFF2C2C2E), height: 1),
+                  // ── Unified ranked results (curated + IFCT + OFF + USDA) ──
+                  if (_search.isNotEmpty) ...[
+                    ..._unifiedResults.map(_unifiedTile),
 
-                    // "Search online" button (idle state)
-                    if (!_searchingOnline &&
-                        _onlineResults.isEmpty &&
-                        _onlineError == null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        child: Column(children: [
-                          Text(
-                            'No local results for "$_search"',
-                            style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.4),
-                                fontSize: 12),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () => _searchOnline(context),
-                              icon: const Icon(Icons.public_rounded, size: 16),
-                              label: const Text('Search online food database'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF40C8E0),
-                                side: const BorderSide(
-                                    color: Color(0xFF40C8E0), width: 1),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 11),
-                              ),
-                            ),
-                          ),
-                        ]),
-                      ),
-
-                    // Loading — skeleton placeholders shaped like result rows so
-                    // the wait reads as content arriving rather than a bare spinner.
+                    // Loading — skeleton rows while REMOTE half is in flight.
                     if (_searchingOnline) const _OnlineSearchSkeleton(),
 
-                    // Error state
+                    // Offline / network error — local results still show above.
                     if (_onlineError != null && !_searchingOnline)
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                        child: Row(children: [
+                          Icon(Icons.cloud_off_rounded,
+                              size: 14,
+                              color: Colors.white.withValues(alpha: 0.4)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(_onlineError!,
+                                style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    fontSize: 12)),
+                          ),
+                          TextButton(
+                            onPressed: () => _searchOnline(context),
+                            style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF40C8E0),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8)),
+                            child: const Text('Retry'),
+                          ),
+                        ]),
+                      ),
+
+                    // Permanent gap-filler — nothing matched anywhere.
+                    if (_search.trim().length >= 2 &&
+                        _unifiedResults.isEmpty &&
+                        !_searchingOnline)
+                      Padding(
+                        padding: const EdgeInsets.all(20),
                         child: Column(children: [
-                          Text(_onlineError!,
+                          Text('No match for "${_search.trim()}"',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.4),
+                                  color: Colors.white.withValues(alpha: 0.45),
                                   fontSize: 13)),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed: () => _searchOnline(context),
-                            icon: const Icon(Icons.refresh_rounded, size: 16),
-                            label: const Text('Try again'),
-                            style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF40C8E0)),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: _startManualGapFill,
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Add it manually'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF40C8E0),
+                              side: const BorderSide(color: Color(0xFF40C8E0)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14)),
+                            ),
                           ),
                         ]),
                       ),
 
-                    // Online results
-                    if (_onlineResults.isNotEmpty) ...[
+                    if (_search.trim().length < 2)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-                        child: Row(children: [
-                          const Icon(Icons.public_rounded,
-                              size: 12, color: Color(0xFF40C8E0)),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Online results  ·  values per 100 g',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.35),
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ]),
-                      ),
-                      ..._onlineResults.map((item) => ListTile(
-                            leading: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF40C8E0)
-                                    .withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Center(
-                                child: Icon(Icons.public_rounded,
-                                    size: 18, color: Color(0xFF40C8E0)),
-                              ),
-                            ),
-                            title: Text(
-                              item.name,
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 13),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(
-                              '${item.calories100g.round()} kcal · '
-                              '${item.protein100g.toStringAsFixed(1)}g prot · '
-                              '${item.carbs100g.toStringAsFixed(1)}g carbs per 100g',
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: Text('Type more to search…',
                               style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.4),
-                                  fontSize: 10),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.add_circle,
-                                  color: Color(0xFF40C8E0)),
-                              onPressed: () => _showGramPicker(context, item),
-                            ),
-                          )),
-                    ],
-                  ],
-
-                  // ── Catch-all: empty local + not searching online ─────────
-                  if (_search.isNotEmpty &&
-                      _filtered.isEmpty &&
-                      _onlineResults.isEmpty &&
-                      !_searchingOnline &&
-                      _onlineError == null &&
-                      _search.length <= 2)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: Text(
-                          'Type more to search…',
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.3),
-                              fontSize: 13),
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  fontSize: 13)),
                         ),
                       ),
-                    ),
+                  ],
                 ],
               ),
             ),

@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
+import 'services/food_repository.dart';
 import 'services/nav_router.dart';
 import 'services/on_device_ai_service.dart';
 import 'services/update_service.dart';
@@ -42,6 +43,12 @@ void main() async {
         systemNavigationBarColor: Color(0xFF000000),
         systemNavigationBarIconBrightness: Brightness.light,
       ));
+
+      // Warm the bundled offline Indian food source (IFCT 2017) into memory so
+      // the Add-Food search has it ready. Fire-and-forget — failure is non-fatal
+      // (curated DB + remote sources still work) and the Add-Food sheet re-awaits
+      // it if startup hasn't finished loading.
+      FoodRepository.instance.ensureLoaded();
 
       runApp(
         MultiProvider(
