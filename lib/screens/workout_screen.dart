@@ -809,7 +809,7 @@ class _TodayWorkoutSummary extends StatelessWidget {
                 textStyle:
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(20)),
               ),
             ),
             const SizedBox(width: 10),
