@@ -1547,7 +1547,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                         ]),
                       ),
 
-                    if (_search.trim().length < 2)
+                    if (_search.trim().length < 2 && _unifiedResults.isEmpty)
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Center(
