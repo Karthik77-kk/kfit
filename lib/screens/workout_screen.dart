@@ -64,6 +64,30 @@ String _formatSets(List<SetData> sets, {bool compact = false}) {
       : '${sets.length} sets · $repPart';
 }
 
+/// Builds a deep-copied, de-duplicated exercise list to re-log from today's
+/// [sessions]. Every [SetData] is cloned so editing the in-progress builder can
+/// never mutate the logged history. Names already present in [existing] (the
+/// builder's current exercises) are skipped, and a name repeated across multiple
+/// sessions collapses to its first occurrence — giving the de-duped union the
+/// today-summary already displays. Pure + side-effect free for easy testing.
+List<ExerciseLog> repeatExercises(
+    List<WorkoutLog> sessions, List<ExerciseLog> existing) {
+  final seen = existing.map((e) => e.name).toSet();
+  final copied = <ExerciseLog>[];
+  for (final w in sessions) {
+    for (final ex in w.exercises) {
+      if (!seen.add(ex.name)) continue; // already in builder or already copied
+      copied.add(ExerciseLog(
+        name: ex.name,
+        sets: ex.sets
+            .map((s) => SetData(reps: s.reps, weight: s.weight))
+            .toList(),
+      ));
+    }
+  }
+  return copied;
+}
+
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
   @override
@@ -90,7 +114,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     super.dispose();
   }
 
-  /// Shows a rest timer bottom sheet. User picks 60 / 90 / 120 / 180s or custom.
+  /// Day-of-week default name for a freshly started session (no gym jargon).
   String _defaultWorkoutName() {
     final weekday = DateTime.now().weekday;
     // Simple day-based names — no gym jargon (was "Push/Pull split")
@@ -401,6 +425,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
+  /// Loads today's logged exercises into the in-progress builder as deep copies
+  /// so the user can review/tweak and Save them as a NEW session. The original
+  /// logged history is never touched. Only exercises not already in the builder
+  /// are appended (no overwrite, no duplicates).
+  void _repeatToday(List<WorkoutLog> todays) {
+    final copied = repeatExercises(todays, _exercises);
+    if (copied.isEmpty) return; // everything is already in the builder
+    setState(() => _exercises.addAll(copied));
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text("Loaded today's exercises — review and Save"),
+      duration: Duration(seconds: 2),
+    ));
+  }
+
   void _removeExercise(int index) {
     setState(() => _exercises.removeAt(index));
     HapticFeedback.mediumImpact();
@@ -469,7 +509,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           if (provider.todayWorkouts.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: _TodayWorkoutSummary(
-                  workouts: provider.todayWorkouts, provider: provider),
+                  workouts: provider.todayWorkouts,
+                  provider: provider,
+                  onRepeat: () => _repeatToday(provider.todayWorkouts)),
             ),
           ],
 
@@ -715,7 +757,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 class _TodayWorkoutSummary extends StatelessWidget {
   final List<WorkoutLog> workouts;
   final FitnessProvider provider;
-  const _TodayWorkoutSummary({required this.workouts, required this.provider});
+  final VoidCallback onRepeat;
+  const _TodayWorkoutSummary(
+      {required this.workouts,
+      required this.provider,
+      required this.onRepeat});
 
   @override
   Widget build(BuildContext context) {
@@ -740,11 +786,33 @@ class _TodayWorkoutSummary extends StatelessWidget {
           Row(children: [
             const Icon(Icons.check_circle, color: Color(0xFF30D158), size: 18),
             const SizedBox(width: 6),
-            Text(
-              workouts.length == 1 ? workouts.first.name : "Today's Workout",
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            Flexible(
+              child: Text(
+                workouts.length == 1 ? workouts.first.name : "Today's Workout",
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
             ),
             const Spacer(),
+            // Re-log today's session: loads its exercises into the builder.
+            OutlinedButton.icon(
+              onPressed: onRepeat,
+              icon: const Icon(Icons.replay_rounded, size: 15),
+              label: const Text('Repeat'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF30D158),
+                side: const BorderSide(color: Color(0xFF30D158)),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(width: 10),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text('~$totalCals kcal',
                   style: const TextStyle(
