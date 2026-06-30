@@ -5,7 +5,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import '../app_info.dart';
 import '../theme/app_tokens.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/fitness_provider.dart';
 import '../services/cloud_backup_service.dart';
 import '../services/on_device_ai_service.dart';
