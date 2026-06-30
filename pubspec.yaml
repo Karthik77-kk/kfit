@@ -29,6 +29,7 @@ dependencies:
   confetti: ^0.8.0
   package_info_plus: ^9.0.1
   open_filex: ^4.7.0
+  mobile_scanner: ^7.2.0
 
 dev_dependencies:
   flutter_test:
@@ -38,6 +39,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/data/ifct_2017.json
   fonts:
     - family: Inter
       fonts:

@@ -336,6 +336,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: '$kAppVersionLabel — Personal fitness tracker',
             onTap: null,
           ),
+          _Tile(
+            icon: Icons.menu_book_outlined,
+            title: 'Food data credits',
+            subtitle:
+                'Indian food data: IFCT 2017, ICMR–National Institute of Nutrition.',
+            onTap: null,
+          ),
           const SizedBox(height: 32),
         ],
       ),

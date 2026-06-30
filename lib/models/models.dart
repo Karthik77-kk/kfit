@@ -694,6 +694,7 @@ class FoodItem {
   final String category;
   final String emoji;
   final String serving;  // human-readable serving description
+  final String source;   // 'curated' (default) | 'IFCT' — provenance for ranking
 
   const FoodItem({
     required this.name,
@@ -704,6 +705,7 @@ class FoodItem {
     required this.category,
     required this.emoji,
     this.serving = '1 serving',
+    this.source = 'curated',
   });
 
   /// Whether this item carries real (non-estimated) carb/fat macros.
