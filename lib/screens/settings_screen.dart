@@ -25,6 +25,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Cloud sync (GitHub) state
   bool _cloudBusy = false;
+  bool _cloudConfigured = false;
+  String? _cloudRepo;
   String? _cloudUser;
   String? _cloudId;
   int _cloudLastMs = 0;
@@ -46,19 +48,121 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadCloud() async {
-    if (!CloudBackupService.enabled) return;
     final svc = CloudBackupService.instance;
+    final configured = await svc.isConfigured();
+    final repo = await svc.configuredRepo();
     final u = await svc.username();
     final id = await svc.userId();
     final last = await svc.lastBackupMs();
     final auto = await svc.autoBackupEnabled();
     if (mounted) {
       setState(() {
+        _cloudConfigured = configured;
+        _cloudRepo = repo;
         _cloudUser = u;
         _cloudId = id;
         _cloudLastMs = last;
         _cloudAuto = auto;
       });
+    }
+  }
+
+  /// Enter (or change) the GitHub token + repo that cloud sync uses. Stored
+  /// on-device — keeps the token out of the shipped APK.
+  Future<void> _setupCloud() async {
+    final tokenCtrl = TextEditingController();
+    final repoCtrl = TextEditingController(text: _cloudRepo ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Set up cloud sync',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text(
+            'Paste a GitHub token (Contents read/write on a PRIVATE repo) and '
+            'the repo as owner/name. Stored only on this device.',
+            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: repoCtrl,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration:
+                const InputDecoration(hintText: 'owner/name (e.g. you/kfit-data)'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: tokenCtrl,
+            obscureText: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(hintText: 'github_pat_… token'),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (tokenCtrl.text.trim().isEmpty ||
+                  !CloudBackupService.isValidRepo(repoCtrl.text)) {
+                ScaffoldMessenger.of(dCtx).showSnackBar(const SnackBar(
+                    content: Text('Enter a token and a valid owner/name repo'),
+                    duration: Duration(seconds: 1)));
+                return;
+              }
+              Navigator.pop(dCtx, true);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF30D158)),
+            child: const Text('Save',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (saved == true) {
+      await CloudBackupService.instance
+          .saveConfig(token: tokenCtrl.text, repo: repoCtrl.text);
+      await _loadCloud();
+    }
+    tokenCtrl.dispose();
+    repoCtrl.dispose();
+  }
+
+  Future<void> _disconnectCloud() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Disconnect cloud sync?',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: const Text(
+          'Removes the saved token + repo from this device. Your data and cloud '
+          'backups are untouched.',
+          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, true),
+            child: const Text('Disconnect',
+                style: TextStyle(color: Color(0xFFFF453A))),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await CloudBackupService.instance.clearConfig();
+      await _loadCloud();
     }
   }
 
@@ -557,16 +661,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ── CLOUD SYNC (GitHub) ───────────────────────────────────
           const SizedBox(height: 20),
           _Header('Cloud Sync'),
-          if (!CloudBackupService.enabled)
+          if (!_cloudConfigured)
             _Tile(
-              icon: Icons.cloud_off_outlined,
-              title: 'Cloud sync not set up',
+              icon: Icons.cloud_sync_outlined,
+              title: 'Set up cloud sync',
               subtitle:
-                  'Add the GH_BACKUP_TOKEN + GH_BACKUP_REPO build secrets to '
-                  'enable backup/restore to a private GitHub repo.',
-              onTap: null,
+                  'Connect a private GitHub repo (token + owner/name) to back '
+                  'up & restore by username + id.',
+              onTap: _cloudBusy ? null : _setupCloud,
             )
           else ...[
+            _Tile(
+              icon: Icons.cloud_done_outlined,
+              title: 'Connected repo',
+              subtitle: '${_cloudRepo ?? '—'} — tap to change token/repo',
+              trailing: IconButton(
+                icon: const Icon(Icons.link_off_rounded,
+                    color: Color(0xFFFF453A), size: 20),
+                tooltip: 'Disconnect',
+                onPressed: _cloudBusy ? null : _disconnectCloud,
+              ),
+              onTap: _cloudBusy ? null : _setupCloud,
+            ),
             _Tile(
               icon: Icons.badge_outlined,
               title: 'Username & id',
@@ -673,12 +789,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FutureBuilder<PackageInfo>(
             future: PackageInfo.fromPlatform(),
             builder: (_, snap) {
-              // Real installed version + buildNumber (CI sets buildNumber from
-              // the commit count), falling back to the compiled-in label.
+              // Show the version exactly as the release/website tags it:
+              // v<major.minor>.<buildNumber>, where buildNumber is the CI commit
+              // count (e.g. v2.3.297). pubspec's "2.3.0" patch segment is a
+              // placeholder — the real running build is the commit count.
               final info = snap.data;
-              final label = info != null
-                  ? 'v${info.version} · Build ${info.buildNumber}'
-                  : kAppVersionLabel;
+              String label;
+              if (info != null) {
+                final v = info.version; // e.g. "2.3.0"
+                final mm =
+                    v.contains('.') ? v.substring(0, v.lastIndexOf('.')) : v;
+                label = 'v$mm.${info.buildNumber}'; // "v2.3.297"
+              } else {
+                label = kAppVersionLabel;
+              }
               return _Tile(
                 icon: Icons.info_outline,
                 title: 'K Fitness',

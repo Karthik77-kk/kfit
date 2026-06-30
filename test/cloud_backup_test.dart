@@ -59,12 +59,29 @@ void main() {
     });
   });
 
-  group('CloudBackupService disabled gate (no dart-define in tests)', () {
+  group('CloudBackupService config gate (no dart-define in tests)', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
-    test('enabled is false without an injected token', () {
-      expect(CloudBackupService.token, '');
-      expect(CloudBackupService.enabled, isFalse);
+    test('not configured without a token (build-time or in-app)', () async {
+      expect(CloudBackupService.compiledToken, '');
+      expect(await CloudBackupService.instance.isConfigured(), isFalse);
+    });
+
+    test('in-app saveConfig makes it configured; clearConfig undoes it',
+        () async {
+      final svc = CloudBackupService.instance;
+      await svc.saveConfig(token: 'ghp_test', repo: 'me/kfit-data');
+      expect(await svc.isConfigured(), isTrue);
+      expect(await svc.effectiveToken(), 'ghp_test');
+      expect(await svc.configuredRepo(), 'me/kfit-data');
+      await svc.clearConfig();
+      expect(await svc.isConfigured(), isFalse);
+    });
+
+    test('invalid repo is not considered configured', () async {
+      await CloudBackupService.instance
+          .saveConfig(token: 't', repo: 'no-slash');
+      expect(await CloudBackupService.instance.isConfigured(), isFalse);
     });
 
     test('backup/restore throw when not configured', () async {

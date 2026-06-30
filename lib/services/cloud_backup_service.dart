@@ -8,36 +8,71 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// `users/<username>-<id>.json`). Every PUT is a commit, so the repo doubles as
 /// a versioned store.
 ///
-/// The GitHub token is injected at build via `--dart-define GH_BACKUP_TOKEN=…`
-/// from a GitHub Actions secret (same pattern as HF_TOKEN / FDC_API_KEY) — never
-/// committed to source. An empty token or repo ⇒ cloud sync is simply disabled,
-/// and the app still works fully via local Export/Import.
+/// Configuration is resolved at runtime: an **in-app** token + repo (entered in
+/// Settings, stored on-device under `cloud_*` keys) takes precedence, falling
+/// back to a **build-time** `--dart-define GH_BACKUP_TOKEN/GH_BACKUP_REPO`
+/// (same pattern as HF_TOKEN). Either way, when nothing is configured cloud sync
+/// is disabled and the app still works fully via local Export/Import.
 ///
-/// ⚠️ A build-injected token is extractable from the APK and grants access to
-/// the whole repo, and a chosen username+id is identification, not a password —
-/// so this is for PERSONAL / TESTING use, NOT a public multi-user product. A
-/// real product needs a backend that authenticates each user.
+/// ⚠️ The token grants access to the whole repo, and a chosen username+id is
+/// identification, not a password — so this is for PERSONAL / TESTING use, NOT a
+/// public multi-user product. A real product needs a backend that authenticates
+/// each user. (In-app entry at least keeps the token OUT of the shipped APK.)
 class CloudBackupService {
   CloudBackupService._();
   static final CloudBackupService instance = CloudBackupService._();
 
-  static const String token =
+  // Build-time defaults (optional). Empty unless injected via --dart-define.
+  static const String compiledToken =
       String.fromEnvironment('GH_BACKUP_TOKEN', defaultValue: '');
-  static const String repo =
+  static const String compiledRepo =
       String.fromEnvironment('GH_BACKUP_REPO', defaultValue: '');
-  static const String branch =
-      String.fromEnvironment('GH_BACKUP_BRANCH', defaultValue: 'main');
-
-  /// Cloud sync is available only when a token + a valid repo were injected.
-  static bool get enabled => token.isNotEmpty && isValidRepo(repo);
 
   static const _ua = 'KFitness/1.0';
   static const _timeout = Duration(seconds: 15);
 
+  static const _tokenKey = 'cloud_token'; // in-app token (cloud_* ⇒ never exported)
+  static const _repoKey = 'cloud_repo';
   static const _userKey = 'cloud_username';
   static const _idKey = 'cloud_userid';
   static const _lastKey = 'cloud_last_backup_ms';
   static const _autoKey = 'cloud_auto_backup';
+
+  // ── Configuration (in-app overrides build-time) ──────────────────────────────
+  Future<String> effectiveToken() async {
+    final p = (await SharedPreferences.getInstance()).getString(_tokenKey);
+    return (p != null && p.isNotEmpty) ? p : compiledToken;
+  }
+
+  Future<String> effectiveRepo() async {
+    final p = (await SharedPreferences.getInstance()).getString(_repoKey);
+    return (p != null && p.isNotEmpty) ? p : compiledRepo;
+  }
+
+  /// Cloud sync is usable when there's a token and a valid `owner/name` repo.
+  Future<bool> isConfigured() async {
+    final t = await effectiveToken();
+    final r = await effectiveRepo();
+    return t.isNotEmpty && isValidRepo(r);
+  }
+
+  /// The configured repo for display (in-app or build-time), or null.
+  Future<String?> configuredRepo() async {
+    final r = await effectiveRepo();
+    return r.isNotEmpty ? r : null;
+  }
+
+  Future<void> saveConfig({required String token, required String repo}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token.trim());
+    await prefs.setString(_repoKey, repo.trim());
+  }
+
+  Future<void> clearConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_repoKey);
+  }
 
   // ── Account (username + id) ──────────────────────────────────────────────────
   Future<String?> username() async =>
@@ -104,20 +139,24 @@ class CloudBackupService {
   }
 
   // ── API ──────────────────────────────────────────────────────────────────────
-  static Map<String, String> get _headers => {
+  static Map<String, String> _headers(String token) => {
         'Authorization': 'Bearer $token',
         'Accept': 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': _ua,
       };
 
-  static Uri _contentsUri(String path) =>
+  static Uri _contentsUri(String repo, String path) =>
       Uri.parse('https://api.github.com/repos/$repo/contents/$path');
 
   /// Pushes [jsonContent] to the current account's file (create or update).
   /// Returns a status message. Throws [Exception] on misconfig / HTTP error.
   Future<String> backup(String jsonContent) async {
-    if (!enabled) throw Exception('Cloud sync not configured');
+    final t = await effectiveToken();
+    final r = await effectiveRepo();
+    if (t.isEmpty || !isValidRepo(r)) {
+      throw Exception('Cloud sync not configured');
+    }
     final u = await username();
     final id = await userId();
     if (u == null || id == null || !isValidAccount(u, id)) {
@@ -128,16 +167,17 @@ class CloudBackupService {
     // Always fetch the CURRENT remote sha right before writing — a cached sha
     // goes stale the moment another device backs up, which would 409/422 every
     // subsequent push. Updating requires the live sha; creating omits it.
-    final sha = await _fetchSha(path);
+    final sha = await _fetchSha(t, r, path);
 
     final body = <String, dynamic>{
       'message': 'K Fitness backup ($u) ${DateTime.now().toIso8601String()}',
       'content': base64Encode(utf8.encode(jsonContent)),
-      'branch': branch,
+      // No 'branch' → GitHub writes to the repo's default branch (avoids a
+      // main-vs-master mismatch for arbitrary test repos).
       if (sha != null) 'sha': sha,
     };
     final resp = await http
-        .put(_contentsUri(path), headers: _headers, body: jsonEncode(body))
+        .put(_contentsUri(r, path), headers: _headers(t), body: jsonEncode(body))
         .timeout(_timeout);
     if (resp.statusCode == 200 || resp.statusCode == 201) {
       await prefs.setInt(_lastKey, DateTime.now().millisecondsSinceEpoch);
@@ -148,23 +188,28 @@ class CloudBackupService {
 
   /// Fetches the backup JSON for [username]+[id], or null when none exists.
   Future<String?> restore(String username, String id) async {
-    if (!enabled) throw Exception('Cloud sync not configured');
+    final t = await effectiveToken();
+    final r = await effectiveRepo();
+    if (t.isEmpty || !isValidRepo(r)) {
+      throw Exception('Cloud sync not configured');
+    }
     if (!isValidAccount(username, id)) {
       throw Exception('Enter a username and id');
     }
     final path = filePathFor(username, id);
-    final uri = _contentsUri(path).replace(queryParameters: {'ref': branch});
-    final resp = await http.get(uri, headers: _headers).timeout(_timeout);
+    final resp = await http
+        .get(_contentsUri(r, path), headers: _headers(t))
+        .timeout(_timeout);
     if (resp.statusCode == 404) return null;
     if (resp.statusCode != 200) throw Exception(errorFor(resp.statusCode));
     return decodeContentField(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
-  /// Auto-backup hook: pushes [buildJson]'s result if cloud sync is on, an
-  /// account exists, and it's been ≥1 day since the last push (or never).
-  /// Silent on failure. Returns true if a backup was pushed.
+  /// Auto-backup hook: pushes [buildJson]'s result if cloud sync is configured,
+  /// an account exists, auto-backup is on, and it's been ≥1 day since the last
+  /// push (or never). Silent on failure. Returns true if a backup was pushed.
   Future<bool> autoBackupIfDue(Future<String> Function() buildJson) async {
-    if (!enabled || !await hasAccount) return false;
+    if (!await isConfigured() || !await hasAccount) return false;
     if (!await autoBackupEnabled()) return false;
     final last = await lastBackupMs();
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -179,10 +224,11 @@ class CloudBackupService {
     }
   }
 
-  Future<String?> _fetchSha(String path) async {
+  Future<String?> _fetchSha(String token, String repo, String path) async {
     try {
-      final uri = _contentsUri(path).replace(queryParameters: {'ref': branch});
-      final resp = await http.get(uri, headers: _headers).timeout(_timeout);
+      final resp = await http
+          .get(_contentsUri(repo, path), headers: _headers(token))
+          .timeout(_timeout);
       if (resp.statusCode == 200) {
         return (jsonDecode(resp.body) as Map<String, dynamic>)['sha'] as String?;
       }
