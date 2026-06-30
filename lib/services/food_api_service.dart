@@ -146,8 +146,44 @@ class FoodApiService {
     }
 
     _barcodeMem[c] = result;
-    if (result != null) await _writeBarcodeCache(c, result);
+    if (result != null) {
+      await _writeBarcodeCache(c, result);
+      await _recordRecentScan(result);
+    }
     return result;
+  }
+
+  /// Most-recently scanned products (newest first), for the Add-Food quick row.
+  static Future<List<FoodApiResult>> recentScans({int max = 8}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('recent_scans') ?? const [];
+      return list
+          .take(max)
+          .map((s) => FoodApiResult.fromJson(jsonDecode(s) as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Prepends [r] to the recent-scans list (deduped by barcode, capped at 12).
+  static Future<void> _recordRecentScan(FoodApiResult r) async {
+    if (r.barcode == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('recent_scans') ?? <String>[];
+      list.removeWhere((s) {
+        try {
+          return (jsonDecode(s) as Map<String, dynamic>)['barcode'] == r.barcode;
+        } catch (_) {
+          return false;
+        }
+      });
+      list.insert(0, jsonEncode(r.toJson()));
+      if (list.length > 12) list.removeRange(12, list.length);
+      await prefs.setStringList('recent_scans', list);
+    } catch (_) {/* best-effort */}
   }
 
   // ── OpenFoodFacts ───────────────────────────────────────────────────────────
@@ -401,6 +437,7 @@ class FoodApiService {
     );
     _barcodeMem[code] = r;
     await _writeBarcodeCache(code, r);
+    await _recordRecentScan(r); // surface remembered gap-fills in recent scans
   }
 
   // ── Barcode cache (SharedPreferences) ────────────────────────────────────────

@@ -13,6 +13,7 @@ import '../models/models.dart';
 import '../services/smart_insight_engine.dart' show topInsights;
 import '../services/notification_center.dart';
 import '../services/chat_session_service.dart';
+import '../services/food_repository.dart' show normalizeFood, FoodRepository;
 
 class FitnessProvider extends ChangeNotifier {
   // ── Daily targets (defaults — overridden by user settings) ────────────────
@@ -63,6 +64,118 @@ class FitnessProvider extends ChangeNotifier {
     _stepGoal = steps.clamp(1000, 30000);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('step_goal', _stepGoal);
+    notifyListeners();
+  }
+
+  // ── Macro goals (carbs / fat) ──────────────────────────────────────────────
+  // Defaults reflect a moderate fat-loss split; both are user-configurable.
+  static const int kDefaultCarbGoal = 200; // grams/day
+  static const int kDefaultFatGoal = 55;   // grams/day
+
+  int _carbGoal = kDefaultCarbGoal;
+  int _fatGoal = kDefaultFatGoal;
+  int get carbGoal => _carbGoal;
+  int get fatGoal => _fatGoal;
+
+  Future<void> saveCarbGoal(int g) async {
+    _carbGoal = g.clamp(20, 600);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('carb_goal', _carbGoal);
+    notifyListeners();
+  }
+
+  Future<void> saveFatGoal(int g) async {
+    _fatGoal = g.clamp(10, 300);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('fat_goal', _fatGoal);
+    notifyListeners();
+  }
+
+  double get carbProgress =>
+      carbGoal > 0 ? (todayCarbsEstimate / carbGoal).clamp(0.0, 1.0) : 0.0;
+  double get fatProgress =>
+      fatGoal > 0 ? (todayFatEstimate / fatGoal).clamp(0.0, 1.0) : 0.0;
+
+  /// Protein still needed to hit today's goal (0 once reached). Protein is a
+  /// target to *reach*, so this never goes negative.
+  int get proteinRemaining =>
+      (proteinGoal - todayProteinTotal).round().clamp(0, 1 << 30);
+
+  // ── Per-food portion memory ────────────────────────────────────────────────
+  // Remembers the last quantity (servings for curated items, grams for per-100g
+  // items) logged for a food, keyed by its normalized name, so the quantity
+  // picker can default to it next time.
+  Map<String, double> _foodPortions = {};
+
+  double? lastPortion(String foodName) {
+    final v = _foodPortions[normalizeFood(foodName)];
+    return (v != null && v > 0) ? v : null;
+  }
+
+  Future<void> rememberPortion(String foodName, double qty) async {
+    final key = normalizeFood(foodName);
+    if (key.isEmpty || qty <= 0) return;
+    if (_foodPortions[key] == qty) return;
+    _foodPortions[key] = qty;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('food_portions', jsonEncode(_foodPortions));
+  }
+
+  // ── Favorite foods (pinned to top of Add-Food) ─────────────────────────────
+  Set<String> _favoriteFoods = {}; // normalized names
+
+  bool isFavoriteFood(String name) =>
+      _favoriteFoods.contains(normalizeFood(name));
+
+  Future<void> toggleFavoriteFood(String name) async {
+    final key = normalizeFood(name);
+    if (key.isEmpty) return;
+    if (!_favoriteFoods.remove(key)) _favoriteFoods.add(key);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('favorite_foods', _favoriteFoods.toList());
+    notifyListeners();
+  }
+
+  /// Favorited foods resolved to [FoodItem]s from the curated DB + IFCT, in the
+  /// curated-then-IFCT order, deduped by name.
+  List<FoodItem> get favoriteFoodItems {
+    if (_favoriteFoods.isEmpty) return const [];
+    final out = <FoodItem>[];
+    final seen = <String>{};
+    for (final f in [...kFoodDatabase, ...FoodRepository.instance.ifctFoods]) {
+      final key = normalizeFood(f.name);
+      if (_favoriteFoods.contains(key) && seen.add(key)) out.add(f);
+    }
+    return out;
+  }
+
+  // ── Backup reminder ────────────────────────────────────────────────────────
+  int _lastBackupMs = 0;
+  int get lastBackupMs => _lastBackupMs;
+
+  /// Whole days since the last successful export, or null if never backed up.
+  int? get daysSinceBackup {
+    if (_lastBackupMs <= 0) return null;
+    final ms = DateTime.now().millisecondsSinceEpoch - _lastBackupMs;
+    return ms ~/ const Duration(days: 1).inMilliseconds;
+  }
+
+  /// True when the user has real data worth protecting and either never backed
+  /// up or it's been >14 days — drives the gentle Home/Settings nudge.
+  bool get needsBackupReminder {
+    final hasData = _workoutHistory.isNotEmpty ||
+        _foodHistory.isNotEmpty ||
+        _bodyHistory.isNotEmpty ||
+        _todayFood.isNotEmpty;
+    if (!hasData) return false;
+    final d = daysSinceBackup;
+    return d == null || d >= 14;
+  }
+
+  Future<void> markBackedUp() async {
+    _lastBackupMs = DateTime.now().millisecondsSinceEpoch;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('last_backup_ms', _lastBackupMs);
     notifyListeners();
   }
 
@@ -925,6 +1038,31 @@ class FitnessProvider extends ChangeNotifier {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
+  // ── Progressive overload ───────────────────────────────────────────────────
+  /// A short next-target suggestion from a lift's last logged set, e.g.
+  /// "try 42.5kg" or "try 9 reps". Returns null when there's no prior set.
+  /// Rule: a loaded lift with ≥8 reps → +2.5 kg; fewer reps → +1 rep at the same
+  /// load; a bodyweight move (weight 0/none) → +1 rep. Pure & static so it's
+  /// trivially unit-testable and stays consistent with the values the set-entry
+  /// dialog already shows.
+  static String? overloadSuggestion(double? lastWeight, int? lastReps) {
+    if (lastReps == null && lastWeight == null) return null;
+    final reps = lastReps ?? 0;
+    final w = lastWeight ?? 0;
+    if (w <= 0) {
+      if (reps <= 0) return null;
+      return 'try ${reps + 1} reps';
+    }
+    if (reps >= 8) {
+      final next = w + 2.5;
+      final nStr = next == next.roundToDouble()
+          ? next.toInt().toString()
+          : next.toStringAsFixed(1);
+      return 'try ${nStr}kg';
+    }
+    return 'try ${reps + 1} reps';
+  }
+
   int get workoutStreak {
     // Build a Set of date strings first (O(n)) then check each day (O(1)) — was O(n²)
     final doneKeys = <String>{};
@@ -1525,6 +1663,24 @@ class FitnessProvider extends ChangeNotifier {
     _proteinGoal = prefs.getInt('protein_goal') ?? kDefaultProteinGoal;
     _waterGoalMl = prefs.getInt('water_goal_ml') ?? kDefaultWaterGoalMl;
     _stepGoal = prefs.getInt('step_goal') ?? kDefaultStepGoal;
+    _carbGoal = prefs.getInt('carb_goal') ?? kDefaultCarbGoal;
+    _fatGoal = prefs.getInt('fat_goal') ?? kDefaultFatGoal;
+
+    // Per-food portion memory + favorites + backup timestamp
+    _lastBackupMs = prefs.getInt('last_backup_ms') ?? 0;
+    _favoriteFoods = (prefs.getStringList('favorite_foods') ?? const [])
+        .map(normalizeFood)
+        .where((s) => s.isNotEmpty)
+        .toSet();
+    try {
+      final pj = prefs.getString('food_portions');
+      _foodPortions = pj != null
+          ? (jsonDecode(pj) as Map<String, dynamic>)
+              .map((k, v) => MapEntry(k, (v as num).toDouble()))
+          : {};
+    } catch (_) {
+      _foodPortions = {};
+    }
 
     // Ensure profile + goals are always persisted so they appear in backups
     // even when the user has never opened Settings to change them from defaults.
@@ -2103,6 +2259,7 @@ class FitnessProvider extends ChangeNotifier {
     } catch (e) {
       throw Exception('Export failed: $e');
     }
+    await markBackedUp(); // reset the backup-reminder clock
     return file.path;
   }
 

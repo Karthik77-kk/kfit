@@ -229,6 +229,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         p.workoutHistory.isEmpty)
                       const SizedBox(height: 20),
 
+                    // ── Backup reminder (data is on-device only) ──────────────
+                    if (p.needsBackupReminder) ...[
+                      const _BackupReminderCard(),
+                      const SizedBox(height: 20),
+                    ],
+
                     // ── Activity rings ────────────────────────────────────────
                     const _SectionHdr('TODAY\'S ACTIVITY'),
                     const SizedBox(height: 10),
@@ -2106,6 +2112,7 @@ class _MacroDonutCard extends StatelessWidget {
                   label: 'Protein',
                   grams: protein.round(),
                   total: total,
+                  goal: provider.proteinGoal,
                 ),
                 const SizedBox(height: 10),
                 _MacroLegendRow(
@@ -2113,6 +2120,7 @@ class _MacroDonutCard extends StatelessWidget {
                   label: 'Carbs',
                   grams: carbs.round(),
                   total: total,
+                  goal: provider.carbGoal,
                   estimated: estimated,
                 ),
                 const SizedBox(height: 10),
@@ -2121,6 +2129,7 @@ class _MacroDonutCard extends StatelessWidget {
                   label: 'Fat',
                   grams: fat.round(),
                   total: total,
+                  goal: provider.fatGoal,
                   estimated: estimated,
                 ),
                 if (estimated) ...[
@@ -2142,17 +2151,21 @@ class _MacroLegendRow extends StatelessWidget {
   final String label;
   final int grams;
   final double total;
+  final int? goal;
   final bool estimated;
   const _MacroLegendRow({
     required this.color,
     required this.label,
     required this.grams,
     required this.total,
+    this.goal,
     this.estimated = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final progress =
+        (goal != null && goal! > 0) ? (grams / goal!).clamp(0.0, 1.0) : null;
     return Row(
       children: [
         Container(
@@ -2161,15 +2174,81 @@ class _MacroLegendRow extends StatelessWidget {
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            estimated ? '$label*' : label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(estimated ? '$label*' : label,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              if (progress != null) ...[
+                const SizedBox(height: 3),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 3,
+                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation(color),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-        Text('${grams}g',
+        const SizedBox(width: 8),
+        Text(goal != null ? '$grams / ${goal}g' : '${grams}g',
             style: TextStyle(
                 color: color, fontWeight: FontWeight.w600, fontSize: 13)),
       ],
+    );
+  }
+}
+
+// ─── Backup reminder card ──────────────────────────────────────────────────────
+// Gentle nudge shown when data has never been backed up or it's >14 days stale.
+// Taps through to Settings → Data & Backup (export lives there).
+class _BackupReminderCard extends StatelessWidget {
+  const _BackupReminderCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final days = context.watch<FitnessProvider>().daysSinceBackup;
+    return GestureDetector(
+      onTap: () =>
+          Navigator.push(context, sharedAxisRoute(const SettingsScreen())),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF9F0A).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppShadows.card,
+          border: Border.all(
+              color: const Color(0xFFFF9F0A).withValues(alpha: 0.4)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.backup_outlined, color: Color(0xFFFF9F0A), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Back up your data',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(
+                  days == null
+                      ? "It's only on this device — export it so an uninstall can't wipe it."
+                      : 'Last backup $days days ago. Tap to export a fresh copy.',
+                  style: const TextStyle(color: _kSecond, fontSize: 12, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: _kSecond, size: 20),
+        ]),
+      ),
     );
   }
 }
