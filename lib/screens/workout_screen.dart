@@ -320,10 +320,41 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         style: const TextStyle(
                             color: Color(0xFF8E8E93), fontSize: 12))
                   else if (!isCardio && lastWeight != null)
-                    Text(
-                        'Last session: ${lastWeight.toStringAsFixed(1)} kg × ${lastReps ?? '?'} reps',
-                        style: const TextStyle(
-                            color: Color(0xFF8E8E93), fontSize: 12)),
+                    Builder(builder: (_) {
+                      final hint =
+                          FitnessProvider.overloadSuggestion(lastWeight, lastReps);
+                      return Row(children: [
+                        Flexible(
+                          child: Text(
+                            'Last session: ${lastWeight.toStringAsFixed(1)} kg × ${lastReps ?? '?'} reps',
+                            style: const TextStyle(
+                                color: Color(0xFF8E8E93), fontSize: 12),
+                          ),
+                        ),
+                        if (hint != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color:
+                                  const Color(0xFF30D158).withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.trending_up_rounded,
+                                  size: 12, color: Color(0xFF30D158)),
+                              const SizedBox(width: 4),
+                              Text(hint,
+                                  style: const TextStyle(
+                                      color: Color(0xFF30D158),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700)),
+                            ]),
+                          ),
+                        ],
+                      ]);
+                    }),
                   const SizedBox(height: 20),
 
                   // ── Action buttons ───────────────────────────────────────

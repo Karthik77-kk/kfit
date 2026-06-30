@@ -238,6 +238,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           _Tile(
+            icon: Icons.grain_outlined,
+            title: 'Daily Carb Goal',
+            subtitle: '${p.carbGoal}g carbs — tap to change',
+            onTap: () => _editGoal(
+              label: 'Daily Carb Goal (g)',
+              current: p.carbGoal,
+              min: 20, max: 600, step: 5,
+              onSave: (v) => p.saveCarbGoal(v),
+            ),
+          ),
+          _Tile(
+            icon: Icons.opacity_outlined,
+            title: 'Daily Fat Goal',
+            subtitle: '${p.fatGoal}g fat — tap to change',
+            onTap: () => _editGoal(
+              label: 'Daily Fat Goal (g)',
+              current: p.fatGoal,
+              min: 10, max: 300, step: 5,
+              onSave: (v) => p.saveFatGoal(v),
+            ),
+          ),
+          _Tile(
             icon: Icons.directions_walk_outlined,
             title: 'Daily Step Goal',
             subtitle: '${p.stepGoal.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} steps — tap to change',
@@ -274,10 +296,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // ── DATA ──────────────────────────────────────────────────
           _Header('Data & Backup'),
+          if (p.needsBackupReminder)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF9F0A).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: const Color(0xFFFF9F0A).withValues(alpha: 0.4)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.backup_outlined,
+                    color: Color(0xFFFF9F0A), size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    p.daysSinceBackup == null
+                        ? "You've never backed up. Your data lives only on this device — export it so an uninstall can't wipe it."
+                        : 'Last backup was ${p.daysSinceBackup} days ago. Export a fresh copy to stay safe.',
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 12, height: 1.35),
+                  ),
+                ),
+              ]),
+            ),
           _Tile(
             icon: Icons.upload_rounded,
             title: 'Export Data',
-            subtitle: 'Share your backup as a JSON file',
+            subtitle: p.daysSinceBackup == null
+                ? 'Share your backup as a JSON file'
+                : 'Last backup: ${p.daysSinceBackup == 0 ? 'today' : '${p.daysSinceBackup}d ago'} · share a fresh copy',
             trailing: _exporting
                 ? const SizedBox(width: 20, height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2))

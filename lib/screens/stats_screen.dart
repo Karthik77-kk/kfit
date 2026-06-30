@@ -1524,6 +1524,22 @@ class _MiniWeightChart extends StatelessWidget {
         FlSpot(i.toDouble(), entries[i].weightKg),
     ];
 
+    // 7-point trailing moving average — smooths daily water-weight noise so the
+    // real trend is readable. Only shown once there's enough data to be useful.
+    const avgWindow = 7;
+    final showTrend = entries.length >= 5;
+    final avgSpots = <FlSpot>[
+      for (int i = 0; i < entries.length; i++)
+        FlSpot(i.toDouble(), () {
+          final start = (i - avgWindow + 1) < 0 ? 0 : i - avgWindow + 1;
+          double sum = 0;
+          for (int j = start; j <= i; j++) {
+            sum += entries[j].weightKg;
+          }
+          return sum / (i - start + 1);
+        }()),
+    ];
+
     // Show ~4 date labels across the X axis.
     final n = entries.length;
     final labelStep = (n / 4).ceil().clamp(1, n);
@@ -1601,6 +1617,25 @@ class _MiniWeightChart extends StatelessWidget {
                 touchTooltipData: LineTouchTooltipData(
                   getTooltipColor: (_) => const Color(0xFF2C2C2E),
                   getTooltipItems: (spots) => spots.map((s) {
+                    // The 7-day trend line (barIndex 1) shows its own value.
+                    if (s.barIndex == 1) {
+                      return LineTooltipItem(
+                        '${s.y.toStringAsFixed(1)} kg',
+                        const TextStyle(
+                            color: _kBlue,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                        children: const [
+                          TextSpan(
+                            text: '\n7-day avg',
+                            style: TextStyle(
+                                color: _kSecond,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w400),
+                          ),
+                        ],
+                      );
+                    }
                     final e = entries[s.x.round().clamp(0, n - 1)];
                     return LineTooltipItem(
                       '${e.weightKg.toStringAsFixed(1)} kg\n',
@@ -1653,6 +1688,18 @@ class _MiniWeightChart extends StatelessWidget {
                     ),
                   ),
                 ),
+                // 7-day trend overlay (drawn on top of the raw line).
+                if (showTrend)
+                  LineChartBarData(
+                    spots: avgSpots,
+                    isCurved: true,
+                    curveSmoothness: 0.3,
+                    preventCurveOverShooting: true,
+                    color: _kBlue.withValues(alpha: 0.9),
+                    barWidth: 2,
+                    dashArray: const [6, 4],
+                    dotData: const FlDotData(show: false),
+                  ),
               ],
               extraLinesData: ExtraLinesData(
                 horizontalLines: [

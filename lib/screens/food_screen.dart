@@ -78,18 +78,22 @@ class FoodScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                Builder(builder: (_) {
+                  final left = p.caloriesRemaining; // goal − eaten
+                  final over = left < 0;
+                  return Text(
+                    over ? '${-left} kcal over' : '$left kcal left',
+                    style: TextStyle(
+                      color: over ? Colors.redAccent : const Color(0xFF30D158),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                }),
                 Text(
-                  '${p.todayCaloriesTotal.toInt()} / ${p.calorieGoal} kcal',
-                  style: TextStyle(
-                    color: p.todayCaloriesTotal > p.calorieGoal
-                        ? Colors.redAccent
-                        : const Color(0xFF30D158),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  '${p.todayProteinTotal.toInt()}g protein',
+                  p.proteinRemaining > 0
+                      ? '${p.proteinRemaining}g protein left'
+                      : 'protein goal ✓',
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
                 ),
@@ -428,6 +432,9 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   // Barcode awaiting a manual gap-fill (set when a scan resolves nothing).
   String? _pendingBarcode;
 
+  // Recently-scanned products (quick re-log row when search is empty).
+  List<FoodApiResult> _recentScans = [];
+
   Timer? _searchDebounce;
 
   @override
@@ -450,6 +457,10 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
         if (mounted) setState(() {});
       });
     }
+
+    FoodApiService.recentScans().then((s) {
+      if (mounted) setState(() => _recentScans = s);
+    });
   }
 
   @override
@@ -536,11 +547,16 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   // ── Gram picker (for API results — per-100g basis) ───────────────────────────
 
   void _showGramPicker(BuildContext ctx, FoodApiResult item) {
-    // Default to the product's declared serving when known (e.g. a scanned
-    // 30 g biscuit pack), else 100 g.
+    // Default to the last grams logged for this food (portion memory), else the
+    // product's declared serving (e.g. a scanned 30 g biscuit pack), else 100 g.
     final hasServing = item.servingSizeG != null && item.servingSizeG! > 0;
+    final remembered = context.read<FitnessProvider>().lastPortion(item.name);
     final gCtrl = TextEditingController(
-        text: hasServing ? item.servingSizeG!.round().toString() : '100');
+        text: remembered != null
+            ? remembered.round().toString()
+            : hasServing
+                ? item.servingSizeG!.round().toString()
+                : '100');
 
     showDialog(
       context: ctx,
@@ -719,6 +735,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   void _addApiItem(BuildContext ctx, FoodApiResult item, double grams) {
     HapticFeedback.lightImpact();
     final provider = ctx.read<FitnessProvider>();
+    provider.rememberPortion(item.name, grams); // portion memory (grams)
     final gStr = grams == grams.roundToDouble()
         ? '${grams.toInt()}g'
         : '${grams.toStringAsFixed(1)}g';
@@ -754,7 +771,9 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   // ────────────────────────────────────────────────────────────────────────────
 
   void _showQuantityPicker(BuildContext ctx, FoodItem item) {
-    double servings = 1.0;
+    // Default to the last quantity logged for this food (portion memory).
+    final remembered = context.read<FitnessProvider>().lastPortion(item.name);
+    double servings = (remembered ?? 1.0).clamp(0.5, 10.0);
     showDialog(
       context: ctx,
       barrierColor: Colors.black87,
@@ -862,6 +881,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
   void _addItemWithQty(BuildContext ctx, FoodItem item, double servings) {
     HapticFeedback.lightImpact();
     final provider = ctx.read<FitnessProvider>();
+    provider.rememberPortion(item.name, servings); // portion memory (servings)
     // Format whole servings as "2×" not "2.0×"; keep one decimal for halves.
     final qtyStr = servings == servings.roundToDouble()
         ? servings.toInt().toString()
@@ -966,10 +986,13 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.add_circle, color: Color(0xFF30D158)),
-          onPressed: () => _showQuantityPicker(context, item),
-        ),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          _starButton(item),
+          IconButton(
+            icon: const Icon(Icons.add_circle, color: Color(0xFF30D158)),
+            onPressed: () => _showQuantityPicker(context, item),
+          ),
+        ]),
       );
     }
 
@@ -1051,6 +1074,100 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
       child: Text(label,
           style: TextStyle(
               color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+    );
+  }
+
+  /// Star toggle to pin/unpin a food. Only for stable local foods (curated/IFCT).
+  Widget _starButton(FoodItem item) {
+    final fav = context.watch<FitnessProvider>().isFavoriteFood(item.name);
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      icon: Icon(fav ? Icons.star_rounded : Icons.star_outline_rounded,
+          size: 20,
+          color: fav
+              ? const Color(0xFFFF9F0A)
+              : Colors.white.withValues(alpha: 0.35)),
+      onPressed: () {
+        HapticFeedback.selectionClick();
+        context.read<FitnessProvider>().toggleFavoriteFood(item.name);
+      },
+    );
+  }
+
+  /// Quick-add chips for pinned foods (shown when search is empty).
+  Widget _favoritesRow() {
+    final favs = context.watch<FitnessProvider>().favoriteFoodItems;
+    if (favs.isEmpty) return const SizedBox.shrink();
+    return _ChipSection(
+      label: 'FAVORITES',
+      icon: Icons.star_rounded,
+      iconColor: const Color(0xFFFF9F0A),
+      children: favs.map((f) {
+        return _quickChip(
+          icon: Icons.star_rounded,
+          iconColor: const Color(0xFFFF9F0A),
+          label: f.name,
+          trailing: '${f.calories.round()}kcal',
+          onTap: () => f.source == 'IFCT'
+              ? _showGramPicker(context, _ifctAsApi(f))
+              : _showQuantityPicker(context, f),
+        );
+      }).toList(),
+    );
+  }
+
+  /// Quick-add chips for recently-scanned products (shown when search is empty).
+  Widget _recentScansRow() {
+    if (_recentScans.isEmpty) return const SizedBox.shrink();
+    return _ChipSection(
+      label: 'RECENTLY SCANNED',
+      icon: Icons.qr_code_scanner_rounded,
+      iconColor: const Color(0xFF40C8E0),
+      children: _recentScans.map((r) {
+        return _quickChip(
+          icon: Icons.qr_code_scanner_rounded,
+          iconColor: const Color(0xFF40C8E0),
+          label: r.name,
+          trailing: '${r.calories100g.round()}/100g',
+          onTap: () => _showGramPicker(context, r),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _quickChip({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String trailing,
+    required VoidCallback onTap,
+  }) {
+    return AppTappable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C2C2E),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF3A3A3C)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 12, color: iconColor),
+        const SizedBox(width: 4),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ),
+        const SizedBox(width: 4),
+        Text(trailing,
+            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
+      ]),
     );
   }
 
@@ -1368,6 +1485,12 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
               ]),
             ),
 
+            // ── Favorites (pinned foods) ──
+            if (_search.isEmpty) _favoritesRow(),
+
+            // ── Recently scanned products ──
+            if (_search.isEmpty) _recentScansRow(),
+
             // ── Recent foods (5 most recent unique food names logged today or ever) ──
             if (_search.isEmpty)
               _RecentFoodsRow(meal: _selectedMeal, date: _selectedDate),
@@ -1480,11 +1603,15 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                                 color: Colors.white.withValues(alpha: 0.4),
                                 fontSize: 11),
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.add_circle,
-                                color: Color(0xFF30D158)),
-                            onPressed: () => _showQuantityPicker(context, item),
-                          ),
+                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                            _starButton(item),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle,
+                                  color: Color(0xFF30D158)),
+                              onPressed: () =>
+                                  _showQuantityPicker(context, item),
+                            ),
+                          ]),
                         )),
 
                   // ── Unified ranked results (curated + IFCT + OFF + USDA) ──
@@ -1673,6 +1800,43 @@ class _MiniField extends StatelessWidget {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
+    );
+  }
+}
+
+// ── Labeled horizontal chip section (Favorites / Recently scanned) ────────────
+class _ChipSection extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color iconColor;
+  final List<Widget> children;
+  const _ChipSection(
+      {required this.label,
+      required this.icon,
+      required this.iconColor,
+      required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 12, color: iconColor),
+          const SizedBox(width: 5),
+          Text(label,
+              style: const TextStyle(
+                  color: Color(0xFF8E8E93),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5)),
+        ]),
+        const SizedBox(height: 6),
+        Wrap(spacing: 8, runSpacing: 6, children: children),
+        const SizedBox(height: 8),
+        const Divider(color: Color(0xFF2C2C2E), height: 1),
+        const SizedBox(height: 4),
+      ]),
     );
   }
 }
