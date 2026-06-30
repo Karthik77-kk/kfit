@@ -719,6 +719,25 @@ class FitnessProvider extends ChangeNotifier {
     return kDefaultProteinGoal;
   }
 
+  /// Recommended daily fat for fat loss — ~25% of the recommended calorie target
+  /// (÷9 kcal/g), a hormonal-health floor that isn't excessive. Null when there's
+  /// no TDEE estimate yet (same gate as [recommendedCalorieGoal]).
+  int? get recommendedFatGoal {
+    final cals = recommendedCalorieGoal;
+    if (cals == null) return null;
+    return (cals * 0.25 / 9.0).round().clamp(30, 130);
+  }
+
+  /// Recommended daily carbs — the energy left after protein + fat (÷4 kcal/g):
+  /// "protein first, fat next, carbs fill the rest." Null when no TDEE yet.
+  int? get recommendedCarbGoal {
+    final cals = recommendedCalorieGoal;
+    if (cals == null) return null;
+    final remaining =
+        cals - recommendedProteinGoal * 4 - (recommendedFatGoal ?? 0) * 9;
+    return (remaining / 4.0).round().clamp(50, 500);
+  }
+
   /// Recommended daily water intake: 35 ml per kg body weight.
   /// 35 ml/kg is widely recommended for active adults aiming for fat loss.
   int get recommendedWaterGoal {
@@ -737,7 +756,11 @@ class FitnessProvider extends ChangeNotifier {
     final calDiff  = (rCal.round() - _calorieGoal).abs() > 50;
     final protDiff = (rProt        - _proteinGoal).abs() > 5;
     final watDiff  = (rWat         - _waterGoalMl).abs() > 150;
-    return calDiff || protDiff || watDiff;
+    final rCarb = recommendedCarbGoal;
+    final rFat  = recommendedFatGoal;
+    final carbDiff = rCarb != null && (rCarb - _carbGoal).abs() > 15;
+    final fatDiff  = rFat  != null && (rFat  - _fatGoal).abs() > 8;
+    return calDiff || protDiff || watDiff || carbDiff || fatDiff;
   }
 
   /// kg remaining to reach goal weight (negative = already below goal)
