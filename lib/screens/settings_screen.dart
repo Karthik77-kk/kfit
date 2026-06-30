@@ -712,6 +712,8 @@ class _SmartGoalsTile extends StatelessWidget {
     final rCal  = p.recommendedCalorieGoal?.round();
     final rProt = p.recommendedProteinGoal;
     final rWat  = p.recommendedWaterGoal;
+    final rCarb = p.recommendedCarbGoal; // null until a TDEE estimate exists
+    final rFat  = p.recommendedFatGoal;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -735,7 +737,7 @@ class _SmartGoalsTile extends StatelessWidget {
         Text(
           p.isTdeeCalibrated
               ? 'Calorie target is calibrated from your REAL weight trend + intake '
-                '(not a generic formula). Protein & water scale with your body:'
+                '(not a generic formula). Protein, carbs, fat & water scale with your body:'
               : 'Your current goals vs what your body metrics suggest:',
           style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.4),
         ),
@@ -766,6 +768,28 @@ class _SmartGoalsTile extends StatelessWidget {
           matches: (rProt - p.proteinGoal).abs() <= 5,
         ),
 
+        // Carbs row (energy left after protein + fat)
+        if (rCarb != null)
+          _RecoRow(
+            emoji: '🍚',
+            label: 'Carbs',
+            current: '${p.carbGoal}g',
+            recommended: '${rCarb}g',
+            reason: 'Remaining energy after protein & fat (÷4 kcal/g)',
+            matches: (rCarb - p.carbGoal).abs() <= 15,
+          ),
+
+        // Fat row (~25% of calories)
+        if (rFat != null)
+          _RecoRow(
+            emoji: '🥑',
+            label: 'Fat',
+            current: '${p.fatGoal}g',
+            recommended: '${rFat}g',
+            reason: '~25% of ${rCal ?? "—"} kcal (÷9 kcal/g)',
+            matches: (rFat - p.fatGoal).abs() <= 8,
+          ),
+
         // Water row
         _RecoRow(
           emoji: '💧',
@@ -783,6 +807,8 @@ class _SmartGoalsTile extends StatelessWidget {
             onPressed: () async {
               if (rCal != null) await p.saveCalorieGoal(rCal);
               await p.saveProteinGoal(rProt);
+              if (rCarb != null) await p.saveCarbGoal(rCarb);
+              if (rFat != null) await p.saveFatGoal(rFat);
               await p.saveWaterGoal(rWat);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
