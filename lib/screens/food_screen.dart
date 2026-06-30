@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import '../widgets/input_formatters.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../services/food_api_service.dart';
@@ -650,6 +651,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 controller: gCtrl,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: positiveDecimalInput,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     color: Colors.white,
@@ -1252,6 +1254,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           controller: ctrl,
           autofocus: true,
           keyboardType: TextInputType.number,
+          inputFormatters: positiveIntInput,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: 'e.g. 8901234567890',
@@ -1787,6 +1790,10 @@ class _MiniField extends StatelessWidget {
     return TextField(
       controller: ctrl,
       keyboardType: keyboard,
+      // Numeric mini-fields (kcal, protein…) accept positive numbers only; the
+      // text variant (food name) keeps free input.
+      inputFormatters:
+          keyboard == TextInputType.text ? null : positiveDecimalInput,
       style: const TextStyle(color: Colors.white, fontSize: 13),
       decoration: InputDecoration(
         hintText: hint,

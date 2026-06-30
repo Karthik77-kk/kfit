@@ -6,7 +6,9 @@ import 'package:file_picker/file_picker.dart';
 import '../app_info.dart';
 import '../theme/app_tokens.dart';
 import '../providers/fitness_provider.dart';
+import '../services/cloud_backup_service.dart';
 import '../services/on_device_ai_service.dart';
+import '../widgets/input_formatters.dart';
 import '../services/update_service.dart';
 import '../widgets/update_dialog.dart';
 import 'chat_screen.dart' show openChat;
@@ -20,6 +22,210 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _exporting = false;
   bool _importing = false;
+
+  // Cloud sync (GitHub) state
+  bool _cloudBusy = false;
+  String? _cloudUser;
+  String? _cloudId;
+  int _cloudLastMs = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCloud();
+  }
+
+  String _relativeTime(int ms) {
+    if (ms <= 0) return 'never';
+    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ms));
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  Future<void> _loadCloud() async {
+    if (!CloudBackupService.enabled) return;
+    final svc = CloudBackupService.instance;
+    final u = await svc.username();
+    final id = await svc.userId();
+    final last = await svc.lastBackupMs();
+    if (mounted) {
+      setState(() {
+        _cloudUser = u;
+        _cloudId = id;
+        _cloudLastMs = last;
+      });
+    }
+  }
+
+  Future<void> _setCloudAccount() async {
+    final userCtrl = TextEditingController(text: _cloudUser ?? '');
+    final idCtrl = TextEditingController(text: _cloudId ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Your cloud account',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text(
+            'Pick a username and an id you\'ll remember — together they identify '
+            'your backup. Use the same pair on another device to restore.',
+            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: userCtrl,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(hintText: 'Username (e.g. karthik)'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: idCtrl,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(hintText: 'Your id (e.g. kfit-001)'),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (!CloudBackupService.isValidAccount(
+                  userCtrl.text, idCtrl.text)) {
+                ScaffoldMessenger.of(dCtx).showSnackBar(const SnackBar(
+                    content: Text('Enter a valid username and id'),
+                    duration: Duration(seconds: 1)));
+                return;
+              }
+              Navigator.pop(dCtx, true);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF30D158)),
+            child: const Text('Save',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (saved == true) {
+      await CloudBackupService.instance
+          .saveAccount(userCtrl.text, idCtrl.text);
+      await _loadCloud();
+    }
+    userCtrl.dispose();
+    idCtrl.dispose();
+  }
+
+  Future<void> _cloudBackup() async {
+    setState(() => _cloudBusy = true);
+    try {
+      final json = await context.read<FitnessProvider>().buildBackupJson();
+      final msg = await CloudBackupService.instance.backup(json);
+      await context.read<FitnessProvider>().markBackedUp();
+      await _loadCloud();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('☁️ $msg'),
+            backgroundColor: const Color(0xFF30D158)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Cloud backup failed: $e'),
+            backgroundColor: const Color(0xFFFF453A)));
+      }
+    } finally {
+      if (mounted) setState(() => _cloudBusy = false);
+    }
+  }
+
+  Future<void> _cloudRestore() async {
+    final userCtrl = TextEditingController(text: _cloudUser ?? '');
+    final idCtrl = TextEditingController(text: _cloudId ?? '');
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Restore from cloud',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text(
+            'Enter the username and id you backed up with. This overwrites ALL '
+            'current data on this device.',
+            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: userCtrl,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(hintText: 'Username'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: idCtrl,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(hintText: 'Your id'),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, true),
+            child: const Text('Restore', style: TextStyle(color: Color(0xFFFF453A))),
+          ),
+        ],
+      ),
+    );
+    if (go == true) {
+      setState(() => _cloudBusy = true);
+      try {
+        final json = await CloudBackupService.instance
+            .restore(userCtrl.text, idCtrl.text);
+        if (json == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('No backup found for that username + id'),
+                backgroundColor: Color(0xFFFF9F0A)));
+          }
+        } else {
+          final ok =
+              await context.read<FitnessProvider>().importFromJsonString(json);
+          await CloudBackupService.instance
+              .saveAccount(userCtrl.text, idCtrl.text);
+          await _loadCloud();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(ok
+                    ? '✅ Restored from cloud!'
+                    : '❌ Backup file was invalid'),
+                backgroundColor:
+                    ok ? const Color(0xFF30D158) : const Color(0xFFFF453A)));
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Restore failed: $e'),
+              backgroundColor: const Color(0xFFFF453A)));
+        }
+      } finally {
+        if (mounted) setState(() => _cloudBusy = false);
+      }
+    }
+    userCtrl.dispose();
+    idCtrl.dispose();
+  }
 
   Future<void> _export() async {
     setState(() => _exporting = true);
@@ -148,6 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             controller: ctrl,
             autofocus: true,
             keyboardType: TextInputType.number,
+            inputFormatters: positiveIntInput,
             decoration: InputDecoration(
               hintText: 'Between $min – $max',
               helperText: 'Range: $min – $max  (step: $step)',
@@ -343,6 +550,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 : const Icon(Icons.folder_open_outlined, color: Color(0xFF30D158), size: 20),
             onTap: _importing ? null : _import,
           ),
+
+          // ── CLOUD SYNC (GitHub) ───────────────────────────────────
+          if (CloudBackupService.enabled) ...[
+            const SizedBox(height: 20),
+            _Header('Cloud Sync'),
+            _Tile(
+              icon: Icons.badge_outlined,
+              title: 'Cloud account',
+              subtitle: (_cloudUser?.isNotEmpty == true)
+                  ? '$_cloudUser · id: ${_cloudId ?? '—'} — tap to change'
+                  : 'Set a username + id to sync',
+              onTap: _cloudBusy ? null : _setCloudAccount,
+            ),
+            _Tile(
+              icon: Icons.cloud_upload_outlined,
+              title: 'Back up to cloud',
+              subtitle: _cloudLastMs > 0
+                  ? 'Last cloud backup: ${_relativeTime(_cloudLastMs)}'
+                  : 'Push your data to the private repo',
+              trailing: _cloudBusy
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.cloud_upload,
+                      color: Color(0xFF40C8E0), size: 20),
+              onTap: (_cloudBusy || !(_cloudUser?.isNotEmpty == true))
+                  ? null
+                  : _cloudBackup,
+            ),
+            _Tile(
+              icon: Icons.cloud_download_outlined,
+              title: 'Restore from cloud',
+              subtitle: 'Download by username + id (overwrites this device)',
+              onTap: _cloudBusy ? null : _cloudRestore,
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 6, 4, 0),
+              child: Text(
+                'Auto-backs up daily and ~10s after launch. Note: for personal/'
+                'testing use — a chosen username+id identifies you but is not a '
+                'password.',
+                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.35),
+              ),
+            ),
+          ],
+
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(14),

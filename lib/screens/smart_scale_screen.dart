@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../widgets/input_formatters.dart';
 import '../providers/fitness_provider.dart';
 import '../models/models.dart';
 import '../theme/app_tokens.dart';
@@ -344,6 +345,7 @@ class _LogTabState extends State<_LogTab> with AutomaticKeepAliveClientMixin {
             keyboardType: isDecimal
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : TextInputType.number,
+            inputFormatters: isDecimal ? positiveDecimalInput : positiveIntInput,
             style: const TextStyle(
                 color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
             textAlign: TextAlign.right,

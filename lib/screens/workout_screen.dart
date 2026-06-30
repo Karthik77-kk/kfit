@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
+import '../widgets/input_formatters.dart';
 import '../models/models.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/kit/kit.dart';
@@ -446,6 +447,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       keyboardType: isDecimal
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.number,
+      inputFormatters: isDecimal ? positiveDecimalInput : positiveIntInput,
       textAlign: TextAlign.center,
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
