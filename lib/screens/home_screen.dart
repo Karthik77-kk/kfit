@@ -256,8 +256,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 20),
                     ],
 
-                    // ── Macro donut (hidden when no food logged today) ────────
-                    if (_showEmptySections || p.todayFood.isNotEmpty) ...[
+                    // ── Macro donut (shown when there's any intake — food OR a
+                    // checked whey supplement, which adds 25g protein) ────────
+                    if (_showEmptySections ||
+                        p.todayFood.isNotEmpty ||
+                        p.supplementCalories > 0) ...[
                       const _SectionHdr('TODAY\'S MACROS'),
                       const SizedBox(height: 10),
                       // Display-only donut — no tap handlers, so exclude from hit-test

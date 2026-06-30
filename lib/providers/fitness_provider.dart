@@ -2237,15 +2237,52 @@ class FitnessProvider extends ChangeNotifier {
     'chat_sessions_v1',   // health conversation history — too sensitive for backup files
   };
 
-  Future<String> exportAllData() async {
+  /// Serializes all backup-eligible SharedPreferences into a JSON string. Shared
+  /// by the local file export and the GitHub cloud backup so both produce the
+  /// exact same payload.
+  Future<String> buildBackupJson() async {
     final prefs = await SharedPreferences.getInstance();
-    final allKeys = prefs.getKeys();
     final Map<String, dynamic> data = {};
-    for (final key in allKeys) {
+    for (final key in prefs.getKeys()) {
       if (_exportExcludeKeys.contains(key)) continue;
-      final val = prefs.get(key);
-      data[key] = val;
+      data[key] = prefs.get(key);
     }
+    return jsonEncode(data);
+  }
+
+  /// Restores backup-eligible keys from a backup JSON string (used by both file
+  /// import and cloud restore). Returns false on malformed input.
+  Future<bool> importFromJsonString(String content) async {
+    try {
+      final Map<String, dynamic> data = jsonDecode(content);
+      final prefs = await SharedPreferences.getInstance();
+      for (final entry in data.entries) {
+        // Never restore device-specific or sensitive keys from a backup
+        if (_exportExcludeKeys.contains(entry.key)) continue;
+        final val = entry.value;
+        if (val is String) {
+          await prefs.setString(entry.key, val);
+        } else if (val is bool) {
+          await prefs.setBool(entry.key, val);
+        } else if (val is int) {
+          await prefs.setInt(entry.key, val);
+        } else if (val is double) {
+          await prefs.setDouble(entry.key, val);
+        } else if (val is List) {
+          // StringList keys (favorites, recent scans, etc.)
+          await prefs.setStringList(
+              entry.key, val.map((e) => e.toString()).toList());
+        }
+      }
+      await loadData(); // reload everything
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String> exportAllData() async {
+    final json = await buildBackupJson();
     // Write to app documents directory
     final dir = await getApplicationDocumentsDirectory();
     final timestamp = DateTime.now().toIso8601String()
@@ -2253,7 +2290,7 @@ class FitnessProvider extends ChangeNotifier {
     final fileName = 'kfitness_backup_$timestamp.json';
     final file = File('${dir.path}/$fileName');
     try {
-      await file.writeAsString(jsonEncode(data));
+      await file.writeAsString(json);
     } on FileSystemException catch (e) {
       throw Exception('Export failed — check storage space. (${e.message})');
     } catch (e) {
@@ -2267,20 +2304,7 @@ class FitnessProvider extends ChangeNotifier {
     try {
       final file = File(filePath);
       if (!await file.exists()) return false;
-      final content = await file.readAsString();
-      final Map<String, dynamic> data = jsonDecode(content);
-      final prefs = await SharedPreferences.getInstance();
-      for (final entry in data.entries) {
-        // Never restore device-specific or sensitive keys from a backup
-        if (_exportExcludeKeys.contains(entry.key)) continue;
-        final val = entry.value;
-        if (val is String) await prefs.setString(entry.key, val);
-        else if (val is int) await prefs.setInt(entry.key, val);
-        else if (val is double) await prefs.setDouble(entry.key, val);
-        else if (val is bool) await prefs.setBool(entry.key, val);
-      }
-      await loadData(); // reload everything
-      return true;
+      return await importFromJsonString(await file.readAsString());
     } catch (_) {
       return false;
     }

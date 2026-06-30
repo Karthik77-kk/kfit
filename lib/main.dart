@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/fitness_provider.dart';
+import 'services/cloud_backup_service.dart';
 import 'services/food_repository.dart';
 import 'services/nav_router.dart';
 import 'services/on_device_ai_service.dart';
@@ -50,11 +51,21 @@ void main() async {
       // it if startup hasn't finished loading.
       FoodRepository.instance.ensureLoaded();
 
+      final fitnessProvider = FitnessProvider()..loadData();
+
+      // Cold-launch auto-backup: ~10 s in (and at most once/day), push a cloud
+      // backup if GitHub cloud sync is configured and an account is set. Silent
+      // and best-effort — never blocks startup or surfaces errors at launch.
+      Timer(const Duration(seconds: 10), () async {
+        final pushed = await CloudBackupService.instance
+            .autoBackupIfDue(fitnessProvider.buildBackupJson);
+        if (pushed) fitnessProvider.markBackedUp();
+      });
+
       runApp(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider(
-                create: (_) => FitnessProvider()..loadData()),
+            ChangeNotifierProvider.value(value: fitnessProvider),
             // lazy:true → service is only created the first time Settings or
             // Chat is opened. Defers model loading out of the cold-start window
             // so loadData() gets full CPU/IO priority at launch.

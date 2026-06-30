@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../widgets/input_formatters.dart';
 import '../providers/fitness_provider.dart';
 import '../main.dart' show MainNavigationScreen;
 
@@ -521,6 +522,7 @@ class _NumField extends StatelessWidget {
           key: ValueKey(fieldKey),
           controller: controller,
           keyboardType: TextInputType.numberWithOptions(decimal: allowDecimal),
+          inputFormatters: allowDecimal ? positiveDecimalInput : positiveIntInput,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
             hintText: '—',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../widgets/input_formatters.dart';
 
 /// Full-screen barcode scanner. Pops with the detected barcode [String] on the
 /// first valid detection (locked/debounced so a single scan can't fire twice),
@@ -57,6 +58,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
           controller: ctrl,
           autofocus: true,
           keyboardType: TextInputType.number,
+          inputFormatters: positiveIntInput,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: 'e.g. 8901234567890',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import '../widgets/input_formatters.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../providers/fitness_provider.dart';
@@ -1292,6 +1293,9 @@ class _FieldRow extends StatelessWidget {
             child: TextField(
               controller: ctrl,
               keyboardType: keyboard,
+              inputFormatters: keyboard == TextInputType.number
+                  ? positiveIntInput
+                  : positiveDecimalInput,
               textAlign: TextAlign.right,
               textInputAction:
                   isLast ? TextInputAction.done : TextInputAction.next,
