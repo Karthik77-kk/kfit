@@ -2240,11 +2240,17 @@ class FitnessProvider extends ChangeNotifier {
   /// Serializes all backup-eligible SharedPreferences into a JSON string. Shared
   /// by the local file export and the GitHub cloud backup so both produce the
   /// exact same payload.
+  /// Keys that must never travel in a backup — the static device-specific set
+  /// plus any `cloud_*` sync state (git sha, last-backup time, account). Carrying
+  /// those to another device would plant a stale sha / wrong account.
+  static bool _isExcludedFromBackup(String key) =>
+      _exportExcludeKeys.contains(key) || key.startsWith('cloud_');
+
   Future<String> buildBackupJson() async {
     final prefs = await SharedPreferences.getInstance();
     final Map<String, dynamic> data = {};
     for (final key in prefs.getKeys()) {
-      if (_exportExcludeKeys.contains(key)) continue;
+      if (_isExcludedFromBackup(key)) continue;
       data[key] = prefs.get(key);
     }
     return jsonEncode(data);
@@ -2258,7 +2264,7 @@ class FitnessProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       for (final entry in data.entries) {
         // Never restore device-specific or sensitive keys from a backup
-        if (_exportExcludeKeys.contains(entry.key)) continue;
+        if (_isExcludedFromBackup(entry.key)) continue;
         final val = entry.value;
         if (val is String) {
           await prefs.setString(entry.key, val);
