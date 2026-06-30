@@ -114,6 +114,54 @@ void main() {
     });
   });
 
+  // ── Fuzzy / normalized relevance matching ──────────────────────────────────
+  group('foodMatchScore (typo / punctuation tolerant)', () {
+    double? score(String name, String query) =>
+        foodMatchScore(name, normalizeFood(query), category: null);
+
+    test('punctuation/space-insensitive: "icecream" ranks "Ice-cream"', () {
+      expect(score('Ice-cream', 'icecream'), 0); // normalized exact
+      expect(score('Ice Cream', 'icecream'), 0);
+      expect(score('Ice-cream', 'ice cream'), 0);
+    });
+
+    test('trailing/leading spaces are ignored', () {
+      expect(score('Paneer', '  paneer '), 0);
+      expect(score('Paneer Butter Masala', 'paneer '), 1); // prefix
+    });
+
+    test('typos resolve: "palov" matches "Pulav", "chiken" → "Chicken"', () {
+      final pulav = score('Pulav', 'palov');
+      expect(pulav, isNotNull);
+      expect(pulav, lessThan(6)); // fuzzy bucket
+      expect(score('Boiled Chicken', 'chiken'), isNotNull);
+    });
+
+    test('prefix beats substring beats fuzzy (lower score = better)', () {
+      final prefix = score('Dal Tadka', 'dal')!;
+      final sub = score('Moong Dal', 'dal')!;
+      final fuzzy = score('Dahl', 'dal')!; // 1 edit
+      expect(prefix, lessThan(sub));
+      expect(sub, lessThan(fuzzy));
+    });
+
+    test('unrelated names do not match', () {
+      expect(score('Banana', 'pizza'), isNull);
+    });
+
+    test('ranks the closest match first across sources', () {
+      FoodApiResult r(String n) => FoodApiResult(
+          name: n, calories100g: 100, protein100g: 1, carbs100g: 1, fat100g: 1,
+          source: 'OpenFoodFacts');
+      final merged = mergeFoodResults('icecream', [
+        UnifiedFoodResult.fromRemote(r('Mango Ice Cream Bar')), // substring(2)
+        UnifiedFoodResult.fromRemote(r('Ice-cream')), // exact(0)
+        UnifiedFoodResult.fromRemote(r('Iced Tea')), // fuzzy/none
+      ]);
+      expect(merged.first.name, 'Ice-cream');
+    });
+  });
+
   // ── Task 2: OpenFoodFacts mappers ──────────────────────────────────────────
   group('OpenFoodFacts mapping', () {
     test('barcode product (status 1) → per-100g + serving_quantity', () {
