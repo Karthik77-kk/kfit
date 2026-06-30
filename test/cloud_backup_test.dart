@@ -85,6 +85,12 @@ void main() {
       expect(await CloudBackupService.instance.userId(), 'kfit-001');
       expect(await CloudBackupService.instance.hasAccount, isTrue);
     });
+
+    test('auto-backup toggle defaults on and persists', () async {
+      expect(await CloudBackupService.instance.autoBackupEnabled(), isTrue);
+      await CloudBackupService.instance.setAutoBackup(false);
+      expect(await CloudBackupService.instance.autoBackupEnabled(), isFalse);
+    });
   });
 
   group('backup JSON build/restore round-trip', () {
@@ -95,6 +101,8 @@ void main() {
         'favorite_foods': ['paneer', 'roti'], // StringList must survive
         'hf_token_ai_chat': 'SECRET',         // excluded from export
         'chat_sessions_v1': 'PRIVATE',        // excluded from export
+        'cloud_last_backup_ms': 123,          // sync state — must NOT travel
+        'cloud_username': 'karthik',          // sync state — must NOT travel
       });
       final source = FitnessProvider();
       await source.loadData();
@@ -105,6 +113,8 @@ void main() {
       expect(map['favorite_foods'], ['paneer', 'roti']);
       expect(map.containsKey('hf_token_ai_chat'), isFalse); // sensitive dropped
       expect(map.containsKey('chat_sessions_v1'), isFalse);
+      // cloud_* sync state never travels (would plant a stale sha / wrong account)
+      expect(map.keys.where((k) => k.startsWith('cloud_')), isEmpty);
 
       // Restore into a fresh device (empty prefs).
       SharedPreferences.setMockInitialValues({});

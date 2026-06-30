@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import '../app_info.dart';
 import '../theme/app_tokens.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/fitness_provider.dart';
 import '../services/cloud_backup_service.dart';
 import '../services/on_device_ai_service.dart';
@@ -28,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _cloudUser;
   String? _cloudId;
   int _cloudLastMs = 0;
+  bool _cloudAuto = true;
 
   @override
   void initState() {
@@ -50,11 +52,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final u = await svc.username();
     final id = await svc.userId();
     final last = await svc.lastBackupMs();
+    final auto = await svc.autoBackupEnabled();
     if (mounted) {
       setState(() {
         _cloudUser = u;
         _cloudId = id;
         _cloudLastMs = last;
+        _cloudAuto = auto;
       });
     }
   }
@@ -552,16 +556,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           // ── CLOUD SYNC (GitHub) ───────────────────────────────────
-          if (CloudBackupService.enabled) ...[
-            const SizedBox(height: 20),
-            _Header('Cloud Sync'),
+          const SizedBox(height: 20),
+          _Header('Cloud Sync'),
+          if (!CloudBackupService.enabled)
+            _Tile(
+              icon: Icons.cloud_off_outlined,
+              title: 'Cloud sync not set up',
+              subtitle:
+                  'Add the GH_BACKUP_TOKEN + GH_BACKUP_REPO build secrets to '
+                  'enable backup/restore to a private GitHub repo.',
+              onTap: null,
+            )
+          else ...[
             _Tile(
               icon: Icons.badge_outlined,
-              title: 'Cloud account',
+              title: 'Username & id',
               subtitle: (_cloudUser?.isNotEmpty == true)
                   ? '$_cloudUser · id: ${_cloudId ?? '—'} — tap to change'
                   : 'Set a username + id to sync',
               onTap: _cloudBusy ? null : _setCloudAccount,
+            ),
+            // Auto-backup toggle
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: const Color(0xFF1E1E22),
+                borderRadius: BorderRadius.circular(14),
+                clipBehavior: Clip.antiAlias,
+                child: SwitchListTile(
+                  secondary: const Icon(Icons.sync_rounded,
+                      color: Color(0xFF30D158)),
+                  title: const Text('Auto-backup',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500)),
+                  subtitle: const Text('On cold launch (~10s) and daily',
+                      style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+                  value: _cloudAuto,
+                  activeThumbColor: const Color(0xFF30D158),
+                  onChanged: _cloudBusy
+                      ? null
+                      : (v) async {
+                          await CloudBackupService.instance.setAutoBackup(v);
+                          setState(() => _cloudAuto = v);
+                        },
+                ),
+              ),
             ),
             _Tile(
               icon: Icons.cloud_upload_outlined,
@@ -589,9 +628,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Padding(
               padding: EdgeInsets.fromLTRB(4, 6, 4, 0),
               child: Text(
-                'Auto-backs up daily and ~10s after launch. Note: for personal/'
-                'testing use — a chosen username+id identifies you but is not a '
-                'password.',
+                'Personal/testing use — a chosen username+id identifies you but '
+                'is not a password.',
                 style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.35),
               ),
             ),
@@ -633,11 +671,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // ── ABOUT ─────────────────────────────────────────────────
           _Header('About'),
-          _Tile(
-            icon: Icons.info_outline,
-            title: 'K Fitness',
-            subtitle: '$kAppVersionLabel — Personal fitness tracker',
-            onTap: null,
+          FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (_, snap) {
+              // Real installed version + buildNumber (CI sets buildNumber from
+              // the commit count), falling back to the compiled-in label.
+              final info = snap.data;
+              final label = info != null
+                  ? 'v${info.version} · Build ${info.buildNumber}'
+                  : kAppVersionLabel;
+              return _Tile(
+                icon: Icons.info_outline,
+                title: 'K Fitness',
+                subtitle: '$label — Personal fitness tracker',
+                onTap: null,
+              );
+            },
           ),
           _Tile(
             icon: Icons.menu_book_outlined,

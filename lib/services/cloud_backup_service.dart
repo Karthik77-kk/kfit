@@ -37,7 +37,7 @@ class CloudBackupService {
   static const _userKey = 'cloud_username';
   static const _idKey = 'cloud_userid';
   static const _lastKey = 'cloud_last_backup_ms';
-  static const _shaPrefix = 'cloud_sha_';
+  static const _autoKey = 'cloud_auto_backup';
 
   // ── Account (username + id) ──────────────────────────────────────────────────
   Future<String?> username() async =>
@@ -49,6 +49,13 @@ class CloudBackupService {
       (await userId())?.isNotEmpty == true;
   Future<int> lastBackupMs() async =>
       (await SharedPreferences.getInstance()).getInt(_lastKey) ?? 0;
+
+  /// Whether cold-launch / daily auto-backup is on (default true).
+  Future<bool> autoBackupEnabled() async =>
+      (await SharedPreferences.getInstance()).getBool(_autoKey) ?? true;
+
+  Future<void> setAutoBackup(bool on) async =>
+      (await SharedPreferences.getInstance()).setBool(_autoKey, on);
 
   Future<void> saveAccount(String username, String id) async {
     final prefs = await SharedPreferences.getInstance();
@@ -118,8 +125,10 @@ class CloudBackupService {
     }
     final path = filePathFor(u, id);
     final prefs = await SharedPreferences.getInstance();
-    var sha = prefs.getString('$_shaPrefix$path');
-    sha ??= await _fetchSha(path);
+    // Always fetch the CURRENT remote sha right before writing — a cached sha
+    // goes stale the moment another device backs up, which would 409/422 every
+    // subsequent push. Updating requires the live sha; creating omits it.
+    final sha = await _fetchSha(path);
 
     final body = <String, dynamic>{
       'message': 'K Fitness backup ($u) ${DateTime.now().toIso8601String()}',
@@ -131,9 +140,6 @@ class CloudBackupService {
         .put(_contentsUri(path), headers: _headers, body: jsonEncode(body))
         .timeout(_timeout);
     if (resp.statusCode == 200 || resp.statusCode == 201) {
-      final newSha =
-          ((jsonDecode(resp.body) as Map)['content'] as Map?)?['sha'] as String?;
-      if (newSha != null) await prefs.setString('$_shaPrefix$path', newSha);
       await prefs.setInt(_lastKey, DateTime.now().millisecondsSinceEpoch);
       return 'Backed up as $u';
     }
@@ -151,13 +157,7 @@ class CloudBackupService {
     final resp = await http.get(uri, headers: _headers).timeout(_timeout);
     if (resp.statusCode == 404) return null;
     if (resp.statusCode != 200) throw Exception(errorFor(resp.statusCode));
-    final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
-    final sha = decoded['sha'] as String?;
-    if (sha != null) {
-      await (await SharedPreferences.getInstance())
-          .setString('$_shaPrefix$path', sha);
-    }
-    return decodeContentField(decoded);
+    return decodeContentField(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
   /// Auto-backup hook: pushes [buildJson]'s result if cloud sync is on, an
@@ -165,6 +165,7 @@ class CloudBackupService {
   /// Silent on failure. Returns true if a backup was pushed.
   Future<bool> autoBackupIfDue(Future<String> Function() buildJson) async {
     if (!enabled || !await hasAccount) return false;
+    if (!await autoBackupEnabled()) return false;
     final last = await lastBackupMs();
     final now = DateTime.now().millisecondsSinceEpoch;
     if (last != 0 && now - last < const Duration(days: 1).inMilliseconds) {
