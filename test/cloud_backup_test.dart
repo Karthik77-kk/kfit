@@ -84,6 +84,21 @@ void main() {
       expect(await CloudBackupService.instance.isConfigured(), isFalse);
     });
 
+    test('hasCompiledConfig is false without a build-time dart-define', () {
+      expect(CloudBackupService.hasCompiledConfig, isFalse);
+    });
+
+    test('accountExists is false when unconfigured or account invalid',
+        () async {
+      // Unconfigured → false (no network).
+      expect(await CloudBackupService.instance.accountExists('karthik', '222222'),
+          isFalse);
+      // Configured but blank account → false without a network call.
+      await CloudBackupService.instance
+          .saveConfig(token: 't', repo: 'me/kfit-backups');
+      expect(await CloudBackupService.instance.accountExists('', ''), isFalse);
+    });
+
     test('backup/restore throw when not configured', () async {
       expect(() => CloudBackupService.instance.backup('{}'), throwsException);
       expect(() => CloudBackupService.instance.restore('u', 'i'),

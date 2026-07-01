@@ -49,6 +49,11 @@ class CloudBackupService {
     return (p != null && p.isNotEmpty) ? p : compiledRepo;
   }
 
+  /// True when the token + repo were baked in at build (`--dart-define`). In this
+  /// case the UI hides all repo/token setup — testers only enter a username + id.
+  static bool get hasCompiledConfig =>
+      compiledToken.isNotEmpty && isValidRepo(compiledRepo);
+
   /// Cloud sync is usable when there's a token and a valid `owner/name` repo.
   Future<bool> isConfigured() async {
     final t = await effectiveToken();
@@ -60,6 +65,25 @@ class CloudBackupService {
   Future<String?> configuredRepo() async {
     final r = await effectiveRepo();
     return r.isNotEmpty ? r : null;
+  }
+
+  /// True when a backup already exists for [username]+[id] — used to warn a new
+  /// user that the id is taken (so two testers don't collide on one file).
+  /// Returns false when unconfigured or on network error (fail-open).
+  Future<bool> accountExists(String username, String id) async {
+    final t = await effectiveToken();
+    final r = await effectiveRepo();
+    if (t.isEmpty || !isValidRepo(r) || !isValidAccount(username, id)) {
+      return false;
+    }
+    try {
+      final resp = await http
+          .get(_contentsUri(r, filePathFor(username, id)), headers: _headers(t))
+          .timeout(_timeout);
+      return resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> saveConfig({required String token, required String repo}) async {

@@ -25,7 +25,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Cloud sync (GitHub) state
   bool _cloudBusy = false;
-  bool _cloudConfigured = false;
+  // Optimistic: if token+repo are baked in, we're configured from frame one
+  // (avoids briefly flashing the in-app "Set up" tile before _loadCloud runs).
+  bool _cloudConfigured = CloudBackupService.hasCompiledConfig;
   String? _cloudRepo;
   String? _cloudUser;
   String? _cloudId;
@@ -171,58 +173,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final idCtrl = TextEditingController(text: _cloudId ?? '');
     final saved = await showDialog<bool>(
       context: context,
-      builder: (dCtx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E22),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Your cloud account',
-            style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text(
-            'Pick a username and an id you\'ll remember — together they identify '
-            'your backup. Use the same pair on another device to restore.',
-            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: userCtrl,
-            autofocus: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(hintText: 'Username (e.g. karthik)'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: idCtrl,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(hintText: 'Your id (e.g. kfit-001)'),
-          ),
-        ]),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dCtx, false),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E8E93))),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (!CloudBackupService.isValidAccount(
-                  userCtrl.text, idCtrl.text)) {
-                ScaffoldMessenger.of(dCtx).showSnackBar(const SnackBar(
-                    content: Text('Enter a valid username and id'),
-                    duration: Duration(seconds: 1)));
+      builder: (dCtx) {
+        bool checking = false;
+        String? error;
+        return StatefulBuilder(builder: (dCtx, setD) {
+          Future<void> onSave() async {
+            final name = userCtrl.text;
+            final id = idCtrl.text;
+            if (!CloudBackupService.isValidAccount(name, id)) {
+              setD(() => error = 'Enter a name and a numeric id.');
+              return;
+            }
+            // Skip the uniqueness check when it's the account already set here.
+            final isOwn = CloudBackupService.filePathFor(name, id) ==
+                CloudBackupService.filePathFor(_cloudUser ?? '', _cloudId ?? '');
+            if (!isOwn) {
+              setD(() {
+                checking = true;
+                error = null;
+              });
+              final taken =
+                  await CloudBackupService.instance.accountExists(name, id);
+              if (taken) {
+                setD(() {
+                  checking = false;
+                  error = 'That name + id is taken — use a unique id. '
+                      '(If it\'s yours, use "Restore from cloud" instead.)';
+                });
                 return;
               }
-              Navigator.pop(dCtx, true);
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF30D158)),
-            child: const Text('Save',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+            }
+            if (dCtx.mounted) Navigator.pop(dCtx, true);
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E1E22),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            title: const Text('Your name & id',
+                style: TextStyle(color: Colors.white, fontSize: 16)),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text(
+                'Pick a name and a 6-digit id you\'ll remember — together they '
+                'identify your backup. Use the same pair on any device to restore.',
+                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: userCtrl,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration:
+                    const InputDecoration(hintText: 'Your name (e.g. karthik)'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: idCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: positiveIntInput,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                    hintText: '6-digit id (e.g. 222222)'),
+              ),
+              if (checking) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(minHeight: 2),
+              ],
+              if (error != null) ...[
+                const SizedBox(height: 10),
+                Text(error!,
+                    style: const TextStyle(
+                        color: Color(0xFFFF453A), fontSize: 12, height: 1.3)),
+              ],
+            ]),
+            actions: [
+              TextButton(
+                onPressed:
+                    checking ? null : () => Navigator.pop(dCtx, false),
+                child: const Text('Cancel',
+                    style: TextStyle(color: Color(0xFF8E8E93))),
+              ),
+              ElevatedButton(
+                onPressed: checking ? null : onSave,
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF30D158)),
+                child: const Text('Save',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        });
+      },
     );
     if (saved == true) {
-      await CloudBackupService.instance
-          .saveAccount(userCtrl.text, idCtrl.text);
+      await CloudBackupService.instance.saveAccount(userCtrl.text, idCtrl.text);
       await _loadCloud();
     }
     userCtrl.dispose();
@@ -273,13 +318,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             controller: userCtrl,
             autofocus: true,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(hintText: 'Username'),
+            decoration: const InputDecoration(hintText: 'Your name'),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: idCtrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: positiveIntInput,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(hintText: 'Your id'),
+            decoration: const InputDecoration(hintText: '6-digit id (e.g. 222222)'),
           ),
         ]),
         actions: [
@@ -671,24 +718,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _cloudBusy ? null : _setupCloud,
             )
           else ...[
-            _Tile(
-              icon: Icons.cloud_done_outlined,
-              title: 'Connected repo',
-              subtitle: '${_cloudRepo ?? '—'} — tap to change token/repo',
-              trailing: IconButton(
-                icon: const Icon(Icons.link_off_rounded,
-                    color: Color(0xFFFF453A), size: 20),
-                tooltip: 'Disconnect',
-                onPressed: _cloudBusy ? null : _disconnectCloud,
+            // Repo/token management is hidden when the token+repo are baked in
+            // at build (the normal shipped case) — testers only enter name + id.
+            if (!CloudBackupService.hasCompiledConfig)
+              _Tile(
+                icon: Icons.cloud_done_outlined,
+                title: 'Connected repo',
+                subtitle: '${_cloudRepo ?? '—'} — tap to change token/repo',
+                trailing: IconButton(
+                  icon: const Icon(Icons.link_off_rounded,
+                      color: Color(0xFFFF453A), size: 20),
+                  tooltip: 'Disconnect',
+                  onPressed: _cloudBusy ? null : _disconnectCloud,
+                ),
+                onTap: _cloudBusy ? null : _setupCloud,
               ),
-              onTap: _cloudBusy ? null : _setupCloud,
-            ),
             _Tile(
               icon: Icons.badge_outlined,
-              title: 'Username & id',
+              title: 'Your name & id',
               subtitle: (_cloudUser?.isNotEmpty == true)
                   ? '$_cloudUser · id: ${_cloudId ?? '—'} — tap to change'
-                  : 'Set a username + id to sync',
+                  : 'Enter your name + a 6-digit id to sync',
               onTap: _cloudBusy ? null : _setCloudAccount,
             ),
             // Auto-backup toggle
