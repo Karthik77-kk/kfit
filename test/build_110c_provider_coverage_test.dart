@@ -188,7 +188,6 @@ void main() {
     expect(p.supplements.takenCount, 3);
 
     await p.logBodyEntry(weightKg: 75, steps: 8500);
-    await p.updateTodaySteps(9001);
     expect(p.latestWeightKg, 75);
 
     await p.logWorkout(WorkoutLog(id: 'wk', date: DateTime.now(),

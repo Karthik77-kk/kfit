@@ -501,10 +501,6 @@ class FitnessProvider extends ChangeNotifier {
   /// this value.
   int get netCalories => (todayCaloriesTotal - totalCaloriesBurned).round();
 
-  /// Positive = deficit (good for fat loss), Negative = surplus.
-  /// Uses totalCaloriesBurned (resting + walking + workout) for accuracy.
-  int get calorieDeficit => calorieGoal - (todayCaloriesTotal - totalCaloriesBurned).round();
-
   /// Full-day burn estimate: resting BMR for the WHOLE day (not prorated to now)
   /// + today's walking + today's workout. Used for a time-of-day-stable energy
   /// balance verdict so the same day doesn't read "surplus" at 9 AM and
@@ -626,10 +622,16 @@ class FitnessProvider extends ChangeNotifier {
   /// estimate sharpens automatically as more history accrues.
   /// Clamped to a believable human range [1200, 4500] to reject bad data.
   double? get adaptiveTdee {
-    final weekly = weeklyWeightChange; // kg/week, negative = losing
-    if (weekly == null) return null;
+    // Slope, span, and intake must all cover the SAME window for the
+    // energy-balance identity to hold. Food history only loads 60 days, so the
+    // weight trend is regressed over those same 60 days — NOT the 90-day
+    // regression used for the chart/forecast, which would compare a longer
+    // weight trend against a shorter intake average and skew the estimate.
     final entries = getRecentBodyEntries(days: 60);
     if (entries.length < 5) return null;
+    final reg = _regressionOver(entries);
+    if (reg == null) return null;
+    final weekly = reg.slope * 7; // kg/week, negative = losing
     final spanDays = entries.last.date.difference(entries.first.date).inDays;
     if (spanDays < 7) return null;
     // Average daily intake over the SAME span the weight-trend regression
@@ -786,6 +788,11 @@ class FitnessProvider extends ChangeNotifier {
     if (trend != null && trend < -0.05) {
       return (kg / trend.abs()).clamp(1, 999);
     }
+    // Trend clearly moving AWAY from the goal (gaining while needing to lose):
+    // an ETA would be dishonest — the sustainable-deficit fallback assumes a
+    // deficit that measurably isn't happening. Return null so the UI shows no
+    // estimate instead of a fictional one.
+    if (trend != null && trend > 0.05) return null;
 
     // 2) Sustainable projection from a 500 kcal/day deficit (0.45 kg/week).
     //    Use bestTdee (data-calibrated when available) so this fallback agrees
@@ -1436,7 +1443,10 @@ class FitnessProvider extends ChangeNotifier {
     final now = DateTime.now();
     double total = 0;
     int counted = 0;
-    for (int i = 0; i <= 60; i++) {
+    // Start at 1: today is a PARTIAL day, and projectedEodCalories blends
+    // today's pace with this average — including today's incomplete total
+    // would let the projection reference itself and bias it low.
+    for (int i = 1; i <= 60; i++) {
       final d = now.subtract(Duration(days: i));
       if (d.weekday != weekday) continue;
       final v = value(d);
@@ -2146,39 +2156,6 @@ class FitnessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateTodaySteps(int steps) async {
-    final now = DateTime.now();
-    final todayEntry = _bodyHistory
-        .where((e) =>
-            e.date.year == now.year &&
-            e.date.month == now.month &&
-            e.date.day == now.day)
-        .toList();
-
-    if (todayEntry.isNotEmpty) {
-      _bodyHistory.removeWhere((e) =>
-          e.date.year == now.year &&
-          e.date.month == now.month &&
-          e.date.day == now.day);
-      _bodyHistory.add(BodyEntry(
-        id: todayEntry.first.id,
-        date: todayEntry.first.date,
-        weightKg: todayEntry.first.weightKg,
-        steps: steps,
-      ));
-    } else {
-      _bodyHistory.add(BodyEntry(
-        id: const Uuid().v4(),
-        date: now,
-        weightKg: latestWeightKg ?? 70.0,
-        steps: steps,
-      ));
-    }
-    _bodyHistory.sort((a, b) => a.date.compareTo(b.date));
-    await _saveBodyHistory();
-    notifyListeners();
-  }
-
   Future<void> _saveBodyHistory() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -2342,6 +2319,14 @@ class FitnessProvider extends ChangeNotifier {
   // ── Weight Prediction (Linear Regression) ─────────────────────────────────
   ({double slope, double intercept})? get _weightRegression {
     final entries = getRecentBodyEntries(days: 90);
+    return _regressionOver(entries);
+  }
+
+  /// Least-squares weight regression over [entries] (x = days since first
+  /// entry). Shared by the 90-day chart/forecast regression and the 60-day
+  /// adaptive-TDEE trend so each can match its window to its purpose.
+  static ({double slope, double intercept})? _regressionOver(
+      List<BodyEntry> entries) {
     if (entries.length < 5) return null;
 
     final first = entries.first.date.millisecondsSinceEpoch.toDouble();

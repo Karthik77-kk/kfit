@@ -13,6 +13,10 @@ class FoodApiResult {
   final String source;       // 'OpenFoodFacts' | 'USDA' | 'IFCT' | 'Manual'
   final String? barcode;     // set for barcode lookups (null for text search)
   final double? servingSizeG; // OFF/USDA declared serving in grams, when known
+  /// True when the source actually SUPPLIED carb/fat values (even zero ones).
+  /// False when the fields were absent and defaulted to 0 — the logged entry
+  /// then falls back to the 65/35 estimate instead of trusting a fake zero.
+  final bool macrosKnown;
 
   const FoodApiResult({
     required this.name,
@@ -23,7 +27,8 @@ class FoodApiResult {
     required this.source,
     this.barcode,
     this.servingSizeG,
-  });
+    bool? macrosKnown,
+  }) : macrosKnown = macrosKnown ?? (carbs100g > 0 || fat100g > 0);
 
   double caloriesForGrams(double g) => calories100g * g / 100;
   double proteinForGrams(double g)  => protein100g  * g / 100;
@@ -39,6 +44,7 @@ class FoodApiResult {
         'source': source,
         'barcode': barcode,
         'serving': servingSizeG,
+        'mk': macrosKnown,
       };
 
   factory FoodApiResult.fromJson(Map<String, dynamic> j) => FoodApiResult(
@@ -50,6 +56,7 @@ class FoodApiResult {
         source: (j['source'] as String?) ?? 'OpenFoodFacts',
         barcode: j['barcode'] as String?,
         servingSizeG: (j['serving'] as num?)?.toDouble(),
+        macrosKnown: j['mk'] as bool?, // legacy cache rows fall back to heuristic
       );
 }
 
@@ -276,10 +283,12 @@ class FoodApiService {
     double? servingSizeG,
   }) {
     // OpenFoodFacts uses hyphens in keys: "energy-kcal_100g"
-    final cal  = _num(n['energy-kcal_100g']);
-    final prot = _num(n['proteins_100g']) ?? 0.0;
-    final carb = _num(n['carbohydrates_100g']) ?? 0.0;
-    final fat  = _num(n['fat_100g']) ?? 0.0;
+    final cal     = _num(n['energy-kcal_100g']);
+    final prot    = _num(n['proteins_100g']) ?? 0.0;
+    final carbRaw = _num(n['carbohydrates_100g']);
+    final fatRaw  = _num(n['fat_100g']);
+    final carb    = carbRaw ?? 0.0;
+    final fat     = fatRaw ?? 0.0;
 
     // Skip entries with missing or zero-calorie data (corrupt entries)
     if (cal == null || cal < 1) return null;
@@ -295,6 +304,8 @@ class FoodApiService {
       source:        'OpenFoodFacts',
       barcode:       barcode,
       servingSizeG:  (servingSizeG != null && servingSizeG > 0) ? servingSizeG : null,
+      // Field present = real value (even 0). Absent = defaulted, keep estimating.
+      macrosKnown:   carbRaw != null || fatRaw != null,
     );
   }
 
@@ -376,6 +387,7 @@ class FoodApiService {
     final nutrients = (m['foodNutrients'] as List?) ?? [];
     double? cal;
     double prot = 0, fat = 0, carb = 0;
+    bool sawMacro = false; // any real 204 (fat) / 205 (carb) row, even 0
     for (final raw in nutrients) {
       if (raw is! Map) continue;
       // Search results expose `nutrientNumber` + `value`.
@@ -391,9 +403,11 @@ class FoodApiService {
           break;
         case '204':
           fat = value;
+          sawMacro = true;
           break;
         case '205':
           carb = value;
+          sawMacro = true;
           break;
       }
     }
@@ -410,6 +424,7 @@ class FoodApiService {
       source:        'USDA',
       barcode:       barcode,
       servingSizeG:  _num(m['servingSize']),
+      macrosKnown:   sawMacro,
     );
   }
 
@@ -434,6 +449,8 @@ class FoodApiService {
       source: 'Manual',
       barcode: code,
       servingSizeG: 100,
+      // User only entered kcal + protein — carbs/fat genuinely unknown.
+      macrosKnown: false,
     );
     _barcodeMem[code] = r;
     await _writeBarcodeCache(code, r);
