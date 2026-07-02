@@ -808,8 +808,9 @@ void main() {
     });
   });
 
-  // ── 14. calorieDeficit semantics ─────────────────────────────────────────────
-  group('calorieDeficit — goal minus net calories', () {
+  // ── 14. netCalories semantics (calorieDeficit getter removed — it mixed the
+  //        goal with net burn and was referenced nowhere in the UI) ────────────
+  group('netCalories — eaten minus total burn', () {
     late FitnessProvider p;
     setUp(() async {
       p = FitnessProvider();
@@ -817,18 +818,19 @@ void main() {
       await p.saveCalorieGoal(1700);
     });
 
-    test('calorieDeficit = calorieGoal - netCalories', () async {
+    test('netCalories = todayCaloriesTotal - totalCaloriesBurned', () async {
       await p.addFoodEntry(_food('a', 1200, 50));
-      expect(p.calorieDeficit, p.calorieGoal - p.netCalories);
+      expect(p.netCalories,
+          (p.todayCaloriesTotal - p.totalCaloriesBurned).round());
     });
 
-    test('large surplus → calorieDeficit is highly negative', () async {
+    test('large intake with no burn data → net equals intake', () async {
       for (int i = 0; i < 5; i++) {
         await p.addFoodEntry(_food('big$i', 800, 10));
       }
-      // 4000 kcal eaten, goal 1700 → deficit = 1700 - (4000 - burned)
-      // Expected: clearly negative (large surplus over goal)
-      expect(p.calorieDeficit, lessThan(0));
+      // No weight logged → no resting/walking burn → net = eaten = 4000
+      expect(p.netCalories, p.todayCaloriesTotal.round());
+      expect(p.netCalories, greaterThan(p.calorieGoal));
     });
   });
 

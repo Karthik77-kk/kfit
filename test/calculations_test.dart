@@ -298,9 +298,9 @@ void main() {
     });
   });
 
-  // ─── calorieDeficit ───────────────────────────────────────────────────────
+  // ─── netCalories vs burn (calorieDeficit getter removed — unused) ─────────
 
-  group('calorieDeficit — uses totalCaloriesBurned', () {
+  group('netCalories — reflects totalCaloriesBurned', () {
     late FitnessProvider p;
     setUp(() async {
       p = FitnessProvider();
@@ -310,15 +310,15 @@ void main() {
       await p.logBodyEntry(weightKg: 78.0);
     });
 
-    test('deficit positive when eating less than goal minus total burn', () async {
+    test('net below intake when weight logged (resting burn accrues)', () async {
       await p.addFoodEntry(FoodEntry(
         id: 'f1', name: 'Rice', calories: 800, protein: 20,
         mealType: MealType.lunch, timestamp: DateTime.now(),
       ));
-      // eaten=800, total burn = resting+walking+workout
-      // deficit = 1700 - (800 - totalBurned)
-      // Since totalBurned includes resting, deficit should be > 1700 - 800 = 900
-      expect(p.calorieDeficit, greaterThan(900));
+      // eaten=800; total burn = resting+walking+workout > 0 with a weight logged
+      expect(p.netCalories, lessThanOrEqualTo(800));
+      expect(p.netCalories,
+          (p.todayCaloriesTotal - p.totalCaloriesBurned).round());
     });
 
     test('inDeficit true when eaten less than goal after accounting for burn', () {
@@ -547,14 +547,15 @@ void main() {
       expect(p.walkingCaloriesBurned, greaterThan(0));
     });
 
-    test('calorieDeficit = calorieGoal - netCalories always', () async {
+    test('netCalories = eaten - totalCaloriesBurned always', () async {
       await p.saveCalorieGoal(1700);
       final entry = FoodEntry(
         id: 'z', name: 'Food', calories: 1300, protein: 65,
         mealType: MealType.lunch, timestamp: DateTime.now(),
       );
       await p.addFoodEntry(entry);
-      expect(p.calorieDeficit, p.calorieGoal - p.netCalories);
+      expect(p.netCalories,
+          (p.todayCaloriesTotal - p.totalCaloriesBurned).round());
     });
 
     test('inDeficit mirrors netCalories < calorieGoal', () async {

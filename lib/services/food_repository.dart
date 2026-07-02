@@ -194,6 +194,8 @@ class FoodRepository {
         emoji: '🇮🇳',
         serving: '100 g',
         source: 'IFCT',
+        // IFCT rows are lab-measured — carb/fat are real values even when 0.
+        macrosKnown: true,
       ));
     }
     return out;

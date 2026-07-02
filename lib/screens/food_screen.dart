@@ -138,7 +138,7 @@ class _EmptyState extends StatelessWidget {
         id: p
             .newId(), // UUID — millisecond ids collide in a loop -> duplicate Dismissible keys crash
         name: e.name, calories: e.calories, protein: e.protein,
-        carbs: e.carbs, fat: e.fat,
+        carbs: e.carbs, fat: e.fat, macrosKnown: e.macrosKnown,
         mealType: e.mealType, servingNote: e.servingNote,
         timestamp: DateTime.now(),
       ));
@@ -380,6 +380,7 @@ void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
                 protein: prot,
                 carbs: entry.carbs,
                 fat: entry.fat,
+                macrosKnown: entry.macrosKnown,
                 mealType: entry.mealType,
                 timestamp: entry.timestamp,
                 servingNote: entry.servingNote,
@@ -756,6 +757,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           protein: item.proteinForGrams(grams),
           carbs: item.carbsForGrams(grams),
           fat: item.fatForGrams(grams),
+          macrosKnown: item.macrosKnown,
           mealType: _selectedMeal,
           timestamp: _selectedDate,
           servingNote: '$gStr · $tag',
@@ -900,6 +902,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
           // estimates per-entry at display time via FoodEntry.effectiveCarbs/Fat.
           carbs: item.carbs * servings,
           fat: item.fat * servings,
+          macrosKnown: item.macrosKnown,
           mealType: _selectedMeal,
           timestamp: _selectedDate,
           servingNote: label,
@@ -1901,6 +1904,7 @@ class _RecentFoodsRow extends StatelessWidget {
                       protein: src.protein,
                       carbs: src.carbs,
                       fat: src.fat,
+                      macrosKnown: src.macrosKnown,
                       mealType: meal,
                       servingNote: src.servingNote,
                       timestamp: date,
