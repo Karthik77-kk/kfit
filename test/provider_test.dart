@@ -49,10 +49,10 @@ SmartScaleEntry _scaleFatLean({required DateTime date, double fatKg = 18, double
     );
 
 FoodEntry _food(String id, double calories, double protein,
-    {MealType meal = MealType.lunch}) =>
+    {MealType meal = MealType.lunch, DateTime? ts}) =>
     FoodEntry(
       id: id, name: 'Food $id', calories: calories, protein: protein,
-      mealType: meal, timestamp: DateTime.now(),
+      mealType: meal, timestamp: ts ?? DateTime.now(),
     );
 
 WorkoutLog _workout(String id, {
@@ -340,9 +340,11 @@ void main() {
       expect(p.avgCaloriesForDays(0, 6), closeTo(800, 0.01));
     });
 
-    test('proteinAvgForWeekday reflects today when only today logged', () async {
+    test('proteinAvgForWeekday EXCLUDES today (partial day)', () async {
+      // Today's incomplete total must not count as weekday "history" — it
+      // previously let projectedEodProtein reference its own partial total.
       await p.addFoodEntry(_food('f1', 400, 40));
-      expect(p.proteinAvgForWeekday(DateTime.now().weekday), closeTo(40, 0.01));
+      expect(p.proteinAvgForWeekday(DateTime.now().weekday), isNull);
     });
 
     test('proteinAvgForWeekday null for a weekday with no data', () async {
@@ -601,18 +603,16 @@ void main() {
       expect(p.todaySteps, 7000);
     });
 
-    test('updateTodaySteps updates existing entry', () async {
+    // updateTodaySteps was removed: it was unreachable from the UI and, when
+    // no weight was logged, fabricated a phantom 70 kg body entry that would
+    // have polluted BMI/BMR/weight-trend data. Steps are updated via
+    // logBodyEntry (manual) or the live pedometer stream.
+    test('logBodyEntry replaces same-day entry to update steps', () async {
       await p.logBodyEntry(weightKg: 78.0, steps: 3000);
-      await p.updateTodaySteps(8000);
+      await p.logBodyEntry(weightKg: 78.0, steps: 8000);
       expect(p.bodyHistory.length, 1);
       expect(p.todaySteps, 8000);
       expect(p.latestWeightKg, 78.0);
-    });
-
-    test('updateTodaySteps creates entry with last known weight if none today', () async {
-      await p.updateTodaySteps(5000);
-      expect(p.bodyHistory.length, 1);
-      expect(p.todaySteps, 5000);
     });
 
     test('stepProgress clamps to [0, 1]', () async {
@@ -1069,9 +1069,9 @@ void main() {
     });
   });
 
-  // ── calorieDeficit & inDeficit ────────────────────────────────────────────
+  // ── netCalories & inDeficit ──────────────────────────────────────────────
 
-  group('calorieDeficit uses totalCaloriesBurned', () {
+  group('netCalories uses totalCaloriesBurned', () {
     late FitnessProvider p;
     setUp(() async {
       p = FitnessProvider();
@@ -1081,10 +1081,10 @@ void main() {
       await p.logBodyEntry(weightKg: 70.0, steps: 0);
     });
 
-    test('deficit = goal - (eaten - totalBurned)', () async {
+    test('net = eaten - totalBurned', () async {
       await p.addFoodEntry(_food('f1', 800, 30));
-      final expected = p.calorieGoal - (800 - p.totalCaloriesBurned).round();
-      expect(p.calorieDeficit, expected);
+      final expected = (800 - p.totalCaloriesBurned).round();
+      expect(p.netCalories, expected);
     });
 
     test('inDeficit true when eaten < goal + totalBurned', () {
@@ -1635,25 +1635,22 @@ void main() {
       expect(p.caloriesAvgForWeekday(someWeekday), isNull);
     });
 
-    test('returns todays calories when today has food', () async {
+    test('EXCLUDES today — partial day is not weekday history', () async {
       await p.addFoodEntry(_food('f1', 700, 30));
-      final today = DateTime.now().weekday;
-      final avg = p.caloriesAvgForWeekday(today);
-      expect(avg, isNotNull);
-      expect(avg!, closeTo(700, 1));
+      expect(p.caloriesAvgForWeekday(DateTime.now().weekday), isNull);
     });
 
-    test('averages multiple entries for same weekday', () async {
+    test('averages prior same-weekday days via backdated entries', () async {
       final now = DateTime.now();
-      final weekday = now.weekday;
-
-      // Log food for today (which is on `weekday`).
-      await p.addFoodEntry(_food('t', 700, 30));
-
-      // The getter should return that value for today's weekday.
-      final avg = p.caloriesAvgForWeekday(weekday);
+      final lastWeek = now.subtract(const Duration(days: 7));
+      await p.addFoodEntry(
+          _food('lw', 700, 30, ts: lastWeek), date: lastWeek);
+      final avg = p.caloriesAvgForWeekday(now.weekday);
       expect(avg, isNotNull);
       expect(avg!, closeTo(700, 1));
+      // Adding today's partial does not move the historical average.
+      await p.addFoodEntry(_food('t', 100, 5));
+      expect(p.caloriesAvgForWeekday(now.weekday), closeTo(700, 1));
     });
   });
 
@@ -1791,7 +1788,7 @@ void main() {
       await p.addFoodEntry(_food('f1', 1000, 50));
       final netBefore = p.netCalories;
       // Add steps → walkingCaloriesBurned increases → net decreases
-      await p.updateTodaySteps(8000);
+      await p.logBodyEntry(weightKg: 75.0, steps: 8000);
       expect(p.netCalories, lessThan(netBefore));
     });
 
@@ -1801,10 +1798,10 @@ void main() {
       expect(p.inDeficit, equals(p.netCalories < p.calorieGoal));
     });
 
-    test('consistent with calorieDeficit: calorieGoal - netCalories = calorieDeficit', () async {
+    test('caloriesRemaining stays goal-based (ignores burn)', () async {
       await p.saveCalorieGoal(1700);
       await p.addFoodEntry(_food('f1', 1200, 60));
-      expect(p.calorieDeficit, equals(p.calorieGoal - p.netCalories));
+      expect(p.caloriesRemaining, 1700 - 1200);
     });
 
     test('inDeficit false when netCalories exceeds calorieGoal', () async {
@@ -2115,12 +2112,13 @@ void main() {
       expect(p.waterAvgForWeekday(otherWeekday), isNull);
     });
 
-    test('returns today water for today weekday', () async {
+    test('EXCLUDES today — only prior weeks count', () async {
       await p.addWater(2200);
-      final today = DateTime.now().weekday;
-      final avg = p.waterAvgForWeekday(today);
-      expect(avg, isNotNull);
-      expect(avg!, closeTo(2200, 0.01));
+      expect(p.waterAvgForWeekday(DateTime.now().weekday), isNull);
+      // A backdated same-weekday log IS counted.
+      final lastWeek = DateTime.now().subtract(const Duration(days: 7));
+      await p.addWater(1800, date: lastWeek);
+      expect(p.waterAvgForWeekday(DateTime.now().weekday), closeTo(1800, 0.01));
     });
   });
 
@@ -2209,54 +2207,46 @@ void main() {
     });
   });
 
-  // ── calorieDeficit exact values ──────────────────────────────────────────
+  // ── netCalories / inDeficit exact values (no burn data) ─────────────────
 
-  group('calorieDeficit exact values', () {
+  group('netCalories exact values', () {
     late FitnessProvider p;
     setUp(() async { p = FitnessProvider(); await p.loadData(); });
 
-    test('equals calorieGoal when no food and no burn', () {
-      // deficit = goal - (0 - 0) = goal
-      expect(p.calorieDeficit, p.calorieGoal);
+    test('0 when no food and no burn', () {
+      expect(p.netCalories, 0);
     });
 
-    test('exact value: goal=1700, eaten=1200, burn=0 → deficit=500', () async {
+    test('exact value: eaten=1200, burn=0 → net=1200', () async {
       await p.saveCalorieGoal(1700);
       await p.addFoodEntry(_food('f1', 1200, 60));
       // No weight → no resting burn; no steps; no workout → burn=0
-      expect(p.calorieDeficit, 500);
+      expect(p.netCalories, 1200);
     });
 
-    test('exact value: goal=1700, eaten=2000, burn=0 → deficit=-300 (surplus)', () async {
+    test('exact value: eaten=2000, burn=0 → net=2000 (over goal)', () async {
       await p.saveCalorieGoal(1700);
       await p.addFoodEntry(_food('f1', 2000, 80));
-      expect(p.calorieDeficit, -300);
+      expect(p.netCalories, 2000);
+      expect(p.netCalories, greaterThan(p.calorieGoal));
     });
 
-    test('0 when eaten = goal exactly and no burn', () async {
-      await p.saveCalorieGoal(1500);
-      await p.addFoodEntry(_food('f1', 1500, 60));
-      expect(p.calorieDeficit, 0);
-    });
-
-    test('inDeficit true when deficit > 0', () async {
+    test('inDeficit true when eaten < goal (no burn data proxy)', () async {
       await p.saveCalorieGoal(1700);
       await p.addFoodEntry(_food('f1', 1000, 40));
       expect(p.inDeficit, isTrue);
-      expect(p.calorieDeficit, greaterThan(0));
     });
 
-    test('inDeficit false when deficit < 0 (surplus)', () async {
+    test('inDeficit false when eaten > goal (no burn data)', () async {
       await p.saveCalorieGoal(1000);
       await p.addFoodEntry(_food('f1', 1500, 60));
       expect(p.inDeficit, isFalse);
-      expect(p.calorieDeficit, lessThan(0));
     });
 
     test('inDeficit false at exact boundary (eaten = goal, burn = 0)', () async {
       await p.saveCalorieGoal(1200);
       await p.addFoodEntry(_food('f1', 1200, 50));
-      expect(p.calorieDeficit, 0);
+      expect(p.netCalories, 1200);
       expect(p.inDeficit, isFalse); // not strictly < goal
     });
   });

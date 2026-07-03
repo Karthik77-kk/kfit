@@ -345,7 +345,9 @@ class _StatsScreenState extends State<StatsScreen>
                     icon: Icons.bar_chart_outlined,
                   ),
                   _StatCard(
-                    label: 'Net Cal Today',
+                    // "so far": resting burn is prorated to the current time,
+                    // so this number legitimately grows through the day.
+                    label: 'Net So Far Today',
                     value: p.todayCaloriesTotal > 0
                         ? '${p.netCalories} kcal'
                         : '—',

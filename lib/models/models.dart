@@ -54,6 +54,11 @@ class FoodEntry {
   final MealType mealType;
   final DateTime timestamp;
   final String servingNote; // e.g. "2× 1 roti (~40g)" or "custom entry"
+  /// True when [carbs]/[fat] are REAL data from the entry's source — even when
+  /// both are genuinely zero (black coffee, egg whites). False = unknown, so
+  /// display falls back to the 65/35 estimate. Legacy entries without the flag
+  /// infer it from the old "0 = unknown" convention.
+  final bool macrosKnown;
 
   FoodEntry({
     required this.id,
@@ -65,7 +70,8 @@ class FoodEntry {
     required this.mealType,
     required this.timestamp,
     this.servingNote = '',
-  });
+    bool? macrosKnown,
+  }) : macrosKnown = macrosKnown ?? (carbs > 0 || fat > 0);
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -77,10 +83,11 @@ class FoodEntry {
         'mealType': mealType.index,
         'timestamp': timestamp.toIso8601String(),
         'servingNote': servingNote,
+        'macrosKnown': macrosKnown,
       };
 
   /// Whether this entry carries real (non-estimated) carb/fat macros.
-  bool get hasRealMacros => carbs > 0 || fat > 0;
+  bool get hasRealMacros => macrosKnown;
 
   /// Carbs grams for this entry — the real value when known, else the
   /// Indian-diet 65/35 split estimate of this entry's non-protein calories.
@@ -117,6 +124,7 @@ class FoodEntry {
       mealType: MealType.values[mealIdx],
       timestamp: ts,
       servingNote: (j['servingNote'] as String?) ?? '',
+      macrosKnown: j['macrosKnown'] as bool?,
     );
   }
 }
@@ -695,6 +703,9 @@ class FoodItem {
   final String emoji;
   final String serving;  // human-readable serving description
   final String source;   // 'curated' (default) | 'IFCT' — provenance for ranking
+  /// True when [carbs]/[fat] are real data even if zero (e.g. IFCT lab values).
+  /// Defaults to the legacy "0 = unknown" heuristic for curated items.
+  final bool macrosKnown;
 
   const FoodItem({
     required this.name,
@@ -706,10 +717,11 @@ class FoodItem {
     required this.emoji,
     this.serving = '1 serving',
     this.source = 'curated',
-  });
+    bool? macrosKnown,
+  }) : macrosKnown = macrosKnown ?? (carbs > 0 || fat > 0);
 
   /// Whether this item carries real (non-estimated) carb/fat macros.
-  bool get hasRealMacros => carbs > 0 || fat > 0;
+  bool get hasRealMacros => macrosKnown;
 
   /// Carbs grams for this serving — real value when known, else the
   /// Indian-diet 65/35 split estimate of the non-protein calories.
