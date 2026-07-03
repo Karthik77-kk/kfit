@@ -166,17 +166,43 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
                       ),
+                    // Sex hint on the profile page — this one BLOCKS: without it
+                    // every calorie/BMR figure silently assumes male (~165
+                    // kcal/day off for women). One tap, materially changes math.
+                    if (_currentPage == 1)
+                      AnimatedOpacity(
+                        opacity: _sexIsMale == null ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const Padding(
+                          padding: EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            'Select your biological sex — it drives your calorie math',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _kSecond,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
                     SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: () => _goToPage(_currentPage + 1),
+                        // Profile page requires an explicit sex choice; the
+                        // rest of its fields stay optional.
+                        onPressed: (_currentPage == 1 && _sexIsMale == null)
+                            ? null
+                            : () => _goToPage(_currentPage + 1),
                         style: ElevatedButton.styleFrom(
                           // Soften (not disable) the Welcome button until a name
-                          // is entered; the Profile page is fully optional.
+                          // is entered.
                           backgroundColor: (_currentPage == 0 && !_nameEntered)
                               ? _kGreen.withValues(alpha: 0.45)
                               : _kGreen,
+                          disabledBackgroundColor:
+                              _kGreen.withValues(alpha: 0.25),
+                          disabledForegroundColor: Colors.black45,
                           foregroundColor: Colors.black,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -359,8 +385,9 @@ class _ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Optional — but it unlocks your calorie targets, BMI, body-composition '
-            'read and weight forecast right away. You can change these anytime in Stats.',
+            'Sex is required — it changes your calorie math. The rest is '
+            'optional, but unlocks your calorie targets, BMI, body-composition '
+            'read and weight forecast right away. Change anytime in Stats.',
             style: TextStyle(color: _kSecond, fontSize: 14, height: 1.5),
           ),
           const SizedBox(height: 24),

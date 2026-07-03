@@ -38,6 +38,11 @@ class _WaterScreenState extends State<WaterScreen>
     super.dispose();
   }
 
+  void _removeWater(BuildContext context, int ml) {
+    HapticFeedback.selectionClick();
+    context.read<FitnessProvider>().removeWater(ml);
+  }
+
   void _addWater(BuildContext context, int ml) async {
     HapticFeedback.lightImpact();
     _animController.forward().then((_) => _animController.reverse());
@@ -215,7 +220,7 @@ class _WaterScreenState extends State<WaterScreen>
                 children: [
                   TextButton.icon(
                     onPressed: p.todayWaterMl > 0
-                        ? () => context.read<FitnessProvider>().removeWater(150)
+                        ? () => _removeWater(context, 150)
                         : null,
                     icon: const Icon(Icons.remove_circle_outline,
                         size: 16, color: Colors.white54),
@@ -225,7 +230,7 @@ class _WaterScreenState extends State<WaterScreen>
                   const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: p.todayWaterMl > 0
-                        ? () => context.read<FitnessProvider>().removeWater(250)
+                        ? () => _removeWater(context, 250)
                         : null,
                     icon: const Icon(Icons.remove_circle_outline,
                         size: 16, color: Colors.white54),
@@ -235,7 +240,7 @@ class _WaterScreenState extends State<WaterScreen>
                   const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: p.todayWaterMl > 0
-                        ? () => context.read<FitnessProvider>().removeWater(500)
+                        ? () => _removeWater(context, 500)
                         : null,
                     icon: const Icon(Icons.remove_circle_outline,
                         size: 16, color: Colors.white54),
