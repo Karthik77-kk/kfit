@@ -134,21 +134,43 @@ void main() {
       expect(p.bmr, isNotNull);
     });
 
-    testWidgets('skipping the profile leaves defaults intact (no crash)',
+    testWidgets('profile page BLOCKS advancing until a sex is chosen',
         (tester) async {
       final p = await pumpOnboarding(tester);
 
+      // Advance to the profile page.
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Enter your name'), 'Sam');
       await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
       await tester.pumpAndSettle();
-      // Profile page shown but nothing entered, no sex picked.
       expect(find.text('A bit about you'), findsOneWidget);
+
+      // No sex picked yet → Continue is disabled (onPressed == null) and the
+      // hint is visible. Tapping it must NOT move to the activity page.
+      final continueBtn = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, 'Continue'));
+      expect(continueBtn.onPressed, isNull);
+      expect(
+          find.text('Select your biological sex — it drives your calorie math'),
+          findsOneWidget);
       await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
       await tester.pumpAndSettle();
+      expect(find.text('A bit about you'), findsOneWidget); // still on profile
+
+      // Pick a sex → Continue enables and advances.
+      await tester.tap(find.text('Male'));
+      await tester.pumpAndSettle();
+      final enabled = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, 'Continue'));
+      expect(enabled.onPressed, isNotNull);
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Track your steps automatically'), findsOneWidget);
+
       await tester.tap(find.widgetWithText(TextButton, 'Skip for now'));
       await tester.pumpAndSettle();
-
       expect(p.onboardingDone, isTrue);
-      expect(p.isMale, isTrue); // untouched provider default
+      expect(p.isMale, isTrue); // explicitly chose Male
       expect(p.latestWeightKg, isNull); // no weight logged
     });
   });

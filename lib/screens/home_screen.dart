@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -81,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<FitnessProvider>().consumeCelebration();
+        HapticFeedback.heavyImpact(); // milestone lands — make it felt
         _confetti.play();
       });
     } else if (p.hasPendingCelebration) {
@@ -501,24 +503,29 @@ class _StreakBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (streak == 0) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: _kOrange.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _kOrange.withValues(alpha: 0.3)),
+    return Semantics(
+      label: '$streak-day workout streak',
+      // The Row's icon + text are decorative once the label reads the value.
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _kOrange.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _kOrange.withValues(alpha: 0.3)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.local_fire_department_rounded,
+              size: 14, color: _kOrange),
+          const SizedBox(width: 4),
+          Text('$streak day${streak == 1 ? '' : 's'}',
+              style: const TextStyle(
+                color: _kOrange,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              )),
+        ]),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.local_fire_department_rounded,
-            size: 14, color: _kOrange),
-        const SizedBox(width: 4),
-        Text('$streak day${streak == 1 ? '' : 's'}',
-            style: const TextStyle(
-              color: _kOrange,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            )),
-      ]),
     );
   }
 }
@@ -2069,39 +2076,46 @@ class _MacroDonutCard extends StatelessWidget {
           SizedBox(
             width: 110,
             height: 110,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Soft glow behind the macro donut.
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: AppShadows.glow(_kBlue),
+            child: Semantics(
+              label: 'Macros${estimated ? ' (estimated)' : ''}: '
+                  'protein ${protein.round()} grams, '
+                  'carbs ${carbs.round()} grams, '
+                  'fat ${fat.round()} grams. '
+                  '${provider.todayCaloriesTotal.round()} kilocalories total.',
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Soft glow behind the macro donut.
+                  Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: AppShadows.glow(_kBlue),
+                    ),
                   ),
-                ),
-                PieChart(
-                  PieChartData(
-                    sections: sections,
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 32,
-                    startDegreeOffset: -90,
+                  PieChart(
+                    PieChartData(
+                      sections: sections,
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 32,
+                      startDegreeOffset: -90,
+                    ),
                   ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${provider.todayCaloriesTotal.round()}',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16)),
-                    const Text('kcal',
-                        style: TextStyle(color: _kSecond, fontSize: 11)),
-                  ],
-                ),
-              ],
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${provider.todayCaloriesTotal.round()}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16)),
+                      const Text('kcal',
+                          style: TextStyle(color: _kSecond, fontSize: 11)),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 20),

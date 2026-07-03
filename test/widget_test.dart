@@ -146,7 +146,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('A bit about you'), findsOneWidget);
 
-    // page 1 (Profile) → page 2 (Activity)
+    // page 1 (Profile) → page 2 (Activity). Sex is now REQUIRED before the
+    // Profile page's Continue enables, so pick one first.
+    await tester.tap(find.text('Male'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
     await tester.pumpAndSettle();
     expect(find.text('Track your steps automatically'), findsOneWidget);
@@ -156,8 +159,10 @@ void main() {
     await tester.pumpWidget(_appWithProvider(onboardingDone: false));
     await tester.pumpAndSettle();
 
-    // advance Welcome → Profile → Activity
+    // advance Welcome → Profile → Activity (sex is required on the Profile page)
     await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Male'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
     await tester.pumpAndSettle();
