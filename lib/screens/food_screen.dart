@@ -14,6 +14,8 @@ import '../widgets/date_picker_chip.dart';
 import '../widgets/kit/kit.dart';
 import '../theme/app_tokens.dart';
 import 'barcode_scanner_screen.dart';
+import '../services/meal_scan.dart';
+import '../services/gemini_vision_service.dart';
 
 /// Call this from any context (standalone or embedded) to open the Add Food sheet.
 void showAddFoodSheet(BuildContext context) {
@@ -103,11 +105,29 @@ class FoodScreen extends StatelessWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showAddFoodSheet(context),
-        backgroundColor: const Color(0xFF30D158),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Food', style: TextStyle(color: Colors.white)),
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Scan Meal — AI photo → foods (only when the Gemini key is compiled in).
+          if (GeminiVisionService.isConfigured) ...[
+            FloatingActionButton(
+              heroTag: 'scanMeal',
+              onPressed: () => startMealScan(context),
+              backgroundColor: const Color(0xFF2C2C2E),
+              elevation: 2,
+              tooltip: 'Scan meal',
+              child: const Icon(Icons.photo_camera_rounded, color: Color(0xFF30D158)),
+            ),
+            const SizedBox(width: 12),
+          ],
+          FloatingActionButton.extended(
+            heroTag: 'addFood',
+            onPressed: () => showAddFoodSheet(context),
+            backgroundColor: const Color(0xFF30D158),
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text('Add Food', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
       body: _buildBody(context, p),
     );
@@ -1378,6 +1398,33 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
                 ],
               ),
             ),
+
+            // Scan meal photo — AI camera path (only when the key is compiled in)
+            if (GeminiVisionService.isConfigured)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      // Close the sheet, then scan from the still-valid root context.
+                      final rootCtx =
+                          Navigator.of(context, rootNavigator: true).context;
+                      Navigator.pop(context);
+                      startMealScan(rootCtx);
+                    },
+                    icon: const Icon(Icons.photo_camera_rounded, size: 18),
+                    label: const Text('Scan meal photo'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF30D158),
+                      side: const BorderSide(color: Color(0xFF30D158)),
+                      minimumSize: const Size.fromHeight(44),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ),
 
             // Meal type chips
             SingleChildScrollView(

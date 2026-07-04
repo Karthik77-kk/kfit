@@ -5,6 +5,8 @@ import '../services/nav_router.dart';
 import 'food_screen.dart';
 import 'water_screen.dart';
 import 'supplements_screen.dart';
+import '../services/meal_scan.dart';
+import '../services/gemini_vision_service.dart';
 
 class NutritionScreen extends StatefulWidget {
   const NutritionScreen({super.key});
@@ -206,13 +208,32 @@ class _NutritionScreenState extends State<NutritionScreen>
               // Scaffold, padding.bottom reports the nav's height here.
               padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).padding.bottom),
-              child: FloatingActionButton.extended(
-                onPressed: () => showAddFoodSheet(context),
-                backgroundColor: const Color(0xFF30D158),
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text('Add Food',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Scan Meal — AI photo → foods (only when the key is compiled in)
+                  if (GeminiVisionService.isConfigured) ...[
+                    FloatingActionButton(
+                      heroTag: 'scanMealNutrition',
+                      onPressed: () => startMealScan(context),
+                      backgroundColor: const Color(0xFF2C2C2E),
+                      elevation: 2,
+                      tooltip: 'Scan meal',
+                      child: const Icon(Icons.photo_camera_rounded,
+                          color: Color(0xFF30D158)),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  FloatingActionButton.extended(
+                    heroTag: 'addFoodNutrition',
+                    onPressed: () => showAddFoodSheet(context),
+                    backgroundColor: const Color(0xFF30D158),
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    label: const Text('Add Food',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600)),
+                  ),
+                ],
               ),
             )
           : null,
