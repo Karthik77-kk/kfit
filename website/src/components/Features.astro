@@ -16,8 +16,8 @@ const features = [
     accent: '#FF9F0A',
     accentDim: 'rgba(255,159,10,0.08)',
     tag: 'Indian Foods',
-    title: '100+ Indian foods + live API search',
-    desc: 'Dal, chapati, idli, biryani, paneer — tracked correctly. Plus live OpenFoodFacts search for any packaged food worldwide.',
+    title: '700+ Indian foods + live API search',
+    desc: 'Dal, chapati, idli, biryani, paneer — tracked correctly, backed by the full IFCT-2017 Indian food database. Plus live OpenFoodFacts search for any packaged food worldwide.',
   },
   {
     id: 'insights',
@@ -112,6 +112,7 @@ const icons: Record<string, string> = {
             </div>
           )}
 
+          <div class="fc-spotlight" aria-hidden="true"></div>
           <div class="fc-glow" aria-hidden="true"></div>
         </div>
       ))}
@@ -137,8 +138,13 @@ const icons: Record<string, string> = {
   document.querySelectorAll<HTMLElement>('[data-tilt]').forEach((card) => {
     card.addEventListener('mousemove', (e) => {
       const rect = card.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width  - 0.5) * 2;
-      const y = ((e.clientY - rect.top)  / rect.height - 0.5) * 2;
+      const px = (e.clientX - rect.left) / rect.width;
+      const py = (e.clientY - rect.top)  / rect.height;
+      // Cursor-following spotlight (Linear/Claude-style) — cheap CSS var update.
+      card.style.setProperty('--mx', `${px * 100}%`);
+      card.style.setProperty('--my', `${py * 100}%`);
+      const x = (px - 0.5) * 2;
+      const y = (py - 0.5) * 2;
       gsap.to(card, { rotateY: x * 7, rotateX: -y * 7, transformPerspective: 900,
         duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
     });
@@ -186,6 +192,20 @@ const icons: Record<string, string> = {
   .feature-card:hover { border-color: color-mix(in srgb, var(--accent) 30%, transparent); background: #212123; }
   .feature-card:hover::before { opacity: 1; }
   .feature-card:hover .fc-glow { opacity: 1; }
+  .feature-card:hover .fc-spotlight { opacity: 1; }
+
+  /* Cursor-following spotlight — position driven by --mx/--my set on mousemove. */
+  .fc-spotlight {
+    position: absolute; inset: 0;
+    background: radial-gradient(
+      340px circle at var(--mx, 50%) var(--my, 50%),
+      color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+      transparent 60%
+    );
+    pointer-events: none;
+    opacity: 0; transition: opacity 0.35s;
+    z-index: 0;
+  }
 
   .fc-glow {
     position: absolute; bottom: 0; left: 8%; right: 8%; height: 1px;
