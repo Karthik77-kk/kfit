@@ -14,6 +14,12 @@ import '../services/smart_insight_engine.dart' show topInsights;
 import '../services/notification_center.dart';
 import '../services/chat_session_service.dart';
 import '../services/food_repository.dart' show normalizeFood, FoodRepository;
+import '../services/gemini_text_service.dart';
+
+/// Where the AI coach runs: on-device Gemma (offline, private, ~600 MB download)
+/// or a cheap/fast cloud model (Gemini Flash-Lite — needs internet + the built-in
+/// key, but nothing to download). Default is [local].
+enum AiCoachMode { local, cloud }
 
 class FitnessProvider extends ChangeNotifier {
   // ── Daily targets (defaults — overridden by user settings) ────────────────
@@ -205,6 +211,14 @@ class FitnessProvider extends ChangeNotifier {
   bool _aiCoachEnabled = true;
   bool get aiCoachEnabled => _aiCoachEnabled;
 
+  /// AI-coach backend: on-device Gemma (default) or cheap cloud model. Persisted.
+  AiCoachMode _aiCoachMode = AiCoachMode.local;
+  AiCoachMode get aiCoachMode => _aiCoachMode;
+
+  /// Cached once-a-day AI "daily brief" (cloud). Null until generated for today.
+  String? _dailyBrief;
+  String? get dailyBrief => _dailyBrief;
+
   bool _autoUpdateCheck = true;
   bool get autoUpdateCheck => _autoUpdateCheck;
 
@@ -238,6 +252,53 @@ class FitnessProvider extends ChangeNotifier {
     await prefs.setBool('ai_coach_enabled', value);
     notifyListeners();
   }
+
+  Future<void> saveAiCoachMode(AiCoachMode mode) async {
+    _aiCoachMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'ai_coach_mode', mode == AiCoachMode.cloud ? 'cloud' : 'local');
+    notifyListeners();
+  }
+
+  /// Generates the once-a-day AI "daily brief" via the cheap cloud model, cached
+  /// per calendar day so it hits the network at most once daily. Returns the
+  /// cached brief (or null) without a call when cloud AI isn't configured or the
+  /// coach is disabled. Safe to call on every launch.
+  Future<String?> refreshDailyBriefIfDue() async {
+    if (!GeminiTextService.isConfigured || !_aiCoachEnabled) return _dailyBrief;
+    final prefs = await SharedPreferences.getInstance();
+    final today = _todayKey;
+    if (prefs.getString('ai_brief_date') == today &&
+        (_dailyBrief?.isNotEmpty ?? false)) {
+      return _dailyBrief;
+    }
+    try {
+      final text = await GeminiTextService.generate(
+          _dailyBriefSystemPrompt(), _dailyBriefUserPrompt());
+      _dailyBrief = text.trim();
+      await prefs.setString('ai_brief_date', today);
+      await prefs.setString('ai_brief_text', _dailyBrief!);
+      notifyListeners();
+    } catch (_) {
+      // Offline / quota / key issue — keep any previously cached brief.
+    }
+    return _dailyBrief;
+  }
+
+  String _dailyBriefSystemPrompt() =>
+      "You are $_userName's concise personal fitness coach (Indian context). "
+      'Write a short, friendly daily brief of 2-3 sentences (max ~45 words). '
+      'Focus on the ONE thing that matters most today — protein, calories, steps, '
+      'or water — and give a specific, encouraging nudge. Plain text only: no '
+      'markdown, no bullet lists.';
+
+  String _dailyBriefUserPrompt() =>
+      'Today so far — calories ${todayCalories.round()}/$calorieGoal kcal, '
+      'protein ${todayProtein.round()}/$proteinGoal g, '
+      'water $todayWaterMl/$waterGoalMl ml, steps $todaySteps/$stepGoal, '
+      'latest weight ${latestWeightKg?.toStringAsFixed(1) ?? "?"}kg, '
+      'goal weight ${goalWeightKg.toStringAsFixed(0)}kg. Write my daily brief.';
 
   Future<void> saveAutoUpdateCheck(bool value) async {
     _autoUpdateCheck = value;
@@ -1687,6 +1748,13 @@ class FitnessProvider extends ChangeNotifier {
     _userName = prefs.getString('user_name') ?? 'Friend';
     _onboardingDone = prefs.getBool('onboarding_done') ?? false;
     _aiCoachEnabled = prefs.getBool('ai_coach_enabled') ?? true;
+    _aiCoachMode = prefs.getString('ai_coach_mode') == 'cloud'
+        ? AiCoachMode.cloud
+        : AiCoachMode.local;
+    // Restore today's cached daily brief (if generated earlier today).
+    if (prefs.getString('ai_brief_date') == _todayKey) {
+      _dailyBrief = prefs.getString('ai_brief_text');
+    }
     _autoUpdateCheck = prefs.getBool('auto_update_check') ?? true;
     _updateSnoozedUntilMs = prefs.getInt('update_snoozed_until_ms') ?? 0;
     _updateInitiatedAtMs = prefs.getInt('update_initiated_at_ms') ?? 0;
@@ -1793,42 +1861,49 @@ class FitnessProvider extends ChangeNotifier {
       }
     } catch (_) { _measurementHistory = []; }
 
-    // Historical food, water, supplement for last 60 days
-    // (60 matches the calorieStreak look-back window)
+    // Historical food, water, supplement — ALL stored days (no cap). Nothing is
+    // ever pruned, so scan EVERY persisted daily key instead of a fixed 60-day
+    // window. Today's own data lives in _todayFood/_todayWater/_supplements, so
+    // today's key is skipped here to avoid a stale duplicate.
     _foodHistory = {};
     _waterHistory = {};
     _supplementHistory = {};
-    for (int i = 1; i <= 60; i++) {
-      final date = DateTime.now().subtract(Duration(days: i));
-      final key =
-          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-      final fJson = prefs.getString('food_$key');
-      if (fJson != null) {
-        try {
-          final list = jsonDecode(fJson) as List;
-          _foodHistory[key] = list.map((e) => FoodEntry.fromJson(e)).toList();
-        } catch (_) {}
-      }
-
-      final w = prefs.getInt('water_$key');
-      if (w != null) _waterHistory[key] = w;
-
-      final sJson = prefs.getString('supp_$key');
-      if (sJson != null) {
-        try {
-          _supplementHistory[key] =
-              SupplementStatus.fromJson(jsonDecode(sJson));
-        } catch (_) {}
+    final today = _todayKey;
+    for (final k in prefs.getKeys()) {
+      if (k.startsWith('food_')) {
+        final key = k.substring('food_'.length);
+        if (key == today || key.length != 10) continue;
+        final fJson = prefs.getString(k);
+        if (fJson != null) {
+          try {
+            final list = jsonDecode(fJson) as List;
+            _foodHistory[key] =
+                list.map((e) => FoodEntry.fromJson(e)).toList();
+          } catch (_) {}
+        }
+      } else if (k.startsWith('water_')) {
+        final key = k.substring('water_'.length);
+        if (key == today || key.length != 10) continue;
+        final w = prefs.getInt(k);
+        if (w != null) _waterHistory[key] = w;
+      } else if (k.startsWith('supp_')) {
+        final key = k.substring('supp_'.length);
+        if (key == today || key.length != 10) continue;
+        final sJson = prefs.getString(k);
+        if (sJson != null) {
+          try {
+            _supplementHistory[key] =
+                SupplementStatus.fromJson(jsonDecode(sJson));
+          } catch (_) {}
+        }
       }
     }
 
     _isLoaded = true;
     _loadedForDate = _todayKey;
 
-    // Purge food/water/supp keys older than 60 days from SharedPreferences.
-    // These keys accumulate indefinitely otherwise, bloating storage and exports.
-    _purgeStaleDailyKeys(prefs);
+    // NOTE: daily food/water/supp keys are intentionally NEVER purged — the user
+    // keeps their full history forever. (Chat sessions are still capped below.)
 
     // Issue #14: Prune chat sessions older than 30 days on app startup
     await ChatSessionService.pruneOldSessions();
@@ -1844,6 +1919,10 @@ class FitnessProvider extends ChangeNotifier {
 
     // Start day-reset watcher (detects midnight crossover while app is open)
     _startDayResetTimer();
+
+    // Refresh the once-a-day cloud AI brief (non-blocking; no-op if not due /
+    // cloud AI not configured / coach disabled).
+    refreshDailyBriefIfDue();
   }
 
   // ── In-app notification center ──────────────────────────────────────────────
@@ -1977,24 +2056,6 @@ class FitnessProvider extends ChangeNotifier {
     await _refreshNotifications();
   }
 
-  void _purgeStaleDailyKeys(SharedPreferences prefs) {
-    // Keep exactly 60 days of daily food/water/supplement keys.
-    // cutoff = 60 days ago; remove keys strictly older than that date.
-    final cutoff = DateTime.now().subtract(const Duration(days: 60));
-    final cutoffKey =
-        '${cutoff.year}-${cutoff.month.toString().padLeft(2, '0')}-${cutoff.day.toString().padLeft(2, '0')}';
-    final toRemove = prefs.getKeys().where((k) {
-      if (!k.startsWith('food_') &&
-          !k.startsWith('water_') &&
-          !k.startsWith('supp_')) return false;
-      final datePart = k.substring(k.indexOf('_') + 1);
-      return datePart.compareTo(cutoffKey) < 0;
-    }).toList();
-    for (final k in toRemove) {
-      prefs.remove(k);
-    }
-  }
-
   /// True when [d] falls on the current calendar day.
   bool _isToday(DateTime d) {
     final n = DateTime.now();
@@ -2116,8 +2177,7 @@ class FitnessProvider extends ChangeNotifier {
   // ── Workout actions ────────────────────────────────────────────────────────
   Future<void> logWorkout(WorkoutLog workout) async {
     _workoutHistory.add(workout);
-    final cutoff = DateTime.now().subtract(const Duration(days: 90));
-    _workoutHistory.removeWhere((w) => w.date.isBefore(cutoff));
+    // Retained forever — no history trim (user keeps all their data).
     _oneRmCache = null; // invalidate cached 1RM estimates
 
     final prefs = await SharedPreferences.getInstance();
@@ -2148,10 +2208,7 @@ class FitnessProvider extends ChangeNotifier {
       steps: steps,
     ));
     _bodyHistory.sort((a, b) => a.date.compareTo(b.date));
-
-    final cutoff = now.subtract(const Duration(days: 180));
-    _bodyHistory.removeWhere((e) => e.date.isBefore(cutoff));
-
+    // Retained forever — no 180-day trim (user keeps all their data).
     await _saveBodyHistory();
     notifyListeners();
   }
@@ -2175,7 +2232,6 @@ class FitnessProvider extends ChangeNotifier {
   /// Logs a smart-scale reading. The reading's day comes from [entry].date, so
   /// passing an entry dated in the past backdates it (one reading per day).
   Future<void> logScaleEntry(SmartScaleEntry entry) async {
-    final now = DateTime.now();
     final d = entry.date;
     _scaleHistory.removeWhere((e) =>
         e.date.year == d.year &&
@@ -2183,8 +2239,7 @@ class FitnessProvider extends ChangeNotifier {
         e.date.day == d.day);
     _scaleHistory.add(entry);
     _scaleHistory.sort((a, b) => a.date.compareTo(b.date));
-    final cutoff = now.subtract(const Duration(days: 365));
-    _scaleHistory.removeWhere((e) => e.date.isBefore(cutoff));
+    // Retained forever — no 365-day trim (user keeps all their data).
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'scale_history',
@@ -2204,7 +2259,6 @@ class FitnessProvider extends ChangeNotifier {
   // ── Measurement actions ────────────────────────────────────────────────────
   Future<void> logMeasurement(MeasurementEntry entry) async {
     if (entry.isEmpty) return;
-    final now = DateTime.now();
     final d = entry.date; // honour the entry's date so measurements can backdate
     _measurementHistory.removeWhere((e) =>
         e.date.year == d.year &&
@@ -2212,8 +2266,7 @@ class FitnessProvider extends ChangeNotifier {
         e.date.day == d.day);
     _measurementHistory.add(entry);
     _measurementHistory.sort((a, b) => a.date.compareTo(b.date));
-    final cutoff = now.subtract(const Duration(days: 180));
-    _measurementHistory.removeWhere((e) => e.date.isBefore(cutoff));
+    // Retained forever — no 180-day trim (user keeps all their data).
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'measurements_history',

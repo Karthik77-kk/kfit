@@ -219,6 +219,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ]),
                       ),
                       const SizedBox(height: 20),
+                      // Once-a-day cloud AI "daily brief" (only when generated).
+                      if (p.dailyBrief?.isNotEmpty ?? false) ...[
+                        _DailyBriefCard(text: p.dailyBrief!),
+                        const SizedBox(height: 20),
+                      ],
                     ],
 
                     // ── Getting-started card (shows until user logs weight, food, or workout) ─
@@ -2223,6 +2228,46 @@ class _MacroLegendRow extends StatelessWidget {
 // ─── Backup reminder card ──────────────────────────────────────────────────────
 // Gentle nudge shown when data has never been backed up or it's >14 days stale.
 // Taps through to Settings → Data & Backup (export lives there).
+// ── Daily AI brief (once-a-day cloud summary) ─────────────────────────────────
+class _DailyBriefCard extends StatelessWidget {
+  final String text;
+  const _DailyBriefCard({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: () => openChat(context),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      radius: 14,
+      gradient: LinearGradient(
+        colors: [
+          _kBlue.withValues(alpha: 0.12),
+          _kGreen.withValues(alpha: 0.06),
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      border: Border.all(color: _kBlue.withValues(alpha: 0.3)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: const [
+          Text('✨', style: TextStyle(fontSize: 15)),
+          SizedBox(width: 6),
+          Text('TODAY\'S AI BRIEF',
+              style: TextStyle(
+                  color: _kSecond,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6)),
+        ]),
+        const SizedBox(height: 8),
+        Text(text,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 13.5, height: 1.4)),
+      ]),
+    );
+  }
+}
+
 class _BackupReminderCard extends StatelessWidget {
   const _BackupReminderCard();
 

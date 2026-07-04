@@ -623,9 +623,9 @@ void main() {
     });
   });
 
-  // ── 9. _purgeStaleDailyKeys — 60-day cutoff ──────────────────────────────────
-  group('_purgeStaleDailyKeys — 60-day retention enforced', () {
-    test('food key 61 days old is removed after loadData', () async {
+  // ── 9. Daily keys are kept forever (retention removed) ───────────────────────
+  group('Daily food/water/supp keys are retained forever', () {
+    test('food key 61 days old is KEPT and loaded into history', () async {
       final old = DateTime.now().subtract(const Duration(days: 61));
       final oldKey = '${old.year}-${old.month.toString().padLeft(2,'0')}-${old.day.toString().padLeft(2,'0')}';
       SharedPreferences.setMockInitialValues({
@@ -634,24 +634,23 @@ void main() {
       final p = FitnessProvider();
       await p.loadData();
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.containsKey('food_$oldKey'), isFalse,
-          reason: 'Food keys older than 60 days should be purged');
+      expect(prefs.containsKey('food_$oldKey'), isTrue,
+          reason: 'Old food keys must never be purged');
+      expect(p.foodHistory[oldKey]?.length, 1,
+          reason: 'Old day should be loaded into in-memory history');
     });
 
-    test('food key exactly 60 days old is kept', () async {
-      final recent = DateTime.now().subtract(const Duration(days: 60));
-      final recentKey = '${recent.year}-${recent.month.toString().padLeft(2,'0')}-${recent.day.toString().padLeft(2,'0')}';
-      SharedPreferences.setMockInitialValues({
-        'food_$recentKey': '[]',
-      });
+    test('very old food key (2 years) is still KEPT', () async {
+      final old = DateTime.now().subtract(const Duration(days: 730));
+      final oldKey = '${old.year}-${old.month.toString().padLeft(2,'0')}-${old.day.toString().padLeft(2,'0')}';
+      SharedPreferences.setMockInitialValues({'food_$oldKey': '[]'});
       final p = FitnessProvider();
       await p.loadData();
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.containsKey('food_$recentKey'), isTrue,
-          reason: 'Day-60 food data should NOT be purged');
+      expect(prefs.containsKey('food_$oldKey'), isTrue);
     });
 
-    test('water key 61 days old is removed after loadData', () async {
+    test('water key 61 days old is KEPT after loadData', () async {
       final old = DateTime.now().subtract(const Duration(days: 61));
       final oldKey = '${old.year}-${old.month.toString().padLeft(2,'0')}-${old.day.toString().padLeft(2,'0')}';
       SharedPreferences.setMockInitialValues({
@@ -660,10 +659,11 @@ void main() {
       final p = FitnessProvider();
       await p.loadData();
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.containsKey('water_$oldKey'), isFalse);
+      expect(prefs.containsKey('water_$oldKey'), isTrue);
+      expect(p.waterHistory[oldKey], 2000);
     });
 
-    test('supplement key 61 days old is removed after loadData', () async {
+    test('supplement key 61 days old is KEPT after loadData', () async {
       final old = DateTime.now().subtract(const Duration(days: 61));
       final oldKey = '${old.year}-${old.month.toString().padLeft(2,'0')}-${old.day.toString().padLeft(2,'0')}';
       SharedPreferences.setMockInitialValues({
@@ -672,13 +672,13 @@ void main() {
       final p = FitnessProvider();
       await p.loadData();
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.containsKey('supp_$oldKey'), isFalse);
+      expect(prefs.containsKey('supp_$oldKey'), isTrue);
     });
   });
 
-  // ── 10. Data retention — body / scale trimmed ────────────────────────────────
-  group('Data retention — body 180d, scale 365d', () {
-    test('logBodyEntry trims entries > 180 days', () async {
+  // ── 10. Body / scale history retained forever (no trim) ──────────────────────
+  group('Body / scale history retained forever', () {
+    test('logBodyEntry keeps entries > 180 days', () async {
       // Seed old body entry directly in prefs
       final veryOld = DateTime.now().subtract(const Duration(days: 200));
       final oldEntry = jsonEncode([{
@@ -689,12 +689,12 @@ void main() {
       await p.loadData();
       // Now log a new entry to trigger the trim
       await p.logBodyEntry(weightKg: 75.0);
-      // The very old entry should be gone
-      expect(p.bodyHistory.any((e) => e.id == 'old'), isFalse,
-          reason: 'Body entries > 180 days old must be trimmed on log');
+      // The very old entry must be retained now (no trim).
+      expect(p.bodyHistory.any((e) => e.id == 'old'), isTrue,
+          reason: 'Body entries are kept forever — never trimmed');
     });
 
-    test('logScaleEntry trims entries > 365 days', () async {
+    test('logScaleEntry keeps entries > 365 days', () async {
       final veryOld = DateTime.now().subtract(const Duration(days: 400));
       final oldEntry = jsonEncode([{
         'id': 'old_scale', 'date': veryOld.toIso8601String(),
@@ -708,8 +708,8 @@ void main() {
       final p = FitnessProvider();
       await p.loadData();
       await p.logScaleEntry(_scale(weight: 80, bmr: 1800));
-      expect(p.scaleHistory.any((e) => e.id == 'old_scale'), isFalse,
-          reason: 'Scale entries > 365 days must be trimmed on log');
+      expect(p.scaleHistory.any((e) => e.id == 'old_scale'), isTrue,
+          reason: 'Scale entries are kept forever — never trimmed');
     });
   });
 
