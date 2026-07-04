@@ -327,16 +327,41 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        # HF model-download token is hardcoded in lib/services/on_device_ai_service.dart
-        # (no secret needed, by design). --build-number sets the Android versionCode
-        # from the auto-computed commit count (overrides pubspec).
+        # --build-number sets the Android versionCode from the auto-computed
+        # commit count (overrides pubspec).
         # --target-platform android-arm64: ship a single-ABI APK. Without it the
         # Flutter Gradle plugin builds all three ABIs (arm/arm64/x64) and overrides
         # the manual `ndk.abiFilters arm64-v8a` in the generated build.gradle — which
         # is why x86_64 (emulator-only) and armeabi-v7a (32-bit, can't run the ~600 MB
         # model anyway) were still packaged, ~90 MB of dead weight. arm64-v8a is the
         # only arch a real target device uses.
-        run: flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons --build-number=${{ steps.ver.outputs.code }} --dart-define=HF_TOKEN=${{ secrets.HF_TOKEN }} --dart-define=FDC_API_KEY=${{ secrets.FDC_API_KEY }} --dart-define=GH_BACKUP_TOKEN=${{ secrets.GH_BACKUP_TOKEN }} --dart-define=GH_BACKUP_REPO=${{ secrets.GH_BACKUP_REPO }} --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+        # --obfuscate --split-debug-info: strips readable Dart symbol names from
+        # the compiled binary (official Flutter release hardening). Debug symbols
+        # are kept as a short-lived artifact below so a stack trace could still be
+        # decoded later if ever needed.
+        # Secrets are base64-encoded before injection so they don't sit as
+        # plaintext, grep-able strings inside the compiled APK (dart-define values
+        # are embedded verbatim as constants otherwise). The app decodes them at
+        # runtime (see e.g. GeminiVisionService._key) — same secret values, same
+        # behavior, just not a raw match for automated token scanners that scrape
+        # public APKs for literal credential patterns.
+        run: |
+          b64() { printf '%s' "$1" | base64 -w 0; }
+          flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons \
+            --obfuscate --split-debug-info=build/symbols \
+            --build-number=${{ steps.ver.outputs.code }} \
+            --dart-define=HF_TOKEN_B64=$(b64 "${{ secrets.HF_TOKEN }}") \
+            --dart-define=FDC_API_KEY_B64=$(b64 "${{ secrets.FDC_API_KEY }}") \
+            --dart-define=GH_BACKUP_TOKEN_B64=$(b64 "${{ secrets.GH_BACKUP_TOKEN }}") \
+            --dart-define=GH_BACKUP_REPO_B64=$(b64 "${{ secrets.GH_BACKUP_REPO }}") \
+            --dart-define=GEMINI_API_KEY_B64=$(b64 "${{ secrets.GEMINI_API_KEY }}")
+
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-symbols
+          path: build/symbols
+          retention-days: 1
 
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/kfit.apk

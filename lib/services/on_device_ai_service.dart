@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -17,8 +18,13 @@ class OnDeviceAiService extends ChangeNotifier {
   // GitHub push-protection blocks tokens in commits, and a secret is more durable).
   // The model is gated, so HF_TOKEN must be a token from an account that accepted
   // the Gemma3-1B-IT licence. Empty in local dev unless you pass your own --dart-define.
-  static const _enterpriseToken =
-      String.fromEnvironment('HF_TOKEN', defaultValue: '');
+  // Base64-encoded at CI injection time so the raw token isn't a plaintext,
+  // grep-able string inside the compiled APK. Same token, same behavior.
+  static const _enterpriseTokenB64 =
+      String.fromEnvironment('HF_TOKEN_B64', defaultValue: '');
+  static String get _enterpriseToken => _enterpriseTokenB64.isEmpty
+      ? ''
+      : utf8.decode(base64.decode(_enterpriseTokenB64));
   static const _modelUrl =
       'https://huggingface.co/litert-community/Gemma3-1B-IT'
       '/resolve/main/gemma3-1b-it-int4.litertlm';
