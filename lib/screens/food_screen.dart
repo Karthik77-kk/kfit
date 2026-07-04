@@ -539,7 +539,7 @@ class _EditMacroField extends StatelessWidget {
               suffixStyle: TextStyle(
                   color: color.withValues(alpha: 0.6), fontSize: 12),
               border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 10),

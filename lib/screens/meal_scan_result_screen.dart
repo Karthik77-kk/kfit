@@ -232,7 +232,7 @@ class _MealScanResultScreenState extends State<MealScanResultScreen> {
                       hintText: 'Food name',
                       hintStyle: const TextStyle(color: _muted),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 11),
@@ -310,7 +310,7 @@ class _MealScanResultScreenState extends State<MealScanResultScreen> {
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.05),
               border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(vertical: 9),
             ),
