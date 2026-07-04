@@ -77,8 +77,11 @@ class FoodApiService {
   static const _ua       = 'KFitness/1.0 (Personal fitness tracker; contact@kfitness.app)';
 
   /// USDA FoodData Central key — injected at build via
-  /// `--dart-define FDC_API_KEY=…`. Empty ⇒ USDA disabled.
-  static const String fdcApiKey = String.fromEnvironment('FDC_API_KEY');
+  /// `--dart-define FDC_API_KEY_B64=…` (base64, so it isn't a plaintext,
+  /// grep-able string in the compiled APK). Empty ⇒ USDA disabled.
+  static const String _fdcApiKeyB64 = String.fromEnvironment('FDC_API_KEY_B64');
+  static String get fdcApiKey =>
+      _fdcApiKeyB64.isEmpty ? '' : utf8.decode(base64.decode(_fdcApiKeyB64));
   static bool get usdaEnabled => fdcApiKey.isNotEmpty;
 
   // In-memory caches (process lifetime). Barcodes are also persisted (below).

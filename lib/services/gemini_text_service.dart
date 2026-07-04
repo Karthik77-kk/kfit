@@ -8,7 +8,10 @@ import 'gemini_vision_service.dart' show GeminiException;
 /// the once-a-day daily brief. Uses the LITE Flash tier deliberately to keep the
 /// free-tier quota / cost low so it isn't exhausted.
 class GeminiTextService {
-  static const String _key = String.fromEnvironment('GEMINI_API_KEY');
+  // Base64-encoded at CI injection time — see GeminiVisionService for why.
+  static const String _keyB64 = String.fromEnvironment('GEMINI_API_KEY_B64');
+  static String get _key =>
+      _keyB64.isEmpty ? '' : utf8.decode(base64.decode(_keyB64));
   static const String _model = 'gemini-2.5-flash-lite';
   static const Duration _timeout = Duration(seconds: 30);
 

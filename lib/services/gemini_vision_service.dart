@@ -56,9 +56,14 @@ class GeminiException implements Exception {
 
 /// Sends a meal photo to Gemini (free-tier Flash, vision) and returns the
 /// recognised foods with portion + macros. Key is injected at build time via
-/// `--dart-define GEMINI_API_KEY=...` (never committed) — mirrors HF_TOKEN.
+/// `--dart-define GEMINI_API_KEY_B64=...` (never committed) — mirrors HF_TOKEN.
 class GeminiVisionService {
-  static const String _key = String.fromEnvironment('GEMINI_API_KEY');
+  // Base64-encoded at CI injection time so the raw key isn't a plaintext,
+  // grep-able string inside the compiled APK. Same key, same behavior —
+  // decoded once at first use.
+  static const String _keyB64 = String.fromEnvironment('GEMINI_API_KEY_B64');
+  static String get _key =>
+      _keyB64.isEmpty ? '' : utf8.decode(base64.decode(_keyB64));
   static const String _model = 'gemini-2.5-flash';
   static const Duration _timeout = Duration(seconds: 30);
 

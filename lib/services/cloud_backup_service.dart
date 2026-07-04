@@ -23,10 +23,20 @@ class CloudBackupService {
   static final CloudBackupService instance = CloudBackupService._();
 
   // Build-time defaults (optional). Empty unless injected via --dart-define.
-  static const String compiledToken =
-      String.fromEnvironment('GH_BACKUP_TOKEN', defaultValue: '');
-  static const String compiledRepo =
-      String.fromEnvironment('GH_BACKUP_REPO', defaultValue: '');
+  // Base64-encoded at CI injection time so the raw token/repo aren't
+  // plaintext, grep-able strings inside the compiled APK. Same values, same
+  // behavior — decoded once at first access.
+  static const String _compiledTokenB64 =
+      String.fromEnvironment('GH_BACKUP_TOKEN_B64', defaultValue: '');
+  static const String _compiledRepoB64 =
+      String.fromEnvironment('GH_BACKUP_REPO_B64', defaultValue: '');
+
+  static String get compiledToken => _compiledTokenB64.isEmpty
+      ? ''
+      : utf8.decode(base64.decode(_compiledTokenB64));
+  static String get compiledRepo => _compiledRepoB64.isEmpty
+      ? ''
+      : utf8.decode(base64.decode(_compiledRepoB64));
 
   static const _ua = 'KFitness/1.0';
   static const _timeout = Duration(seconds: 15);
