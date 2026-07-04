@@ -43,23 +43,19 @@ class FoodScreen extends StatelessWidget {
         _MealSection(
             icon: Icons.wb_sunny_rounded,
             title: 'Breakfast',
-            entries: p.breakfastEntries,
-            provider: p),
+            entries: p.breakfastEntries),
         _MealSection(
             icon: Icons.restaurant_rounded,
             title: 'Lunch',
-            entries: p.lunchEntries,
-            provider: p),
+            entries: p.lunchEntries),
         _MealSection(
             icon: Icons.nightlight_round,
             title: 'Dinner',
-            entries: p.dinnerEntries,
-            provider: p),
+            entries: p.dinnerEntries),
         _MealSection(
             icon: Icons.cookie_rounded,
             title: 'Snacks',
-            entries: p.snackEntries,
-            provider: p),
+            entries: p.snackEntries),
       ],
     );
   }
@@ -146,11 +142,8 @@ class _EmptyState extends StatelessWidget {
         '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
     final yEntries = p.foodHistory[key] ?? [];
     if (yEntries.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('No food logged yesterday to copy'),
-            backgroundColor: Color(0xFFFF9F0A)),
-      );
+      _foodSnack(ScaffoldMessenger.of(context), 'No food logged yesterday to copy',
+          color: const Color(0xFFFF9F0A), duration: const Duration(seconds: 2));
       return;
     }
     for (final e in yEntries) {
@@ -164,11 +157,9 @@ class _EmptyState extends StatelessWidget {
       ));
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Copied ${yEntries.length} items from yesterday'),
-        backgroundColor: const Color(0xFF30D158),
-        duration: const Duration(seconds: 2),
-      ));
+      _foodSnack(ScaffoldMessenger.of(context),
+          'Copied ${yEntries.length} items from yesterday',
+          duration: const Duration(seconds: 2));
     }
   }
 
@@ -207,13 +198,9 @@ class _MealSection extends StatelessWidget {
   final IconData icon;
   final String title;
   final List<FoodEntry> entries;
-  final FitnessProvider provider;
 
   const _MealSection(
-      {required this.icon,
-      required this.title,
-      required this.entries,
-      required this.provider});
+      {required this.icon, required this.title, required this.entries});
 
   @override
   Widget build(BuildContext context) {
@@ -249,40 +236,9 @@ class _MealSection extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.25), fontSize: 12)),
           )
         else
-          ...entries.map((entry) => Dismissible(
-                key: Key(entry.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  child: const Icon(Icons.delete_outline, color: Colors.red),
-                ),
-                onDismissed: (_) {
-                  final removed = entry;
-                  provider.removeFoodEntry(removed.id);
-                  // CRITICAL: capture messenger BEFORE any navigation/pop
-                  final messenger = ScaffoldMessenger.of(context);
-                  messenger
-                      .clearSnackBars(); // dismiss any previous removal notification
-                  messenger.showSnackBar(SnackBar(
-                    content: Text('${removed.name} removed'),
-                    backgroundColor: const Color(0xFF2C2C2E),
-                    duration: const Duration(seconds: 3),
-                    action: SnackBarAction(
-                      label: 'Undo',
-                      textColor: const Color(0xFF30D158),
-                      onPressed: () => provider.addFoodEntry(removed),
-                    ),
-                  ));
-                },
-                child: _FoodEntryTile(entry: entry),
-              )),
+          // Tap a tile to edit / delete. Swipe-to-delete was removed so an
+          // accidental horizontal drag while scrolling can't wipe an entry.
+          ...entries.map((entry) => _FoodEntryTile(entry: entry)),
       ],
     );
   }
@@ -349,65 +305,185 @@ class _FoodEntryTile extends StatelessWidget {
   }
 }
 
-/// Edit dialog for a logged food entry — adjust calories/protein or delete.
-/// Operates on today's log (the only place entry tiles are shown).
+/// Shows a food confirmation toast, replacing any already-visible/queued one so
+/// rapid add/remove taps don't stack a backlog of snackbars sliding in one
+/// after another. Each new toast instantly supersedes the previous.
+void _foodSnack(ScaffoldMessengerState messenger, String text,
+    {Color color = const Color(0xFF30D158),
+    Duration duration = const Duration(seconds: 1),
+    SnackBarAction? action}) {
+  messenger.clearSnackBars();
+  messenger.showSnackBar(SnackBar(
+    content: Text(text),
+    backgroundColor: color,
+    duration: duration,
+    action: action,
+  ));
+}
+
+/// Edit sheet for a logged food entry — adjust calories/protein/carbs/fat, or
+/// delete (with an Undo). Operates on today's log (the only place tiles show).
 void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
-  final calCtrl =
-      TextEditingController(text: entry.calories.toInt().toString());
-  final protCtrl =
-      TextEditingController(text: entry.protein.toStringAsFixed(0));
   final provider = context.read<FitnessProvider>();
+  final messenger = ScaffoldMessenger.of(context);
   showDialog(
     context: context,
-    builder: (dCtx) => AlertDialog(
+    builder: (_) => _EditFoodDialog(
+        entry: entry, provider: provider, messenger: messenger),
+  );
+}
+
+/// Stateful so the four field controllers live in State and dispose only after
+/// the route is fully removed — disposing them in showDialog's `.then` fires
+/// mid-exit-animation and throws "controller used after dispose".
+class _EditFoodDialog extends StatefulWidget {
+  final FoodEntry entry;
+  final FitnessProvider provider;
+  final ScaffoldMessengerState messenger;
+  const _EditFoodDialog(
+      {required this.entry, required this.provider, required this.messenger});
+
+  @override
+  State<_EditFoodDialog> createState() => _EditFoodDialogState();
+}
+
+class _EditFoodDialogState extends State<_EditFoodDialog> {
+  late final TextEditingController _calCtrl;
+  late final TextEditingController _protCtrl;
+  late final TextEditingController _carbCtrl;
+  late final TextEditingController _fatCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.entry;
+    _calCtrl = TextEditingController(text: e.calories.round().toString());
+    _protCtrl = TextEditingController(text: e.protein.round().toString());
+    // Pre-fill carbs/fat with the entry's effective values (real when known,
+    // else the 65/35 estimate) so the user sees & can correct a starting number.
+    _carbCtrl = TextEditingController(text: e.effectiveCarbs.round().toString());
+    _fatCtrl = TextEditingController(text: e.effectiveFat.round().toString());
+  }
+
+  @override
+  void dispose() {
+    _calCtrl.dispose();
+    _protCtrl.dispose();
+    _carbCtrl.dispose();
+    _fatCtrl.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final e = widget.entry;
+    final cal = (double.tryParse(_calCtrl.text.trim()) ?? e.calories)
+        .clamp(0.0, double.infinity);
+    final prot = (double.tryParse(_protCtrl.text.trim()) ?? e.protein)
+        .clamp(0.0, 100000.0);
+    final carbs = (double.tryParse(_carbCtrl.text.trim()) ?? e.effectiveCarbs)
+        .clamp(0.0, 100000.0);
+    final fat = (double.tryParse(_fatCtrl.text.trim()) ?? e.effectiveFat)
+        .clamp(0.0, 100000.0);
+    widget.provider.updateFoodEntry(
+      e.id,
+      FoodEntry(
+        id: e.id,
+        name: e.name,
+        calories: cal,
+        protein: prot,
+        carbs: carbs,
+        fat: fat,
+        // The user has now reviewed the macros, so record them as known
+        // (stops the donut from re-estimating carbs/fat for this entry).
+        macrosKnown: true,
+        mealType: e.mealType,
+        timestamp: e.timestamp,
+        servingNote: e.servingNote,
+      ),
+    );
+    Navigator.pop(context);
+  }
+
+  void _delete() {
+    final e = widget.entry;
+    widget.provider.removeFoodEntry(e.id);
+    Navigator.pop(context);
+    _foodSnack(widget.messenger, '${e.name} removed',
+        color: const Color(0xFF2C2C2E),
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: const Color(0xFF30D158),
+          onPressed: () => widget.provider.addFoodEntry(e),
+        ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.entry;
+    return AlertDialog(
       backgroundColor: const Color(0xFF1E1E22),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      title: Text(entry.name,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-      content: Row(children: [
-        Expanded(
-            child: _MiniField(
-                ctrl: calCtrl, hint: 'kcal', keyboard: TextInputType.number)),
-        const SizedBox(width: 8),
-        Expanded(
-            child: _MiniField(
-                ctrl: protCtrl,
-                hint: 'protein g',
-                keyboard: TextInputType.number)),
+      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(e.name,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+          if (e.servingNote.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(e.servingNote,
+                  style:
+                      const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+            ),
+        ],
+      ),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          Expanded(
+              child: _EditMacroField(
+                  ctrl: _calCtrl,
+                  label: 'Calories',
+                  unit: 'kcal',
+                  color: const Color(0xFF30D158))),
+          const SizedBox(width: 10),
+          Expanded(
+              child: _EditMacroField(
+                  ctrl: _protCtrl,
+                  label: 'Protein',
+                  unit: 'g',
+                  color: const Color(0xFF40C8E0))),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+              child: _EditMacroField(
+                  ctrl: _carbCtrl,
+                  label: 'Carbs',
+                  unit: 'g',
+                  color: const Color(0xFFFF9F0A))),
+          const SizedBox(width: 10),
+          Expanded(
+              child: _EditMacroField(
+                  ctrl: _fatCtrl,
+                  label: 'Fat',
+                  unit: 'g',
+                  color: const Color(0xFF8E8E93))),
+        ]),
       ]),
       actions: [
         TextButton(
-          onPressed: () {
-            provider.removeFoodEntry(entry.id);
-            Navigator.pop(dCtx);
-          },
+          onPressed: _delete,
           child:
               const Text('Delete', style: TextStyle(color: Color(0xFFFF453A))),
         ),
         ElevatedButton(
-          onPressed: () {
-            final cal = double.tryParse(calCtrl.text.trim()) ?? entry.calories;
-            final prot =
-                (double.tryParse(protCtrl.text.trim()) ?? entry.protein)
-                    .clamp(0.0, 100000.0);
-            provider.updateFoodEntry(
-              entry.id,
-              FoodEntry(
-                id: entry.id,
-                name: entry.name,
-                calories: cal.clamp(0, double.infinity),
-                protein: prot,
-                carbs: entry.carbs,
-                fat: entry.fat,
-                macrosKnown: entry.macrosKnown,
-                mealType: entry.mealType,
-                timestamp: entry.timestamp,
-                servingNote: entry.servingNote,
-              ),
-            );
-            Navigator.pop(dCtx);
-          },
+          onPressed: _save,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF30D158),
             shape:
@@ -418,11 +494,59 @@ void _showEditFoodDialog(BuildContext context, FoodEntry entry) {
                   TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
-    ),
-  ).then((_) {
-    calCtrl.dispose();
-    protCtrl.dispose();
-  });
+    );
+  }
+}
+
+/// A labelled numeric field for the edit-food dialog: a small caption above a
+/// filled box holding the coloured value + unit. Keeps the four macro editors
+/// visually aligned instead of floating labels drifting over bare fields.
+class _EditMacroField extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String label;
+  final String unit;
+  final Color color;
+  const _EditMacroField(
+      {required this.ctrl,
+      required this.label,
+      required this.unit,
+      required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label.toUpperCase(),
+              style: const TextStyle(
+                  color: Color(0xFF8E8E93),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4)),
+          const SizedBox(height: 4),
+          TextField(
+            controller: ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: positiveDecimalInput,
+            style: TextStyle(
+                color: color, fontSize: 18, fontWeight: FontWeight.bold),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.06),
+              suffixText: unit,
+              suffixStyle: TextStyle(
+                  color: color.withValues(alpha: 0.6), fontSize: 12),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            ),
+          ),
+        ]);
+  }
 }
 
 // ── Add Food Bottom Sheet ─────────────────────────────────────────────────────
@@ -785,11 +909,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
         date: _selectedDate);
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
-    messenger.showSnackBar(SnackBar(
-      content: Text('${item.name} added ✓'),
-      backgroundColor: const Color(0xFF30D158),
-      duration: const Duration(seconds: 1),
-    ));
+    _foodSnack(messenger, '${item.name} added ✓');
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -931,11 +1051,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     // Capture messenger BEFORE pop (avoids using deactivated context)
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
-    messenger.showSnackBar(SnackBar(
-      content: Text('${item.name} added ✓'),
-      backgroundColor: const Color(0xFF30D158),
-      duration: const Duration(seconds: 1),
-    ));
+    _foodSnack(messenger, '${item.name} added ✓');
   }
 
   void _addCustom(BuildContext ctx) {
@@ -945,15 +1061,13 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
     final prot =
         (double.tryParse(_protCtrl.text.trim()) ?? 0).clamp(0.0, 100000.0);
     if (name.isEmpty) {
-      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-          content: Text('⚠️ Enter a food name'),
-          duration: Duration(seconds: 1)));
+      _foodSnack(ScaffoldMessenger.of(ctx), '⚠️ Enter a food name',
+          color: const Color(0xFFFF9F0A));
       return;
     }
     if (cal <= 0) {
-      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-          content: Text('⚠️ Enter calories > 0'),
-          duration: Duration(seconds: 1)));
+      _foodSnack(ScaffoldMessenger.of(ctx), '⚠️ Enter calories > 0',
+          color: const Color(0xFFFF9F0A));
       return;
     }
     HapticFeedback.lightImpact();
@@ -980,11 +1094,7 @@ class _AddFoodSheetState extends State<_AddFoodSheet> {
         date: _selectedDate);
     final messenger = ScaffoldMessenger.of(ctx);
     Navigator.pop(ctx);
-    messenger.showSnackBar(SnackBar(
-      content: Text('$name added ✓'),
-      backgroundColor: const Color(0xFF30D158),
-      duration: const Duration(seconds: 1),
-    ));
+    _foodSnack(messenger, '$name added ✓');
   }
 
   // ── Unified result rows ───────────────────────────────────────────────────────
@@ -1943,6 +2053,7 @@ class _RecentFoodsRow extends StatelessWidget {
               onTap: () {
                 // Replay the stored entry into the current meal with a fresh id
                 // and timestamp (UUID, not ms — avoids duplicate-key crashes).
+                final messenger = ScaffoldMessenger.of(context);
                 context.read<FitnessProvider>().addFoodEntry(
                     FoodEntry(
                       id: context.read<FitnessProvider>().newId(),
@@ -1958,11 +2069,8 @@ class _RecentFoodsRow extends StatelessWidget {
                     ),
                     date: date);
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Added ${src.name}'),
-                  backgroundColor: const Color(0xFF30D158),
-                  duration: const Duration(seconds: 2),
-                ));
+                _foodSnack(messenger, 'Added ${src.name}',
+                    duration: const Duration(seconds: 2));
               },
               borderRadius: BorderRadius.circular(20),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

@@ -355,15 +355,20 @@ void main() {
     expect(find.byType(MainNavigationScreen), findsOneWidget);
   });
 
-  testWidgets('Food log: swipe an entry to delete (with undo)', (tester) async {
+  testWidgets('Food log: tap an entry to edit / delete (with undo)',
+      (tester) async {
     await pump(tester, const MainNavigationScreen());
     await tapIf(tester, find.text('Nutrition'));
-    // The embedded food log shows today's seeded entries; swipe one away.
+    // The embedded food log shows today's seeded entries; tap one to open the
+    // editor, delete it, then undo. (Swipe-to-delete was removed.)
     final entry = find.text('Roti');
     if (entry.evaluate().isNotEmpty) {
-      await tester.drag(entry.first, const Offset(-600, 0));
+      await tester.tap(entry.first);
       await tester.pumpAndSettle();
-      await tapIf(tester, find.text('UNDO'));
+      await tapIf(tester, find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tapIf(tester, find.text('Undo'));
+      await tester.pumpAndSettle();
     }
     expect(find.byType(MainNavigationScreen), findsOneWidget);
   });
