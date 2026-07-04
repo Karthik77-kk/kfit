@@ -30,6 +30,7 @@ dependencies:
   package_info_plus: ^9.0.1
   open_filex: ^4.7.0
   mobile_scanner: ^7.2.0
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
