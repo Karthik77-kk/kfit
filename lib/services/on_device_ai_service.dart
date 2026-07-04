@@ -78,7 +78,7 @@ class OnDeviceAiService extends ChangeNotifier {
     _autoLoad = prefs.getBool(_prefAutoLoad) ?? true;
 
     if (!_autoLoad) {
-      _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
+      _installed = await _verifyInstalled(prefs);
       _setState(AiModelState.notInstalled);
       return;
     }
@@ -100,7 +100,7 @@ class OnDeviceAiService extends ChangeNotifier {
 
   Future<void> _doInit(SharedPreferences prefs) async {
     await saveToken(_enterpriseToken);
-    _installed = (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
+    _installed = await _verifyInstalled(prefs);
 
     if (!_installed) {
       _setState(AiModelState.notInstalled);
@@ -341,6 +341,66 @@ class OnDeviceAiService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Model cleanup failed (non-fatal): $e');
     }
+  }
+
+  /// True only when the model is BOTH flagged installed AND its file is really
+  /// on disk. The flag can outlive the file (OS cache clear, a partial-delete,
+  /// or a restored backup that carried the flag) — which made the download
+  /// button flash then close because the app wrongly believed the model existed.
+  /// When the flag is stale we clear it so the next tap does a real download.
+  Future<bool> _verifyInstalled(SharedPreferences prefs) async {
+    final flagged =
+        (prefs.getString(_prefInstalledModel) ?? '') == _installedId;
+    if (!flagged) return false;
+    if (await _modelFileOnDisk()) return true;
+    await prefs.remove(_prefInstalledModel); // stale flag — file is gone
+    return false;
+  }
+
+  /// Scans the app cache/support dirs for an actual downloaded model file
+  /// (>50 MB = the real ~600 MB Gemma weights, not a stub/partial).
+  Future<bool> _modelFileOnDisk() async {
+    const minBytes = 50 * 1024 * 1024;
+    Future<bool> hasModel(Directory? base) async {
+      if (base == null) return false;
+      try {
+        final gemmaDir = Directory('${base.path}/flutter_gemma');
+        if (await gemmaDir.exists()) {
+          await for (final f
+              in gemmaDir.list(recursive: true, followLinks: false)) {
+            if (f is File && await f.length() > minBytes) return true;
+          }
+        }
+        if (await base.exists()) {
+          await for (final f in base.list(followLinks: false)) {
+            if (f is File &&
+                (f.path.endsWith('.litertlm') ||
+                    f.path.endsWith('.task') ||
+                    f.path.endsWith('.bin')) &&
+                await f.length() > minBytes) {
+              return true;
+            }
+          }
+        }
+      } catch (_) {/* best-effort */}
+      return false;
+    }
+
+    Directory? cache;
+    try {
+      cache = await getApplicationCacheDirectory();
+    } catch (_) {
+      try {
+        cache = await getTemporaryDirectory();
+      } catch (_) {
+        cache = null;
+      }
+    }
+    if (await hasModel(cache)) return true;
+    try {
+      if (await hasModel(await getApplicationSupportDirectory())) return true;
+    } catch (_) {}
+    return false;
   }
 
   // Prompt size optimization

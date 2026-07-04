@@ -111,6 +111,9 @@ class UpdateService {
     void Function(double progress)? onProgress,
   }) async {
     final tmp = await getTemporaryDirectory();
+    // Clear older downloaded APKs first — each is ~170 MB and they otherwise
+    // pile up in the cache across updates.
+    await cleanupCachedApks(keepBuild: info.build);
     final dest = File('${tmp.path}/kfit_${info.build}.apk');
 
     final request = http.Request('GET', Uri.parse(info.apkUrl));
@@ -139,5 +142,25 @@ class UpdateService {
       apkFile.path,
       type: 'application/vnd.android.package-archive',
     );
+  }
+
+  /// Deletes leftover downloaded APKs (~170 MB each) from the temp dir so they
+  /// don't accumulate to gigabytes. Optionally keeps [keepBuild]'s file (the one
+  /// about to be installed). Best-effort — never throws.
+  static Future<void> cleanupCachedApks({int? keepBuild, Directory? dir}) async {
+    try {
+      final tmp = dir ?? await getTemporaryDirectory();
+      final keepName = keepBuild != null ? 'kfit_$keepBuild.apk' : null;
+      await for (final f in tmp.list(followLinks: false)) {
+        if (f is File &&
+            f.path.contains('kfit_') &&
+            f.path.endsWith('.apk') &&
+            (keepName == null || !f.path.endsWith(keepName))) {
+          try {
+            await f.delete();
+          } catch (_) {}
+        }
+      }
+    } catch (_) {/* best-effort */}
   }
 }

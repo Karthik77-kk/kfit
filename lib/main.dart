@@ -51,6 +51,12 @@ void main() async {
       // it if startup hasn't finished loading.
       FoodRepository.instance.ensureLoaded();
 
+      // Sweep leftover update APKs (~170 MB each) ~12 s after launch so the
+      // cache never piles up — clears ALL stale kfit_*.apk, including any left
+      // over from before this cleanup existed. Fire-and-forget, best-effort.
+      Timer(const Duration(seconds: 12),
+          () => UpdateService.cleanupCachedApks());
+
       final fitnessProvider = FitnessProvider()..loadData();
 
       // Cold-launch auto-backup: ~10 s in (and at most once/day), push a cloud

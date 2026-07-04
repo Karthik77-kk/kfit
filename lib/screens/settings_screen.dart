@@ -33,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _cloudId;
   int _cloudLastMs = 0;
   bool _cloudAuto = true;
+  bool _revealCloudId = false; // cloud id stays masked until the user taps to reveal
 
   @override
   void initState() {
@@ -737,8 +738,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.badge_outlined,
               title: 'Your name & id',
               subtitle: (_cloudUser?.isNotEmpty == true)
-                  ? '$_cloudUser · id: ${_cloudId ?? '—'} — tap to change'
+                  ? '$_cloudUser · id: ${_revealCloudId ? (_cloudId ?? '—') : '••••••'} — tap to change'
                   : 'Enter your name + a 6-digit id to sync',
+              trailing: (_cloudUser?.isNotEmpty == true)
+                  ? IconButton(
+                      icon: Icon(
+                          _revealCloudId
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
+                          size: 20,
+                          color: const Color(0xFF8E8E93)),
+                      tooltip: _revealCloudId ? 'Hide id' : 'Show id',
+                      onPressed: () =>
+                          setState(() => _revealCloudId = !_revealCloudId),
+                    )
+                  : null,
               onTap: _cloudBusy ? null : _setCloudAccount,
             ),
             // Auto-backup toggle
@@ -790,42 +804,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: 'Download by username + id (overwrites this device)',
               onTap: _cloudBusy ? null : _cloudRestore,
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(4, 6, 4, 0),
-              child: Text(
-                'Personal/testing use — a chosen username+id identifies you but '
-                'is not a password.',
-                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.35),
-              ),
-            ),
           ],
 
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E22),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: AppShadows.card,
-              border: Border.all(color: const Color(0xFF30D158).withValues(alpha: 0.3)),
-            ),
-            child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(Icons.tips_and_updates_outlined, size: 16, color: Color(0xFF30D158)),
-                SizedBox(width: 6),
-                Text('Safe update process',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              ]),
-              SizedBox(height: 6),
-              Text(
-                'Since v1.3.0+4, this APK uses a permanent signing key. '
-                'Simply install the new APK over the existing one — '
-                'Android will update in place and all your data stays intact. '
-                'No need to uninstall first.',
-                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12, height: 1.5),
-              ),
-            ]),
-          ),
           const SizedBox(height: 20),
 
           // ── APP UPDATES ───────────────────────────────────────────
