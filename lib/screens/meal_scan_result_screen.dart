@@ -124,12 +124,14 @@ class _MealScanResultScreenState extends State<MealScanResultScreen> {
     }
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(
-          'Added $added item${added == 1 ? '' : 's'} to ${_mealLabel(_meal)}'),
-      backgroundColor: _green,
-      duration: const Duration(seconds: 2),
-    ));
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text(
+            'Added $added item${added == 1 ? '' : 's'} to ${_mealLabel(_meal)}'),
+        backgroundColor: _green,
+        duration: const Duration(seconds: 2),
+      ));
   }
 
   @override
@@ -201,64 +203,81 @@ class _MealScanResultScreenState extends State<MealScanResultScreen> {
   Widget _rowCard(_EditRow r, int i) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(14, 10, 6, 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(14),
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: r.name,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: 'Food name',
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              children: [
+                // Name sits in its own filled box so it reads as an editable
+                // field, not floating text over the card.
+                Expanded(
+                  child: TextField(
+                    controller: r.name,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      hintText: 'Food name',
+                      hintStyle: const TextStyle(color: _muted),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 11),
+                    ),
                   ),
                 ),
-              ),
-              if (r.confidence > 0 && r.confidence < 0.6)
-                const Padding(
-                  padding: EdgeInsets.only(right: 4),
-                  child: Icon(Icons.help_outline_rounded,
-                      size: 16, color: Color(0xFFFF9F0A)),
+                if (r.confidence > 0 && r.confidence < 0.6)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 2),
+                    child: Icon(Icons.help_outline_rounded,
+                        size: 16, color: Color(0xFFFF9F0A)),
+                  ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon:
+                      const Icon(Icons.search_rounded, size: 20, color: _muted),
+                  tooltip: 'Replace from food database',
+                  onPressed: () => _pickFromDb(r),
                 ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.search_rounded, size: 20, color: _muted),
-                tooltip: 'Replace from food database',
-                onPressed: () => _pickFromDb(r),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.close_rounded,
-                    size: 20, color: Color(0xFFFF453A)),
-                tooltip: 'Remove',
-                onPressed: () => setState(() {
-                  _rows.removeAt(i).dispose();
-                }),
-              ),
-            ],
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.close_rounded,
+                      size: 20, color: Color(0xFFFF453A)),
+                  tooltip: 'Remove',
+                  onPressed: () => setState(() {
+                    _rows.removeAt(i).dispose();
+                  }),
+                ),
+              ],
+            ),
           ),
           if (r.grams > 0)
             Padding(
-              padding: const EdgeInsets.only(left: 2, bottom: 6),
+              padding: const EdgeInsets.fromLTRB(2, 8, 0, 8),
               child: Text('~${r.grams.round()} g estimated',
                   style: const TextStyle(color: _muted, fontSize: 11)),
-            ),
+            )
+          else
+            const SizedBox(height: 10),
           Row(
             children: [
-              _macroField(r.kcal, 'kcal', const Color(0xFFFF453A)),
-              _macroField(r.protein, 'P (g)', _green),
-              _macroField(r.carbs, 'C (g)', const Color(0xFFFF9F0A)),
-              _macroField(r.fat, 'F (g)', const Color(0xFF40C8E0)),
+              _macroField(r.kcal, 'KCAL', const Color(0xFFFF453A)),
+              _macroField(r.protein, 'PROTEIN', _green),
+              _macroField(r.carbs, 'CARBS', const Color(0xFFFF9F0A)),
+              _macroField(r.fat, 'FAT', const Color(0xFF40C8E0)),
             ],
           ),
         ],
@@ -270,19 +289,33 @@ class _MealScanResultScreenState extends State<MealScanResultScreen> {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.only(right: 8),
-        child: TextField(
-          controller: c,
-          keyboardType: TextInputType.number,
-          inputFormatters: positiveIntInput,
-          onChanged: (_) => setState(() {}), // refresh total
-          style: TextStyle(color: color, fontWeight: FontWeight.w700),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: const TextStyle(fontSize: 11, color: _muted),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10,
+                  color: _muted,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3)),
+          const SizedBox(height: 4),
+          TextField(
+            controller: c,
+            keyboardType: TextInputType.number,
+            inputFormatters: positiveIntInput,
+            onChanged: (_) => setState(() {}), // refresh total
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.w700, fontSize: 15),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.05),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(vertical: 9),
+            ),
           ),
-        ),
+        ]),
       ),
     );
   }
