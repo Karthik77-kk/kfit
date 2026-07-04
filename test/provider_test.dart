@@ -793,23 +793,23 @@ void main() {
     });
   });
 
-  // ── Workout retention (90-day trim) ───────────────────────────────────────
+  // ── Workout retention (kept forever, no trim) ─────────────────────────────
 
-  group('Workout 90-day retention', () {
+  group('Workout history retained forever', () {
     late FitnessProvider p;
     setUp(() async { p = FitnessProvider(); await p.loadData(); });
 
-    test('workouts older than 90 days are trimmed on next log', () async {
+    test('workouts older than 90 days are KEPT on next log', () async {
       // Log an old workout (91 days ago)
       await p.logWorkout(_workout('old', date: DateTime.now().subtract(const Duration(days: 91))));
-      // Log a new workout — this triggers trimming
+      // Log a new workout — no trim happens anymore
       await p.logWorkout(_workout('new'));
-      // Old should be gone
-      expect(p.workoutHistory.any((w) => w.id == 'old'), isFalse);
+      expect(p.workoutHistory.any((w) => w.id == 'old'), isTrue,
+          reason: 'Workouts are kept forever — never trimmed');
       expect(p.workoutHistory.any((w) => w.id == 'new'), isTrue);
     });
 
-    test('workouts within 90 days are kept', () async {
+    test('recent + today workouts are both kept', () async {
       await p.logWorkout(_workout('recent', date: DateTime.now().subtract(const Duration(days: 89))));
       await p.logWorkout(_workout('today'));
       expect(p.workoutHistory.length, 2);
@@ -1697,17 +1697,17 @@ void main() {
     });
   });
 
-  // ── _purgeStaleDailyKeys (stale key cleanup) ────────────────────────────
+  // ── Daily keys retained forever (no purge) ──────────────────────────────
 
-  group('Stale daily key purge (food/water/supp keys > 61 days)', () {
-    test('removes food/water/supp keys older than 61 days on loadData', () async {
+  group('Daily food/water/supp keys retained forever', () {
+    test('keeps food/water/supp keys older than 61 days on loadData', () async {
       final staleDate = DateTime.now().subtract(const Duration(days: 70));
       final staleKey = '${staleDate.year}-${staleDate.month.toString().padLeft(2,'0')}-${staleDate.day.toString().padLeft(2,'0')}';
 
-      // Pre-seed stale keys in SharedPreferences
+      // Pre-seed old keys in SharedPreferences — they must survive.
       SharedPreferences.setMockInitialValues({
         'food_$staleKey': '[]',
-        'water_$staleKey': '500',
+        'water_$staleKey': 500,
         'supp_$staleKey': '{"whey":false,"creatine":false,"multivitamin":false}',
       });
 
@@ -1715,12 +1715,12 @@ void main() {
       await p.loadData();
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.containsKey('food_$staleKey'), isFalse,
-          reason: 'food key older than 61 days should be purged');
-      expect(prefs.containsKey('water_$staleKey'), isFalse,
-          reason: 'water key older than 61 days should be purged');
-      expect(prefs.containsKey('supp_$staleKey'), isFalse,
-          reason: 'supp key older than 61 days should be purged');
+      expect(prefs.containsKey('food_$staleKey'), isTrue,
+          reason: 'old food key must be kept forever');
+      expect(prefs.containsKey('water_$staleKey'), isTrue,
+          reason: 'old water key must be kept forever');
+      expect(prefs.containsKey('supp_$staleKey'), isTrue,
+          reason: 'old supp key must be kept forever');
     });
 
     test('keeps food/water/supp keys within 60 days', () async {
@@ -2453,25 +2453,25 @@ void main() {
     });
   });
 
-  // ── 90-day workout trim edge cases ───────────────────────────────────────
+  // ── Workout history retained forever — edge cases ────────────────────────
 
-  group('Workout 90-day trim edge cases', () {
+  group('Workout retention edge cases (kept forever)', () {
     late FitnessProvider p;
     setUp(() async { p = FitnessProvider(); await p.loadData(); });
 
-    test('workout 89 days ago is kept (well within 90-day window)', () async {
-      // Use 89 days to avoid timing race: two DateTime.now() calls can drift.
+    test('workout 89 days ago is kept', () async {
       final d89 = DateTime.now().subtract(const Duration(days: 89));
       await p.logWorkout(_workout('old', date: d89));
       await p.logWorkout(_workout('new'));
       expect(p.workoutHistory.any((w) => w.id == 'old'), isTrue);
     });
 
-    test('workout 91 days ago is trimmed when new workout is logged', () async {
+    test('workout 91 days ago is KEPT when a new workout is logged', () async {
       final d91 = DateTime.now().subtract(const Duration(days: 91));
       await p.logWorkout(_workout('old', date: d91));
       await p.logWorkout(_workout('new'));
-      expect(p.workoutHistory.any((w) => w.id == 'old'), isFalse);
+      expect(p.workoutHistory.any((w) => w.id == 'old'), isTrue,
+          reason: 'Workouts are kept forever — never trimmed');
     });
   });
 

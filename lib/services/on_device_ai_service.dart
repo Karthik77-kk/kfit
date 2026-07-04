@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/fitness_provider.dart';
 import 'chat_intent.dart';
+import 'gemini_text_service.dart';
 
 enum AiModelState { notInstalled, downloading, loading, ready, error }
 
@@ -439,6 +440,26 @@ class OnDeviceAiService extends ChangeNotifier {
     final fact = ChatIntent.factualAnswer(userMessage, provider);
     if (fact != null) {
       yield fact;
+      return;
+    }
+
+    // Cloud mode: send the coaching question to the cheap/fast Gemini model
+    // instead of the local Gemma. Reuses the same rich system prompt (with the
+    // user's fitness context) so answers stay personal. No 600 MB download needed.
+    if (provider.aiCoachMode == AiCoachMode.cloud &&
+        GeminiTextService.isConfigured) {
+      if (_sending) return;
+      _sending = true;
+      try {
+        final sys = _buildRichSystemPrompt(userMessage, provider);
+        final reply = await GeminiTextService.generate(
+            sys, _sanitizeUserMessage(userMessage));
+        yield reply;
+      } catch (e) {
+        yield '\n\n⚠️ ${_friendlyErrorMessage(e.toString())}';
+      } finally {
+        _sending = false;
+      }
       return;
     }
 

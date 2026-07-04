@@ -69,21 +69,41 @@ class GeminiVisionService {
   // realistic gram estimate. Indian-food aware. JSON is enforced by
   // response_mime_type so parsing is reliable.
   static const String _prompt = '''
-You are a nutrition vision expert analysing a photo of a meal (often Indian food).
-Identify EVERY distinct food or drink item visible.
-For each item return:
-- "name": common name, preferring the common Indian name where it applies
-  (e.g. "Dosa", "Sambar", "Chapati", "Paneer Butter Masala", "Curd Rice"). Keep it short and specific.
-- "grams": realistic estimate of the EDIBLE portion in grams. Use plate/bowl size,
-  utensils, and typical Indian serving sizes as scale references.
-- "kcal", "protein_g", "carb_g", "fat_g": nutrition for THAT estimated portion (NOT per 100 g).
-- "confidence": 0.0-1.0 for the identification.
-Guidelines:
-- Merge a single dish into one item (a plate of rice = one "Rice" entry).
-- Ignore plates, cutlery, napkins, garnish that is not eaten.
-- Be accurate on macros: cross-check kcal against protein*4 + carb*4 + fat*9 for the portion.
-- If there is no food in the image, return an empty array.
-Output ONLY a JSON array, no prose, no markdown fences.
+You are a meticulous nutrition vision expert analysing ONE photo of a meal (often Indian food). Estimate what a person would actually eat and log it accurately.
+
+Identify EVERY distinct food or drink item that is actually eaten.
+
+PORTION ESTIMATION (this is the hard part — do it carefully):
+- Use real-world scale references you can see: the plate/thali diameter (~26 cm),
+  bowl/katori size (~120-200 ml), spoon, roti (~15-18 cm), hand, glass/cup.
+- Estimate VOLUME, not just top area. Judge the DEPTH of the food: a curry in a
+  katori has height; rice is usually mounded, not flat; a heaped plate is 1.5-2x
+  a level one. A bowl looking "full" from above still has a rounded/heaped top.
+- Convert volume to grams using that food's typical cooked density
+  (rice ~0.8 g/ml, dal/curry ~1.0, dry sabzi ~0.6, thick gravy ~1.1).
+- Count discrete items exactly (3 chapatis, 2 idlis, 4 pakoras) — don't guess "some".
+- "grams" = the EDIBLE cooked weight of that portion (exclude bone, peel, seeds, water left in a glass).
+
+MACRO ESTIMATION:
+- Give "kcal", "protein_g", "carb_g", "fat_g" for THAT estimated portion, NOT per 100 g.
+- Account for cooking method and HIDDEN fats/sugars: deep-fried (+oil), tempering/tadka,
+  ghee on rotis, paneer/cream/coconut in gravies, sugar in chai/sweets/lassi.
+  A restaurant/oily version has more fat than a plain home version.
+- Sanity-check every item: kcal should be within ~15% of protein*4 + carb_g*4 + fat_g*9.
+  Adjust the macros until they are internally consistent for the portion.
+- Prefer realistic Indian values (e.g. 1 medium chapati ~70-80 kcal, 1 katori dal ~120-150 kcal,
+  1 cup rice ~200 kcal, 1 masala dosa ~380-430 kcal).
+
+NAMING:
+- "name": short, specific, common Indian name where it applies (e.g. "Dosa", "Sambar",
+  "Chapati", "Paneer Butter Masala", "Curd Rice", "Chicken Biryani").
+- Merge one dish into one entry (a plate of rice = one "Rice"); split clearly different dishes.
+- Ignore plates, cutlery, napkins, and inedible garnish.
+
+"confidence": 0.0-1.0 for how sure you are of the identification + portion.
+If there is no food in the image, return an empty array.
+
+Output ONLY a JSON array — no prose, no markdown fences.
 Schema: [{"name":string,"grams":number,"kcal":number,"protein_g":number,"carb_g":number,"fat_g":number,"confidence":number}]
 ''';
 

@@ -8,6 +8,7 @@ import '../theme/app_tokens.dart';
 import '../providers/fitness_provider.dart';
 import '../services/cloud_backup_service.dart';
 import '../services/on_device_ai_service.dart';
+import '../services/gemini_text_service.dart';
 import '../widgets/input_formatters.dart';
 import '../services/update_service.dart';
 import '../widgets/update_dialog.dart';
@@ -33,7 +34,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _cloudId;
   int _cloudLastMs = 0;
   bool _cloudAuto = true;
-  bool _revealCloudId = false; // cloud id stays masked until the user taps to reveal
 
   @override
   void initState() {
@@ -215,8 +215,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(color: Colors.white, fontSize: 16)),
             content: Column(mainAxisSize: MainAxisSize.min, children: [
               const Text(
-                'Pick a name and a 6-digit id you\'ll remember — together they '
-                'identify your backup. Use the same pair on any device to restore.',
+                'Pick a name and a private 6-digit id you\'ll remember — together '
+                'they identify your backup. Keep the id secret (it stays hidden, '
+                'shown as ••••••). Use the same pair on any device to restore.',
                 style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
               ),
               const SizedBox(height: 12),
@@ -224,17 +225,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: userCtrl,
                 autofocus: true,
                 style: const TextStyle(color: Colors.white),
-                decoration:
-                    const InputDecoration(hintText: 'Your name (e.g. karthik)'),
+                decoration: const InputDecoration(hintText: 'Your name'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: idCtrl,
                 keyboardType: TextInputType.number,
                 inputFormatters: positiveIntInput,
+                obscureText: true, // secret id — never shown in plain text
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                    hintText: '6-digit id (e.g. 222222)'),
+                decoration:
+                    const InputDecoration(hintText: '6-digit secret id'),
               ),
               if (checking) ...[
                 const SizedBox(height: 12),
@@ -326,8 +327,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             controller: idCtrl,
             keyboardType: TextInputType.number,
             inputFormatters: positiveIntInput,
+            obscureText: true, // secret id — never shown in plain text
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(hintText: '6-digit id (e.g. 222222)'),
+            decoration: const InputDecoration(hintText: '6-digit secret id'),
           ),
         ]),
         actions: [
@@ -649,10 +651,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _Header('AI Coach'),
           _AiCoachEnabledTile(),
           if (p.aiCoachEnabled) ...[
-            const SizedBox(height: 8),
-            const _AiStatusTile(),
-            const SizedBox(height: 8),
-            _AiAutoLoadTile(),
+            // Engine picker (only when a cloud key is compiled in — else on-device only).
+            if (GeminiTextService.isConfigured) ...[
+              const SizedBox(height: 8),
+              _AiCoachModeTile(),
+            ],
+            if (p.aiCoachMode == AiCoachMode.local) ...[
+              const SizedBox(height: 8),
+              const _AiStatusTile(),
+              const SizedBox(height: 8),
+              _AiAutoLoadTile(),
+            ] else ...[
+              const SizedBox(height: 8),
+              const _CloudCoachInfoTile(),
+            ],
           ],
           const SizedBox(height: 20),
 
@@ -736,23 +748,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             _Tile(
               icon: Icons.badge_outlined,
-              title: 'Your name & id',
+              title: 'Your name & secret id',
               subtitle: (_cloudUser?.isNotEmpty == true)
-                  ? '$_cloudUser · id: ${_revealCloudId ? (_cloudId ?? '—') : '••••••'} — tap to change'
-                  : 'Enter your name + a 6-digit id to sync',
-              trailing: (_cloudUser?.isNotEmpty == true)
-                  ? IconButton(
-                      icon: Icon(
-                          _revealCloudId
-                              ? Icons.visibility_off_rounded
-                              : Icons.visibility_rounded,
-                          size: 20,
-                          color: const Color(0xFF8E8E93)),
-                      tooltip: _revealCloudId ? 'Hide id' : 'Show id',
-                      onPressed: () =>
-                          setState(() => _revealCloudId = !_revealCloudId),
-                    )
-                  : null,
+                  ? '$_cloudUser · id •••••• (hidden) — tap to change'
+                  : 'Set a name + a private 6-digit id to sync',
               onTap: _cloudBusy ? null : _setCloudAccount,
             ),
             // Auto-backup toggle
@@ -1269,6 +1268,125 @@ class _AiCoachEnabledTile extends StatelessWidget {
         activeColor: const Color(0xFF30D158),
         onChanged: (v) => context.read<FitnessProvider>().saveAiCoachEnabled(v),
       ),
+    );
+  }
+}
+
+// ── AI Coach engine picker (on-device Gemma vs cloud Flash-Lite) ──────────────
+class _AiCoachModeTile extends StatelessWidget {
+  static const _green = Color(0xFF30D158);
+  static const _muted = Color(0xFF8E8E93);
+
+  Widget _seg(BuildContext context, String label, IconData icon,
+      AiCoachMode mode, String sub, AiCoachMode current) {
+    final sel = current == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => context.read<FitnessProvider>().saveAiCoachMode(mode),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          decoration: BoxDecoration(
+            color: sel ? _green.withValues(alpha: 0.18) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: sel ? _green : const Color(0xFF3A3A3C)),
+          ),
+          child: Column(children: [
+            Icon(icon, size: 18, color: sel ? _green : _muted),
+            const SizedBox(height: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: sel ? Colors.white : _muted)),
+            Text(sub,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, color: _muted)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mode = context.watch<FitnessProvider>().aiCoachMode;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E22),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Coach engine',
+            style: TextStyle(
+                color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        const Text(
+            'On-device runs offline & private. Cloud is fast and needs no '
+            'download, but uses the internet (a cheap model to protect quota).',
+            style: TextStyle(color: _muted, fontSize: 11, height: 1.3)),
+        const SizedBox(height: 10),
+        Row(children: [
+          _seg(context, 'On-device', Icons.smartphone_rounded, AiCoachMode.local,
+              'Gemma · offline', mode),
+          const SizedBox(width: 8),
+          _seg(context, 'Cloud', Icons.cloud_rounded, AiCoachMode.cloud,
+              'Flash-Lite · fast', mode),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ── Cloud coach info (shown when Cloud engine is selected) ────────────────────
+class _CloudCoachInfoTile extends StatelessWidget {
+  const _CloudCoachInfoTile();
+  static const _green = Color(0xFF30D158);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E22),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF40C8E0).withValues(alpha: 0.3)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: const [
+          Text('☁️', style: TextStyle(fontSize: 20)),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Cloud coach active',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        const Text(
+            'Fast responses via ${GeminiTextService.modelLabel} — no 600 MB '
+            'download. Needs internet; also powers a once-a-day AI daily brief.',
+            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, height: 1.35)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => openChat(context),
+            icon: const Text('💬', style: TextStyle(fontSize: 14)),
+            label: const Text('Open AI Coach Chat'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _green,
+              side: const BorderSide(color: _green),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(vertical: 11),
+            ),
+          ),
+        ),
+      ]),
     );
   }
 }

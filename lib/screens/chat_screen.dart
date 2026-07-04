@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/fitness_provider.dart';
 import '../services/on_device_ai_service.dart';
+import '../services/gemini_text_service.dart';
 import '../services/chat_session_service.dart';
 import '../services/food_api_service.dart';
 import '../widgets/kit/kit.dart';
@@ -65,6 +66,11 @@ class _ChatScreenState extends State<ChatScreen> {
     // Guards in initForChat() and downloadAndLoad() prevent double-loading.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Cloud mode needs no local model — skip the download/load entirely.
+      final cloud = context.read<FitnessProvider>().aiCoachMode ==
+              AiCoachMode.cloud &&
+          GeminiTextService.isConfigured;
+      if (cloud) return;
       final ai = context.read<OnDeviceAiService>();
       if (ai.isInstalled &&
           !ai.isReady &&
@@ -104,7 +110,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final ai       = context.read<OnDeviceAiService>();
     final provider = context.read<FitnessProvider>();
-    if (!ai.isReady) return;
+    final cloud = provider.aiCoachMode == AiCoachMode.cloud &&
+        GeminiTextService.isConfigured;
+    if (!cloud && !ai.isReady) return;
 
     // Auto-title session from first user message
     if (_session.messages.isEmpty) {
@@ -163,6 +171,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final ai = context.watch<OnDeviceAiService>();
+    // Cloud mode shows the chat immediately — no local model required.
+    final cloud =
+        context.watch<FitnessProvider>().aiCoachMode == AiCoachMode.cloud &&
+            GeminiTextService.isConfigured;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -240,21 +252,30 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
         ],
       ),
-      body: switch (ai.state) {
-        AiModelState.notInstalled => _SetupView(ai: ai),
-        AiModelState.downloading  => _DownloadingView(progress: ai.dlProgress),
-        AiModelState.loading      => _LoadingView(),
-        AiModelState.error        => _ErrorView(errorMessage: ai.errorMessage, ai: ai),
-        AiModelState.ready        => _ChatView(
-            messages:        _messages,
-            thinking:        _thinking,
-            scroll:          _scroll,
-            controller:      _controller,
-            onSend:          _send,
-            // Show memory indicator when we restored an existing session
-            showMemoryNote:  widget.session != null && _messages.isNotEmpty,
-          ),
-      },
+      body: cloud
+          ? _ChatView(
+              messages:        _messages,
+              thinking:        _thinking,
+              scroll:          _scroll,
+              controller:      _controller,
+              onSend:          _send,
+              showMemoryNote:  widget.session != null && _messages.isNotEmpty,
+            )
+          : switch (ai.state) {
+              AiModelState.notInstalled => _SetupView(ai: ai),
+              AiModelState.downloading  => _DownloadingView(progress: ai.dlProgress),
+              AiModelState.loading      => _LoadingView(),
+              AiModelState.error        => _ErrorView(errorMessage: ai.errorMessage, ai: ai),
+              AiModelState.ready        => _ChatView(
+                  messages:        _messages,
+                  thinking:        _thinking,
+                  scroll:          _scroll,
+                  controller:      _controller,
+                  onSend:          _send,
+                  // Show memory indicator when we restored an existing session
+                  showMemoryNote:  widget.session != null && _messages.isNotEmpty,
+                ),
+            },
     );
   }
 }
