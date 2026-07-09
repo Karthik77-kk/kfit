@@ -1,0 +1,127 @@
+---
+const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk';
+---
+
+<nav class="nav" id="nav">
+  <div class="nav-inner container">
+    <a href="/" class="nav-logo">
+      <div class="logo-mark">K</div>
+      <span class="logo-text">K<span class="logo-accent">Fitness</span></span>
+    </a>
+
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#ai-coach">AI Coach</a>
+      <a href="#calculator">Calculator</a>
+      <a href="#download">Download</a>
+    </div>
+
+    <a href={APK_URL} class="btn btn-primary nav-cta" download>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+      </svg>
+      Get App
+    </a>
+  </div>
+</nav>
+
+<script>
+  const nav = document.getElementById('nav');
+  let lastY = 0;
+
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY;
+    if (y > 30) {
+      nav?.classList.add('scrolled');
+    } else {
+      nav?.classList.remove('scrolled');
+    }
+    lastY = y;
+  }, { passive: true });
+</script>
+
+<style>
+  .nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    padding: 20px 0;
+    transition: padding 0.3s ease, background 0.3s ease, border 0.3s ease;
+  }
+
+  .nav.scrolled {
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 14px 0;
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .logo-mark {
+    width: 34px;
+    height: 34px;
+    background: #5A5A5A;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 900;
+    color: #000;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .logo-accent { color: var(--green); }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .nav-links a {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: white; }
+
+  .nav-cta {
+    padding: 9px 20px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+  }
+</style>

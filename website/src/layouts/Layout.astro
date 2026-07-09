@@ -1,0 +1,59 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'K Fitness — Private AI Fitness Tracker',
+  description = 'On-device AI fitness tracking built for Indian bodies. Track calories, workouts, body composition with on-device Gemma 3. Free forever. No Play Store.',
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonicalURL} />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="K Fitness" />
+    <meta property="og:url" content={canonicalURL} />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <!-- Preconnect for fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  </head>
+  <body>
+    <!-- Scroll progress bar -->
+    <div id="scrollBar" style="position:fixed;top:0;left:0;height:2px;width:0%;background:#30D158;z-index:9999;transition:width 0.08s linear;pointer-events:none;"></div>
+
+    <slot />
+
+    <script>
+      const bar = document.getElementById('scrollBar');
+      window.addEventListener('scroll', () => {
+        if (!bar) return;
+        const pct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+        bar.style.width = `${Math.min(pct, 100)}%`;
+      }, { passive: true });
+    </script>
+  </body>
+</html>

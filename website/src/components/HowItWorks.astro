@@ -1,0 +1,232 @@
+---
+const steps = [
+  {
+    num: '01',
+    title: 'Download the APK',
+    desc: 'Tap the button on this page. Your browser downloads the file directly — no app store, no sign-up, no waiting for approval.',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5z"/><path d="M5 20h14"/></svg>`,
+    accent: '#30D158',
+  },
+  {
+    num: '02',
+    title: 'Allow & Install',
+    desc: 'Android will ask you to allow "Install from unknown sources" once. Tap Allow — it\'s the same as installing any app outside the Play Store. Takes 30 seconds.',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>`,
+    accent: '#40C8E0',
+  },
+  {
+    num: '03',
+    title: 'Start Tracking',
+    desc: 'Log your food from 700+ Indian foods or search any packaged item. Log workouts, body stats. Let the on-device AI coach guide you — all without touching the internet.',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>`,
+    accent: '#BF5AF2',
+  },
+];
+---
+
+<section class="section hiw-section" id="how-it-works">
+  <div class="container">
+    <div class="hiw-header">
+      <span class="section-label">How it works</span>
+      <h2>Up and running<br/><span class="gradient-text">in two minutes.</span></h2>
+      <p class="hiw-sub">No account. No Play Store. No configuration. Just download and go.</p>
+    </div>
+
+    <div class="hiw-steps">
+      {steps.map((step, i) => (
+        <div class="hiw-step" style={`--accent:${step.accent}`}>
+          <!-- Connector line (not on last step) -->
+          {i < steps.length - 1 && <div class="hiw-connector" aria-hidden="true"></div>}
+
+          <div class="step-num-wrap">
+            <div class="step-num">{step.num}</div>
+          </div>
+
+          <div class="step-icon-wrap" style={`background:${step.accent}18;border-color:${step.accent}30`}>
+            <div class="step-icon" style={`color:${step.accent}`} set:html={step.icon}></div>
+          </div>
+
+          <div class="step-content">
+            <h3 class="step-title">{step.title}</h3>
+            <p class="step-desc">{step.desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Visual timeline for desktop -->
+    <div class="hiw-timeline" aria-hidden="true">
+      <div class="timeline-line">
+        <div class="timeline-progress" id="timelineProgress"></div>
+      </div>
+      {steps.map((step) => (
+        <div class="timeline-dot" style={`background:${step.accent};box-shadow:0 0 12px ${step.accent}60`}></div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  gsap.registerPlugin(ScrollTrigger);
+
+  gsap.from('.hiw-header', {
+    y: 30, opacity: 0, duration: 0.8, ease: 'power2.out',
+    scrollTrigger: { trigger: '.hiw-section', start: 'top 80%' },
+  });
+
+  gsap.from('.hiw-step', {
+    y: 50, opacity: 0, duration: 0.8, stagger: 0.15, ease: 'power2.out',
+    scrollTrigger: { trigger: '.hiw-steps', start: 'top 80%' },
+  });
+
+  gsap.from('.timeline-dot', {
+    scale: 0, opacity: 0, duration: 0.5, stagger: 0.2, ease: 'back.out(2)',
+    scrollTrigger: { trigger: '.hiw-timeline', start: 'top 85%' },
+  });
+
+  gsap.from('.timeline-progress', {
+    scaleX: 0, transformOrigin: 'left center', duration: 1.2, ease: 'power2.out',
+    scrollTrigger: { trigger: '.hiw-timeline', start: 'top 85%' },
+  });
+
+  // Step number count-up feel
+  document.querySelectorAll<HTMLElement>('.step-num').forEach((el, i) => {
+    gsap.from(el, {
+      scale: 0.5, opacity: 0, duration: 0.6, delay: i * 0.15 + 0.3, ease: 'back.out(2)',
+      scrollTrigger: { trigger: '.hiw-steps', start: 'top 80%' },
+    });
+  });
+</script>
+
+<style>
+  .hiw-section {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hiw-section::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 100%, rgba(48,209,88,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hiw-header {
+    text-align: center; margin-bottom: 72px;
+  }
+
+  .hiw-sub {
+    font-size: 17px; color: var(--muted);
+    max-width: 440px; margin: 16px auto 0;
+  }
+
+  /* ── Steps ──────────────────────────────────────────────────────────────────── */
+  .hiw-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+    position: relative;
+    margin-bottom: 48px;
+  }
+
+  .hiw-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+    position: relative;
+  }
+
+  /* Connector line between steps */
+  .hiw-connector {
+    position: absolute;
+    top: 28px;
+    left: calc(50% + 44px);
+    width: calc(100% + 32px - 88px);
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+    pointer-events: none;
+  }
+
+  /* Step number */
+  .step-num-wrap {
+    position: relative; z-index: 1;
+  }
+
+  .step-num {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, rgba(48,209,88,0.15) 0%, rgba(48,209,88,0.05) 100%);
+    border: 1px solid rgba(48,209,88,0.25);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800;
+    color: var(--green); letter-spacing: 0.05em;
+    backdrop-filter: blur(10px);
+  }
+
+  /* Step icon */
+  .step-icon-wrap {
+    width: 64px; height: 64px;
+    border-radius: 20px;
+    border: 1px solid;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .step-icon { width: 28px; height: 28px; }
+  .step-icon svg { width: 28px; height: 28px; }
+
+  /* Text */
+  .step-title {
+    font-size: 18px; font-weight: 700;
+    color: white; letter-spacing: -0.02em;
+  }
+
+  .step-desc {
+    font-size: 14px; color: var(--muted);
+    line-height: 1.7; max-width: 260px; margin: 0 auto;
+  }
+
+  .step-content { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ── Timeline ────────────────────────────────────────────────────────────────── */
+  .hiw-timeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 calc((100% / 6));
+    position: relative;
+    margin-top: -20px;
+  }
+
+  .timeline-line {
+    position: absolute;
+    left: calc(100% / 6);
+    right: calc(100% / 6);
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .timeline-progress {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--cyan), var(--purple));
+    border-radius: 1px;
+  }
+
+  .timeline-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%; position: relative; z-index: 1;
+  }
+
+  /* ── Responsive ──────────────────────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .hiw-steps { grid-template-columns: 1fr; gap: 40px; }
+    .hiw-connector { display: none; }
+    .hiw-timeline  { display: none; }
+    .hiw-step      { max-width: 360px; margin: 0 auto; }
+  }
+</style>
