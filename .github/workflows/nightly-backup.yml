@@ -194,15 +194,30 @@ jobs:
           # `database/` beside the app's `users/`. Same repo, different things:
           # one is the cloud, the other is what each phone holds.
           mkdir -p database
+          NEW="$(basename /tmp/snapshot/*.enc)"
           mv /tmp/snapshot/*.enc database/
 
           # Keep 30 dailies. Encrypted blobs cannot delta-compress, so an
           # uncapped pile grows without limit and every clone pays for it.
-          ls -1t database/kfit-*.tar.gz.enc 2>/dev/null | tail -n +31 | while read -r old; do
+          #
+          # Newest is decided by the date in the NAME, never by mtime. `ls -t`
+          # did this once and was wrong every night: the clone stamps every old
+          # file with clone time, while tonight's was written in the Encrypt
+          # step BEFORE the clone — so it sorted oldest and was the one pruned.
+          # From the 31st night on, each run deleted its own snapshot, found
+          # nothing to commit, and went green. ISO dates sort chronologically.
+          ls -1 database/kfit-*.tar.gz.enc 2>/dev/null | sort -r | tail -n +31 | while read -r old; do
             echo "pruning $(basename "$old")"
             git rm -q --cached "$old" 2>/dev/null || true
             rm -f "$old"
           done
+
+          # The failure above was silent, so make its whole class loud: whatever
+          # the pruning does, tonight's snapshot must survive it.
+          if [ ! -f "database/$NEW" ]; then
+            echo "::error::$NEW was pruned before it could be committed — refusing to report a backup that does not exist."
+            exit 1
+          fi
 
           git add -A database/
           if git diff --cached --quiet; then
