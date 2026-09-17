@@ -6,6 +6,8 @@ name: Build JARVIS Release APK
 # Releases and APKs are published directly to this public repository
 # (Karthik77-kk/kfit) so user devices and the self-hosted in-app updater can
 # download jarvis.apk publicly without requiring GitHub authentication tokens.
+# Supports differential delta-updates (jarvis.patch + patch.json) generated via
+# bsdiff so users download only what changed instead of the full APK.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -141,27 +143,99 @@ jobs:
       - name: Determine Release Tag & Changelog
         id: release_info
         run: |
-          # Read version from apps/mobile/pubspec.yaml (e.g. version: 1.0.1+1)
-          PUBSPEC_VER=$(grep '^version:' apps/mobile/pubspec.yaml | awk '{print $2}' | tr -d '\r\n')
-          VER_NAME=$(echo "$PUBSPEC_VER" | cut -d'+' -f1)
-          BUILD_NUM=$(echo "$PUBSPEC_VER" | cut -d'+' -f2)
-          [ -z "$BUILD_NUM" ] && BUILD_NUM="1"
-          
+          # Dynamically determine build number from total commits on JARVIS main
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          BUILD_NUM="$COMMIT_COUNT"
+          VER_NAME="1.0.${BUILD_NUM}"
           TAG="jarvis-v${VER_NAME}"
+          
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "ver_name=${VER_NAME}" >> "$GITHUB_OUTPUT"
+          echo "build_num=${BUILD_NUM}" >> "$GITHUB_OUTPUT"
           
           {
             echo "### JARVIS Autonomous Personal AI Assistant v${VER_NAME} (Build ${BUILD_NUM})"
             echo ""
             echo "- Built automatically in public \`Karthik77-kk/kfit\` GitHub Actions"
-            echo "- Full offline-first core, 270M Fast Router & LiteRT NPU Model Engine"
+            echo "- Amy Minimalist Interface: Apple Notes design with distraction-free layout"
+            echo "- Local On-Device AI: LiteRT Hexagon NPU model download & cache management"
+            echo "- Delta Updates: Differential bsdiff patches (downloads only what changed)"
             echo "- LiveKit Real-Time Voice with barge-in & Dual-SIM Telecom Resolver"
-            echo "- In-app self-hosted updater with direct APK download & integrity verification"
             echo ""
             echo "---"
             echo "**Asset**: \`jarvis.apk\` (~${{ steps.assets.outputs.size_mb }} MB)"
           } > release_notes.md
+
+      - name: Generate delta patch from previous release (best-effort)
+        id: patch
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
+          NEW_TAG: ${{ steps.release_info.outputs.tag }}
+          NEW_BUILD: ${{ steps.release_info.outputs.build_num }}
+        run: |
+          set +e
+          OUT=apps/mobile/build/app/outputs/flutter-apk
+          APK="$OUT/jarvis.apk"
+          WORK=build/patchwork
+          mkdir -p "$WORK"
+
+          # Look for previous JARVIS release in public repo
+          PREV_TAG=$(gh release list --repo "${{ github.repository }}" --limit 20 | grep -E 'jarvis-v' | head -1 | awk '{print $3}')
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous JARVIS release found — skipping delta patch."; exit 0
+          fi
+          echo "Generating delta patch: previous $PREV_TAG -> new $NEW_TAG"
+
+          if ! gh release download "$PREV_TAG" --repo "${{ github.repository }}" \
+                 -p 'jarvis.apk' -D "$WORK" --clobber 2>/dev/null; then
+            echo "Previous release $PREV_TAG has no jarvis.apk asset — skipping patch."; exit 0
+          fi
+          PREV="$WORK/jarvis.apk"
+
+          sudo apt-get update -qq >/dev/null 2>&1
+          if ! sudo apt-get install -y -qq bsdiff >/dev/null 2>&1; then
+            echo "bsdiff unavailable — skipping patch."; exit 0
+          fi
+
+          if ! timeout 600 bsdiff "$PREV" "$APK" "$WORK/jarvis.patch"; then
+            echo "bsdiff failed or timed out — skipping patch."; rm -f "$WORK/jarvis.patch"; exit 0
+          fi
+
+          FULL_BYTES=$(stat -c%s "$APK")
+          PATCH_BYTES=$(stat -c%s "$WORK/jarvis.patch")
+
+          if [ "$PATCH_BYTES" -ge $(( FULL_BYTES * 60 / 100 )) ]; then
+            echo "Patch ${PATCH_BYTES}B >= 60% of full ${FULL_BYTES}B — skipping."; exit 0
+          fi
+
+          FROM_BUILD=$(printf '%s' "$PREV_TAG" | awk -F. '{print $NF}')
+          if ! printf '%s' "$FROM_BUILD" | grep -qE '^[0-9]+$'; then
+            FROM_BUILD="1"
+          fi
+
+          FROM_SHA=$(sha256sum "$PREV" | cut -d' ' -f1)
+          TO_SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          PATCH_SHA=$(sha256sum "$WORK/jarvis.patch" | cut -d' ' -f1)
+
+          cp "$WORK/jarvis.patch" "$OUT/jarvis.patch"
+
+          jq -n \
+            --argjson fromBuild "$FROM_BUILD" \
+            --arg     fromTag   "$PREV_TAG" \
+            --arg     fromSha256 "$FROM_SHA" \
+            --argjson toBuild   "$NEW_BUILD" \
+            --arg     toTag     "$NEW_TAG" \
+            --arg     toSha256  "$TO_SHA" \
+            --argjson patchSize "$PATCH_BYTES" \
+            --arg     patchSha256 "$PATCH_SHA" \
+            '{fromBuild:$fromBuild, fromTag:$fromTag, fromSha256:$fromSha256, toBuild:$toBuild, toTag:$toTag, toSha256:$toSha256, patchSize:$patchSize, patchSha256:$patchSha256}' \
+            > "$OUT/patch.json"
+
+          echo "patch_ready=true" >> "$GITHUB_OUTPUT"
+          PMB=$(awk -v b="$PATCH_BYTES" 'BEGIN{printf "%.1f", b/1048576}')
+          FMB=$(awk -v b="$FULL_BYTES"  'BEGIN{printf "%.0f", b/1048576}')
+          echo "Delta patch generated: ${PMB} MB (vs ${FMB} MB full APK)"
 
       - name: Publish or Attach to Public kfit GitHub Release
         env:
@@ -169,13 +243,21 @@ jobs:
         run: |
           TAG="${{ steps.release_info.outputs.tag }}"
           APK_PATH="apps/mobile/build/app/outputs/flutter-apk/jarvis.apk"
+          OUT="apps/mobile/build/app/outputs/flutter-apk"
           
-          echo "Publishing ${TAG} to ${{ github.repository }}..."
-          gh release create "$TAG" "$APK_PATH" \
+          ASSETS=("$APK_PATH")
+          if [ -f "$OUT/jarvis.patch" ] && [ -f "$OUT/patch.json" ]; then
+            ASSETS+=("$OUT/jarvis.patch" "$OUT/patch.json")
+            echo "Attaching delta patch assets: jarvis.patch + patch.json"
+          fi
+          
+          echo "Publishing ${TAG} with ${#ASSETS[@]} assets to ${{ github.repository }}..."
+          gh release create "$TAG" "${ASSETS[@]}" \
             --repo "${{ github.repository }}" \
             --title "JARVIS v${{ steps.release_info.outputs.ver_name }}" \
             --notes-file release_notes.md \
-            || gh release upload "$TAG" "$APK_PATH" --repo "${{ github.repository }}" --clobber
+            --latest \
+            || gh release upload "$TAG" "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
 
       - name: Upload APK Workflow Artifact
         uses: actions/upload-artifact@v4
