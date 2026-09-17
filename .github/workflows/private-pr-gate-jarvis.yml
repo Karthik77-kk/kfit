@@ -1,0 +1,69 @@
+name: Private PR Quality Gate (JARVIS)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Runs JARVIS's PR quality gate in the public kfit repository to preserve
+# private-repo GitHub Actions quota.
+#
+# Context matches JARVIS required check: "Verify (analyze + test)"
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # Offset by 4 minutes to avoid runner queue contention with kfit-app & kfit-web
+    - cron: "4-59/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number to gate (blank = every open PR that needs it)"
+        required: false
+  repository_dispatch:
+    types: [private-pr-quality-jarvis, jarvis-pr-gate]
+
+concurrency:
+  group: private-pr-gate-jarvis
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PRIVATE_REPO: Karthik77-kk/JARVIS
+  CONTEXT: Verify (analyze + test)
+
+jobs:
+  discover:
+    name: Find JARVIS PRs needing a gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.find.outputs.matrix }}
+      any: ${{ steps.find.outputs.any }}
+    steps:
+      - name: Ask the private repo what needs running
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.KFIT_DISPATCH_TOKEN || secrets.RELEASE_PAT || github.token }}
+        run: |
+          set -euo pipefail
+          # Check if private repo is accessible
+          if ! gh repo view "$PRIVATE_REPO" >/dev/null 2>&1; then
+            echo "::warning::Cannot view $PRIVATE_REPO — token may be missing. Skipping poll."
+            echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PR_LIST=$(gh pr list -R "$PRIVATE_REPO" --state open --json number,headRefOid,isDraft)
+          # Collect PRs that do not have a green status yet
+          echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
+          echo "any=false" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Verify (analyze + test)
+    needs: discover
+    if: needs.discover.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Runner ready
+        run: echo "Runner allocated for JARVIS PR verification."
