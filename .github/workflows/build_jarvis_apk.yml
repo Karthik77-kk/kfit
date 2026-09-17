@@ -133,10 +133,30 @@ jobs:
             echo "::warning::ANDROID_KEYSTORE_BASE64 secret not found — build will fallback to debug signing."
           fi
 
+      - name: Determine Dynamic Version & Tag
+        id: release_info
+        run: |
+          # Dynamically determine build number from total commits on JARVIS main
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          BUILD_NUM="$COMMIT_COUNT"
+          VER_NAME="1.0.${BUILD_NUM}"
+          TAG="jarvis-v${VER_NAME}"
+          
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "ver_name=${VER_NAME}" >> "$GITHUB_OUTPUT"
+          echo "build_num=${BUILD_NUM}" >> "$GITHUB_OUTPUT"
+          echo "Building JARVIS APK version: ${VER_NAME} (Build ${BUILD_NUM})"
+          
+          # Dynamically stamp pubspec.yaml with real version before build
+          sed -i "s/^version: .*/version: ${VER_NAME}+${BUILD_NUM}/" apps/mobile/pubspec.yaml
+
       - name: Build Release APK
         run: |
           cd apps/mobile
-          flutter build apk --release --android-skip-build-dependency-validation
+          flutter build apk --release \
+            --build-name="${{ steps.release_info.outputs.ver_name }}" \
+            --build-number="${{ steps.release_info.outputs.build_num }}" \
+            --android-skip-build-dependency-validation
 
       - name: Prepare Named Assets
         id: assets
@@ -155,25 +175,16 @@ jobs:
           echo "size_mb=${SIZE_MB}" >> "$GITHUB_OUTPUT"
           echo "APK generated: ${SIZE_MB} MB"
 
-      - name: Determine Release Tag & Changelog
-        id: release_info
+      - name: Generate Release Notes
         run: |
-          # Dynamically determine build number from total commits on JARVIS main
-          COMMIT_COUNT=$(git rev-list --count HEAD)
-          BUILD_NUM="$COMMIT_COUNT"
-          VER_NAME="1.0.${BUILD_NUM}"
-          TAG="jarvis-v${VER_NAME}"
-          
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "ver_name=${VER_NAME}" >> "$GITHUB_OUTPUT"
-          echo "build_num=${BUILD_NUM}" >> "$GITHUB_OUTPUT"
-          
           {
-            echo "### JARVIS Autonomous Personal AI Assistant v${VER_NAME} (Build ${BUILD_NUM})"
+            echo "### JARVIS Autonomous Personal AI Assistant v${{ steps.release_info.outputs.ver_name }} (Build ${{ steps.release_info.outputs.build_num }})"
             echo ""
             echo "- Built automatically in public \`Karthik77-kk/kfit\` GitHub Actions"
             echo "- Amy Minimalist Interface: Apple Notes design with distraction-free layout"
+            echo "- Gemini 3.6 Flash: Workhorse model with self-healing fallback"
             echo "- Local On-Device AI: LiteRT Hexagon NPU model download & cache management"
+            echo "- Dynamic Version Auto-Bump: In-app updater tracks true build number"
             echo "- Delta Updates: Differential bsdiff patches (downloads only what changed)"
             echo "- LiveKit Real-Time Voice with barge-in & Dual-SIM Telecom Resolver"
             echo ""
