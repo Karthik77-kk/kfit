@@ -118,6 +118,21 @@ jobs:
           cd apps/mobile
           flutter pub get
 
+      - name: Configure Persistent Release Signing Key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > apps/mobile/android/app/jarvis-release.jks
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=jarvis-release.jks\n' \
+              "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_ALIAS" > apps/mobile/android/key.properties
+            echo "Persistent release keystore configured successfully."
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret not found — build will fallback to debug signing."
+          fi
+
       - name: Build Release APK
         run: |
           cd apps/mobile
