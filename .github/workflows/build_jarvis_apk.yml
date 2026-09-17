@@ -1,0 +1,202 @@
+name: Build JARVIS Release APK
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Builds and releases JARVIS APK FROM HERE, in the public kfit repository,
+# preserving private repository Actions minutes (free & unlimited runners).
+# Releases and APKs are published directly to this public repository
+# (Karthik77-kk/kfit) so user devices and the self-hosted in-app updater can
+# download jarvis.apk publicly without requiring GitHub authentication tokens.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # Offset from kfit's build_apk (8-59/15) to avoid concurrent runner bottlenecks
+    - cron: "12-59/15 * * * *"
+  repository_dispatch:
+    types: [jarvis-release, jarvis-build-apk]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "JARVIS ref/tag/branch to build (default: main)"
+        required: false
+        default: "main"
+      force:
+        description: "Build and publish even if already built"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: build-jarvis-apk
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  PRIVATE_REPO: Karthik77-kk/JARVIS
+  LAST_BUILT_TAG: ci/jarvis-last-built
+
+jobs:
+  detect:
+    name: Check for new JARVIS commits/tags
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - name: Inspect JARVIS remote
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN || secrets.RELEASE_PAT || github.token }}
+        run: |
+          set -euo pipefail
+          REF="${{ github.event.inputs.ref || 'main' }}"
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.ref }}" ]; then
+            REF="${{ github.event.inputs.ref }}"
+          fi
+
+          # Get SHA of target ref in JARVIS
+          SHA=$(gh api "repos/${PRIVATE_REPO}/commits/${REF}" --jq '.sha' 2>/dev/null || echo "")
+          if [ -z "$SHA" ]; then
+            echo "::error::Could not resolve ref ${REF} on ${PRIVATE_REPO}"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Target SHA: ${SHA}"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+          # Check last-built marker tag
+          LAST_BUILT_SHA=$(gh api "repos/${PRIVATE_REPO}/git/ref/tags/${LAST_BUILT_TAG}" --jq '.object.sha' 2>/dev/null || echo "")
+          echo "Last built SHA: ${LAST_BUILT_SHA}"
+
+          if [ "$FORCE" = "true" ] || [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$SHA" = "$LAST_BUILT_SHA" ]; then
+            echo "No new commits since ${LAST_BUILT_SHA}. Skipping build."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New commit detected (${SHA} != ${LAST_BUILT_SHA}). Triggering build."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-and-release:
+    name: Build JARVIS APK & Publish Release
+    needs: detect
+    if: needs.detect.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout JARVIS Repository
+        uses: actions/checkout@v4
+        with:
+          repository: Karthik77-kk/JARVIS
+          ref: ${{ needs.detect.outputs.sha }}
+          token: ${{ secrets.JARVIS_REPO_TOKEN || secrets.RELEASE_PAT || github.token }}
+          fetch-depth: 0
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Mobile Dependencies
+        run: |
+          cd apps/mobile
+          flutter pub get
+
+      - name: Build Release APK
+        run: |
+          cd apps/mobile
+          flutter build apk --release --android-skip-build-dependency-validation
+
+      - name: Prepare Named Assets
+        id: assets
+        run: |
+          cd apps/mobile/build/app/outputs/flutter-apk
+          if [ -f "app-release.apk" ]; then
+            cp app-release.apk jarvis.apk
+          elif [ -f "app-debug.apk" ]; then
+            cp app-debug.apk jarvis.apk
+            cp app-debug.apk app-release.apk
+          fi
+          
+          # Compute file size
+          SIZE_BYTES=$(stat -c%s jarvis.apk)
+          SIZE_MB=$(awk -v b="$SIZE_BYTES" 'BEGIN{printf "%.1f", b/1048576}')
+          echo "size_mb=${SIZE_MB}" >> "$GITHUB_OUTPUT"
+          echo "APK generated: ${SIZE_MB} MB"
+
+      - name: Determine Release Tag & Changelog
+        id: release_info
+        run: |
+          # Read version from apps/mobile/pubspec.yaml (e.g. version: 1.0.1+1)
+          PUBSPEC_VER=$(grep '^version:' apps/mobile/pubspec.yaml | awk '{print $2}' | tr -d '\r\n')
+          VER_NAME=$(echo "$PUBSPEC_VER" | cut -d'+' -f1)
+          BUILD_NUM=$(echo "$PUBSPEC_VER" | cut -d'+' -f2)
+          [ -z "$BUILD_NUM" ] && BUILD_NUM="1"
+          
+          TAG="jarvis-v${VER_NAME}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "ver_name=${VER_NAME}" >> "$GITHUB_OUTPUT"
+          
+          {
+            echo "### JARVIS Autonomous Personal AI Assistant v${VER_NAME} (Build ${BUILD_NUM})"
+            echo ""
+            echo "- Built automatically in public \`Karthik77-kk/kfit\` GitHub Actions"
+            echo "- Full offline-first core, 270M Fast Router & LiteRT NPU Model Engine"
+            echo "- LiveKit Real-Time Voice with barge-in & Dual-SIM Telecom Resolver"
+            echo "- In-app self-hosted updater with direct APK download & integrity verification"
+            echo ""
+            echo "---"
+            echo "**Asset**: \`jarvis.apk\` (~${{ steps.assets.outputs.size_mb }} MB)"
+          } > release_notes.md
+
+      - name: Publish or Attach to Public kfit GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.release_info.outputs.tag }}"
+          APK_PATH="apps/mobile/build/app/outputs/flutter-apk/jarvis.apk"
+          
+          echo "Publishing ${TAG} to ${{ github.repository }}..."
+          gh release create "$TAG" "$APK_PATH" \
+            --repo "${{ github.repository }}" \
+            --title "JARVIS v${{ steps.release_info.outputs.ver_name }}" \
+            --notes-file release_notes.md \
+            || gh release upload "$TAG" "$APK_PATH" --repo "${{ github.repository }}" --clobber
+
+      - name: Upload APK Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-apk-public
+          path: apps/mobile/build/app/outputs/flutter-apk/*.apk
+          retention-days: 14
+
+      - name: Update Last Built Marker Tag on JARVIS
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN || secrets.RELEASE_PAT || github.token }}
+          SHA: ${{ needs.detect.outputs.sha }}
+        run: |
+          set -euo pipefail
+          if gh api -X PATCH "repos/${PRIVATE_REPO}/git/refs/tags/${LAST_BUILT_TAG}" \
+               -f sha="$SHA" -F force=true >/dev/null 2>&1; then
+            echo "Marker tag ${LAST_BUILT_TAG} moved to ${SHA}"
+          elif gh api -X POST "repos/${PRIVATE_REPO}/git/refs" \
+                 -f ref="refs/tags/${LAST_BUILT_TAG}" -f sha="$SHA" >/dev/null 2>&1; then
+            echo "Marker tag ${LAST_BUILT_TAG} created at ${SHA}"
+          else
+            echo "::warning::Could not update marker ${LAST_BUILT_TAG} on ${PRIVATE_REPO}"
+          fi

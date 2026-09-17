@@ -42,7 +42,7 @@ jobs:
       - name: Ask the private repo what needs running
         id: find
         env:
-          GH_TOKEN: ${{ secrets.KFIT_DISPATCH_TOKEN || secrets.RELEASE_PAT || github.token }}
+          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN || secrets.KFIT_DISPATCH_TOKEN || secrets.RELEASE_PAT || github.token }}
         run: |
           set -euo pipefail
           # Check if private repo is accessible
@@ -67,3 +67,4 @@ jobs:
     steps:
       - name: Runner ready
         run: echo "Runner allocated for JARVIS PR verification."
+
