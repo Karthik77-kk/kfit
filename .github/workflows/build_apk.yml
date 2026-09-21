@@ -331,7 +331,19 @@ jobs:
           # Shorebird identifies a release as "<versionName>+<versionCode>"; derive the
           # code from the latest kfit release tag (v3.0.331 -> 331 -> 3.0.0+331).
           if [ "${{ needs.detect.outputs.mode }}" = "patch" ]; then
-            LT=$(gh release view --repo ${{ github.repository }} --json tagName --jq .tagName 2>/dev/null || true)
+            # OUR releases only. Since 2026-09-18 JARVIS publishes into this same
+            # repo and cuts releases more often than kfit does, so "the latest
+            # release" is usually not kfit's. `gh release view` with no tag returns
+            # whichever is newest of any product, and the integer guard below does
+            # NOT catch that:
+            # jarvis-v1.0.65 ends in ".65", so ${LT##*.} yields 65 and the patch
+            # silently targets a 3.0.0+65 that was never released. Only kfit uses
+            # the bare vMAJOR.MINOR.PATCH tag shape, so match on it. gh lists
+            # newest-first; don't sort on createdAt, it is not reliable here.
+            LT=$(gh release list --repo ${{ github.repository }} --limit 100 --exclude-drafts \
+                   --json tagName \
+                   --jq 'first(.[] | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .tagName)' \
+                 2>/dev/null || true)
             LC="${LT##*.}"
             if printf '%s' "$LC" | grep -qE '^[0-9]+$'; then
               echo "release_version=${NAME}+${LC}" >> $GITHUB_OUTPUT
@@ -1175,19 +1187,46 @@ jobs:
           WORK=build/patchwork
           mkdir -p "$WORK"
 
-          # N-1 = whatever release is currently "latest": the new one isn't created
-          # yet (this runs before "Create GitHub Release"), and build-and-release is a
-          # serialized concurrency group, so there is no race on "latest".
-          PREV_TAG=$(gh release view --repo ${{ github.repository }} --json tagName --jq .tagName 2>/dev/null)
+          # Every bail-out below is `exit 0` under continue-on-error, so a skipped
+          # patch looks exactly like a healthy release in the run list. That is how
+          # this went unnoticed from 2026-09-18 until a user asked why delta updates
+          # never arrived. Say it in the job summary instead of only in the log.
+          skip() {
+            echo "Delta patch skipped: $1"
+            { echo "## Delta patch"; echo ""; echo "Skipped — $1"; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          # N-1 = the newest KFIT release that actually carries a kfit.apk. The new
+          # one isn't created yet (this runs before "Create GitHub Release").
+          #
+          # It is emphatically NOT "the latest release in this repo". Since
+          # 2026-09-18 JARVIS publishes here too and releases more often than kfit,
+          # so `gh release view` with no tag kept returning jarvis-v1.0.x. Those
+          # carry jarvis.apk, the kfit.apk download failed, and every single delta
+          # was skipped — bsdiff has never once run for kfit. Only kfit uses the
+          # bare vMAJOR.MINOR.PATCH tag shape, so match on that.
+          #
+          # Walk newest-first rather than taking the first match outright: a kfit
+          # release whose asset upload failed would otherwise kill the patch for the
+          # next one too. An older baseline makes a larger patch that fewer devices
+          # can use, which still beats shipping none. gh lists newest-first; don't
+          # sort on the JSON createdAt, it comes back degenerate for this repo.
+          PREV_TAG=""
+          for TAG in $(gh release list --repo ${{ github.repository }} --limit 100 --exclude-drafts \
+                         --json tagName \
+                         --jq '.[] | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .tagName' \
+                       2>/dev/null); do
+            if gh release download "$TAG" --repo ${{ github.repository }} \
+                 -p 'kfit.apk' -D "$WORK" --clobber 2>/dev/null; then
+              PREV_TAG="$TAG"; break
+            fi
+            echo "Release $TAG carries no kfit.apk — looking further back."
+          done
           if [ -z "$PREV_TAG" ]; then
-            echo "No previous release — skipping patch (nothing to diff against)."; exit 0
+            skip "no earlier kfit release with a kfit.apk to diff against"
           fi
           echo "Delta: previous $PREV_TAG -> new $NEW_TAG"
-
-          if ! gh release download "$PREV_TAG" --repo ${{ github.repository }} \
-                 -p 'kfit.apk' -D "$WORK" --clobber 2>/dev/null; then
-            echo "Previous release $PREV_TAG has no kfit.apk asset — skipping patch."; exit 0
-          fi
           PREV="$WORK/kfit.apk"
 
           # bsdiff on ~170 MB wants a few GB RAM + a couple minutes (suffix sort);
@@ -1195,10 +1234,11 @@ jobs:
           # hang the release build (the 45-min job cap is a blunter backstop).
           sudo apt-get update -qq >/dev/null 2>&1
           if ! sudo apt-get install -y -qq bsdiff >/dev/null 2>&1; then
-            echo "bsdiff unavailable — skipping patch."; exit 0
+            skip "bsdiff could not be installed on the runner"
           fi
           if ! timeout 600 bsdiff "$PREV" "$APK" "$WORK/kfit.patch"; then
-            echo "bsdiff failed or timed out — skipping patch."; rm -f "$WORK/kfit.patch"; exit 0
+            rm -f "$WORK/kfit.patch"
+            skip "bsdiff failed or exceeded its 600s box diffing $PREV_TAG -> $NEW_TAG"
           fi
 
           FULL_BYTES=$(stat -c%s "$APK")
@@ -1207,14 +1247,14 @@ jobs:
           # Flutter/flutter_gemma bump), the patch approaches full size and saves
           # nothing — drop it so the app just does a normal full download.
           if [ "$PATCH_BYTES" -ge $(( FULL_BYTES * 60 / 100 )) ]; then
-            echo "Patch ${PATCH_BYTES}B >= 60% of full ${FULL_BYTES}B — not worth it, skipping."; exit 0
+            skip "patch is ${PATCH_BYTES}B, >=60% of the ${FULL_BYTES}B APK — a full download is no worse"
           fi
 
           # build number = last dotted segment of the tag (v3.0.325 -> 325). Bail if
           # it isn't a clean integer so we never write a malformed patch.json.
           FROM_BUILD=$(printf '%s' "$PREV_TAG" | awk -F. '{print $NF}')
           if ! printf '%s' "$FROM_BUILD" | grep -qE '^[0-9]+$'; then
-            echo "Could not parse a build number from tag '$PREV_TAG' — skipping patch."; exit 0
+            skip "could not parse a build number from tag '$PREV_TAG'"
           fi
 
           FROM_SHA=$(sha256sum "$PREV"             | cut -d' ' -f1)
