@@ -614,6 +614,14 @@ jobs:
               '        jvmTarget = "11"',
               '    }',
               '',
+              # AGP 8+ compiles no AIDL unless asked. Without this the JARVIS binder
+              # stub is never generated and :app:compileReleaseKotlin fails on
+              # "Unresolved reference 'IKFitToolService'". Mirrors the committed
+              # android/app/build.gradle in the private repo.
+              '    buildFeatures {',
+              '        aidl = true',
+              '    }',
+              '',
               '    defaultConfig {',
               '        applicationId "com.example.karthik_fitness"',
               '        minSdk flutter.minSdkVersion',
