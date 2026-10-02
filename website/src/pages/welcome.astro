@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Download from '../components/Download.astro';
+import TrustStrip from '../components/TrustStrip.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout
+  title="Welcome to KFit — Complete Private Fitness Suite"
+  description="Welcome to KFit. Get instant access to the KFit Android App, KFit Web (getkfit.app), GymWorld, and JARVIS. Built with craft in Bangalore."
+>
+  <Nav />
+  <main>
+    <Download isStandalone={true} />
+    <TrustStrip />
+  </main>
+  <Footer />
+</Layout>

@@ -1,27 +1,31 @@
 ---
-const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk';
 ---
 
 <nav class="nav" id="nav">
   <div class="nav-inner container">
-    <a href="/" class="nav-logo">
+    <a href="/" class="nav-logo" aria-label="K Fitness Home">
       <div class="logo-mark">K</div>
       <span class="logo-text">K<span class="logo-accent">Fitness</span></span>
     </a>
 
     <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#ai-coach">AI Coach</a>
-      <a href="#calculator">Calculator</a>
-      <a href="#download">Download</a>
+      <a href="/#features">Features</a>
+      <a href="/#ai-coach">AI Coach</a>
+      <a href="/#calculator">Calculator</a>
+      <a href="/download" class="nav-link-ecosystem">
+        <span class="nav-eco-dot"></span>
+        Apps &amp; Ecosystem
+      </a>
     </div>
 
-    <a href={APK_URL} class="btn btn-primary nav-cta" download>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
-      </svg>
-      Get App
-    </a>
+    <div class="nav-actions">
+      <a href="/download" class="btn btn-primary nav-cta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+        </svg>
+        <span>Get Apps</span>
+      </a>
+    </div>
   </div>
 </nav>
 
@@ -31,7 +35,7 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
 
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
-    if (y > 30) {
+    if (y > 25) {
       nav?.classList.add('scrolled');
     } else {
       nav?.classList.remove('scrolled');
@@ -47,16 +51,16 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
     left: 0;
     right: 0;
     z-index: 200;
-    padding: 20px 0;
+    padding: 18px 0;
     transition: padding 0.3s ease, background 0.3s ease, border 0.3s ease;
   }
 
   .nav.scrolled {
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 14px 0;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px 0;
   }
 
   .nav-inner {
@@ -100,7 +104,7 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
   .nav-links {
     display: flex;
     align-items: center;
-    gap: 32px;
+    gap: 28px;
     flex: 1;
     justify-content: center;
   }
@@ -110,10 +114,41 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
     font-weight: 500;
     color: var(--muted);
     text-decoration: none;
-    transition: color 0.2s;
+    transition: color 0.2s ease;
   }
 
   .nav-links a:hover { color: white; }
+
+  .nav-link-ecosystem {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 5px 12px;
+    border-radius: 100px;
+    font-weight: 600 !important;
+  }
+
+  .nav-link-ecosystem:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .nav-eco-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 
   .nav-cta {
     padding: 9px 20px;

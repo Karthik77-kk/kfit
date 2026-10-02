@@ -1,5 +1,6 @@
 ---
-const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk';
+const KFIT_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk';
+const JARVIS_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/jarvis.apk';
 const GITHUB  = 'https://github.com/Karthik77-kk/kfit';
 const YEAR    = new Date().getFullYear();
 ---
@@ -12,8 +13,8 @@ const YEAR    = new Date().getFullYear();
         <span>K<span class="logo-accent">Fitness</span></span>
       </a>
       <p class="footer-tagline">
-        Private AI fitness tracker.<br/>
-        Built in Bangalore. Free forever.
+        Private AI fitness ecosystem.<br/>
+        Built with pride in Bangalore 🇮🇳. Free forever.
       </p>
       <div class="footer-socials">
         <a href={GITHUB} target="_blank" rel="noopener noreferrer" class="social-link" aria-label="GitHub">
@@ -26,29 +27,33 @@ const YEAR    = new Date().getFullYear();
 
     <div class="footer-links">
       <div class="link-col">
-        <div class="link-col-title">App</div>
-        <a href={APK_URL} download>Download APK</a>
-        <a href={`${GITHUB}/releases`} target="_blank" rel="noopener noreferrer">Releases</a>
-        <a href={`${GITHUB}`} target="_blank" rel="noopener noreferrer">Source code</a>
+        <div class="link-col-title">Ecosystem &amp; Apps</div>
+        <a href="/download">All Downloads &amp; Hub</a>
+        <a href={KFIT_APK_URL} download="kfit.apk">KFit App (Android APK)</a>
+        <a href="https://getkfit.app" target="_blank" rel="noopener noreferrer">KFit Web (getkfit.app)</a>
+        <a href="https://gymworld.getkfit.app" target="_blank" rel="noopener noreferrer">GymWorld Portal</a>
+        <a href={JARVIS_APK_URL} download="jarvis.apk">JARVIS Voice Assistant</a>
       </div>
       <div class="link-col">
         <div class="link-col-title">Features</div>
-        <a href="#features">Overview</a>
-        <a href="#ai-coach">AI Coach</a>
-        <a href="#calculator">Calculator</a>
+        <a href="/#features">Indian Foods Engine</a>
+        <a href="/#features">Smart Insights Engine</a>
+        <a href="/#calculator">Macro &amp; Deficit Calculator</a>
+        <a href="/#how-it-works">How It Works</a>
       </div>
       <div class="link-col">
-        <div class="link-col-title">About</div>
-        <a href={GITHUB} target="_blank" rel="noopener noreferrer">kfit</a>
-        <a href={`${GITHUB}/issues`} target="_blank" rel="noopener noreferrer">Report a bug</a>
+        <div class="link-col-title">Open Source</div>
+        <a href={GITHUB} target="_blank" rel="noopener noreferrer">GitHub Repository</a>
+        <a href={`${GITHUB}/releases`} target="_blank" rel="noopener noreferrer">Release History</a>
+        <a href={`${GITHUB}/issues`} target="_blank" rel="noopener noreferrer">Report a Bug / Request</a>
       </div>
     </div>
   </div>
 
   <div class="footer-bottom">
     <div class="container footer-bottom-inner">
-      <span>© {YEAR} K Fitness · Built in Bangalore 🇮🇳</span>
-      <span class="footer-stack">Astro · GSAP · Cloudflare Pages</span>
+      <span>© {YEAR} K Fitness &middot; Built in Bangalore 🇮🇳 &middot; Free Forever</span>
+      <span class="footer-stack">Astro &middot; GSAP &middot; Cloudflare Pages</span>
     </div>
   </div>
 </footer>
@@ -56,12 +61,13 @@ const YEAR    = new Date().getFullYear();
 <style>
   .footer {
     border-top: 1px solid var(--border);
-    margin-top: 40px;
+    margin-top: 60px;
+    background: #09090b;
   }
 
   .footer-inner {
     display: grid;
-    grid-template-columns: 1.5fr 1fr;
+    grid-template-columns: 1.4fr 1.6fr;
     gap: 64px;
     padding-top: 64px;
     padding-bottom: 48px;
@@ -105,7 +111,7 @@ const YEAR    = new Date().getFullYear();
     font-size: 14px;
     line-height: 1.6;
     color: var(--muted);
-    max-width: 240px;
+    max-width: 280px;
   }
 
   .footer-socials { display: flex; gap: 12px; }
@@ -132,7 +138,8 @@ const YEAR    = new Date().getFullYear();
   /* Links */
   .footer-links {
     display: flex;
-    gap: 48px;
+    gap: 40px;
+    justify-content: space-between;
   }
 
   .link-col {
@@ -143,15 +150,15 @@ const YEAR    = new Date().getFullYear();
 
   .link-col-title {
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted2);
+    color: #fff;
     margin-bottom: 4px;
   }
 
   .link-col a {
-    font-size: 14px;
+    font-size: 13.5px;
     color: var(--muted);
     text-decoration: none;
     transition: color 0.2s;
@@ -180,7 +187,7 @@ const YEAR    = new Date().getFullYear();
   }
 
   /* Responsive */
-  @media (max-width: 768px) {
+  @media (max-width: 860px) {
     .footer-inner {
       grid-template-columns: 1fr;
       gap: 40px;
