@@ -3,27 +3,53 @@
 
 <nav class="nav" id="nav">
   <div class="nav-inner container">
-    <a href="/" class="nav-logo" aria-label="K Fitness Home">
+    <a href="/" class="nav-logo" aria-label="KFit Home">
       <div class="logo-mark">K</div>
-      <span class="logo-text">K<span class="logo-accent">Fitness</span></span>
+      <span class="logo-text">KFit<span class="logo-badge">Suite</span></span>
     </a>
 
     <div class="nav-links">
-      <a href="/#features">Features</a>
-      <a href="/#ai-coach">AI Coach</a>
-      <a href="/#calculator">Calculator</a>
-      <a href="/download" class="nav-link-ecosystem">
-        <span class="nav-eco-dot"></span>
-        Apps &amp; Ecosystem
-      </a>
+      <a href="/#journal">Food Journal</a>
+      <a href="/#products">Ecosystem</a>
+      <a href="/#comparison">Why KFit</a>
+      <a href="/#about">About</a>
     </div>
 
     <div class="nav-actions">
-      <a href="/download" class="btn btn-primary nav-cta">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <!-- Apple Light / Dark Theme Switcher -->
+      <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle theme" title="Toggle theme">
+        <span class="icon-sun">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        </span>
+        <span class="icon-moon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </span>
+      </button>
+
+      <a href="https://getkfit.app" target="_blank" rel="noopener noreferrer" class="nav-link-web" title="Open Web App">
+        <span>Web App</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+        </svg>
+      </a>
+
+      <a href="https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk" class="btn btn-primary nav-cta" download="kfit.apk">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
         </svg>
-        <span>Get Apps</span>
+        <span>Download KFit</span>
       </a>
     </div>
   </div>
@@ -31,17 +57,25 @@
 
 <script>
   const nav = document.getElementById('nav');
-  let lastY = 0;
-
   window.addEventListener('scroll', () => {
-    const y = window.scrollY;
-    if (y > 25) {
+    if (window.scrollY > 20) {
       nav?.classList.add('scrolled');
     } else {
       nav?.classList.remove('scrolled');
     }
-    lastY = y;
   }, { passive: true });
+
+  const toggleBtn = document.getElementById('themeToggleBtn');
+  toggleBtn?.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try {
+      localStorage.setItem('kfit-theme', next);
+      const meta = document.getElementById('themeColorMeta');
+      if (meta) meta.setAttribute('content', next === 'dark' ? '#000000' : '#F5F5F7');
+    } catch (e) {}
+  });
 </script>
 
 <style>
@@ -51,15 +85,15 @@
     left: 0;
     right: 0;
     z-index: 200;
-    padding: 18px 0;
-    transition: padding 0.3s ease, background 0.3s ease, border 0.3s ease;
+    padding: 16px 0;
+    transition: padding 0.25s ease, background 0.25s ease, border-color 0.25s ease;
   }
 
   .nav.scrolled {
-    background: rgba(0, 0, 0, 0.78);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--nav-bg);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border-bottom: 1px solid var(--border);
     padding: 12px 0;
   }
 
@@ -67,7 +101,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 32px;
+    gap: 28px;
   }
 
   .nav-logo {
@@ -75,31 +109,46 @@
     align-items: center;
     gap: 10px;
     text-decoration: none;
-    color: white;
+    color: var(--text-heading);
     flex-shrink: 0;
   }
 
   .logo-mark {
-    width: 34px;
-    height: 34px;
-    background: #5A5A5A;
-    border-radius: 9px;
+    width: 32px;
+    height: 32px;
+    background: var(--icon-bg);
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 15px;
-    font-weight: 900;
-    color: #000;
+    font-weight: 800;
+    color: var(--icon-text);
     letter-spacing: -0.5px;
+    transition: background 0.25s ease, color 0.25s ease;
   }
 
   .logo-text {
     font-size: 17px;
     font-weight: 700;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
+    color: var(--text-heading);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.25s ease;
   }
 
-  .logo-accent { color: var(--green); }
+  .logo-badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 100px;
+    background: var(--border-hi);
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
 
   .nav-links {
     display: flex;
@@ -117,42 +166,73 @@
     transition: color 0.2s ease;
   }
 
-  .nav-links a:hover { color: white; }
-
-  .nav-link-ecosystem {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: #fff !important;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 5px 12px;
-    border-radius: 100px;
-    font-weight: 600 !important;
-  }
-
-  .nav-link-ecosystem:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-
-  .nav-eco-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 6px var(--green);
+  .nav-links a:hover {
+    color: var(--text-heading);
   }
 
   .nav-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+  }
+
+  /* Apple Theme Toggle Button */
+  .theme-toggle-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--theme-toggle-bg);
+    border: 1px solid var(--theme-toggle-border);
+    color: var(--theme-toggle-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none;
+  }
+
+  .theme-toggle-btn:hover {
+    transform: scale(1.08);
+  }
+
+  .theme-toggle-btn:active {
+    transform: scale(0.92);
+  }
+
+  .icon-sun, .icon-moon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  :root:not([data-theme="light"]) .icon-moon { display: none; }
+  :root:not([data-theme="light"]) .icon-sun { display: flex; }
+  html[data-theme="light"] .icon-sun { display: none; }
+  html[data-theme="light"] .icon-moon { display: flex; }
+
+  .nav-link-web {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 7px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .nav-link-web:hover {
+    color: var(--text-heading);
+    background: var(--border);
   }
 
   .nav-cta {
-    padding: 9px 20px;
-    font-size: 13px;
+    padding: 8px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
     flex-shrink: 0;
   }
 
