@@ -24,8 +24,8 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
       </h1>
 
       <p class="hero-sub">
-        Private AI fitness coaching built for Indian bodies.
-        Real Indian foods, on-device Gemma&nbsp;3 AI, zero subscriptions — forever.
+        Private fitness coaching built for Indian bodies.
+        Real Indian foods, smart insights engine, zero subscriptions — forever.
       </p>
 
       <p class="hero-sideload-note">
@@ -38,8 +38,8 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/></svg>
           <span id="dlBtnText">Download APK</span>
         </a>
-        <a href="#how-it-works" class="btn btn-ghost btn-lg">
-          How it works
+        <a href="#download" class="btn btn-ghost btn-lg">
+          Apps &amp; Ecosystem
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
       </div>
@@ -73,11 +73,11 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
       <div class="phone-halo" aria-hidden="true"></div>
       <div class="phone-halo phone-halo-2" aria-hidden="true"></div>
 
-      <div class="float-badge badge-gemma">
+      <div class="float-badge badge-smart">
         <div class="fb-dot"></div>
         <div>
-          <div class="fb-title">Gemma 3 · On-device</div>
-          <div class="fb-sub">Runs without internet</div>
+          <div class="fb-title">Smart Insights</div>
+          <div class="fb-sub">100% Offline Engine</div>
         </div>
       </div>
 
@@ -218,7 +218,7 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
     .from('.hero-stats',        { opacity: 0, y: 16, duration: 0.5 }, '-=0.3')
     .from('.phone-wrapper',     { opacity: 0, y: 60, duration: 1.1 }, 0.4)
     .from('.phone-halo',        { opacity: 0, scale: 0.5, duration: 1.5, ease: 'power2.out' }, 0.5)
-    .from('.badge-gemma',       { opacity: 0, x: 20, duration: 0.5 }, 1.1)
+    .from('.badge-smart',       { opacity: 0, x: 20, duration: 0.5 }, 1.1)
     .from('.badge-offline',     { opacity: 0, x: -20, duration: 0.5 }, 1.25)
     .from('.badge-food',        { opacity: 0, y: 16, duration: 0.5 }, 1.4)
     .from('.scroll-hint',       { opacity: 0, duration: 0.5 }, 1.6);
@@ -472,7 +472,7 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   }
 
-  .badge-gemma  { top: 6%;    right: 0%;  animation-delay: 0s; }
+  .badge-smart  { top: 6%;    right: 0%;  animation-delay: 0s; }
   .badge-offline{ bottom: 16%; left: -2%; animation-delay: -2s; }
   .badge-food   { top: 42%;   right: -4%; animation-delay: -4s; }
 
@@ -557,7 +557,7 @@ const APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/k
     .hero-sub, .hero-sideload-note { max-width: none; }
     .hero-actions, .hero-sideload-note { justify-content: center; }
     .hero-phone-area { order: -1; padding: 20px 0 0; }
-    .badge-gemma   { right: 4%; top: 4%; }
+    .badge-smart   { right: 4%; top: 4%; }
     .badge-offline { left: 4%; bottom: 4%; }
     .badge-food    { display: none; }
     .hero-stats    { width: 100%; justify-content: center; }
