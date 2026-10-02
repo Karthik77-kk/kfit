@@ -677,7 +677,7 @@ const { isStandalone = false } = Astro.props;
     </div>
 
     <!-- ── 7. Fast 3-Step Sideload Guide ──────────────────────────────────────── -->
-    <div class="sideload-section">
+    <div class="sideload-section" id="sideload">
       <div class="section-heading">
         <span class="section-label">Fast Setup</span>
         <h2 class="section-title">Installing Android APKs in 3 easy steps.</h2>
@@ -727,6 +727,11 @@ const { isStandalone = false } = Astro.props;
 
   const initialActive = document.querySelector('.seg-btn.active') as HTMLElement | null;
   if (initialActive) updatePill(initialActive);
+
+  window.addEventListener('load', () => {
+    const active = document.querySelector('.seg-btn.active') as HTMLElement | null;
+    if (active) updatePill(active);
+  });
 
   segBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -958,11 +963,24 @@ const { isStandalone = false } = Astro.props;
     };
   }
 
+  let currentNutrients = { cal: 510, pro: 14.2, carb: 74.5, fat: 16.8 };
+
   function animateNutrientValues(cal: number, pro: number, carb: number, fat: number) {
-    if (demoCal) demoCal.textContent = cal.toString();
-    if (demoPro) demoPro.textContent = pro.toFixed(1);
-    if (demoCarb) demoCarb.textContent = carb.toFixed(1);
-    if (demoFat) demoFat.textContent = fat.toFixed(1);
+    gsap.killTweensOf(currentNutrients);
+    gsap.to(currentNutrients, {
+      cal,
+      pro,
+      carb,
+      fat,
+      duration: 0.35,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (demoCal) demoCal.textContent = Math.round(currentNutrients.cal).toString();
+        if (demoPro) demoPro.textContent = currentNutrients.pro.toFixed(1);
+        if (demoCarb) demoCarb.textContent = currentNutrients.carb.toFixed(1);
+        if (demoFat) demoFat.textContent = currentNutrients.fat.toFixed(1);
+      },
+    });
   }
 
   mealBtns.forEach((btn) => {

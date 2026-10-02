@@ -49,8 +49,55 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
         </svg>
-        <span>Download KFit</span>
+        <span class="nav-cta-text">Download KFit</span>
       </a>
+
+      <!-- Apple Mobile Hamburger Menu Button -->
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span class="menu-bar bar-1"></span>
+        <span class="menu-bar bar-2"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Apple Frosted Glass Mobile Drawer -->
+  <div class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
+    <div class="container drawer-inner">
+      <div class="drawer-links">
+        <a href="/#journal" class="drawer-link">
+          <span>Food Journal</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a href="/#products" class="drawer-link">
+          <span>Ecosystem</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a href="/#comparison" class="drawer-link">
+          <span>Why KFit</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a href="/#about" class="drawer-link">
+          <span>About &amp; Mission</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a href="/#sideload" class="drawer-link">
+          <span>Install Guide</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+      </div>
+
+      <div class="drawer-actions">
+        <a href="https://getkfit.app" target="_blank" rel="noopener noreferrer" class="btn btn-ghost drawer-btn">
+          <span>Launch Web App (getkfit.app)</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+        </a>
+        <a href="https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk" class="btn btn-primary drawer-btn" download="kfit.apk">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          <span>Download Android APK</span>
+        </a>
+      </div>
     </div>
   </div>
 </nav>
@@ -75,6 +122,29 @@
       const meta = document.getElementById('themeColorMeta');
       if (meta) meta.setAttribute('content', next === 'dark' ? '#000000' : '#F5F5F7');
     } catch (e) {}
+  });
+
+  // Mobile Drawer Toggle
+  const menuBtn = document.getElementById('mobileMenuBtn');
+  const drawer = document.getElementById('mobileDrawer');
+  const drawerLinks = document.querySelectorAll('.drawer-link, .drawer-btn');
+
+  const toggleDrawer = () => {
+    const isOpen = menuBtn?.classList.toggle('open');
+    drawer?.classList.toggle('open');
+    menuBtn?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    drawer?.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  };
+
+  menuBtn?.addEventListener('click', toggleDrawer);
+
+  drawerLinks.forEach((link) => {
+    link.addEventListener('click', () => {
+      menuBtn?.classList.remove('open');
+      drawer?.classList.remove('open');
+      menuBtn?.setAttribute('aria-expanded', 'false');
+      drawer?.setAttribute('aria-hidden', 'true');
+    });
   });
 </script>
 
@@ -236,7 +306,130 @@
     flex-shrink: 0;
   }
 
-  @media (max-width: 768px) {
+  /* Mobile Hamburger Menu Button */
+  .mobile-menu-btn {
+    display: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--theme-toggle-bg);
+    border: 1px solid var(--theme-toggle-border);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .mobile-menu-btn:hover {
+    transform: scale(1.08);
+  }
+
+  .menu-bar {
+    width: 15px;
+    height: 1.5px;
+    background: var(--text-heading);
+    border-radius: 1px;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  }
+
+  .mobile-menu-btn.open .bar-1 {
+    transform: translateY(3.25px) rotate(45deg);
+  }
+
+  .mobile-menu-btn.open .bar-2 {
+    transform: translateY(-3.25px) rotate(-45deg);
+  }
+
+  /* Mobile Drawer Overlay */
+  .mobile-drawer {
+    display: none;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: var(--nav-bg);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 199;
+  }
+
+  .mobile-drawer.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .drawer-inner {
+    padding: 24px 20px 32px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .drawer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .drawer-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-heading);
+    text-decoration: none;
+    border-radius: 10px;
+    transition: background-color 0.15s ease;
+  }
+
+  .drawer-link:hover, .drawer-link:active {
+    background: var(--btn-ghost-bg);
+  }
+
+  .drawer-link svg {
+    color: var(--muted);
+  }
+
+  .drawer-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .drawer-btn {
+    width: 100%;
+    padding: 13px 20px;
+    font-size: 14.5px;
+    font-weight: 600;
+    justify-content: center;
+  }
+
+  @media (max-width: 860px) {
     .nav-links { display: none; }
+    .mobile-menu-btn { display: flex; }
+    .mobile-drawer { display: block; }
+  }
+
+  @media (max-width: 600px) {
+    .nav-link-web { display: none; }
+    .logo-badge { display: none; }
+    .nav-cta-text { display: none; }
+    .nav-cta {
+      padding: 8px 12px;
+    }
   }
 </style>
