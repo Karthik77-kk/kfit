@@ -1,0 +1,92 @@
+name: Private main browser matrix (kfit-web)
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [private-main-web-browser]
+
+concurrency:
+  group: private-main-browser-matrix-web
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PRIVATE_REPO: Karthik77-kk/kfit-web
+  CONTEXT: Browser matrix (nightly)
+
+jobs:
+  verify-main:
+    name: Chromium, WebKit and mobile browser matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Resolve private main and mark it running
+        id: source
+        env:
+          GH_TOKEN: ${{ secrets.KFIT_WEB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::KFIT_WEB_TOKEN is not set."
+            exit 1
+          fi
+          SHA=$(gh api "repos/$PRIVATE_REPO/git/ref/heads/main" --jq .object.sha)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          gh api -X POST "repos/$PRIVATE_REPO/statuses/$SHA" \
+            -f state=pending \
+            -f context="$CONTEXT" \
+            -f description="Running the full browser matrix" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Check out private main
+        uses: actions/checkout@v7
+        with:
+          repository: Karthik77-kk/kfit-web
+          ref: ${{ steps.source.outputs.sha }}
+          token: ${{ secrets.KFIT_WEB_TOKEN }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run the full desktop, mobile and width matrix
+        run: npm run e2e
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: kfit-web-playwright-report-${{ steps.source.outputs.sha }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Report the main-branch browser verdict
+        if: always() && steps.source.outputs.sha != ''
+        env:
+          GH_TOKEN: ${{ secrets.KFIT_WEB_TOKEN }}
+          RESULT: ${{ job.status }}
+          SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          case "$RESULT" in
+            success) STATE=success; DESC="Full browser matrix passed" ;;
+            cancelled) STATE=error; DESC="Browser matrix cancelled" ;;
+            *) STATE=failure; DESC="Browser matrix failed — see the run log" ;;
+          esac
+          gh api -X POST "repos/$PRIVATE_REPO/statuses/$SHA" \
+            -f state="$STATE" \
+            -f context="$CONTEXT" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
