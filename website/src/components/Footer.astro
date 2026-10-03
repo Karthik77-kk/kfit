@@ -10,11 +10,11 @@ const YEAR    = new Date().getFullYear();
     <div class="footer-brand">
       <a href="/" class="footer-logo">
         <div class="logo-mark">K</div>
-        <span>K<span class="logo-accent">Fitness</span></span>
+        <span>KFit</span>
       </a>
       <p class="footer-tagline">
-        Private AI fitness ecosystem.<br/>
-        Built with pride in Bangalore 🇮🇳. Free forever.
+        Private fitness &amp; nutrition suite.<br/>
+        Built with craft in Bangalore 🇮🇳. Free forever.
       </p>
       <div class="footer-socials">
         <a href={GITHUB} target="_blank" rel="noopener noreferrer" class="social-link" aria-label="GitHub">
@@ -35,11 +35,12 @@ const YEAR    = new Date().getFullYear();
         <a href={JARVIS_APK_URL} download="jarvis.apk">JARVIS Voice Assistant</a>
       </div>
       <div class="link-col">
-        <div class="link-col-title">Features</div>
-        <a href="/#features">Indian Foods Engine</a>
-        <a href="/#features">Smart Insights Engine</a>
-        <a href="/#calculator">Macro &amp; Deficit Calculator</a>
-        <a href="/#how-it-works">How It Works</a>
+        <div class="link-col-title">Navigation</div>
+        <a href="/#journal">Food Journal Simulator</a>
+        <a href="/#products">Product Bento Matrix</a>
+        <a href="/#comparison">Honest Comparison Matrix</a>
+        <a href="/#about">Creator Story &amp; Origin</a>
+        <a href="/#sideload">3-Step Sideload Guide</a>
       </div>
       <div class="link-col">
         <div class="link-col-title">Open Source</div>
@@ -62,7 +63,8 @@ const YEAR    = new Date().getFullYear();
   .footer {
     border-top: 1px solid var(--border);
     margin-top: 60px;
-    background: #09090b;
+    background: var(--bg-subtle);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .footer-inner {
@@ -85,7 +87,7 @@ const YEAR    = new Date().getFullYear();
     align-items: center;
     gap: 10px;
     text-decoration: none;
-    color: white;
+    color: var(--text-heading);
     font-size: 18px;
     font-weight: 700;
     letter-spacing: -0.03em;
@@ -93,19 +95,18 @@ const YEAR    = new Date().getFullYear();
   }
 
   .logo-mark {
-    width: 34px; height: 34px;
-    background: #5A5A5A;
-    border-radius: 9px;
+    width: 32px; height: 32px;
+    background: var(--icon-bg);
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 15px;
-    font-weight: 900;
-    color: #000;
+    font-weight: 800;
+    color: var(--icon-text);
     letter-spacing: -0.5px;
+    transition: background 0.25s ease, color 0.25s ease;
   }
-
-  .logo-accent { color: var(--green); }
 
   .footer-tagline {
     font-size: 14px;
@@ -119,7 +120,7 @@ const YEAR    = new Date().getFullYear();
   .social-link {
     width: 36px; height: 36px;
     border-radius: 9px;
-    background: rgba(255,255,255,0.05);
+    background: var(--btn-ghost-bg);
     border: 1px solid var(--border);
     display: flex;
     align-items: center;
@@ -130,9 +131,9 @@ const YEAR    = new Date().getFullYear();
   }
 
   .social-link:hover {
-    color: white;
+    color: var(--text-heading);
     border-color: var(--border-hi);
-    background: rgba(255,255,255,0.08);
+    background: var(--border);
   }
 
   /* Links */
@@ -153,7 +154,7 @@ const YEAR    = new Date().getFullYear();
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #fff;
+    color: var(--text-heading);
     margin-bottom: 4px;
   }
 
@@ -165,7 +166,7 @@ const YEAR    = new Date().getFullYear();
     width: fit-content;
   }
 
-  .link-col a:hover { color: white; }
+  .link-col a:hover { color: var(--text-heading); }
 
   /* Bottom bar */
   .footer-bottom {

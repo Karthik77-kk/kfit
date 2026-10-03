@@ -1,4 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#5A5A5A"/>
-  <text x="16" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="#000000" text-anchor="middle">K</text>
+  <style>
+    .bg { fill: #000000; }
+    .fg { fill: #FFFFFF; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #FFFFFF; }
+      .fg { fill: #000000; }
+    }
+  </style>
+  <rect class="bg" width="32" height="32" rx="8"/>
+  <text class="fg" x="16" y="22" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="16" font-weight="900" text-anchor="middle">K</text>
 </svg>
