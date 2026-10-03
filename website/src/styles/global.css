@@ -20,48 +20,8 @@
   --apple-gray:   #8E8E93;
 }
 
-/* ── Dark Theme (Default) ─────────────────────────────────────────────────── */
+/* ── Light Theme (Default: Apple White Canvas) ────────────────────────────── */
 :root,
-html[data-theme="dark"] {
-  --bg:                 #000000;
-  --bg-subtle:          #0C0D0E;
-  --card:               #141416;
-  --card-glass:         rgba(255, 255, 255, 0.04);
-  --card-2:             #1D1E22;
-  --border:             rgba(255, 255, 255, 0.08);
-  --border-hi:          rgba(255, 255, 255, 0.16);
-  --text-main:          #F5F5F7;
-  --text-heading:       #FFFFFF;
-  --muted:              #8E8E93;
-  --muted2:             #636366;
-  --nav-bg:             rgba(0, 0, 0, 0.82);
-  --btn-primary-bg:     #FFFFFF;
-  --btn-primary-text:   #000000;
-  --btn-primary-shadow: 0 4px 18px rgba(255, 255, 255, 0.12), 0 1px 2px rgba(0, 0, 0, 0.4);
-  --btn-ghost-bg:       rgba(255, 255, 255, 0.06);
-  --btn-ghost-border:   rgba(255, 255, 255, 0.12);
-  --btn-ghost-text:     #FFFFFF;
-  --preview-frame-bg:   #090A0C;
-  --preview-header-bg:  #141518;
-  --preview-tile-bg:    #141518;
-  --input-bg:           rgba(0, 0, 0, 0.5);
-  --table-highlight:    rgba(255, 255, 255, 0.04);
-  --card-shadow:        0 12px 36px rgba(0, 0, 0, 0.45);
-  --card-hover-shadow:  0 20px 50px rgba(0, 0, 0, 0.65);
-  --icon-bg:            #FFFFFF;
-  --icon-text:          #000000;
-  --seg-bg:             rgba(255, 255, 255, 0.05);
-  --seg-pill-bg:        #FFFFFF;
-  --seg-pill-text:      #000000;
-  --seg-text:           #A1A1A6;
-  --grain-opacity:      0.016;
-  --theme-toggle-bg:    rgba(255, 255, 255, 0.08);
-  --theme-toggle-border:rgba(255, 255, 255, 0.14);
-  --theme-toggle-color: #FFFFFF;
-  --selection-bg:       rgba(0, 113, 227, 0.35);
-}
-
-/* ── Light Theme (Apple White Canvas) ─────────────────────────────────────── */
 html[data-theme="light"] {
   --bg:                 #F5F5F7;
   --bg-subtle:          #FFFFFF;
@@ -99,6 +59,46 @@ html[data-theme="light"] {
   --theme-toggle-border:rgba(0, 0, 0, 0.12);
   --theme-toggle-color: #1D1D1F;
   --selection-bg:       rgba(0, 113, 227, 0.2);
+}
+
+/* ── Dark Theme (Apple True Black) ────────────────────────────────────────── */
+html[data-theme="dark"] {
+  --bg:                 #000000;
+  --bg-subtle:          #0C0D0E;
+  --card:               #141416;
+  --card-glass:         rgba(255, 255, 255, 0.04);
+  --card-2:             #1D1E22;
+  --border:             rgba(255, 255, 255, 0.08);
+  --border-hi:          rgba(255, 255, 255, 0.16);
+  --text-main:          #F5F5F7;
+  --text-heading:       #FFFFFF;
+  --muted:              #8E8E93;
+  --muted2:             #636366;
+  --nav-bg:             rgba(0, 0, 0, 0.82);
+  --btn-primary-bg:     #FFFFFF;
+  --btn-primary-text:   #000000;
+  --btn-primary-shadow: 0 4px 18px rgba(255, 255, 255, 0.12), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --btn-ghost-bg:       rgba(255, 255, 255, 0.06);
+  --btn-ghost-border:   rgba(255, 255, 255, 0.12);
+  --btn-ghost-text:     #FFFFFF;
+  --preview-frame-bg:   #090A0C;
+  --preview-header-bg:  #141518;
+  --preview-tile-bg:    #141518;
+  --input-bg:           rgba(0, 0, 0, 0.5);
+  --table-highlight:    rgba(255, 255, 255, 0.04);
+  --card-shadow:        0 12px 36px rgba(0, 0, 0, 0.45);
+  --card-hover-shadow:  0 20px 50px rgba(0, 0, 0, 0.65);
+  --icon-bg:            #FFFFFF;
+  --icon-text:          #000000;
+  --seg-bg:             rgba(255, 255, 255, 0.05);
+  --seg-pill-bg:        #FFFFFF;
+  --seg-pill-text:      #000000;
+  --seg-text:           #A1A1A6;
+  --grain-opacity:      0.016;
+  --theme-toggle-bg:    rgba(255, 255, 255, 0.08);
+  --theme-toggle-border:rgba(255, 255, 255, 0.14);
+  --theme-toggle-color: #FFFFFF;
+  --selection-bg:       rgba(0, 113, 227, 0.35);
 }
 
 /* ── Base resets & ergonomics ─────────────────────────────────────────────── */
