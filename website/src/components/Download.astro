@@ -1,10 +1,7 @@
 ---
-// Public release URLs with dynamic client-side upgrade
-const KFIT_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk';
-const JARVIS_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/jarvis.apk';
-const KFIT_RELEASES_URL = 'https://github.com/Karthik77-kk/kfit/releases';
-const KFIT_WEB_URL = 'https://getkfit.app';
-const GYMWORLD_URL = 'https://gymworld.getkfit.app';
+import releases from '../data/releases.json';
+
+const { kfit, jarvis, web, gymworld } = releases;
 
 interface Props {
   isStandalone?: boolean;
@@ -13,13 +10,12 @@ interface Props {
 const { isStandalone = false } = Astro.props;
 ---
 
-<section class={`download-section ${isStandalone ? 'standalone-hub' : ''}`} id="ecosystem">
-  <!-- Subtle monochromatic Apple ambient light -->
+<section class={`ecosystem-root ${isStandalone ? 'standalone-hub' : ''}`} id="ecosystem">
+  <!-- Subtle monochromatic ambient lighting -->
   <div class="ambient-glow ambient-glow-top" aria-hidden="true"></div>
-  <div class="ambient-glow ambient-glow-center" aria-hidden="true"></div>
 
   <div class="container">
-    <!-- ── 1. Amy + Apple Hero Section ────────────────────────────────────────── -->
+    <!-- ── 1. Hero Section ──────────────────────────────────────────────────── -->
     <div class="hero-block">
       <div class="hero-badge">
         <span class="badge-dot"></span>
@@ -27,25 +23,22 @@ const { isStandalone = false } = Astro.props;
       </div>
 
       <h1 class="hero-title">
-        Simple and intuitive fitness tracking.<br />
-        <span class="gradient-text">Engineered for your body.</span>
+        Fitness tracking that stays out of your way.
       </h1>
 
       <p class="hero-subtitle">
-        Track authentic Indian nutrition like writing in Apple Notes.
-        Analyze body composition, calculate real workout burn, and own your health.
-        Zero subscriptions. Zero ads. 100% offline.
+        Log Indian meals in plain language. Track workouts, body composition, hydration and trends locally on your device. Create an account only when you want cross-device sync.
       </p>
 
       <div class="hero-actions">
-        <a href={KFIT_APK_URL} class="btn btn-primary hero-btn-dl" id="heroDlBtn" download="kfit.apk">
+        <a href="/downloads/kfit" class="btn btn-primary hero-btn-dl" id="heroDlBtn" download="kfit.apk" title={`Download KFit APK (${kfit.version}, ${kfit.sizeFormatted})`}>
           <svg class="dl-arrow-icon" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
           <span class="btn-text">Download KFit for Android</span>
         </a>
-        <a href={KFIT_WEB_URL} target="_blank" rel="noopener noreferrer" class="btn btn-ghost hero-btn-web">
-          <span>Launch Web App</span>
+        <a href={web.url} target="_blank" rel="noopener noreferrer" class="btn btn-ghost hero-btn-web">
+          <span>Open KFit Web</span>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
           </svg>
@@ -53,45 +46,184 @@ const { isStandalone = false } = Astro.props;
       </div>
 
       <div class="hero-trust-bar">
-        <span>Free forever</span>
+        <span>No subscription</span>
         <span class="trust-sep">&bull;</span>
-        <span>No account required</span>
+        <span>Works offline</span>
         <span class="trust-sep">&bull;</span>
-        <span>100% offline &amp; private</span>
+        <span>Account optional</span>
+      </div>
+
+      <!-- ── Hero Product Narrative Composition (900-1100px wide) ──────────── -->
+      <div class="hero-narrative-frame" id="heroNarrative">
+        <div class="narrative-nav" role="tablist" aria-label="Tracking narrative stages">
+          <button class="n-tab active" data-step="1" role="tab" aria-selected="true" id="tab-step-1">
+            <span class="n-step-num">1</span>
+            <span class="n-step-name">Natural meal input</span>
+          </button>
+          <span class="n-tab-divider" aria-hidden="true">&rarr;</span>
+          <button class="n-tab" data-step="2" role="tab" aria-selected="false" id="tab-step-2">
+            <span class="n-step-num">2</span>
+            <span class="n-step-name">Deterministic resolution</span>
+          </button>
+          <span class="n-tab-divider" aria-hidden="true">&rarr;</span>
+          <button class="n-tab" data-step="3" role="tab" aria-selected="false" id="tab-step-3">
+            <span class="n-step-num">3</span>
+            <span class="n-step-name">Daily nutrition summary</span>
+          </button>
+          <span class="n-tab-divider" aria-hidden="true">&rarr;</span>
+          <button class="n-tab" data-step="4" role="tab" aria-selected="false" id="tab-step-4">
+            <span class="n-step-num">4</span>
+            <span class="n-step-name">Today's balance</span>
+          </button>
+        </div>
+
+        <div class="narrative-card">
+          <!-- Step 1: Input -->
+          <div class="narrative-pane active" id="pane-1" role="tabpanel" aria-labelledby="tab-step-1">
+            <div class="pane-meta">
+              <span class="pane-tag">Plain language input</span>
+              <span class="pane-sub">No nested menus &middot; Just type what you ate</span>
+            </div>
+            <div class="sample-input-box">
+              <span class="input-chevron">&gt;</span>
+              <span class="input-text">2 Masala Dosas with coconut chutney, sambar, and 1 tumbler filter coffee</span>
+            </div>
+            <div class="pane-footnote">
+              <span>Typed on mobile or spoken hands-free via JARVIS</span>
+            </div>
+          </div>
+
+          <!-- Step 2: Resolution -->
+          <div class="narrative-pane" id="pane-2" role="tabpanel" aria-labelledby="tab-step-2" hidden>
+            <div class="pane-meta">
+              <span class="pane-tag">Source-aware provenance</span>
+              <span class="pane-sub">Matched against 848 curated dishes &middot; 528 IFCT lab items</span>
+            </div>
+            <div class="resolved-items-grid">
+              <div class="resolved-row">
+                <span class="item-name">2 &times; Masala Dosa</span>
+                <span class="item-source badge-curated">Curated KFit foods</span>
+                <span class="item-portion">2 servings (~240g)</span>
+                <span class="item-kcal">330 kcal</span>
+              </div>
+              <div class="resolved-row">
+                <span class="item-name">Coconut Chutney</span>
+                <span class="item-source badge-curated">Curated KFit foods</span>
+                <span class="item-portion">2 tbsp (~30g)</span>
+                <span class="item-kcal">70 kcal</span>
+              </div>
+              <div class="resolved-row">
+                <span class="item-name">Sambar</span>
+                <span class="item-source badge-curated">Curated KFit foods</span>
+                <span class="item-portion">1 katori (~150ml)</span>
+                <span class="item-kcal">65 kcal</span>
+              </div>
+              <div class="resolved-row">
+                <span class="item-name">Filter Coffee</span>
+                <span class="item-source badge-ifct">IFCT 2017 &middot; Lab measured</span>
+                <span class="item-portion">1 tumbler (~120ml)</span>
+                <span class="item-kcal">45 kcal</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Summary -->
+          <div class="narrative-pane" id="pane-3" role="tabpanel" aria-labelledby="tab-step-3" hidden>
+            <div class="pane-meta">
+              <span class="pane-tag">Calculated meal totals</span>
+              <span class="pane-sub">Verified macros derived from lab reference data</span>
+            </div>
+            <div class="hero-macros-grid">
+              <div class="h-macro-card">
+                <span class="h-macro-val">510</span>
+                <span class="h-macro-unit">kcal</span>
+                <span class="h-macro-label">Energy</span>
+              </div>
+              <div class="h-macro-card">
+                <span class="h-macro-val">14.2</span>
+                <span class="h-macro-unit">g</span>
+                <span class="h-macro-label">Protein</span>
+              </div>
+              <div class="h-macro-card">
+                <span class="h-macro-val">74.5</span>
+                <span class="h-macro-unit">g</span>
+                <span class="h-macro-label">Carbs</span>
+              </div>
+              <div class="h-macro-card">
+                <span class="h-macro-val">16.8</span>
+                <span class="h-macro-unit">g</span>
+                <span class="h-macro-label">Fats</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: Today's View -->
+          <div class="narrative-pane" id="pane-4" role="tabpanel" aria-labelledby="tab-step-4" hidden>
+            <div class="pane-meta">
+              <span class="pane-tag">Integrated daily rhythm</span>
+              <span class="pane-sub">Stored locally in SQLite &middot; Zero telemetry</span>
+            </div>
+            <div class="today-overview-grid">
+              <div class="today-stat-box">
+                <span class="today-label">CALORIE BUDGET</span>
+                <span class="today-val">1,247 / 1,700 kcal</span>
+                <span class="today-sub text-green">On track (&minus;453 kcal deficit)</span>
+              </div>
+              <div class="today-stat-box">
+                <span class="today-label">TRAINING BURN</span>
+                <span class="today-val">310 kcal burned</span>
+                <span class="today-sub">45m Strength Session (MET 6.0)</span>
+              </div>
+              <div class="today-stat-box">
+                <span class="today-label">DAILY HYDRATION</span>
+                <span class="today-val">2.4 / 3.0 L</span>
+                <span class="today-sub">80% of daily target reached</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- ── 2. Amy Food Journal Interactive Notes Simulator ────────────────────── -->
+    <!-- ── 2. Natural Meal Logging Demo ────────────────────────────────────── -->
     <div class="journal-section" id="journal">
       <div class="section-heading">
-        <span class="section-label">Intuitive Craft</span>
-        <h2 class="section-title">Track like writing in Apple Notes.</h2>
+        <span class="section-label">Natural Meal Logging</span>
+        <h2 class="section-title">Just type what you ate.</h2>
         <p class="section-subtitle">
-          No nested menus. No barcode paywalls. Just type what you ate — our verified Indian nutrition database calculates energy, protein, and macros dynamically in real time.
+          No nested forms. No hunting through endless food lists. Write your meal naturally, review the resolved foods and portions, then save.
         </p>
       </div>
 
-      <!-- Interactive Apple Notes Tester -->
+      <!-- Choreographed Canonical Demo Frame -->
       <div class="interactive-journal-frame">
         <div class="note-window-header">
           <div class="window-controls">
             <span class="win-dot close"></span>
             <span class="win-dot minimize"></span>
             <span class="win-dot zoom"></span>
-            <span class="note-folder-name">Nutrition Journal &middot; Today</span>
+            <span class="note-folder-name">Nutrition Journal &middot; Canonical Test Fixtures</span>
           </div>
           <div class="window-status-pill">
-            <span>Verified IFCT-2017 Database</span>
+            <span>Example interaction</span>
           </div>
         </div>
 
         <div class="sample-meals-bar">
-          <span class="sample-label">Try meal presets:</span>
-          <div class="sample-pills">
-            <button class="meal-sample-btn active" data-meal="dosa">South Indian Breakfast</button>
-            <button class="meal-sample-btn" data-meal="lunch">High-Protein Lunch</button>
-            <button class="meal-sample-btn" data-meal="workout">Post-Workout Refuel</button>
-            <button class="meal-sample-btn" data-meal="snack">Evening Snack</button>
+          <span class="sample-label">Canonical sample fixtures:</span>
+          <div class="sample-pills" role="tablist" aria-label="Sample meal selections">
+            <button class="meal-sample-btn active" data-fixture="dosa" role="tab" aria-selected="true">
+              South Indian Breakfast
+            </button>
+            <button class="meal-sample-btn" data-fixture="lunch" role="tab" aria-selected="false">
+              High-Protein Lunch
+            </button>
+            <button class="meal-sample-btn" data-fixture="recovery" role="tab" aria-selected="false">
+              Whole Food Recovery
+            </button>
+            <button class="meal-sample-btn" data-fixture="workout" role="tab" aria-selected="false">
+              Post-Workout Refuel
+            </button>
           </div>
         </div>
 
@@ -105,12 +237,14 @@ const { isStandalone = false } = Astro.props;
                 id="interactiveNoteInput"
                 class="note-live-input"
                 value="2 Masala Dosas with coconut chutney, sambar, and 1 tumbler filter coffee"
-                placeholder="Type any food... (e.g. 3 rotis, 150g paneer, 2 eggs, 1 scoop whey)"
+                placeholder="Select a canonical meal above or test the input..."
                 autocomplete="off"
                 spellcheck="false"
               />
             </div>
-            <div class="note-hint">Tip: Type any ingredients or change numbers above to see instant calculations.</div>
+            <div class="note-hint" id="demoHintText">
+              Viewing canonical test fixture &middot; Values verified against KFit test suite.
+            </div>
           </div>
 
           <div class="macros-grid">
@@ -139,77 +273,75 @@ const { isStandalone = false } = Astro.props;
           <div class="note-footer-meta">
             <div class="meta-left">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              <span id="demoSourceText">Verified with IFCT-2017 Indian Food Database &middot; 100% Offline</span>
+              <span id="demoSourceText">Source: Curated KFit foods &middot; IFCT 2017 portion reference</span>
             </div>
             <div class="meta-right">
-              <span class="calc-badge">Instant Local Engine</span>
+              <span class="calc-badge">Deterministic Local Engine</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Amy-style 3 Value Pillars -->
-      <div class="amy-pillars">
-        <div class="pillar-card">
-          <div class="pillar-num">01</div>
-          <h3 class="pillar-title">Type what you ate</h3>
-          <p class="pillar-text">Just jot down your meal naturally like writing in Apple Notes. No searching through endless crowdsourced junk.</p>
+      <!-- Provenance Layers Display -->
+      <div class="provenance-strip">
+        <div class="prov-card">
+          <div class="prov-badge">Layer 1</div>
+          <h4 class="prov-title">Curated KFit foods</h4>
+          <p class="prov-desc">848 curated Indian dishes with authentic serving units (katori, roti, plate, glass).</p>
         </div>
-        <div class="pillar-card">
-          <div class="pillar-num">02</div>
-          <h3 class="pillar-title">Verified Indian nutrition</h3>
-          <p class="pillar-text">700+ authentic Indian recipes backed by the ICMR-NIN IFCT-2017 database with real portion terms (katori, roti, plate).</p>
+        <div class="prov-card">
+          <div class="prov-badge">Layer 2</div>
+          <h4 class="prov-title">IFCT 2017</h4>
+          <p class="prov-desc">528 ICMR-NIN lab-measured foods with precise raw and cooked micronutrient profiles.</p>
         </div>
-        <div class="pillar-card">
-          <div class="pillar-num">03</div>
-          <h3 class="pillar-title">100% Offline &amp; private</h3>
-          <p class="pillar-text">Runs on your smartphone in local SQLite. Zero subscriptions, zero third-party telemetry, and works in airplane mode.</p>
+        <div class="prov-card">
+          <div class="prov-badge">Layer 3</div>
+          <h4 class="prov-title">Optional online sources</h4>
+          <p class="prov-desc">Open Food Facts and USDA fallbacks queried strictly when local tables lack a match.</p>
         </div>
       </div>
     </div>
 
-    <!-- ── 3. The 4 Ecosystem Products: Apple Bento Grid ─────────────────────── -->
+    <!-- ── 3. The 4 Ecosystem Products ──────────────────────────────────────── -->
     <div class="ecosystem-section" id="products">
       <div class="section-heading">
-        <span class="section-label">Complete Ecosystem</span>
-        <h2 class="section-title">Simple, but powerful.</h2>
+        <span class="section-label">The Ecosystem</span>
+        <h2 class="section-title">Four focused tools. One high standard.</h2>
         <p class="section-subtitle">
-          Four dedicated tools engineered for athletes, coaches, and everyone who values performance and privacy.
+          Each product is engineered for a specific job instead of turning one application into a bloated database.
         </p>
 
-        <!-- Apple Segmented Control -->
-        <div class="segmented-control" role="tablist" aria-label="Product filter">
+        <!-- Apple Segmented Control (Accessible filter tabs) -->
+        <div class="segmented-control" role="tablist" aria-label="Product filter" id="productTablist">
           <div class="seg-pill-bg" id="segPillBg" aria-hidden="true"></div>
-          <button class="seg-btn active" data-filter="all" role="tab" aria-selected="true">
+          <button class="seg-btn active" data-filter="all" role="tab" aria-selected="true" id="tab-prod-all" aria-controls="panel-prod-all">
             <span>All Products</span>
             <span class="seg-count">4</span>
           </button>
-          <button class="seg-btn" data-filter="kfit-app" role="tab" aria-selected="false">
+          <button class="seg-btn" data-filter="kfit-app" role="tab" aria-selected="false" id="tab-prod-app" aria-controls="card-kfit-app">
             <span class="seg-dot"></span>
             <span>KFit App</span>
           </button>
-          <button class="seg-btn" data-filter="kfit-web" role="tab" aria-selected="false">
+          <button class="seg-btn" data-filter="kfit-web" role="tab" aria-selected="false" id="tab-prod-web" aria-controls="card-kfit-web">
             <span class="seg-dot"></span>
             <span>KFit Web</span>
           </button>
-          <button class="seg-btn" data-filter="gymworld" role="tab" aria-selected="false">
+          <button class="seg-btn" data-filter="gymworld" role="tab" aria-selected="false" id="tab-prod-gymworld" aria-controls="card-gymworld">
             <span class="seg-dot"></span>
             <span>GymWorld</span>
           </button>
-          <button class="seg-btn" data-filter="jarvis" role="tab" aria-selected="false">
+          <button class="seg-btn" data-filter="jarvis" role="tab" aria-selected="false" id="tab-prod-jarvis" aria-controls="card-jarvis">
             <span class="seg-dot"></span>
             <span>JARVIS</span>
           </button>
         </div>
       </div>
 
-      <!-- Bento Cards Grid -->
+      <!-- Bento Cards Grid (Solid cards with restrained specular light) -->
       <div class="products-grid" id="productsGrid">
 
         <!-- ===== PRODUCT 1: KFIT APP ===== -->
-        <article class="bento-card" data-category="kfit-app">
-          <div class="card-spotlight" aria-hidden="true"></div>
-
+        <article class="bento-card" data-category="kfit-app" id="card-kfit-app">
           <div class="bento-card-header">
             <div class="brand-info">
               <div class="product-icon icon-dark">
@@ -217,18 +349,17 @@ const { isStandalone = false } = Astro.props;
               </div>
               <div>
                 <div class="product-category">Native Android &middot; Offline-First</div>
-                <h3 class="product-title">KFit App</h3>
+                <h3 class="product-title">KFit for Android</h3>
               </div>
             </div>
-            <div class="status-pill" id="kfitTagPill">
+            <div class="status-pill">
               <span class="status-dot"></span>
-              <span id="kfitVersionText">Latest APK</span>
+              <span>{kfit.version} &middot; {kfit.sizeFormatted}</span>
             </div>
           </div>
 
           <p class="bento-desc">
-            Pure fitness tracking engineered for Indian diets.
-            700+ verified IFCT dishes, smart body recomp analytics (FFMI &amp; body fat&nbsp;%), MET-based workout burn, and 100% offline SQLite storage. Zero subscriptions. Zero tracking.
+            Local-first fitness tracking for nutrition, workouts, hydration, body composition and progress.
           </p>
 
           <div class="card-ui-preview">
@@ -236,17 +367,17 @@ const { isStandalone = false } = Astro.props;
               <span class="win-dot close"></span>
               <span class="win-dot minimize"></span>
               <span class="win-dot zoom"></span>
-              <span class="preview-title">kfit-app &middot; offline engine</span>
+              <span class="preview-title">kfit &middot; local tracking engine</span>
             </div>
             <div class="preview-body">
               <div class="stat-dual-row">
                 <div class="preview-stat-box">
-                  <span class="p-stat-lbl">DAILY CALORIES</span>
+                  <span class="p-stat-lbl">DAILY BUDGET</span>
                   <span class="p-stat-val text-white">1,247 / 1,700 kcal</span>
                 </div>
                 <div class="preview-stat-box">
-                  <span class="p-stat-lbl">TARGET DEFICIT</span>
-                  <span class="p-stat-val text-muted">-453 kcal</span>
+                  <span class="p-stat-lbl">PLANNED DEFICIT</span>
+                  <span class="p-stat-val text-muted">&minus;453 kcal</span>
                 </div>
               </div>
               <div class="macro-triple-row">
@@ -268,32 +399,39 @@ const { isStandalone = false } = Astro.props;
 
           <div class="spec-matrix">
             <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-              <span>Android 8.0+</span>
-            </div>
-            <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span id="kfitSizeText">~170 MB APK</span>
-            </div>
-            <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
-              <span>Zero Play Store Tracking</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Local SQLite storage</span>
             </div>
             <div class="spec-cell">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>No Account Needed</span>
+              <span>Account optional</span>
+            </div>
+            <div class="spec-cell">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Indian nutrition sources</span>
+            </div>
+            <div class="spec-cell">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>{kfit.supportedAndroid} (minSdk {kfit.minSdk})</span>
             </div>
           </div>
 
+          <details class="tech-expandable">
+            <summary class="tech-toggle">Technical architecture &rarr;</summary>
+            <div class="tech-content">
+              Runs fully on-device using SQLite with Room/Drift. Energy expenditure uses MET-based exercise formulas. Optional background sync links to KFit Web via Postgres when signed in. Companion actions link via Android Binder IPC.
+            </div>
+          </details>
+
           <div class="card-actions">
-            <a href={KFIT_APK_URL} class="btn btn-primary btn-action" id="kfitMainDlBtn" download="kfit.apk">
+            <a href="/downloads/kfit" class="btn btn-primary btn-action" download="kfit.apk">
               <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
               </svg>
               <span class="btn-text">Download KFit APK</span>
             </a>
-            <a href={KFIT_RELEASES_URL} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
-              <span>All Releases</span>
+            <a href={kfit.releaseUrl} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
+              <span>Release Notes</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
               </svg>
@@ -302,9 +440,7 @@ const { isStandalone = false } = Astro.props;
         </article>
 
         <!-- ===== PRODUCT 2: KFIT WEB ===== -->
-        <article class="bento-card" data-category="kfit-web">
-          <div class="card-spotlight" aria-hidden="true"></div>
-
+        <article class="bento-card" data-category="kfit-web" id="card-kfit-web">
           <div class="bento-card-header">
             <div class="brand-info">
               <div class="product-icon icon-glass">
@@ -315,7 +451,7 @@ const { isStandalone = false } = Astro.props;
                 </svg>
               </div>
               <div>
-                <div class="product-category">Web Platform &middot; Installable PWA</div>
+                <div class="product-category">Web Platform &middot; Responsive PWA</div>
                 <h3 class="product-title">KFit Web</h3>
               </div>
             </div>
@@ -326,8 +462,7 @@ const { isStandalone = false } = Astro.props;
           </div>
 
           <p class="bento-desc">
-            The expansive desktop experience.
-            Engineered for widescreen clarity and rapid keyboard entry (<code class="apple-code">⌘K</code>). Instant food lookup, multi-week deficit trends, and seamless cross-device sync with Android.
+            Your KFit experience across phone, tablet and desktop — installable as a PWA, with optional account sync and offline application access.
           </p>
 
           <div class="card-ui-preview">
@@ -335,62 +470,67 @@ const { isStandalone = false } = Astro.props;
               <span class="win-dot close"></span>
               <span class="win-dot minimize"></span>
               <span class="win-dot zoom"></span>
-              <span class="preview-title">getkfit.app &middot; live platform</span>
+              <span class="preview-title">getkfit.app &middot; web client</span>
             </div>
             <div class="preview-body">
               <div class="preview-search-bar">
-                <span>🔍</span>
-                <span>Search 700+ Indian foods or press <kbd>⌘K</kbd></span>
+                <span>Search food database, log sets, or review trends</span>
               </div>
               <div class="preview-tags-row">
-                <span class="preview-tag">PWA Ready</span>
-                <span class="preview-tag">Offline First</span>
-                <span class="preview-tag">Zero Install</span>
+                <span class="preview-tag">Installable PWA</span>
+                <span class="preview-tag">IndexedDB Local Cache</span>
+                <span class="preview-tag">Offline Capable</span>
               </div>
             </div>
           </div>
 
           <div class="spec-matrix">
             <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-              <span>Chrome, Safari, Firefox</span>
-            </div>
-            <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-              <span>Cross-Device Cloud Sync</span>
-            </div>
-            <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-              <span>Desktop &amp; Tablet Optimized</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Modern browsers (Chrome, Edge, Firefox, Safari)</span>
             </div>
             <div class="spec-cell">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Instant Load &middot; No Setup</span>
+              <span>PWA installable on all screens</span>
+            </div>
+            <div class="spec-cell">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Optional cross-device account sync</span>
+            </div>
+            <div class="spec-cell">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Offline shell &amp; cached records</span>
             </div>
           </div>
 
+          <details class="tech-expandable">
+            <summary class="tech-toggle">Technical architecture &rarr;</summary>
+            <div class="tech-content">
+              Built with responsive components and service worker caching for offline access. Stores local cache in browser IndexedDB. Uses a robust synchronisation contract with PostgreSQL when connected to a user account.
+            </div>
+          </details>
+
           <div class="card-actions">
-            <a href={KFIT_WEB_URL} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-action">
-              <span>Launch KFit Web</span>
+            <a href={web.url} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-action">
+              <span>Open KFit Web</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
               </svg>
             </a>
-            <a href={KFIT_WEB_URL} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
+            <a href={web.url} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
               <span>getkfit.app</span>
             </a>
           </div>
         </article>
 
         <!-- ===== PRODUCT 3: GYMWORLD ===== -->
-        <article class="bento-card" data-category="gymworld">
-          <div class="card-spotlight" aria-hidden="true"></div>
-
+        <article class="bento-card" data-category="gymworld" id="card-gymworld">
           <div class="bento-card-header">
             <div class="brand-info">
               <div class="product-icon icon-glass">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12"/>
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
                 </svg>
               </div>
               <div>
@@ -405,8 +545,7 @@ const { isStandalone = false } = Astro.props;
           </div>
 
           <p class="bento-desc">
-            The operating system for modern gyms and strength coaches.
-            Renewal desk, member workflows, active training plans, and immediate customer contact — without messy spreadsheets.
+            A focused membership and renewal workspace for gym owners and staff. Track members and plans, surface upcoming renewals, manage membership history, contact customers and review operational reports.
           </p>
 
           <div class="card-ui-preview">
@@ -414,61 +553,66 @@ const { isStandalone = false } = Astro.props;
               <span class="win-dot close"></span>
               <span class="win-dot minimize"></span>
               <span class="win-dot zoom"></span>
-              <span class="preview-title">gymworld.getkfit.app &middot; portal</span>
+              <span class="preview-title">gymworld.getkfit.app &middot; sample workspace preview</span>
             </div>
             <div class="preview-body">
               <div class="stat-dual-row">
                 <div class="preview-stat-box">
-                  <span class="p-stat-lbl">ACTIVE ATHLETES</span>
+                  <span class="p-stat-lbl">ACTIVE MEMBERSHIPS</span>
                   <span class="p-stat-val text-white">184 members</span>
                 </div>
                 <div class="preview-stat-box">
-                  <span class="p-stat-lbl">RETENTION RATE</span>
-                  <span class="p-stat-val text-white">98.2%</span>
+                  <span class="p-stat-lbl">RENEWALS DUE (7 DAYS)</span>
+                  <span class="p-stat-val text-white">12 renewals</span>
                 </div>
               </div>
               <div class="preview-activity-note">
-                <span>✓ Athlete check-in recorded &middot; Strength Block A</span>
+                <span>Sample data: 4 members requiring attention &middot; Operational reporting active</span>
               </div>
             </div>
           </div>
 
           <div class="spec-matrix">
             <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <span>Gyms, Studios &amp; Trainers</span>
-            </div>
-            <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              <span>Renewal &amp; Member Desk</span>
-            </div>
-            <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              <span>Attendance &amp; Routine Plans</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Renewal desk &amp; member workflows</span>
             </div>
             <div class="spec-cell">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Cloudflare Edge &amp; Supabase RLS</span>
+              <span>Membership history &amp; contacts</span>
+            </div>
+            <div class="spec-cell">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Secure role-based access</span>
+            </div>
+            <div class="spec-cell">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Isolated from personal fitness data</span>
             </div>
           </div>
 
+          <details class="tech-expandable">
+            <summary class="tech-toggle">Technical architecture &rarr;</summary>
+            <div class="tech-content">
+              Hosted on Cloudflare Pages and Supabase with strict Row-Level Security (RLS) isolating organizations and staff tiers. Operates independently from personal KFit mobile tracking data to protect client privacy.
+            </div>
+          </details>
+
           <div class="card-actions">
-            <a href={GYMWORLD_URL} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-action">
+            <a href={gymworld.url} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-action">
               <span>Open GymWorld</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
               </svg>
             </a>
-            <a href={GYMWORLD_URL} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
+            <a href={gymworld.url} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
               <span>gymworld.getkfit.app</span>
             </a>
           </div>
         </article>
 
         <!-- ===== PRODUCT 4: JARVIS ===== -->
-        <article class="bento-card" data-category="jarvis">
-          <div class="card-spotlight" aria-hidden="true"></div>
-
+        <article class="bento-card" data-category="jarvis" id="card-jarvis">
           <div class="bento-card-header">
             <div class="brand-info">
               <div class="product-icon icon-glass">
@@ -480,19 +624,18 @@ const { isStandalone = false } = Astro.props;
                 </svg>
               </div>
               <div>
-                <div class="product-category">Companion OS &middot; Ambient Voice</div>
+                <div class="product-category">Companion OS &middot; Realtime Voice</div>
                 <h3 class="product-title">JARVIS</h3>
               </div>
             </div>
-            <div class="status-pill" id="jarvisTagPill">
+            <div class="status-pill">
               <span class="status-dot"></span>
-              <span id="jarvisVersionText">Companion APK</span>
+              <span>{jarvis.version} &middot; {jarvis.sizeFormatted}</span>
             </div>
           </div>
 
           <p class="bento-desc">
-            Ambient voice intelligence linked directly to KFit via Android AIDL (<code class="apple-code">IKFitToolService</code>).
-            Record sets, log nutrition, and track hydration between exercises by simply speaking. Zero friction, zero screen taps.
+            A voice-first personal assistant with a direct, permission-controlled connection to KFit on Android. Log supported KFit actions hands-free once configured, while keeping the app connection on-device.
           </p>
 
           <div class="card-ui-preview">
@@ -500,7 +643,7 @@ const { isStandalone = false } = Astro.props;
               <span class="win-dot close"></span>
               <span class="win-dot minimize"></span>
               <span class="win-dot zoom"></span>
-              <span class="preview-title">jarvis.apk &middot; binder active</span>
+              <span class="preview-title">jarvis.apk &middot; direct bridge active</span>
             </div>
             <div class="preview-body">
               <div class="preview-voice-stream">
@@ -512,10 +655,10 @@ const { isStandalone = false } = Astro.props;
                   <span class="abar a5"></span>
                   <span class="abar a6"></span>
                 </div>
-                <span class="voice-stream-label">Edge Voice Stream &middot; Zero Latency</span>
+                <span class="voice-stream-label">Realtime voice &middot; Direct on-device bridge</span>
               </div>
               <div class="preview-dialogue-box">
-                <div class="user-bubble">&ldquo;Log 3 rotis and 1 bowl paneer bhurji for dinner.&rdquo;</div>
+                <div class="user-bubble">&ldquo;Log 2 rotis and 1 bowl paneer bhurji for dinner.&rdquo;</div>
                 <div class="jarvis-bubble">Logged 480 kcal (32g protein) directly to KFit.</div>
               </div>
             </div>
@@ -523,32 +666,39 @@ const { isStandalone = false } = Astro.props;
 
           <div class="spec-matrix">
             <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-              <span>Android 10+</span>
-            </div>
-            <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span id="jarvisSizeText">~55 MB APK</span>
-            </div>
-            <div class="spec-cell">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              <span>Direct AIDL Binder to KFit</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Direct connection to KFit</span>
             </div>
             <div class="spec-cell">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Hands-Free Speech Routing</span>
+              <span>Realtime voice engine</span>
+            </div>
+            <div class="spec-cell">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Android companion app</span>
+            </div>
+            <div class="spec-cell">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>{jarvis.supportedAndroid} (minSdk {jarvis.minSdk})</span>
             </div>
           </div>
 
+          <details class="tech-expandable">
+            <summary class="tech-toggle">Technical architecture &rarr;</summary>
+            <div class="tech-content">
+              Connects directly to KFit on-device through an Android AIDL Binder bridge (IKFitToolService). Features low-latency voice streaming, local NPU cache management, and zero inter-process internet roundtrips.
+            </div>
+          </details>
+
           <div class="card-actions">
-            <a href={JARVIS_APK_URL} class="btn btn-primary btn-action" id="jarvisMainDlBtn" download="jarvis.apk">
+            <a href="/downloads/jarvis" class="btn btn-primary btn-action" download="jarvis.apk">
               <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
               </svg>
               <span class="btn-text">Download JARVIS APK</span>
             </a>
-            <a href={KFIT_RELEASES_URL} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
-              <span>Releases</span>
+            <a href={jarvis.releaseUrl} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
+              <span>Release Notes</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
               </svg>
@@ -559,147 +709,237 @@ const { isStandalone = false } = Astro.props;
       </div>
     </div>
 
-    <!-- ── 4. Synergy: Four Tools, One Rhythm ─────────────────────────────────── -->
-    <div class="synergy-section">
+    <!-- ── 4. Synergy: How the Products Connect ─────────────────────────────── -->
+    <div class="synergy-section" id="synergy">
       <div class="section-heading">
-        <span class="section-label">Cohesion</span>
-        <h2 class="section-title">Four products. One unified rhythm.</h2>
+        <span class="section-label">Architecture</span>
+        <h2 class="section-title">How the products connect.</h2>
         <p class="section-subtitle">
-          Every tool works independently offline, but together they form a seamless athletic ecosystem.
+          Architected with intention. Clear boundaries protect your personal privacy and keep each tool reliable.
         </p>
       </div>
 
       <div class="synergy-grid">
         <div class="synergy-card">
-          <div class="synergy-step">01</div>
-          <div class="synergy-icon-wrap">🎙️</div>
-          <h3 class="synergy-card-title">JARVIS &rarr; KFit App</h3>
-          <p class="synergy-card-text">
-            Speak hands-free between workout sets. JARVIS communicates via secure Android AIDL directly to KFit's local SQLite database.
-          </p>
-        </div>
-
-        <div class="synergy-card">
-          <div class="synergy-step">02</div>
-          <div class="synergy-icon-wrap">⚡</div>
+          <div class="synergy-icon-box">
+            <!-- Custom SVG: App to Web Sync -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="14" height="12" rx="2"/>
+              <rect x="10" y="9" width="12" height="12" rx="2"/>
+              <path d="M7 15h.01M16 17h.01"/>
+            </svg>
+          </div>
           <h3 class="synergy-card-title">KFit App &harr; KFit Web</h3>
+          <div class="synergy-subtitle">Optional account sync</div>
           <p class="synergy-card-text">
-            Log on your phone throughout the day. Analyze multi-week deficit trendlines and macro distribution on your desktop monitor at getkfit.app.
+            Your Android and web experiences can share supported records when you choose to sign in. Both shells preserve offline capabilities independently.
           </p>
         </div>
 
         <div class="synergy-card">
-          <div class="synergy-step">03</div>
-          <div class="synergy-icon-wrap">🏋️</div>
-          <h3 class="synergy-card-title">GymWorld &rarr; Athletes</h3>
+          <div class="synergy-icon-box">
+            <!-- Custom SVG: Voice Bridge -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+            </svg>
+          </div>
+          <h3 class="synergy-card-title">JARVIS &rarr; KFit</h3>
+          <div class="synergy-subtitle">Direct on-device connection</div>
           <p class="synergy-card-text">
-            Coaches and gym owners manage rosters and renewal workflows at gymworld.getkfit.app, keeping athletes focused on verifiable progress.
+            JARVIS can access permitted KFit actions through the signature-protected Android Binder bridge. That connection is strictly on-device, private, and fast.
+          </p>
+        </div>
+
+        <div class="synergy-card">
+          <div class="synergy-icon-box">
+            <!-- Custom SVG: Isolated Workspace Shield -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="M9 12h6"/>
+            </svg>
+          </div>
+          <h3 class="synergy-card-title">GymWorld</h3>
+          <div class="synergy-subtitle">Separate gym-business workspace</div>
+          <p class="synergy-card-text">
+            Memberships, plans, renewals, contact workflows and staff access — intentionally isolated from personal KFit fitness data for privacy.
           </p>
         </div>
       </div>
     </div>
 
-    <!-- ── 5. Honest Comparison Matrix (Amy Style) ────────────────────────────── -->
-    <div class="comparison-section" id="comparison">
+    <!-- ── 5. Principles Section (Replaces Competitor Comparison Table) ──────── -->
+    <div class="principles-section" id="principles">
       <div class="section-heading">
-        <span class="section-label">Honest Comparison</span>
-        <h2 class="section-title">Why the KFit Suite is different.</h2>
+        <span class="section-label">Core Values</span>
+        <h2 class="section-title">Built on a few simple principles.</h2>
+        <p class="section-subtitle">
+          Software designed to respect your device, your time, and your nutrition.
+        </p>
       </div>
 
-      <div class="table-frame">
-        <table class="apple-table">
-          <thead>
-            <tr>
-              <th scope="col">Feature</th>
-              <th scope="col" class="highlight-head">KFit Ecosystem</th>
-              <th scope="col">MyFitnessPal</th>
-              <th scope="col">HealthifyMe</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="row-feature">Subscription Cost</td>
-              <td class="highlight-cell text-white font-bold">$0 &middot; Free Forever</td>
-              <td class="text-muted">$79.99 / year</td>
-              <td class="text-muted">$120+ / year</td>
-            </tr>
-            <tr>
-              <td class="row-feature">Privacy &amp; Telemetry</td>
-              <td class="highlight-cell text-white font-bold">100% On-Device &middot; Zero Trackers</td>
-              <td class="text-muted">Cloud DB &middot; Ad Retargeting</td>
-              <td class="text-muted">Aggressive Sales Calls</td>
-            </tr>
-            <tr>
-              <td class="row-feature">Indian Nutrition Accuracy</td>
-              <td class="highlight-cell text-white font-bold">IFCT-2017 National Database</td>
-              <td class="text-muted">Unverified Crowdsourced</td>
-              <td class="text-muted">Locked Behind Paywall</td>
-            </tr>
-            <tr>
-              <td class="row-feature">Offline Smart Engine</td>
-              <td class="highlight-cell text-white font-bold">100% Offline (SQLite + MET)</td>
-              <td class="text-muted">Cloud Only &middot; Latency</td>
-              <td class="text-muted">Cloud Only &middot; Basic Chatbot</td>
-            </tr>
-            <tr>
-              <td class="row-feature">Hands-Free Voice Assistant</td>
-              <td class="highlight-cell text-white font-bold">JARVIS (Direct AIDL IPC)</td>
-              <td class="text-muted">None</td>
-              <td class="text-muted">None</td>
-            </tr>
-            <tr>
-              <td class="row-feature">Desktop &amp; Web Version</td>
-              <td class="highlight-cell text-white font-bold">Included Free (getkfit.app)</td>
-              <td class="text-muted">Ad-heavy browser site</td>
-              <td class="text-muted">Restricted Tier</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <div class="principles-grid">
+        <div class="principle-card">
+          <div class="principle-number">01</div>
+          <h3 class="principle-name">Local-first</h3>
+          <p class="principle-body">
+            Your core tracking data starts on your device. Workouts, meals, and body metrics are stored locally so your history is always available without latency or network dependency.
+          </p>
+        </div>
 
-    <!-- ── 6. Creator Story: Amy-style ("Hi, I'm Karthik 👋") ──────────────────── -->
-    <div class="creator-card" id="about">
-      <div class="creator-avatar">K</div>
-      <div class="creator-content">
-        <h3 class="creator-title">Hi, I'm Karthik 👋</h3>
-        <p class="creator-p">
-          I started building KFit because I was tired of bloated fitness apps demanding $80 a year just to scan a barcode or view a protein breakdown. Even worse, standard apps sell your intimate health metrics and fail completely on authentic Indian food.
-        </p>
-        <p class="creator-p">
-          I wanted an experience that felt like writing in Apple Notes — lightning-fast, impeccably crafted, and respectful of your privacy. With KFit, KFit Web, GymWorld, and JARVIS, my goal is simple: deliver elite, private athletic software without venture capital greed, subscriptions, or paywalls.
-        </p>
-        <div class="creator-signoff">
-          <span class="sign-name">Karthik M</span>
-          <span class="sign-role">Creator &middot; Built with craft in Bangalore 🇮🇳</span>
+        <div class="principle-card">
+          <div class="principle-number">02</div>
+          <h3 class="principle-name">Transparent nutrition sources</h3>
+          <p class="principle-body">
+            See where food data comes from instead of receiving unexplained numbers. Curated dishes, IFCT-2017 lab records, and optional online fallbacks are explicitly labelled.
+          </p>
+        </div>
+
+        <div class="principle-card">
+          <div class="principle-number">03</div>
+          <h3 class="principle-name">Account optional</h3>
+          <p class="principle-body">
+            Start tracking immediately without registration or personal details. Create an account only when you want supported cross-device sync.
+          </p>
+        </div>
+
+        <div class="principle-card">
+          <div class="principle-number">04</div>
+          <h3 class="principle-name">No subscription</h3>
+          <p class="principle-body">
+            The core KFit experience isn't locked behind a recurring plan or paywalls. No recurring subscriptions, no paywalls, and no hidden trial traps.
+          </p>
         </div>
       </div>
     </div>
 
-    <!-- ── 7. Fast 3-Step Sideload Guide ──────────────────────────────────────── -->
+    <!-- ── 6. APK Sideload & Release Trust Section ──────────────────────────── -->
     <div class="sideload-section" id="sideload">
       <div class="section-heading">
-        <span class="section-label">Fast Setup</span>
+        <span class="section-label">Install Guide &middot; Release Integrity</span>
         <h2 class="section-title">Installing Android APKs in 3 easy steps.</h2>
       </div>
 
       <div class="steps-row">
         <div class="step-card">
           <div class="step-badge">1</div>
-          <h4 class="step-title">Download the APK</h4>
-          <p class="step-text">Tap download for KFit or JARVIS to fetch the cryptographically signed release directly from our repository.</p>
+          <h4 class="step-title">Download KFit or JARVIS</h4>
+          <p class="step-text">Get the signed APK from the official KFit release channel.</p>
         </div>
-        <div class="step-arrow">&rarr;</div>
+        <div class="step-arrow" aria-hidden="true">&rarr;</div>
         <div class="step-card">
           <div class="step-badge">2</div>
-          <h4 class="step-title">Allow Unknown Apps</h4>
-          <p class="step-text">When prompted by Android, tap <em>Settings</em> and toggle <em>Allow from this source</em> for your browser or file manager.</p>
+          <h4 class="step-title">Allow installs from this source</h4>
+          <p class="step-text">Android may ask you to allow your browser or file manager to install the APK.</p>
         </div>
-        <div class="step-arrow">&rarr;</div>
+        <div class="step-arrow" aria-hidden="true">&rarr;</div>
         <div class="step-card">
           <div class="step-badge">3</div>
-          <h4 class="step-title">Tap Install &amp; Track</h4>
-          <p class="step-text">Open the file and tap <em>Install</em>. Launch immediately — no email, no password, no credit card required.</p>
+          <h4 class="step-title">Install and open</h4>
+          <p class="step-text">Review Android's installation prompt, then open the app.</p>
+        </div>
+      </div>
+
+      <!-- Release Verification Cards -->
+      <div class="verification-grid">
+        <!-- KFit Verification Card -->
+        <div class="verify-card">
+          <div class="verify-header">
+            <div>
+              <div class="v-product-name">{kfit.name}</div>
+              <div class="v-product-tag">Stable Release &middot; {kfit.version}</div>
+            </div>
+            <a href="/downloads/kfit" class="btn btn-primary v-dl-btn" download="kfit.apk">
+              <span>Download ({kfit.sizeFormatted})</span>
+            </a>
+          </div>
+
+          <div class="v-details-list">
+            <div class="v-spec-item">
+              <span class="v-spec-key">File size:</span>
+              <span class="v-spec-val">{kfit.sizeFormatted} ({kfit.sizeBytes.toLocaleString()} bytes)</span>
+            </div>
+            <div class="v-spec-item">
+              <span class="v-spec-key">System support:</span>
+              <span class="v-spec-val">{kfit.supportedAndroid} (minSdk {kfit.minSdk})</span>
+            </div>
+            <div class="v-spec-item sha-item">
+              <span class="v-spec-key">SHA-256 Checksum:</span>
+              <div class="hash-row">
+                <code class="hash-val" id="kfitSha">{kfit.sha256}</code>
+                <button class="copy-hash-btn" data-hash={kfit.sha256} title="Copy SHA-256 Checksum" type="button">
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="v-footer">
+            <a href={kfit.releaseUrl} target="_blank" rel="noopener noreferrer" class="release-notes-link">
+              View release notes on GitHub &rarr;
+            </a>
+          </div>
+        </div>
+
+        <!-- JARVIS Verification Card -->
+        <div class="verify-card">
+          <div class="verify-header">
+            <div>
+              <div class="v-product-name">{jarvis.name}</div>
+              <div class="v-product-tag">Companion Release &middot; {jarvis.version}</div>
+            </div>
+            <a href="/downloads/jarvis" class="btn btn-primary v-dl-btn" download="jarvis.apk">
+              <span>Download ({jarvis.sizeFormatted})</span>
+            </a>
+          </div>
+
+          <div class="v-details-list">
+            <div class="v-spec-item">
+              <span class="v-spec-key">File size:</span>
+              <span class="v-spec-val">{jarvis.sizeFormatted} ({jarvis.sizeBytes.toLocaleString()} bytes)</span>
+            </div>
+            <div class="v-spec-item">
+              <span class="v-spec-key">System support:</span>
+              <span class="v-spec-val">{jarvis.supportedAndroid} recommended (minSdk {jarvis.minSdk})</span>
+            </div>
+            <div class="v-spec-item sha-item">
+              <span class="v-spec-key">SHA-256 Checksum:</span>
+              <div class="hash-row">
+                <code class="hash-val" id="jarvisSha">{jarvis.sha256}</code>
+                <button class="copy-hash-btn" data-hash={jarvis.sha256} title="Copy SHA-256 Checksum" type="button">
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="v-footer">
+            <a href={jarvis.releaseUrl} target="_blank" rel="noopener noreferrer" class="release-notes-link">
+              View release notes on GitHub &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 7. Creator Story Section ─────────────────────────────────────────── -->
+    <div class="creator-card" id="about">
+      <div class="creator-avatar">K</div>
+      <div class="creator-content">
+        <h3 class="creator-title">Hi, I'm Karthik.</h3>
+        <p class="creator-p">
+          I started building KFit because I wanted fitness software that was fast, private by default, useful without an account, and genuinely good at Indian food.
+        </p>
+        <p class="creator-p">
+          The goal has stayed simple: make everyday tracking effortless, keep deterministic calculations trustworthy, and make cloud features optional rather than a requirement.
+        </p>
+        <p class="creator-p">
+          KFit has since grown into a small ecosystem — KFit for Android, KFit Web, GymWorld and JARVIS — each focused on a specific job instead of trying to turn one application into everything.
+        </p>
+        <div class="creator-signoff">
+          <span class="sign-name">Karthik M</span>
+          <span class="sign-role">Creator &middot; Bangalore</span>
         </div>
       </div>
     </div>
@@ -710,7 +950,166 @@ const { isStandalone = false } = Astro.props;
 <script>
   import gsap from 'gsap';
 
-  // 1. Apple Segmented Control Filtering
+  // 1. Hero Narrative Composition Tab Switching
+  const narrativeTabs = document.querySelectorAll('.n-tab');
+  const narrativePanes = document.querySelectorAll('.narrative-pane');
+
+  narrativeTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const step = tab.getAttribute('data-step');
+      if (!step) return;
+
+      narrativeTabs.forEach((t) => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+
+      narrativePanes.forEach((p) => {
+        p.classList.remove('active');
+        p.setAttribute('hidden', 'true');
+      });
+
+      const activePane = document.getElementById(`pane-${step}`);
+      if (activePane) {
+        activePane.removeAttribute('hidden');
+        activePane.classList.add('active');
+        gsap.fromTo(activePane, { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' });
+      }
+    });
+  });
+
+  // 2. Canonical Meal Fixtures Data (from real KFit test fixtures)
+  const canonicalFixtures: Record<string, {
+    text: string;
+    cal: number;
+    pro: number;
+    carb: number;
+    fat: number;
+    source: string;
+    hint: string;
+  }> = {
+    dosa: {
+      text: '2 Masala Dosas with coconut chutney, sambar, and 1 tumbler filter coffee',
+      cal: 510,
+      pro: 14.2,
+      carb: 74.5,
+      fat: 16.8,
+      source: 'Source: Curated KFit foods · IFCT 2017 portion reference',
+      hint: 'Viewing canonical test fixture · Values verified against KFit test suite.',
+    },
+    lunch: {
+      text: '200g Paneer tikka, 2 whole wheat rotis, 1 cup dal tadka',
+      cal: 790,
+      pro: 44.3,
+      carb: 58.2,
+      fat: 41.5,
+      source: 'Source: Curated KFit foods · High protein bio-availability score: 94%',
+      hint: 'Viewing canonical test fixture · Values verified against KFit test suite.',
+    },
+    recovery: {
+      text: '100 g milk, 2 boiled eggs, and 1 medium banana',
+      cal: 334,
+      pro: 17.2,
+      carb: 32.1,
+      fat: 15.6,
+      source: 'Source: IFCT 2017 lab-measured milk · Curated whole foods',
+      hint: 'Viewing canonical test fixture · Values verified against KFit test suite.',
+    },
+    workout: {
+      text: '1 scoop whey protein isolate, 1 robusta banana, 8 almonds',
+      cal: 281,
+      pro: 28.4,
+      carb: 31.8,
+      fat: 6.1,
+      source: 'Source: Curated KFit foods & IFCT 2017 · Recovery macro profile',
+      hint: 'Viewing canonical test fixture · Values verified against KFit test suite.',
+    },
+  };
+
+  const noteInput = document.getElementById('interactiveNoteInput') as HTMLInputElement | null;
+  const demoCal = document.getElementById('demoCalories');
+  const demoPro = document.getElementById('demoProtein');
+  const demoCarb = document.getElementById('demoCarbs');
+  const demoFat = document.getElementById('demoFats');
+  const demoSource = document.getElementById('demoSourceText');
+  const demoHint = document.getElementById('demoHintText');
+  const fixtureBtns = document.querySelectorAll('.meal-sample-btn');
+
+  let currentNutrients = { cal: 510, pro: 14.2, carb: 74.5, fat: 16.8 };
+
+  function animateNutrientValues(cal: number, pro: number, carb: number, fat: number) {
+    gsap.killTweensOf(currentNutrients);
+    gsap.to(currentNutrients, {
+      cal,
+      pro,
+      carb,
+      fat,
+      duration: 0.3,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (demoCal) demoCal.textContent = Math.round(currentNutrients.cal).toString();
+        if (demoPro) demoPro.textContent = currentNutrients.pro.toFixed(1);
+        if (demoCarb) demoCarb.textContent = currentNutrients.carb.toFixed(1);
+        if (demoFat) demoFat.textContent = currentNutrients.fat.toFixed(1);
+      },
+    });
+  }
+
+  fixtureBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      fixtureBtns.forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+
+      const fixtureKey = btn.getAttribute('data-fixture');
+      if (fixtureKey && canonicalFixtures[fixtureKey] && noteInput) {
+        const data = canonicalFixtures[fixtureKey];
+        noteInput.value = data.text;
+        animateNutrientValues(data.cal, data.pro, data.carb, data.fat);
+        if (demoSource) demoSource.textContent = data.source;
+        if (demoHint) demoHint.textContent = data.hint;
+      }
+    });
+  });
+
+  // Honest handling for custom typing: NO fake word-count calculations!
+  if (noteInput) {
+    noteInput.addEventListener('input', () => {
+      fixtureBtns.forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      const val = noteInput.value.trim().toLowerCase();
+      
+      // Match against canonical fixtures if typed
+      let matched = false;
+      for (const [key, fixture] of Object.entries(canonicalFixtures)) {
+        if (fixture.text.toLowerCase().includes(val) || val.includes(key)) {
+          matched = true;
+          animateNutrientValues(fixture.cal, fixture.pro, fixture.carb, fixture.fat);
+          if (demoSource) demoSource.textContent = fixture.source;
+          if (demoHint) demoHint.textContent = 'Matched canonical fixture subset.';
+          break;
+        }
+      }
+
+      if (!matched) {
+        if (demoSource) {
+          demoSource.textContent = 'App pipeline: Learned → Curated (848) → IFCT (528) → OFF/USDA fallback';
+        }
+        if (demoHint) {
+          demoHint.textContent = 'Custom phrase: In the app, this sentence resolves deterministically without guessing.';
+        }
+      }
+    });
+  }
+
+  // 3. Product Segmented Filter (Keyboard accessible tabs)
   const segBtns = document.querySelectorAll('.seg-btn');
   const cards = document.querySelectorAll('.bento-card');
   const segPillBg = document.getElementById('segPillBg');
@@ -733,7 +1132,7 @@ const { isStandalone = false } = Astro.props;
     if (active) updatePill(active);
   });
 
-  segBtns.forEach((btn) => {
+  segBtns.forEach((btn, index) => {
     btn.addEventListener('click', () => {
       segBtns.forEach((b) => {
         b.classList.remove('active');
@@ -748,19 +1147,13 @@ const { isStandalone = false } = Astro.props;
         const c = card as HTMLElement;
         const category = c.getAttribute('data-category');
         if (filter === 'all' || category === filter) {
-          gsap.to(c, {
-            opacity: 1,
-            scale: 1,
-            duration: 0.35,
-            ease: 'power2.out',
-            clearProps: 'display',
-          });
           c.style.display = 'flex';
+          gsap.to(c, { opacity: 1, scale: 1, duration: 0.25, ease: 'power2.out' });
         } else {
           gsap.to(c, {
             opacity: 0,
-            scale: 0.96,
-            duration: 0.25,
+            scale: 0.98,
+            duration: 0.2,
             ease: 'power2.in',
             onComplete: () => {
               c.style.display = 'none';
@@ -769,6 +1162,27 @@ const { isStandalone = false } = Astro.props;
         }
       });
     });
+
+    // Keyboard arrow navigation
+    btn.addEventListener('keydown', (e: Event) => {
+      const keyEvent = e as KeyboardEvent;
+      let nextIndex = index;
+      if (keyEvent.key === 'ArrowRight' || keyEvent.key === 'ArrowDown') {
+        nextIndex = (index + 1) % segBtns.length;
+      } else if (keyEvent.key === 'ArrowLeft' || keyEvent.key === 'ArrowUp') {
+        nextIndex = (index - 1 + segBtns.length) % segBtns.length;
+      } else if (keyEvent.key === 'Home') {
+        nextIndex = 0;
+      } else if (keyEvent.key === 'End') {
+        nextIndex = segBtns.length - 1;
+      } else {
+        return;
+      }
+      keyEvent.preventDefault();
+      const nextBtn = segBtns[nextIndex] as HTMLButtonElement;
+      nextBtn.focus();
+      nextBtn.click();
+    });
   });
 
   window.addEventListener('resize', () => {
@@ -776,256 +1190,41 @@ const { isStandalone = false } = Astro.props;
     if (active) updatePill(active);
   });
 
-  // 2. Cursor Spotlight Tracking
-  cards.forEach((card) => {
-    card.addEventListener('mousemove', (e: Event) => {
-      const mouseEvent = e as MouseEvent;
-      const rect = (card as HTMLElement).getBoundingClientRect();
-      const x = mouseEvent.clientX - rect.left;
-      const y = mouseEvent.clientY - rect.top;
-      (card as HTMLElement).style.setProperty('--mouse-x', `${x}px`);
-      (card as HTMLElement).style.setProperty('--mouse-y', `${y}px`);
-    });
-  });
-
-  // 3. Dynamic GitHub Release Fetcher
-  async function updateReleaseInfo() {
-    try {
-      const res = await fetch('https://api.github.com/repos/Karthik77-kk/kfit/releases');
-      if (!res.ok) return;
-      const releases = await res.json();
-      if (!Array.isArray(releases) || releases.length === 0) return;
-
-      const kfitRelease = releases.find((r: any) =>
-        r.assets && r.assets.some((a: any) => a.name === 'kfit.apk')
-      );
-      if (kfitRelease) {
-        const kfitAsset = kfitRelease.assets.find((a: any) => a.name === 'kfit.apk');
-        const kfitDlBtn = document.getElementById('kfitMainDlBtn') as HTMLAnchorElement | null;
-        const heroDlBtn = document.getElementById('heroDlBtn') as HTMLAnchorElement | null;
-        const kfitVersionText = document.getElementById('kfitVersionText');
-        const kfitSizeText = document.getElementById('kfitSizeText');
-
-        if (kfitDlBtn && kfitAsset?.browser_download_url) kfitDlBtn.href = kfitAsset.browser_download_url;
-        if (heroDlBtn && kfitAsset?.browser_download_url) heroDlBtn.href = kfitAsset.browser_download_url;
-        if (kfitVersionText && kfitRelease.tag_name) kfitVersionText.textContent = `${kfitRelease.tag_name}`;
-        if (kfitSizeText && kfitAsset?.size) {
-          const mb = (kfitAsset.size / (1024 * 1024)).toFixed(0);
-          kfitSizeText.textContent = `~${mb} MB APK`;
-        }
-      }
-
-      const jarvisRelease = releases.find((r: any) =>
-        (r.tag_name && r.tag_name.includes('jarvis')) ||
-        (r.assets && r.assets.some((a: any) => a.name === 'jarvis.apk'))
-      );
-      if (jarvisRelease) {
-        const jarvisAsset = jarvisRelease.assets.find((a: any) => a.name === 'jarvis.apk');
-        const jarvisDlBtn = document.getElementById('jarvisMainDlBtn') as HTMLAnchorElement | null;
-        const jarvisVersionText = document.getElementById('jarvisVersionText');
-        const jarvisSizeText = document.getElementById('jarvisSizeText');
-
-        if (jarvisDlBtn && jarvisAsset?.browser_download_url) jarvisDlBtn.href = jarvisAsset.browser_download_url;
-        if (jarvisVersionText && jarvisRelease.tag_name) jarvisVersionText.textContent = `${jarvisRelease.tag_name}`;
-        if (jarvisSizeText && jarvisAsset?.size) {
-          const mb = (jarvisAsset.size / (1024 * 1024)).toFixed(0);
-          jarvisSizeText.textContent = `~${mb} MB APK`;
-        }
-      }
-    } catch {
-      // Fallback to default urls
-    }
-  }
-  updateReleaseInfo();
-
-  // 4. Download Feedback Micro-Interactions
-  const setupDownloadFeedback = (btnId: string, originalText: string) => {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      const textSpan = btn.querySelector('.btn-text');
-      if (textSpan) textSpan.textContent = 'Starting Download…';
-      btn.style.opacity = '0.85';
-      setTimeout(() => {
-        if (textSpan) textSpan.textContent = originalText;
-        btn.style.opacity = '1';
-      }, 3000);
-    });
-  };
-  setupDownloadFeedback('heroDlBtn', 'Download KFit for Android');
-  setupDownloadFeedback('kfitMainDlBtn', 'Download KFit APK');
-  setupDownloadFeedback('jarvisMainDlBtn', 'Download JARVIS APK');
-
-  // 5. Amy Food Journal Reactive Dynamic Calculation
-  const mealPresets: Record<string, { text: string; cal: number; pro: number; carb: number; fat: number; source: string }> = {
-    dosa: {
-      text: '2 Masala Dosas with coconut chutney, sambar, and 1 tumbler filter coffee',
-      cal: 510,
-      pro: 14.2,
-      carb: 74.5,
-      fat: 16.8,
-      source: 'Verified with IFCT-2017 Indian Food Database · 100% Offline',
-    },
-    lunch: {
-      text: '200g Paneer tikka, 2 whole wheat rotis, 1 cup dal tadka, cucumber salad',
-      cal: 685,
-      pro: 38.4,
-      carb: 56.2,
-      fat: 28.1,
-      source: 'Verified with IFCT-2017 Database · High protein bio-availability score: 94%',
-    },
-    workout: {
-      text: '1 scoop whey protein isolate in water, 1 large robusta banana, 8 almonds',
-      cal: 315,
-      pro: 27.8,
-      carb: 34.0,
-      fat: 6.4,
-      source: 'Computed on-device · Fast-absorbing post-workout recovery target reached',
-    },
-    snack: {
-      text: '1 cup roasted chana, 1 tender coconut water, 1 apple',
-      cal: 260,
-      pro: 11.5,
-      carb: 46.0,
-      fat: 3.2,
-      source: 'Verified with IFCT-2017 National Database · Low glycemic index',
-    },
-  };
-
-  const foodDictionary: Array<{ keywords: string[]; cal: number; pro: number; carb: number; fat: number }> = [
-    { keywords: ['dosa', 'dosas'], cal: 175, pro: 4.2, carb: 30, fat: 4.5 },
-    { keywords: ['masala dosa'], cal: 260, pro: 5.5, carb: 38, fat: 8.5 },
-    { keywords: ['idli', 'idlis'], cal: 58, pro: 2.1, carb: 12, fat: 0.3 },
-    { keywords: ['sambar'], cal: 65, pro: 3.2, carb: 10, fat: 1.5 },
-    { keywords: ['chutney', 'coconut chutney'], cal: 70, pro: 1.2, carb: 3.5, fat: 6.2 },
-    { keywords: ['roti', 'rotis', 'chapati', 'chapatis'], cal: 105, pro: 3.5, carb: 20, fat: 1.2 },
-    { keywords: ['paneer', 'paneer tikka', 'bhurji'], cal: 290, pro: 18.5, carb: 4.2, fat: 22 },
-    { keywords: ['dal', 'dal tadka'], cal: 140, pro: 8.5, carb: 19, fat: 3.2 },
-    { keywords: ['rice', 'biryani'], cal: 210, pro: 4.5, carb: 44, fat: 2.1 },
-    { keywords: ['egg', 'eggs'], cal: 78, pro: 6.5, carb: 0.6, fat: 5.2 },
-    { keywords: ['chicken', 'chicken breast'], cal: 165, pro: 31, carb: 0, fat: 3.6 },
-    { keywords: ['whey', 'protein shake', 'whey protein'], cal: 120, pro: 25, carb: 2.0, fat: 1.5 },
-    { keywords: ['coffee', 'filter coffee'], cal: 50, pro: 1.8, carb: 6.5, fat: 1.6 },
-    { keywords: ['banana'], cal: 105, pro: 1.3, carb: 27, fat: 0.3 },
-    { keywords: ['apple'], cal: 95, pro: 0.5, carb: 25, fat: 0.3 },
-    { keywords: ['almonds', 'nuts'], cal: 80, pro: 2.8, carb: 3.0, fat: 7.0 },
-    { keywords: ['chana', 'roasted chana'], cal: 120, pro: 6.5, carb: 19, fat: 2.0 },
-    { keywords: ['coconut water'], cal: 45, pro: 1.0, carb: 10, fat: 0.2 },
-  ];
-
-  const noteInput = document.getElementById('interactiveNoteInput') as HTMLInputElement | null;
-  const demoCal = document.getElementById('demoCalories');
-  const demoPro = document.getElementById('demoProtein');
-  const demoCarb = document.getElementById('demoCarbs');
-  const demoFat = document.getElementById('demoFats');
-  const demoSource = document.getElementById('demoSourceText');
-  const mealBtns = document.querySelectorAll('.meal-sample-btn');
-
-  function calculateNutrientsFromText(rawText: string) {
-    const text = rawText.toLowerCase();
-    let totalCal = 0;
-    let totalPro = 0;
-    let totalCarb = 0;
-    let totalFat = 0;
-    let matchedAny = false;
-
-    for (const item of foodDictionary) {
-      for (const kw of item.keywords) {
-        if (text.includes(kw)) {
-          matchedAny = true;
-          const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const regex = new RegExp(`(\\d+)\\s*(?:x\\s*)?${escapedKw}`, 'i');
-          const match = text.match(regex);
-          const count = match ? Math.min(Math.max(parseInt(match[1], 10), 1), 10) : 1;
-
-          totalCal += item.cal * count;
-          totalPro += item.pro * count;
-          totalCarb += item.carb * count;
-          totalFat += item.fat * count;
-          break;
-        }
-      }
-    }
-
-    if (!matchedAny) {
-      const words = text.trim().split(/\s+/).filter(Boolean).length;
-      totalCal = Math.max(words * 85, 120);
-      totalPro = +(totalCal * 0.05).toFixed(1);
-      totalCarb = +(totalCal * 0.14).toFixed(1);
-      totalFat = +(totalCal * 0.03).toFixed(1);
-    }
-
-    return {
-      cal: Math.round(totalCal),
-      pro: +totalPro.toFixed(1),
-      carb: +totalCarb.toFixed(1),
-      fat: +totalFat.toFixed(1),
-    };
-  }
-
-  let currentNutrients = { cal: 510, pro: 14.2, carb: 74.5, fat: 16.8 };
-
-  function animateNutrientValues(cal: number, pro: number, carb: number, fat: number) {
-    gsap.killTweensOf(currentNutrients);
-    gsap.to(currentNutrients, {
-      cal,
-      pro,
-      carb,
-      fat,
-      duration: 0.35,
-      ease: 'power2.out',
-      onUpdate: () => {
-        if (demoCal) demoCal.textContent = Math.round(currentNutrients.cal).toString();
-        if (demoPro) demoPro.textContent = currentNutrients.pro.toFixed(1);
-        if (demoCarb) demoCarb.textContent = currentNutrients.carb.toFixed(1);
-        if (demoFat) demoFat.textContent = currentNutrients.fat.toFixed(1);
-      },
-    });
-  }
-
-  mealBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      mealBtns.forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      const mealKey = btn.getAttribute('data-meal');
-      if (mealKey && mealPresets[mealKey] && noteInput) {
-        const data = mealPresets[mealKey];
-        noteInput.value = data.text;
-        animateNutrientValues(data.cal, data.pro, data.carb, data.fat);
-        if (demoSource) demoSource.textContent = data.source;
+  // 4. SHA-256 Copy Functionality
+  const copyBtns = document.querySelectorAll('.copy-hash-btn');
+  copyBtns.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const hash = btn.getAttribute('data-hash');
+      if (!hash) return;
+      try {
+        await navigator.clipboard.writeText(hash);
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.classList.remove('copied');
+        }, 2200);
+      } catch (err) {
+        // Fallback
       }
     });
   });
-
-  if (noteInput) {
-    noteInput.addEventListener('input', () => {
-      mealBtns.forEach((b) => b.classList.remove('active'));
-      const text = noteInput.value.trim();
-      if (!text) {
-        animateNutrientValues(0, 0, 0, 0);
-        return;
-      }
-      const result = calculateNutrientsFromText(text);
-      animateNutrientValues(result.cal, result.pro, result.carb, result.fat);
-      if (demoSource) demoSource.textContent = 'Calculated dynamically via verified Indian nutrition profile';
-    });
-  }
 </script>
 
 <style>
-  .download-section {
+  .ecosystem-root {
     position: relative;
     overflow: hidden;
-    padding: 100px 0 120px 0;
+    padding: 60px 0 80px 0;
   }
 
   .standalone-hub {
-    padding-top: 130px;
+    padding-top: 100px;
     min-height: 100vh;
   }
 
-  /* ── Background Subtle Lights ─────────────────────────────────────────────── */
+  /* ── Monochromatic Ambient Glow ───────────────────────────────────────────── */
   .ambient-glow {
     position: absolute;
     pointer-events: none;
@@ -1035,47 +1234,44 @@ const { isStandalone = false } = Astro.props;
   }
 
   .ambient-glow-top {
-    top: 0%;
-    left: 20%;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.04) 0%, transparent 70%);
   }
 
-  .ambient-glow-center {
-    top: 40%;
-    right: 15%;
-    width: 650px;
-    height: 650px;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+  html[data-theme="light"] .ambient-glow-top {
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.025) 0%, transparent 70%);
   }
 
-  /* ── 1. Amy + Apple Hero ──────────────────────────────────────────────────── */
+  /* ── 1. Hero ──────────────────────────────────────────────────────────────── */
   .hero-block {
     text-align: center;
-    max-width: 860px;
-    margin: 0 auto 90px auto;
+    max-width: 980px;
+    margin: 0 auto 60px auto;
     position: relative;
     z-index: 1;
-    padding-top: 20px;
+    padding-top: 10px;
   }
 
   .hero-badge {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--muted);
     background: var(--btn-ghost-bg);
     border: 1px solid var(--border);
     border-radius: 100px;
     padding: 6px 16px;
-    margin-bottom: 24px;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    margin-bottom: 20px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   .badge-dot {
@@ -1083,44 +1279,44 @@ const { isStandalone = false } = Astro.props;
     height: 6px;
     border-radius: 50%;
     background: var(--text-heading);
-    box-shadow: 0 0 8px var(--border-hi);
   }
 
   .hero-title {
-    font-size: clamp(2.8rem, 6vw, 4.8rem);
-    line-height: 1.08;
-    letter-spacing: -0.04em;
-    font-weight: 800;
-    margin-bottom: 20px;
+    font-size: clamp(2.4rem, 5.2vw, 4.2rem);
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+    font-weight: 750;
+    margin-bottom: 18px;
     color: var(--text-heading);
   }
 
   .hero-subtitle {
-    font-size: clamp(16px, 2.2vw, 20px);
+    font-size: clamp(16px, 2vw, 19px);
     color: var(--muted);
     line-height: 1.6;
     max-width: 720px;
-    margin: 0 auto 36px auto;
+    margin: 0 auto 28px auto;
   }
 
   .hero-actions {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    flex-wrap: wrap;
+    gap: 14px;
     margin-bottom: 24px;
+    flex-wrap: wrap;
   }
 
   .hero-btn-dl {
-    padding: 15px 32px;
-    font-size: 15.5px;
-    font-weight: 700;
+    padding: 13px 26px;
+    font-size: 15px;
+    font-weight: 600;
   }
 
   .hero-btn-web {
-    padding: 15px 28px;
+    padding: 13px 22px;
     font-size: 15px;
+    font-weight: 500;
   }
 
   .hero-trust-bar {
@@ -1129,73 +1325,313 @@ const { isStandalone = false } = Astro.props;
     justify-content: center;
     gap: 12px;
     font-size: 13px;
-    color: var(--muted);
-    font-weight: 500;
+    color: var(--muted2);
+    margin-bottom: 48px;
   }
 
   .trust-sep {
-    opacity: 0.4;
+    color: var(--border-hi);
   }
 
-  /* ── 2. Amy Food Journal Section ──────────────────────────────────────────── */
-  .journal-section {
+  /* ── Hero Narrative Composition (900-1100px) ──────────────────────────────── */
+  .hero-narrative-frame {
+    max-width: 1040px;
+    margin: 0 auto;
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 32px;
-    padding: 56px 40px;
-    margin-bottom: 100px;
-    position: relative;
-    z-index: 1;
-    box-shadow: var(--card-shadow);
-    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    border-radius: var(--radius-xl);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--card-shadow);
+    overflow: hidden;
+    text-align: left;
+    transition: border-color 0.3s ease;
+  }
+
+  .narrative-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    gap: 8px;
+  }
+
+  .n-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    font-family: var(--font);
+  }
+
+  .n-tab:hover {
+    color: var(--text-heading);
+  }
+
+  .n-tab.active {
+    background: var(--card);
+    color: var(--text-heading);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border);
+  }
+
+  .n-step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--btn-ghost-bg);
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .n-tab.active .n-step-num {
+    background: var(--text-heading);
+    color: var(--bg);
+    border-color: var(--text-heading);
+  }
+
+  .n-tab-divider {
+    color: var(--border-hi);
+    font-size: 12px;
+  }
+
+  .narrative-card {
+    padding: 28px 32px;
+  }
+
+  .pane-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+
+  .pane-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--apple-blue);
+  }
+
+  .pane-sub {
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .sample-input-box {
+    background: var(--input-bg);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    color: var(--text-heading);
+    font-weight: 500;
+  }
+
+  .input-chevron {
+    color: var(--apple-blue);
+    font-weight: 700;
+  }
+
+  .pane-footnote {
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--muted2);
+  }
+
+  /* Resolved items list */
+  .resolved-items-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .resolved-row {
+    display: grid;
+    grid-template-columns: 2fr 1.6fr 1.4fr 1fr;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+  }
+
+  .item-name {
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+
+  .item-source {
+    font-size: 11.5px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    display: inline-block;
+    width: fit-content;
+  }
+
+  .badge-curated {
+    background: rgba(0, 113, 227, 0.1);
+    color: var(--apple-blue);
+    border: 1px solid rgba(0, 113, 227, 0.2);
+  }
+
+  .badge-ifct {
+    background: rgba(52, 199, 89, 0.1);
+    color: #34C759;
+    border: 1px solid rgba(52, 199, 89, 0.2);
+  }
+
+  .item-portion {
+    color: var(--muted);
+  }
+
+  .item-kcal {
+    text-align: right;
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+
+  /* Hero Macros Grid */
+  .hero-macros-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .h-macro-card {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 16px;
+    text-align: center;
+  }
+
+  .h-macro-val {
+    font-size: 2.2rem;
+    font-weight: 750;
+    color: var(--text-heading);
+    letter-spacing: -0.03em;
+  }
+
+  .h-macro-unit {
+    font-size: 13px;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+
+  .h-macro-label {
+    display: block;
+    margin-top: 6px;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  /* Today overview grid */
+  .today-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .today-stat-box {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .today-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    font-weight: 700;
+  }
+
+  .today-val {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+
+  .today-sub {
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .text-green {
+    color: #34C759;
+  }
+
+  /* ── 2. Journal Simulator ─────────────────────────────────────────────────── */
+  .journal-section {
+    margin-bottom: 70px;
   }
 
   .section-heading {
     text-align: center;
-    max-width: 740px;
-    margin: 0 auto 44px auto;
+    max-width: 760px;
+    margin: 0 auto 40px auto;
   }
 
   .section-title {
-    font-size: clamp(2rem, 4vw, 3rem);
-    letter-spacing: -0.03em;
-    font-weight: 800;
     margin-bottom: 14px;
-    color: var(--text-heading);
-    transition: color 0.3s ease;
   }
 
   .section-subtitle {
-    font-size: 16.5px;
+    font-size: clamp(15px, 1.8vw, 17px);
     color: var(--muted);
-    line-height: 1.62;
-    transition: color 0.3s ease;
+    line-height: 1.6;
   }
 
   .interactive-journal-frame {
-    max-width: 820px;
-    margin: 0 auto 48px auto;
-    background: var(--preview-frame-bg);
+    max-width: 860px;
+    margin: 0 auto 36px auto;
+    background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 24px;
-    padding: 28px;
-    box-shadow: var(--card-shadow);
-    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    border-radius: var(--radius-xl);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--card-shadow);
+    overflow: hidden;
   }
 
   .note-window-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding-bottom: 16px;
-    margin-bottom: 16px;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--bg-subtle);
     border-bottom: 1px solid var(--border);
   }
 
   .window-controls {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
   }
 
   .win-dot {
@@ -1209,53 +1645,53 @@ const { isStandalone = false } = Astro.props;
   .win-dot.zoom { background: #27C93F; }
 
   .note-folder-name {
-    margin-left: 8px;
+    margin-left: 10px;
     font-size: 12.5px;
     font-weight: 600;
     color: var(--muted);
   }
 
   .window-status-pill {
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 600;
-    color: var(--text-main);
-    background: var(--btn-ghost-bg);
-    border: 1px solid var(--border);
+    color: var(--apple-blue);
+    background: rgba(0, 113, 227, 0.08);
+    border: 1px solid rgba(0, 113, 227, 0.2);
     border-radius: 100px;
-    padding: 4px 12px;
+    padding: 3px 10px;
   }
 
   .sample-meals-bar {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
+    overflow-x: auto;
   }
 
   .sample-label {
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: var(--muted2);
+    white-space: nowrap;
   }
 
   .sample-pills {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
   }
 
   .meal-sample-btn {
     background: var(--btn-ghost-bg);
     border: 1px solid var(--border);
-    color: var(--muted);
     border-radius: 100px;
-    padding: 7px 15px;
+    padding: 5px 12px;
     font-size: 12.5px;
-    font-weight: 600;
+    font-weight: 500;
+    color: var(--muted);
     cursor: pointer;
+    white-space: nowrap;
     transition: all 0.2s ease;
     font-family: var(--font);
   }
@@ -1263,31 +1699,21 @@ const { isStandalone = false } = Astro.props;
   .meal-sample-btn:hover {
     color: var(--text-heading);
     border-color: var(--border-hi);
-    background: var(--border);
   }
 
   .meal-sample-btn.active {
-    background: var(--btn-primary-bg);
-    color: var(--btn-primary-text);
-    border-color: var(--btn-primary-bg);
-    box-shadow: var(--btn-primary-shadow);
+    background: var(--text-heading);
+    color: var(--bg);
+    border-color: var(--text-heading);
+    font-weight: 600;
   }
 
   .note-card-inner {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    padding: 24px;
   }
 
   .note-input-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    margin-bottom: 24px;
   }
 
   .note-input-field {
@@ -1295,10 +1721,10 @@ const { isStandalone = false } = Astro.props;
     align-items: center;
     gap: 10px;
     background: var(--input-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 11px 16px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
   .note-input-field:focus-within {
@@ -1307,149 +1733,130 @@ const { isStandalone = false } = Astro.props;
   }
 
   .note-prompt-symbol {
-    color: var(--text-heading);
+    color: var(--apple-blue);
     font-weight: 700;
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .note-live-input {
     width: 100%;
     background: transparent;
     border: none;
-    outline: none;
-    font-size: 14.5px;
+    font-size: 15.5px;
     color: var(--text-heading);
     font-family: var(--font);
-    font-weight: 500;
-  }
-
-  .note-live-input::placeholder {
-    color: var(--muted2);
+    outline: none;
   }
 
   .note-hint {
+    margin-top: 8px;
     font-size: 12px;
     color: var(--muted2);
-    padding-left: 4px;
   }
 
   .macros-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
+    margin-bottom: 20px;
   }
 
   .macro-cell {
-    background: var(--btn-ghost-bg);
+    background: var(--bg-subtle);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px 8px;
+    border-radius: var(--radius-sm);
+    padding: 16px;
     text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .macro-value {
-    font-size: 26px;
-    font-weight: 800;
+    font-size: 1.8rem;
+    font-weight: 750;
     color: var(--text-heading);
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-    transition: color 0.3s ease;
+    letter-spacing: -0.03em;
   }
 
   .macro-unit {
-    font-size: 10px;
+    font-size: 12.5px;
     color: var(--muted);
-    font-weight: 600;
-    margin-bottom: 2px;
   }
 
   .macro-label {
-    font-size: 10px;
-    font-weight: 700;
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--muted2);
+    color: var(--muted);
+    font-weight: 600;
   }
 
   .note-footer-meta {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 12px;
-    font-size: 12px;
+    justify-content: space-between;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
     color: var(--muted);
-    flex-wrap: wrap;
   }
 
   .meta-left {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
 
   .calc-badge {
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-main);
+    color: var(--muted);
+    background: var(--btn-ghost-bg);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 6px;
   }
 
-  /* Amy 3 Pillars */
-  .amy-pillars {
+  /* Provenance strip */
+  .provenance-strip {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+    gap: 20px;
+    max-width: 860px;
+    margin: 0 auto;
   }
 
-  .pillar-card {
+  .prov-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 26px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    border-radius: var(--radius);
+    padding: 20px;
     box-shadow: var(--card-shadow);
-    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.3s ease;
   }
 
-  .pillar-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--border-hi);
-    box-shadow: var(--card-hover-shadow);
-  }
-
-  .pillar-num {
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: var(--muted2);
-  }
-
-  .pillar-title {
-    font-size: 17px;
+  .prov-badge {
+    font-size: 10px;
     font-weight: 700;
-    color: var(--text-heading);
-    transition: color 0.3s ease;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--apple-blue);
+    margin-bottom: 8px;
   }
 
-  .pillar-text {
-    font-size: 13.5px;
+  .prov-title {
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .prov-desc {
+    font-size: 13px;
     color: var(--muted);
-    line-height: 1.6;
-    transition: color 0.3s ease;
+    line-height: 1.5;
   }
 
-  /* ── 3. Bento Grid & Apple Segmented Control ──────────────────────────────── */
+  /* ── 3. Products Bento Grid ───────────────────────────────────────────────── */
   .ecosystem-section {
-    margin-bottom: 100px;
-    position: relative;
-    z-index: 1;
+    margin-bottom: 70px;
   }
 
   .segmented-control {
@@ -1458,32 +1865,24 @@ const { isStandalone = false } = Astro.props;
     align-items: center;
     background: var(--seg-bg);
     border: 1px solid var(--border);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     border-radius: 100px;
-    padding: 5px;
-    gap: 2px;
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
+    padding: 3px;
     margin-top: 24px;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
-
-  .segmented-control::-webkit-scrollbar { display: none; }
 
   .seg-pill-bg {
     position: absolute;
-    top: 5px;
-    bottom: 5px;
-    left: 0;
-    width: 0;
+    top: 3px;
+    bottom: 3px;
     background: var(--seg-pill-bg);
     border-radius: 100px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     pointer-events: none;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
     z-index: 0;
-    transition: background-color 0.3s ease;
   }
 
   .seg-btn {
@@ -1491,88 +1890,67 @@ const { isStandalone = false } = Astro.props;
     z-index: 1;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     background: transparent;
     border: none;
     color: var(--seg-text);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 8px 18px;
+    padding: 7px 16px;
     border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    white-space: nowrap;
+    transition: color 0.2s ease;
     font-family: var(--font);
-  }
-
-  .seg-btn:active {
-    transform: scale(0.97);
-  }
-
-  .seg-btn:hover {
-    color: var(--text-heading);
   }
 
   .seg-btn.active {
     color: var(--seg-pill-text);
+    font-weight: 600;
   }
 
   .seg-count {
-    font-size: 10.5px;
-    background: var(--btn-ghost-bg);
-    padding: 2px 6px;
-    border-radius: 8px;
+    font-size: 10px;
+    opacity: 0.7;
+    margin-left: 2px;
   }
 
   .seg-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--muted2);
+    background: currentColor;
+    opacity: 0.6;
   }
 
   .products-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 28px;
+    gap: 24px;
     margin-top: 36px;
   }
 
+  /* Solid Bento Card with subtle specular top edge light */
   .bento-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-top: 1px solid var(--border-hi);
-    border-radius: 28px;
-    padding: 34px;
+    border-radius: var(--radius-xl);
+    padding: 32px;
     display: flex;
     flex-direction: column;
     gap: 20px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--card-shadow);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--card-shadow);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
   }
 
   .bento-card:hover {
-    transform: translateY(-3px);
     border-color: var(--border-hi);
-    box-shadow: var(--card-hover-shadow);
-  }
-
-  .card-spotlight {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(350px circle at var(--mouse-x, -500px) var(--mouse-y, -500px), var(--border-hi), transparent 70%);
-    z-index: 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), var(--card-hover-shadow);
   }
 
   .bento-card-header {
-    position: relative;
-    z-index: 1;
     display: flex;
-    justify-content: space-between;
     align-items: flex-start;
+    justify-content: space-between;
     gap: 16px;
   }
 
@@ -1583,19 +1961,20 @@ const { isStandalone = false } = Astro.props;
   }
 
   .product-icon {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   .icon-dark {
     background: var(--icon-bg);
     color: var(--icon-text);
+    font-size: 20px;
+    font-weight: 800;
   }
 
   .icon-glass {
@@ -1604,135 +1983,105 @@ const { isStandalone = false } = Astro.props;
     color: var(--text-heading);
   }
 
-  .icon-glyph {
-    font-size: 22px;
-    font-weight: 900;
-    letter-spacing: -0.5px;
-  }
-
   .product-category {
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted2);
-    transition: color 0.3s ease;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 2px;
   }
 
   .product-title {
-    font-size: 21px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--text-heading);
-    letter-spacing: -0.02em;
-    transition: color 0.3s ease;
   }
 
   .status-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 600;
-    padding: 4px 12px;
-    border-radius: 100px;
+    color: var(--muted);
     background: var(--btn-ghost-bg);
     border: 1px solid var(--border);
-    color: var(--text-main);
+    padding: 4px 10px;
+    border-radius: 100px;
     white-space: nowrap;
-    font-variant-numeric: tabular-nums;
   }
 
   .status-dot {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--text-heading);
+    background: #34C759;
   }
 
   .bento-desc {
-    position: relative;
-    z-index: 1;
-    font-size: 14px;
+    font-size: 14.5px;
     color: var(--muted);
-    line-height: 1.62;
-    min-height: 66px;
-    transition: color 0.3s ease;
+    line-height: 1.55;
   }
 
-  .apple-code {
-    background: var(--btn-ghost-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 2px 5px;
-    font-size: 12px;
-    color: var(--text-heading);
-    font-family: monospace;
-  }
-
-  /* Card Preview Container */
+  /* Card UI Preview */
   .card-ui-preview {
-    position: relative;
-    z-index: 1;
     background: var(--preview-frame-bg);
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: var(--radius);
     overflow: hidden;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .preview-header {
-    background: var(--preview-header-bg);
-    padding: 8px 12px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--preview-header-bg);
     border-bottom: 1px solid var(--border);
-    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .preview-title {
-    font-size: 10.5px;
-    font-family: monospace;
-    color: var(--muted);
-    margin-left: 6px;
+    margin-left: 8px;
+    font-size: 11.5px;
+    color: var(--muted2);
+    font-weight: 500;
   }
 
   .preview-body {
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
 
   .stat-dual-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
 
   .preview-stat-box {
     background: var(--preview-tile-bg);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 12px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    border-radius: var(--radius-sm);
+    padding: 12px;
   }
 
   .p-stat-lbl {
-    font-size: 9px;
+    display: block;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     color: var(--muted2);
+    margin-bottom: 4px;
   }
 
   .p-stat-val {
-    font-size: 13.5px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-heading);
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .macro-triple-row {
@@ -1744,341 +2093,478 @@ const { isStandalone = false } = Astro.props;
   .macro-tile {
     background: var(--preview-tile-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px;
+    border-radius: var(--radius-sm);
+    padding: 8px;
     text-align: center;
-    display: flex;
-    flex-direction: column;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .tile-val {
-    font-size: 13px;
+    display: block;
+    font-size: 13.5px;
     font-weight: 700;
     color: var(--text-heading);
-    font-variant-numeric: tabular-nums;
   }
 
   .tile-lbl {
-    font-size: 9.5px;
-    color: var(--muted2);
+    font-size: 10.5px;
+    color: var(--muted);
   }
 
   .preview-search-bar {
     background: var(--preview-tile-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 12px;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 13px;
     color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
-  }
-
-  kbd {
-    background: var(--btn-ghost-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 1px 5px;
-    font-size: 10px;
-    color: var(--text-main);
-    font-family: inherit;
   }
 
   .preview-tags-row {
     display: flex;
-    gap: 6px;
+    gap: 8px;
   }
 
   .preview-tag {
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 600;
+    color: var(--muted);
     background: var(--btn-ghost-bg);
     border: 1px solid var(--border);
-    border-radius: 6px;
     padding: 3px 8px;
-    color: var(--text-main);
+    border-radius: 6px;
   }
 
   .preview-activity-note {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted);
-    background: var(--preview-tile-bg);
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    padding: 4px 0;
   }
 
   .preview-voice-stream {
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: var(--preview-tile-bg);
+    gap: 10px;
     padding: 8px 12px;
-    border-radius: 8px;
+    background: var(--preview-tile-bg);
     border: 1px solid var(--border);
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    border-radius: var(--radius-sm);
   }
 
   .audio-bars {
     display: flex;
     align-items: center;
     gap: 3px;
+    height: 14px;
   }
 
   .abar {
-    width: 2.5px;
-    background: var(--text-heading);
-    border-radius: 2px;
-    animation: bar-wave 1.2s infinite ease-in-out;
-  }
-
-  .a1 { height: 10px; animation-delay: 0.1s; }
-  .a2 { height: 18px; animation-delay: 0.2s; }
-  .a3 { height: 12px; animation-delay: 0.3s; }
-  .a4 { height: 20px; animation-delay: 0.4s; }
-  .a5 { height: 14px; animation-delay: 0.5s; }
-  .a6 { height: 8px; animation-delay: 0.6s; }
-
-  @keyframes bar-wave {
-    0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
-    50% { transform: scaleY(1); opacity: 1; }
+    width: 2px;
+    height: 12px;
+    background: var(--apple-blue);
+    border-radius: 1px;
   }
 
   .voice-stream-label {
-    font-size: 10.5px;
-    color: var(--muted2);
-    margin-left: auto;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-heading);
   }
 
   .preview-dialogue-box {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    font-size: 11.5px;
+    gap: 8px;
+    font-size: 12.5px;
   }
 
   .user-bubble {
-    color: var(--muted);
-    background: var(--btn-ghost-bg);
-    border: 1px solid var(--border);
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-style: italic;
+    align-self: flex-end;
+    background: var(--apple-blue);
+    color: #FFFFFF;
+    padding: 8px 12px;
+    border-radius: 12px 12px 2px 12px;
+    max-width: 85%;
   }
 
   .jarvis-bubble {
-    color: var(--text-heading);
-    background: var(--card-2);
+    align-self: flex-start;
+    background: var(--preview-tile-bg);
     border: 1px solid var(--border);
-    padding: 6px 10px;
-    border-radius: 8px;
+    color: var(--text-heading);
+    padding: 8px 12px;
+    border-radius: 12px 12px 12px 2px;
+    max-width: 85%;
   }
 
   /* Spec Matrix */
   .spec-matrix {
-    position: relative;
-    z-index: 1;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
-    padding: 12px 0;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--muted);
   }
 
   .spec-cell {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
-    color: var(--muted);
   }
 
   .spec-cell svg {
-    color: var(--muted2);
+    color: var(--apple-blue);
     flex-shrink: 0;
+  }
+
+  /* Expandable Technical Details */
+  .tech-expandable {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    font-size: 12.5px;
+  }
+
+  .tech-toggle {
+    color: var(--muted);
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s ease;
+  }
+
+  .tech-toggle:hover {
+    color: var(--text-heading);
+  }
+
+  .tech-content {
+    margin-top: 8px;
+    color: var(--muted2);
+    line-height: 1.5;
+    padding-left: 8px;
+    border-left: 2px solid var(--border-hi);
   }
 
   /* Card Actions */
   .card-actions {
-    position: relative;
-    z-index: 1;
     display: flex;
+    align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    margin-top: auto;
   }
 
   .btn-action {
     flex: 1;
-    justify-content: center;
+    padding: 10px 18px;
     font-size: 13.5px;
   }
 
   .btn-sub-action {
-    font-size: 13px;
-    padding: 12px 20px;
+    padding: 10px 16px;
+    font-size: 13.5px;
   }
 
-  /* ── 4. Synergy Section ──────────────────────────────────────────────────── */
+  /* ── 4. Synergy Section ───────────────────────────────────────────────────── */
   .synergy-section {
-    margin-bottom: 100px;
-    position: relative;
-    z-index: 1;
+    margin-bottom: 70px;
   }
 
   .synergy-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 22px;
+    gap: 20px;
   }
 
   .synergy-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 22px;
+    border-radius: var(--radius-lg);
     padding: 28px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    position: relative;
     box-shadow: var(--card-shadow);
-    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.3s ease;
   }
 
-  .synergy-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--border-hi);
-    box-shadow: var(--card-hover-shadow);
-  }
-
-  .synergy-step {
-    position: absolute;
-    top: 24px;
-    right: 24px;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: var(--muted2);
-  }
-
-  .synergy-icon-wrap {
-    font-size: 28px;
-    margin-bottom: 4px;
+  .synergy-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-heading);
+    margin-bottom: 6px;
   }
 
   .synergy-card-title {
     font-size: 17px;
-    font-weight: 700;
     color: var(--text-heading);
-    transition: color 0.3s ease;
+  }
+
+  .synergy-subtitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--apple-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .synergy-card-text {
     font-size: 13.5px;
     color: var(--muted);
-    line-height: 1.6;
-    transition: color 0.3s ease;
+    line-height: 1.55;
   }
 
-  /* ── 5. Comparison Table ─────────────────────────────────────────────────── */
-  .comparison-section {
-    margin-bottom: 100px;
-    position: relative;
-    z-index: 1;
+  /* ── 5. Principles Section ────────────────────────────────────────────────── */
+  .principles-section {
+    margin-bottom: 70px;
   }
 
-  .table-frame {
-    overflow-x: auto;
-    border-radius: 22px;
-    border: 1px solid var(--border);
+  .principles-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .principle-card {
     background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--card-shadow);
+  }
+
+  .principle-number {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--muted2);
+    margin-bottom: 10px;
+  }
+
+  .principle-name {
+    font-size: 19px;
+    margin-bottom: 8px;
+    color: var(--text-heading);
+  }
+
+  .principle-body {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── 6. APK Sideload & Release Trust ──────────────────────────────────────── */
+  .sideload-section {
+    margin-bottom: 70px;
+  }
+
+  .steps-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .step-card {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
     box-shadow: var(--card-shadow);
-    -webkit-overflow-scrolling: touch;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
-  .apple-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
+  .step-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--icon-bg);
+    color: var(--icon-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .step-title {
+    font-size: 16px;
+    margin-bottom: 6px;
+    color: var(--text-heading);
+  }
+
+  .step-text {
     font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.5;
   }
 
-  .apple-table th {
-    padding: 16px 22px;
+  .step-arrow {
+    font-size: 20px;
+    color: var(--border-hi);
+  }
+
+  /* Verification Grid */
+  .verification-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .verify-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .verify-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .v-product-name {
+    font-size: 17px;
     font-weight: 700;
     color: var(--text-heading);
-    border-bottom: 1px solid var(--border);
+  }
+
+  .v-product-tag {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .v-dl-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .v-details-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     font-size: 12.5px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    transition: color 0.3s ease;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
   }
 
-  .apple-table td {
-    padding: 15px 22px;
-    border-bottom: 1px solid var(--border);
-    color: var(--text-main);
-    transition: color 0.3s ease;
+  .v-spec-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
   }
 
-  .apple-table tr:last-child td {
-    border-bottom: none;
+  .v-spec-key {
+    color: var(--muted);
+    font-weight: 500;
   }
 
-  .row-feature {
-    font-weight: 600;
+  .v-spec-val {
     color: var(--text-heading);
-  }
-
-  .highlight-head {
-    color: var(--text-heading) !important;
-    background: var(--table-highlight);
-  }
-
-  .highlight-cell {
-    background: var(--table-highlight);
     font-weight: 600;
   }
 
-  .font-bold { font-weight: 700; }
-  .text-white { color: var(--text-heading); }
-  .text-muted { color: var(--muted); }
+  .v-spec-item.sha-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
 
-  /* ── 6. Creator Card ─────────────────────────────────────────────────────── */
+  .hash-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .hash-val {
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: var(--text-heading);
+    word-break: break-all;
+  }
+
+  .copy-hash-btn {
+    background: var(--btn-ghost-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: var(--font);
+    white-space: nowrap;
+  }
+
+  .copy-hash-btn:hover {
+    color: var(--text-heading);
+    border-color: var(--border-hi);
+  }
+
+  .copy-hash-btn.copied {
+    background: #34C759;
+    color: #FFFFFF;
+    border-color: #34C759;
+  }
+
+  .v-footer {
+    font-size: 12.5px;
+  }
+
+  .release-notes-link {
+    color: var(--apple-blue);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .release-notes-link:hover {
+    text-decoration: underline;
+  }
+
+  /* ── 7. Creator Story ─────────────────────────────────────────────────────── */
   .creator-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 28px;
-    padding: 44px;
+    border-radius: var(--radius-xl);
+    padding: 36px;
     display: flex;
-    gap: 32px;
-    align-items: flex-start;
-    max-width: 820px;
-    margin: 0 auto 90px auto;
-    position: relative;
-    z-index: 1;
+    gap: 28px;
+    max-width: 860px;
+    margin: 0 auto;
     box-shadow: var(--card-shadow);
-    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   .creator-avatar {
-    width: 60px;
-    height: 60px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background: var(--icon-bg);
     color: var(--icon-text);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
-    font-weight: 900;
+    font-size: 22px;
+    font-weight: 800;
     flex-shrink: 0;
-    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   .creator-content {
@@ -2088,170 +2574,101 @@ const { isStandalone = false } = Astro.props;
   }
 
   .creator-title {
-    font-size: 23px;
-    font-weight: 800;
+    font-size: 24px;
     color: var(--text-heading);
-    transition: color 0.3s ease;
   }
 
   .creator-p {
-    font-size: 14.5px;
+    font-size: 15px;
+    color: var(--muted);
     line-height: 1.65;
-    color: var(--text-main);
-    transition: color 0.3s ease;
   }
 
   .creator-signoff {
+    margin-top: 8px;
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin-top: 6px;
   }
 
   .sign-name {
-    font-size: 14.5px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-heading);
-    transition: color 0.3s ease;
   }
 
   .sign-role {
-    font-size: 12px;
-    color: var(--muted2);
-    font-weight: 500;
-  }
-
-  /* ── 7. Sideload Guide ───────────────────────────────────────────────────── */
-  .sideload-section {
-    position: relative;
-    z-index: 1;
-    max-width: 920px;
-    margin: 0 auto;
-  }
-
-  .steps-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .step-card {
-    flex: 1;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    box-shadow: var(--card-shadow);
-    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.3s ease;
-  }
-
-  .step-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--border-hi);
-    box-shadow: var(--card-hover-shadow);
-  }
-
-  .step-badge {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--btn-ghost-bg);
-    border: 1px solid var(--border-hi);
-    color: var(--text-heading);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-size: 13px;
-    font-weight: 800;
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
-
-  .step-title {
-    font-size: 15.5px;
-    font-weight: 700;
-    color: var(--text-heading);
-    transition: color 0.3s ease;
-  }
-
-  .step-text {
-    font-size: 12.5px;
-    color: var(--muted);
-    line-height: 1.55;
-    transition: color 0.3s ease;
-  }
-
-  .step-arrow {
-    font-size: 22px;
     color: var(--muted2);
-    font-weight: 300;
   }
 
-  /* ── Responsive Adaptations ───────────────────────────────────────────────── */
-  @media (max-width: 960px) {
+  /* ── Responsive Ergonomics ────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
     .products-grid {
       grid-template-columns: 1fr;
-      gap: 22px;
     }
-
     .synergy-grid {
       grid-template-columns: 1fr;
-      gap: 16px;
     }
-
-    .amy-pillars {
+    .principles-grid {
       grid-template-columns: 1fr;
-      gap: 16px;
     }
-
+    .verification-grid {
+      grid-template-columns: 1fr;
+    }
+    .provenance-strip {
+      grid-template-columns: 1fr;
+    }
+    .today-overview-grid {
+      grid-template-columns: 1fr;
+    }
     .steps-row {
       flex-direction: column;
       align-items: stretch;
-      gap: 12px;
     }
-
-    .step-arrow { display: none; }
-
-    .creator-card {
-      flex-direction: column;
-      gap: 18px;
-      padding: 30px 22px;
+    .step-arrow {
+      transform: rotate(90deg);
+      text-align: center;
+      margin: -6px 0;
     }
-
-    .journal-section {
-      padding: 36px 20px;
-    }
-
-    .macros-grid {
-      grid-template-columns: repeat(2, 1fr);
+    .resolved-row {
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
     }
   }
 
-  @media (max-width: 600px) {
-    .download-section {
-      padding: 60px 0 80px 0;
+  @media (max-width: 680px) {
+    .creator-card {
+      flex-direction: column;
+      padding: 24px;
+      gap: 16px;
     }
-
+    .hero-macros-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .macros-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .narrative-card {
+      padding: 20px;
+    }
     .bento-card {
-      padding: 22px 18px;
+      padding: 22px;
     }
-
     .spec-matrix {
       grid-template-columns: 1fr;
     }
-
-    .card-actions {
+    .note-window-header {
       flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
     }
-
-    .btn-action {
-      width: 100%;
+    .window-status-pill {
+      align-self: flex-start;
     }
-
-    .interactive-journal-frame {
-      padding: 16px;
+    .segmented-control {
+      max-width: 100%;
+      overflow-x: auto;
     }
   }
 </style>

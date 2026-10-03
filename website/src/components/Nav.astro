@@ -1,87 +1,113 @@
 ---
+import releases from '../data/releases.json';
+
+const kfitRelease = releases.kfit;
+const kfitDlUrl = `/downloads/kfit`;
 ---
 
 <nav class="nav" id="nav">
   <div class="nav-inner container">
     <a href="/" class="nav-logo" aria-label="KFit Home">
       <div class="logo-mark">K</div>
-      <span class="logo-text">KFit<span class="logo-badge">Suite</span></span>
+      <span class="logo-text">KFit<span class="logo-badge">Ecosystem</span></span>
     </a>
 
     <div class="nav-links">
       <a href="/#journal">Food Journal</a>
-      <a href="/#products">Ecosystem</a>
-      <a href="/#comparison">Why KFit</a>
+      <a href="/#products">Products</a>
+      <a href="/#synergy">How it Connects</a>
+      <a href="/#principles">Principles</a>
+      <a href="/#sideload">Install</a>
       <a href="/#about">About</a>
     </div>
 
     <div class="nav-actions">
-      <!-- Apple Light / Dark Theme Switcher -->
-      <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle theme" title="Toggle theme">
-        <span class="icon-sun">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-        </span>
-        <span class="icon-moon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
+      <!-- Apple Light / Dark Theme Switcher with min 44px touch target -->
+      <button
+        class="theme-toggle-btn"
+        id="themeToggleBtn"
+        aria-label="Switch to light mode"
+        title="Switch to light mode"
+        type="button"
+      >
+        <span class="theme-toggle-inner">
+          <span class="icon-sun">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/>
+              <line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          </span>
+          <span class="icon-moon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </span>
         </span>
       </button>
 
       <a href="https://getkfit.app" target="_blank" rel="noopener noreferrer" class="nav-link-web" title="Open Web App">
         <span>Web App</span>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M10 14L21 3"/>
         </svg>
       </a>
 
-      <a href="https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk" class="btn btn-primary nav-cta" download="kfit.apk">
+      <!-- Stable Download URL consuming single source of truth -->
+      <a href={kfitDlUrl} class="btn btn-primary nav-cta" download="kfit.apk" title={`Download KFit APK (${kfitRelease.version})`}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
         </svg>
         <span class="nav-cta-text">Download KFit</span>
       </a>
 
-      <!-- Apple Mobile Hamburger Menu Button -->
-      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle navigation menu" aria-expanded="false">
+      <!-- Apple Mobile Hamburger Menu Button (44px touch target) -->
+      <button
+        class="mobile-menu-btn"
+        id="mobileMenuBtn"
+        aria-label="Open navigation menu"
+        aria-expanded="false"
+        aria-controls="mobileDrawer"
+        type="button"
+      >
         <span class="menu-bar bar-1"></span>
         <span class="menu-bar bar-2"></span>
       </button>
     </div>
   </div>
 
-  <!-- Apple Frosted Glass Mobile Drawer -->
-  <div class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
+  <!-- Apple Frosted Glass Mobile Drawer with accessible modal interaction -->
+  <div class="mobile-drawer" id="mobileDrawer" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
     <div class="container drawer-inner">
-      <div class="drawer-links">
-        <a href="/#journal" class="drawer-link">
+      <div class="drawer-links" role="menu">
+        <a href="/#journal" class="drawer-link" role="menuitem">
           <span>Food Journal</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-        <a href="/#products" class="drawer-link">
-          <span>Ecosystem</span>
+        <a href="/#products" class="drawer-link" role="menuitem">
+          <span>Products</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-        <a href="/#comparison" class="drawer-link">
-          <span>Why KFit</span>
+        <a href="/#synergy" class="drawer-link" role="menuitem">
+          <span>How it Connects</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-        <a href="/#about" class="drawer-link">
-          <span>About &amp; Mission</span>
+        <a href="/#principles" class="drawer-link" role="menuitem">
+          <span>Principles</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-        <a href="/#sideload" class="drawer-link">
+        <a href="/#sideload" class="drawer-link" role="menuitem">
           <span>Install Guide</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a href="/#about" class="drawer-link" role="menuitem">
+          <span>About KFit</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
       </div>
@@ -91,11 +117,11 @@
           <span>Launch Web App (getkfit.app)</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
         </a>
-        <a href="https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk" class="btn btn-primary drawer-btn" download="kfit.apk">
+        <a href={kfitDlUrl} class="btn btn-primary drawer-btn" download="kfit.apk">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
-          <span>Download Android APK</span>
+          <span>Download KFit APK ({kfitRelease.version})</span>
         </a>
       </div>
     </div>
@@ -112,11 +138,25 @@
     }
   }, { passive: true });
 
+  // Accessible Apple Theme Toggle
   const toggleBtn = document.getElementById('themeToggleBtn');
+  
+  const updateToggleAria = (currentTheme: string) => {
+    if (!toggleBtn) return;
+    const nextAction = currentTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    toggleBtn.setAttribute('aria-label', nextAction);
+    toggleBtn.setAttribute('title', nextAction);
+  };
+
+  // Sync initial label
+  const initialTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  updateToggleAria(initialTheme);
+
   toggleBtn?.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme') || 'dark';
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
+    updateToggleAria(next);
     try {
       localStorage.setItem('kfit-theme', next);
       const meta = document.getElementById('themeColorMeta');
@@ -124,27 +164,62 @@
     } catch (e) {}
   });
 
-  // Mobile Drawer Toggle
+  // Mobile Drawer with Full Accessible Dialog Behavior
   const menuBtn = document.getElementById('mobileMenuBtn');
   const drawer = document.getElementById('mobileDrawer');
   const drawerLinks = document.querySelectorAll('.drawer-link, .drawer-btn');
 
+  const closeDrawer = () => {
+    if (!menuBtn?.classList.contains('open')) return;
+    menuBtn.classList.remove('open');
+    drawer?.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+    menuBtn.setAttribute('aria-label', 'Open navigation menu');
+    drawer?.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    menuBtn.focus();
+  };
+
+  const openDrawer = () => {
+    menuBtn?.classList.add('open');
+    drawer?.classList.add('open');
+    menuBtn?.setAttribute('aria-expanded', 'true');
+    menuBtn?.setAttribute('aria-label', 'Close navigation menu');
+    drawer?.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    
+    // Focus first link in drawer
+    const firstFocusable = drawer?.querySelector('a') as HTMLElement | null;
+    firstFocusable?.focus();
+  };
+
   const toggleDrawer = () => {
-    const isOpen = menuBtn?.classList.toggle('open');
-    drawer?.classList.toggle('open');
-    menuBtn?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    drawer?.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    const isOpen = menuBtn?.classList.contains('open');
+    if (isOpen) {
+      closeDrawer();
+    } else {
+      openDrawer();
+    }
   };
 
   menuBtn?.addEventListener('click', toggleDrawer);
 
   drawerLinks.forEach((link) => {
-    link.addEventListener('click', () => {
-      menuBtn?.classList.remove('open');
-      drawer?.classList.remove('open');
-      menuBtn?.setAttribute('aria-expanded', 'false');
-      drawer?.setAttribute('aria-hidden', 'true');
-    });
+    link.addEventListener('click', closeDrawer);
+  });
+
+  // Escape key to close & focus restoration
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menuBtn?.classList.contains('open')) {
+      closeDrawer();
+    }
+  });
+
+  // Outside click handling
+  document.addEventListener('click', (e) => {
+    if (menuBtn?.classList.contains('open') && drawer && !drawer.contains(e.target as Node) && !menuBtn.contains(e.target as Node)) {
+      closeDrawer();
+    }
   });
 </script>
 
@@ -155,16 +230,17 @@
     left: 0;
     right: 0;
     z-index: 200;
-    padding: 16px 0;
+    padding: 14px 0;
     transition: padding 0.25s ease, background 0.25s ease, border-color 0.25s ease;
   }
 
   .nav.scrolled {
     background: var(--nav-bg);
-    backdrop-filter: blur(24px) saturate(160%);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-bottom: 1px solid var(--border);
-    padding: 12px 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 20px rgba(0, 0, 0, 0.08);
+    padding: 10px 0;
   }
 
   .nav-inner {
@@ -210,7 +286,7 @@
   }
 
   .logo-badge {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
     padding: 2px 7px;
     border-radius: 100px;
@@ -223,13 +299,13 @@
   .nav-links {
     display: flex;
     align-items: center;
-    gap: 28px;
+    gap: 24px;
     flex: 1;
     justify-content: center;
   }
 
   .nav-links a {
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 500;
     color: var(--muted);
     text-decoration: none;
@@ -243,11 +319,23 @@
   .nav-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
 
-  /* Apple Theme Toggle Button */
+  /* Apple Theme Toggle Button: 44px touch area, 34px visual */
   .theme-toggle-btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .theme-toggle-inner {
     width: 34px;
     height: 34px;
     border-radius: 50%;
@@ -257,16 +345,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    outline: none;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
   }
 
-  .theme-toggle-btn:hover {
+  .theme-toggle-btn:hover .theme-toggle-inner {
     transform: scale(1.08);
   }
 
-  .theme-toggle-btn:active {
+  .theme-toggle-btn:active .theme-toggle-inner {
     transform: scale(0.92);
   }
 
@@ -289,28 +375,28 @@
     font-weight: 500;
     color: var(--muted);
     text-decoration: none;
-    padding: 7px 12px;
+    padding: 8px 12px;
     border-radius: 8px;
     transition: all 0.2s ease;
   }
 
   .nav-link-web:hover {
     color: var(--text-heading);
-    background: var(--border);
+    background: var(--btn-ghost-bg);
   }
 
   .nav-cta {
-    padding: 8px 18px;
+    padding: 8px 16px;
     font-size: 13.5px;
     font-weight: 600;
     flex-shrink: 0;
   }
 
-  /* Mobile Hamburger Menu Button */
+  /* Mobile Hamburger Menu Button: 44px touch region */
   .mobile-menu-btn {
     display: none;
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--theme-toggle-bg);
     border: 1px solid var(--theme-toggle-border);
@@ -320,15 +406,15 @@
     gap: 5px;
     cursor: pointer;
     padding: 0;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .mobile-menu-btn:hover {
-    transform: scale(1.08);
+    transform: scale(1.06);
   }
 
   .menu-bar {
-    width: 15px;
+    width: 16px;
     height: 1.5px;
     background: var(--text-heading);
     border-radius: 1px;
@@ -347,7 +433,7 @@
   .mobile-drawer {
     display: none;
     position: fixed;
-    top: 64px;
+    top: 60px;
     left: 0;
     right: 0;
     background: var(--nav-bg);
@@ -372,7 +458,7 @@
     padding: 24px 20px 32px 20px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
   }
 
   .drawer-links {
@@ -406,7 +492,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding-top: 12px;
+    padding-top: 14px;
     border-top: 1px solid var(--border);
   }
 
@@ -418,7 +504,7 @@
     justify-content: center;
   }
 
-  @media (max-width: 860px) {
+  @media (max-width: 900px) {
     .nav-links { display: none; }
     .mobile-menu-btn { display: flex; }
     .mobile-drawer { display: block; }
