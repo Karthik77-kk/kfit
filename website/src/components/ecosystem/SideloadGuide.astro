@@ -1,0 +1,156 @@
+---
+---
+
+<section class="section sideload-section" id="sideload">
+  <div class="section-heading">
+    <span class="section-label">Installation</span>
+    <h2 class="section-title">How to install on Android.</h2>
+    <p class="section-subtitle">
+      KFit is distributed directly as an official signed APK. Sideloading gives you direct software access with zero intermediary store trackers.
+    </p>
+  </div>
+
+  <div class="sideload-grid">
+    <div class="step-card">
+      <div class="step-badge">Step 1</div>
+      <h3>Download the APK</h3>
+      <p>Tap the download button above or grab the release asset directly from GitHub Releases.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-badge">Step 2</div>
+      <h3>Open Downloaded File</h3>
+      <p>When download completes, tap the notification or open the APK from your browser or Files app.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-badge">Step 3</div>
+      <h3>Allow Installation</h3>
+      <p>Android will prompt to allow installations from your browser. Toggle permission to continue.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-badge">Step 4</div>
+      <h3>Start Tracking</h3>
+      <p>Open KFit and immediately begin logging meals and workouts. No account creation required.</p>
+    </div>
+  </div>
+
+  <div class="security-callout">
+    <div class="callout-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <div class="callout-body">
+      <strong>Standard Android Security Prompt</strong>
+      <p>
+        Because KFit is installed directly without the Google Play Store, Android shows a standard warning about unknown sources. Every release is cryptographically signed and SHA-256 hashed. You can verify the checksum below.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .sideload-section {
+    position: relative;
+    z-index: 2;
+  }
+
+  .sideload-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto 32px auto;
+  }
+
+  .step-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .step-badge {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--apple-blue);
+    background: rgba(0, 113, 227, 0.08);
+    border: 1px solid rgba(0, 113, 227, 0.2);
+    padding: 3px 9px;
+    border-radius: var(--radius-full);
+    width: fit-content;
+  }
+
+  .step-card h3 {
+    font-size: 16.5px;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .step-card p {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .security-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+  }
+
+  .callout-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #30D158;
+    flex-shrink: 0;
+  }
+
+  .callout-body strong {
+    font-size: 14px;
+    color: var(--text-heading);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .callout-body p {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  @media (max-width: 480px) {
+    .step-card {
+      padding: 20px 18px;
+    }
+    .security-callout {
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px;
+    }
+  }
+</style>

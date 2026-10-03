@@ -1,0 +1,132 @@
+---
+---
+
+<section class="section synergy-section" id="synergy">
+  <div class="section-heading">
+    <span class="section-label">Architecture</span>
+    <h2 class="section-title">How the products connect.</h2>
+    <p class="section-subtitle">
+      Architected with intention. Clear boundaries protect your personal privacy and keep each tool reliable.
+    </p>
+  </div>
+
+  <div class="synergy-grid">
+    <div class="synergy-card">
+      <div class="synergy-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h3>Personal tracking stays yours</h3>
+      <p>
+        KFit stores your workouts, body composition and meals locally on-device. KFit Web accesses your data only if you explicitly choose to sign in for multi-device sync.
+      </p>
+      <div class="synergy-badge font-mono">SQLite via Drift &rarr; Postgres Sync</div>
+    </div>
+
+    <div class="synergy-card">
+      <div class="synergy-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <h3>Gym operations remain strictly separate</h3>
+      <p>
+        GymWorld is an independent business workspace for gym owners. It manages member rosters and dues, but has zero access to your personal meals or workout metrics.
+      </p>
+      <div class="synergy-badge font-mono">Isolated Workspace Boundary</div>
+    </div>
+
+    <div class="synergy-card">
+      <div class="synergy-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+      </div>
+      <h3>Realtime on-device voice companion</h3>
+      <p>
+        JARVIS connects directly to KFit through an Android Binder IPC bridge. Voice interactions execute with low latency and without cloud roundtrips for local logging.
+      </p>
+      <div class="synergy-badge font-mono">Android Binder IPC Bridge</div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .synergy-section {
+    position: relative;
+    z-index: 2;
+  }
+
+  .synergy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .synergy-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .synergy-card:hover {
+    border-color: var(--border-hi);
+    box-shadow: var(--card-hover-shadow);
+  }
+
+  .synergy-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--apple-blue);
+  }
+
+  .synergy-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .synergy-card p {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0;
+    flex: 1;
+  }
+
+  .synergy-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted2);
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    width: fit-content;
+    margin-top: 8px;
+  }
+
+  @media (max-width: 480px) {
+    .synergy-card {
+      padding: 22px;
+    }
+  }
+</style>

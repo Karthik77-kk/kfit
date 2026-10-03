@@ -2,7 +2,6 @@
 import releases from '../data/releases.json';
 
 const kfitRelease = releases.kfit;
-const kfitDlUrl = `/downloads/kfit`;
 ---
 
 <nav class="nav" id="nav">
@@ -12,11 +11,10 @@ const kfitDlUrl = `/downloads/kfit`;
       <span class="logo-text">KFit<span class="logo-badge">Ecosystem</span></span>
     </a>
 
+    <!-- Clean, focused desktop navigation -->
     <div class="nav-links">
-      <a href="/#journal">Food Journal</a>
       <a href="/#products">Products</a>
-      <a href="/#synergy">How it Connects</a>
-      <a href="/#principles">Principles</a>
+      <a href="/#synergy">How It Works</a>
       <a href="/#sideload">Install</a>
       <a href="/#about">About</a>
     </div>
@@ -59,13 +57,12 @@ const kfitDlUrl = `/downloads/kfit`;
         </svg>
       </a>
 
-      <!-- Stable Download URL consuming single source of truth -->
+      <!-- Direct APK Download CTA — no erroneous download attribute -->
       <a
-        href={kfitDlUrl}
+        href={kfitRelease.apkUrl}
         class="btn btn-primary nav-cta"
         id="navDlBtn"
         data-kfit-dl
-        download="kfit.apk"
         title={`Download KFit APK (${kfitRelease.version})`}
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
@@ -89,31 +86,31 @@ const kfitDlUrl = `/downloads/kfit`;
     </div>
   </div>
 
-  <!-- Apple Frosted Glass Mobile Drawer with accessible modal interaction -->
-  <div class="mobile-drawer" id="mobileDrawer" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
-    <div class="container drawer-inner">
-      <div class="drawer-links" role="menu">
-        <a href="/#journal" class="drawer-link" role="menuitem">
-          <span>Food Journal</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
-        </a>
-        <a href="/#products" class="drawer-link" role="menuitem">
+  <!-- Apple Frosted Glass Mobile Drawer with accessible navigation & focus trap -->
+  <div class="mobile-drawer" id="mobileDrawer" aria-hidden="true">
+    <nav class="container drawer-inner" aria-label="Mobile navigation">
+      <div class="drawer-links">
+        <a href="/#products" class="drawer-link">
           <span>Products</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-        <a href="/#synergy" class="drawer-link" role="menuitem">
-          <span>How it Connects</span>
+        <a href="/#journal" class="drawer-link">
+          <span>Food Journal</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-        <a href="/#principles" class="drawer-link" role="menuitem">
+        <a href="/#synergy" class="drawer-link">
+          <span>How It Connects</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a href="/#principles" class="drawer-link">
           <span>Principles</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-        <a href="/#sideload" class="drawer-link" role="menuitem">
+        <a href="/#sideload" class="drawer-link">
           <span>Install Guide</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
-        <a href="/#about" class="drawer-link" role="menuitem">
+        <a href="/#about" class="drawer-link">
           <span>About KFit</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
         </a>
@@ -122,14 +119,13 @@ const kfitDlUrl = `/downloads/kfit`;
       <div class="drawer-actions">
         <a href="https://getkfit.app" target="_blank" rel="noopener noreferrer" class="btn btn-ghost drawer-btn">
           <span>Launch Web App (getkfit.app)</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M10 14L21 3"/></svg>
         </a>
         <a
-          href={kfitDlUrl}
+          href={kfitRelease.apkUrl}
           class="btn btn-primary drawer-btn"
           id="drawerNavDlBtn"
           data-kfit-dl
-          download="kfit.apk"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
@@ -137,7 +133,7 @@ const kfitDlUrl = `/downloads/kfit`;
           <span class="drawer-dl-text">Download KFit APK ({kfitRelease.version})</span>
         </a>
       </div>
-    </div>
+    </nav>
   </div>
 </nav>
 
@@ -193,7 +189,7 @@ const kfitDlUrl = `/downloads/kfit`;
   bindDlFeedback('navDlBtn');
   bindDlFeedback('drawerNavDlBtn');
 
-  // Mobile Drawer with Full Accessible Dialog Behavior
+  // Mobile Drawer with Full Accessible Dialog Behavior & Focus Trap
   const menuBtn = document.getElementById('mobileMenuBtn');
   const drawer = document.getElementById('mobileDrawer');
   const drawerLinks = document.querySelectorAll('.drawer-link, .drawer-btn');
@@ -217,8 +213,8 @@ const kfitDlUrl = `/downloads/kfit`;
     drawer?.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
     
-    // Focus first link in drawer
-    const firstFocusable = drawer?.querySelector('a') as HTMLElement | null;
+    // Focus first interactive element inside drawer
+    const firstFocusable = drawer?.querySelector('a, button') as HTMLElement | null;
     firstFocusable?.focus();
   };
 
@@ -235,6 +231,26 @@ const kfitDlUrl = `/downloads/kfit`;
 
   drawerLinks.forEach((link) => {
     link.addEventListener('click', closeDrawer);
+  });
+
+  // Focus trap inside mobile drawer
+  drawer?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const focusable = drawer.querySelectorAll<HTMLElement>('a, button');
+    if (!focusable || focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        last.focus();
+        e.preventDefault();
+      }
+    } else {
+      if (document.activeElement === last) {
+        first.focus();
+        e.preventDefault();
+      }
+    }
   });
 
   // Escape key to close & focus restoration
@@ -259,86 +275,78 @@ const kfitDlUrl = `/downloads/kfit`;
     left: 0;
     right: 0;
     z-index: 200;
-    padding: 14px 0;
-    transition: padding 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+    background: var(--nav-bg);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
   }
 
   .nav.scrolled {
-    background: var(--nav-bg);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid var(--border);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 20px rgba(0, 0, 0, 0.08);
-    padding: 10px 0;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
   }
 
   .nav-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 28px;
+    height: 60px;
+    gap: 16px;
   }
 
   .nav-logo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
     text-decoration: none;
     color: var(--text-heading);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.025em;
     flex-shrink: 0;
   }
 
   .logo-mark {
-    width: 32px;
-    height: 32px;
-    background: var(--icon-bg);
-    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: var(--text-heading);
+    color: var(--bg);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
     font-weight: 800;
-    color: var(--icon-text);
-    letter-spacing: -0.5px;
-    transition: background 0.25s ease, color 0.25s ease;
-  }
-
-  .logo-text {
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--text-heading);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: color 0.25s ease;
+    font-size: 15px;
+    letter-spacing: -0.04em;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   .logo-badge {
+    margin-left: 6px;
     font-size: 10px;
     font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 100px;
-    background: var(--border-hi);
-    color: var(--muted);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.5px 7px;
   }
 
   .nav-links {
     display: flex;
     align-items: center;
-    gap: 24px;
-    flex: 1;
-    justify-content: center;
+    gap: 26px;
   }
 
   .nav-links a {
-    font-size: 13.5px;
-    font-weight: 500;
     color: var(--muted);
     text-decoration: none;
-    transition: color 0.2s ease;
+    font-size: 13.5px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    transition: color 0.18s ease;
+    white-space: nowrap;
   }
 
   .nav-links a:hover {
@@ -348,68 +356,74 @@ const kfitDlUrl = `/downloads/kfit`;
   .nav-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 
-  /* Apple Theme Toggle Button: 44px touch area, 34px visual */
+  /* 44px min hit target on Theme Switcher */
   .theme-toggle-btn {
+    position: relative;
     width: 44px;
     height: 44px;
-    padding: 0;
-    border: none;
+    border-radius: var(--radius-full);
     background: transparent;
+    border: none;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
+    padding: 0;
+    transition: opacity 0.2s ease;
   }
 
   .theme-toggle-inner {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
     background: var(--theme-toggle-bg);
     border: 1px solid var(--theme-toggle-border);
     color: var(--theme-toggle-color);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
+    position: relative;
+    transition: background-color 0.25s ease, border-color 0.25s ease;
   }
 
   .theme-toggle-btn:hover .theme-toggle-inner {
-    transform: scale(1.08);
-  }
-
-  .theme-toggle-btn:active .theme-toggle-inner {
-    transform: scale(0.92);
+    background: var(--border-hi);
   }
 
   .icon-sun, .icon-moon {
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
   }
 
-  /* Default is Light theme: show Moon icon */
-  .icon-sun { display: none; }
-  .icon-moon { display: flex; }
-
-  /* In Dark theme: show Sun icon */
-  html[data-theme="dark"] .icon-sun { display: flex; }
-  html[data-theme="dark"] .icon-moon { display: none; }
+  html[data-theme="light"] .icon-sun {
+    display: none;
+  }
+  html[data-theme="light"] .icon-moon {
+    display: flex;
+  }
+  html[data-theme="dark"] .icon-sun {
+    display: flex;
+  }
+  html[data-theme="dark"] .icon-moon {
+    display: none;
+  }
 
   .nav-link-web {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 13.5px;
+    gap: 4px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--muted);
     text-decoration: none;
-    padding: 8px 12px;
-    border-radius: 8px;
-    transition: all 0.2s ease;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    transition: color 0.18s ease, background-color 0.18s ease;
   }
 
   .nav-link-web:hover {
@@ -418,35 +432,33 @@ const kfitDlUrl = `/downloads/kfit`;
   }
 
   .nav-cta {
-    padding: 8px 16px;
-    font-size: 13.5px;
+    padding: 7px 15px;
+    font-size: 13px;
     font-weight: 600;
-    flex-shrink: 0;
+    letter-spacing: -0.01em;
+    gap: 6px;
+    border-radius: var(--radius-full);
   }
 
-  /* Mobile Hamburger Menu Button: 44px touch region */
+  /* Hamburger Menu Button */
   .mobile-menu-btn {
     display: none;
     width: 44px;
     height: 44px;
-    border-radius: 50%;
-    background: var(--theme-toggle-bg);
-    border: 1px solid var(--theme-toggle-border);
-    flex-direction: column;
+    border-radius: var(--radius-full);
+    background: transparent;
+    border: none;
+    cursor: pointer;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
     gap: 5px;
-    cursor: pointer;
     padding: 0;
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .mobile-menu-btn:hover {
-    transform: scale(1.06);
+    color: var(--text-heading);
   }
 
   .menu-bar {
-    width: 16px;
+    width: 18px;
     height: 1.5px;
     background: var(--text-heading);
     border-radius: 1px;
@@ -536,7 +548,8 @@ const kfitDlUrl = `/downloads/kfit`;
     justify-content: center;
   }
 
-  @media (max-width: 900px) {
+  /* Responsive breakpoints: switch at 1024px to prevent tablet overcrowding */
+  @media (max-width: 1024px) {
     .nav-links { display: none; }
     .mobile-menu-btn { display: flex; }
     .mobile-drawer { display: block; }

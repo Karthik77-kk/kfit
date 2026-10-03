@@ -1,0 +1,904 @@
+---
+import releases from '../../data/releases.json';
+
+const { kfit, jarvis, web, gymworld } = releases;
+---
+
+<section class="section" id="products">
+  <div class="section-heading">
+    <span class="section-label">Ecosystem</span>
+    <h2 class="section-title">Four dedicated applications. One vision.</h2>
+    <p class="section-subtitle">
+      Independent tools designed for personal health, studio management, and hands-free voice assistance.
+    </p>
+  </div>
+
+  <!-- Segmented Control with honest button group semantics -->
+  <div class="seg-wrapper">
+    <div class="segmented-control" role="group" aria-label="Filter products">
+      <div class="seg-pill" id="segPill" aria-hidden="true"></div>
+      <button class="seg-btn active" data-filter="all" type="button" aria-pressed="true">
+        <span>All Products</span>
+      </button>
+      <button class="seg-btn" data-filter="kfit-android" type="button" aria-pressed="false">
+        <span>KFit App</span>
+      </button>
+      <button class="seg-btn" data-filter="kfit-web" type="button" aria-pressed="false">
+        <span>KFit Web</span>
+      </button>
+      <button class="seg-btn" data-filter="gymworld" type="button" aria-pressed="false">
+        <span>GymWorld</span>
+      </button>
+      <button class="seg-btn" data-filter="jarvis" type="button" aria-pressed="false">
+        <span>JARVIS</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bento Product Grid -->
+  <div class="bento-grid" id="productGrid">
+    
+    <!-- PRODUCT 1: KFIT ANDROID -->
+    <article class="bento-card" data-category="kfit-android" id="card-kfit-android">
+      <div class="bento-card-header">
+        <div class="brand-info">
+          <div class="product-icon icon-glass">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="3" ry="3"/>
+              <line x1="12" y1="18" x2="12.01" y2="18"/>
+            </svg>
+          </div>
+          <div>
+            <div class="product-name-row">
+              <h3 class="bento-title">KFit for Android</h3>
+              <span class="version-badge font-mono">{kfit.version}</span>
+            </div>
+            <p class="bento-desc">Offline-first personal health tracker built for authentic Indian nutrition and daily wellness.</p>
+          </div>
+        </div>
+        <div class="status-indicator">
+          <span class="live-pulse"></span>
+          <span>Latest Stable</span>
+        </div>
+      </div>
+
+      <!-- In-app UI Preview -->
+      <div class="bento-preview">
+        <div class="preview-chrome">
+          <div class="chrome-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <span class="chrome-url font-mono">kfit://local/dashboard</span>
+          <span class="sample-tag">Example preview</span>
+        </div>
+        <div class="preview-screen preview-kfit">
+          <div class="pk-top">
+            <div class="pk-greeting">
+              <span class="pk-hello">Wednesday Log</span>
+              <span class="pk-title">Today's Nutrition</span>
+            </div>
+            <div class="pk-streak">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-5.33 4-8 8-8 12a8 8 0 0016 0c0-4-2.67-8-8-12z"/></svg>
+              <span>18 Days</span>
+            </div>
+          </div>
+          <div class="pk-macros">
+            <div class="macro-pill"><span class="mp-l">Calories</span><span class="mp-v">1,480 kcal</span></div>
+            <div class="macro-pill"><span class="mp-l">Protein</span><span class="mp-v mp-pro">105 g</span></div>
+            <div class="macro-pill"><span class="mp-l">Carbs</span><span class="mp-v mp-carb">168 g</span></div>
+            <div class="macro-pill"><span class="mp-l">Fat</span><span class="mp-v mp-fat">42 g</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-features">
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Curated Indian food database (848 hand-written items)</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>ICMR-NIN IFCT 2017 lab-measured foods per 100g</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>MET-based exercise energy expenditure formulas</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Works offline &middot; Account optional &middot; No subscriptions</span>
+        </div>
+      </div>
+
+      <details class="tech-expandable">
+        <summary class="tech-toggle">Technical architecture &rarr;</summary>
+        <div class="tech-content">
+          Runs fully on-device using SQLite via Drift. Energy expenditure uses MET-based exercise formulas. Optional Supabase sync shares supported records across signed-in devices. Companion actions link via Android Binder IPC.
+        </div>
+      </details>
+
+      <div class="card-actions">
+        <a href={kfit.apkUrl} class="btn btn-primary btn-action" id="kfitMainDlBtn" data-kfit-dl>
+          <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          <span class="btn-text">Download KFit APK</span>
+        </a>
+        <a href={kfit.releaseUrl} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
+          <span>Release Notes</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M10 14L21 3"/>
+          </svg>
+        </a>
+      </div>
+    </article>
+
+    <!-- PRODUCT 2: KFIT WEB -->
+    <article class="bento-card" data-category="kfit-web" id="card-kfit-web">
+      <div class="bento-card-header">
+        <div class="brand-info">
+          <div class="product-icon icon-glass">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="product-name-row">
+              <h3 class="bento-title">KFit Web</h3>
+              <span class="version-badge font-mono">PWA</span>
+            </div>
+            <p class="bento-desc">Complete health dashboard in your browser. Installable as a standalone PWA on supported desktop and mobile browsers.</p>
+          </div>
+        </div>
+        <div class="status-indicator">
+          <span class="live-pulse"></span>
+          <span>Live PWA</span>
+        </div>
+      </div>
+
+      <div class="bento-preview">
+        <div class="preview-chrome">
+          <div class="chrome-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <span class="chrome-url font-mono">https://getkfit.app</span>
+          <span class="sample-tag">Example preview</span>
+        </div>
+        <div class="preview-screen preview-web">
+          <div class="pw-stats">
+            <div class="pw-box">
+              <span class="pw-l">Active Week</span>
+              <span class="pw-v">5 / 7 Days</span>
+            </div>
+            <div class="pw-box">
+              <span class="pw-l">Avg Daily Protein</span>
+              <span class="pw-v">112 g</span>
+            </div>
+            <div class="pw-box">
+              <span class="pw-l">Hydration Target</span>
+              <span class="pw-v">94%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-features">
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Installable PWA on supported browsers</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Offline app shell and local data access via IndexedDB</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Seamless cross-device synchronization protocol</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Desktop-class data charts and weekly analysis</span>
+        </div>
+      </div>
+
+      <details class="tech-expandable">
+        <summary class="tech-toggle">Technical architecture &rarr;</summary>
+        <div class="tech-content">
+          Built with TypeScript and modern web standards. Stores records locally in IndexedDB and synchronizes securely via Postgres and Supabase Auth.
+        </div>
+      </details>
+
+      <div class="card-actions">
+        <a href={web.url} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-action">
+          <span>Open KFit Web</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M10 14L21 3"/>
+          </svg>
+        </a>
+      </div>
+    </article>
+
+    <!-- PRODUCT 3: GYMWORLD -->
+    <article class="bento-card" data-category="gymworld" id="card-gymworld">
+      <div class="bento-card-header">
+        <div class="brand-info">
+          <div class="product-icon icon-glass">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div>
+            <div class="product-name-row">
+              <h3 class="bento-title">GymWorld Workspace</h3>
+              <span class="version-badge font-mono">Commercial</span>
+            </div>
+            <p class="bento-desc">Operational workspace for gym and studio owners. Manage memberships, payments, and operational reporting.</p>
+          </div>
+        </div>
+        <div class="status-indicator">
+          <span class="live-pulse"></span>
+          <span>Workspace</span>
+        </div>
+      </div>
+
+      <div class="bento-preview">
+        <div class="preview-chrome">
+          <div class="chrome-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <span class="chrome-url font-mono">https://gymworld.getkfit.app</span>
+          <span class="sample-tag">Example data</span>
+        </div>
+        <div class="preview-screen preview-gym">
+          <div class="pg-metrics">
+            <div class="pg-metric-box">
+              <span class="pg-l">Active Members</span>
+              <span class="pg-v">184</span>
+            </div>
+            <div class="pg-metric-box">
+              <span class="pg-l">Renewals Due</span>
+              <span class="pg-v">12</span>
+            </div>
+            <div class="pg-metric-box">
+              <span class="pg-l">Attention Needed</span>
+              <span class="pg-v">4</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-features">
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Member roster, tiers and subscription renewal dates</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Payment logging, dues tracking and ledger records</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Exportable member summaries and operational metrics</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Complete separation: no access to personal KFit member logs</span>
+        </div>
+      </div>
+
+      <details class="tech-expandable">
+        <summary class="tech-toggle">Technical architecture &rarr;</summary>
+        <div class="tech-content">
+          React/TypeScript client served through Cloudflare Workers, backed by Supabase Auth/Postgres with RLS.
+        </div>
+      </details>
+
+      <div class="card-actions">
+        <a href={gymworld.url} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-action">
+          <span>Open GymWorld</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M10 14L21 3"/>
+          </svg>
+        </a>
+      </div>
+    </article>
+
+    <!-- PRODUCT 4: JARVIS ASSISTANT -->
+    <article class="bento-card" data-category="jarvis" id="card-jarvis">
+      <div class="bento-card-header">
+        <div class="brand-info">
+          <div class="product-icon icon-glass">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+          <div>
+            <div class="product-name-row">
+              <h3 class="bento-title">JARVIS Assistant</h3>
+              <span class="version-badge font-mono">{jarvis.version}</span>
+            </div>
+            <p class="bento-desc">Low-latency voice companion for workouts and fast hands-free food logging.</p>
+          </div>
+        </div>
+        <div class="status-indicator">
+          <span class="live-pulse"></span>
+          <span>Companion</span>
+        </div>
+      </div>
+
+      <div class="bento-preview">
+        <div class="preview-chrome">
+          <div class="chrome-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <span class="chrome-url font-mono">jarvis://ipc/kfit-bridge</span>
+          <span class="sample-tag">Example preview</span>
+        </div>
+        <div class="preview-screen preview-jarvis">
+          <div class="pj-wave">
+            <div class="audio-bar" style="height: 12px;"></div>
+            <div class="audio-bar" style="height: 28px;"></div>
+            <div class="audio-bar" style="height: 20px;"></div>
+            <div class="audio-bar" style="height: 36px;"></div>
+            <div class="audio-bar" style="height: 16px;"></div>
+            <div class="audio-bar" style="height: 24px;"></div>
+          </div>
+          <div class="pj-text font-mono">"Logged 2 rotis and 1 bowl dal tadka to KFit."</div>
+        </div>
+      </div>
+
+      <div class="card-features">
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Hands-free food logging without unlocking your screen</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Workout interval pacing, rep counts and rest timers</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Direct Android Binder IPC: zero roundtrip internet overhead</span>
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Optional companion: KFit operates 100% independently</span>
+        </div>
+      </div>
+
+      <details class="tech-expandable">
+        <summary class="tech-toggle">Technical architecture &rarr;</summary>
+        <div class="tech-content">
+          The KFit integration uses a permission-controlled Android Binder bridge that remains on-device. Voice and assistant capabilities depend on the configured runtime and providers.
+        </div>
+      </details>
+
+      <div class="card-actions">
+        <a href={jarvis.apkUrl} class="btn btn-primary btn-action" id="jarvisMainDlBtn" data-jarvis-dl>
+          <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          <span class="btn-text">Download JARVIS APK</span>
+        </a>
+        <a href={jarvis.releaseUrl} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
+          <span>Release Notes</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M10 14L21 3"/>
+          </svg>
+        </a>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  import gsap from 'gsap';
+
+  const segBtns = document.querySelectorAll('.seg-btn');
+  const segPill = document.getElementById('segPill');
+  const cards = document.querySelectorAll('.bento-card');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function updatePill(activeBtn: HTMLElement) {
+    if (!segPill) return;
+    segPill.style.left = `${activeBtn.offsetLeft}px`;
+    segPill.style.width = `${activeBtn.offsetWidth}px`;
+  }
+
+  const initialActive = document.querySelector('.seg-btn.active') as HTMLElement | null;
+  if (initialActive) updatePill(initialActive);
+
+  segBtns.forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      segBtns.forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
+      updatePill(btn as HTMLElement);
+
+      const filter = btn.getAttribute('data-filter');
+      cards.forEach((card) => {
+        const cat = card.getAttribute('data-category');
+        const show = filter === 'all' || cat === filter;
+        if (show) {
+          (card as HTMLElement).style.display = 'flex';
+          if (!prefersReducedMotion) {
+            gsap.to(card, { opacity: 1, scale: 1, duration: 0.25, ease: 'power2.out' });
+          } else {
+            (card as HTMLElement).style.opacity = '1';
+            (card as HTMLElement).style.transform = 'none';
+          }
+        } else {
+          if (!prefersReducedMotion) {
+            gsap.to(card, {
+              opacity: 0,
+              scale: 0.98,
+              duration: 0.15,
+              onComplete: () => {
+                (card as HTMLElement).style.display = 'none';
+              },
+            });
+          } else {
+            (card as HTMLElement).style.display = 'none';
+          }
+        }
+      });
+    });
+
+    // Keyboard navigation (Arrow keys, Home, End)
+    btn.addEventListener('keydown', (e: Event) => {
+      const keyEvent = e as KeyboardEvent;
+      let nextIndex = index;
+      if (keyEvent.key === 'ArrowRight') {
+        nextIndex = (index + 1) % segBtns.length;
+      } else if (keyEvent.key === 'ArrowLeft') {
+        nextIndex = (index - 1 + segBtns.length) % segBtns.length;
+      } else if (keyEvent.key === 'Home') {
+        nextIndex = 0;
+      } else if (keyEvent.key === 'End') {
+        nextIndex = segBtns.length - 1;
+      } else {
+        return;
+      }
+      keyEvent.preventDefault();
+      const nextBtn = segBtns[nextIndex] as HTMLButtonElement;
+      nextBtn.focus();
+      nextBtn.click();
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    const active = document.querySelector('.seg-btn.active') as HTMLElement | null;
+    if (active) updatePill(active);
+  });
+</script>
+
+<style>
+  .seg-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 40px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .segmented-control {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: var(--seg-bg);
+    border: 1px solid var(--border);
+    padding: 3px;
+    border-radius: var(--radius-full);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .seg-pill {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    background: var(--seg-pill-bg);
+    border-radius: var(--radius-full);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
+
+  .seg-btn {
+    position: relative;
+    z-index: 2;
+    padding: 8px 18px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--seg-text);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    font-family: var(--font);
+    white-space: nowrap;
+  }
+
+  .seg-btn:hover {
+    color: var(--text-heading);
+  }
+
+  .seg-btn.active {
+    color: var(--seg-pill-text);
+    font-weight: 600;
+  }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+    gap: 24px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .bento-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .bento-card:hover {
+    border-color: var(--border-hi);
+    box-shadow: var(--card-hover-shadow);
+  }
+
+  .bento-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .brand-info {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .product-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-heading);
+    flex-shrink: 0;
+  }
+
+  .product-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .bento-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+  }
+
+  .version-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 5px;
+  }
+
+  .bento-desc {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #30D158;
+    background: rgba(48, 209, 88, 0.08);
+    border: 1px solid rgba(48, 209, 88, 0.2);
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .live-pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #30D158;
+    box-shadow: 0 0 6px rgba(48, 209, 88, 0.6);
+  }
+
+  .bento-preview {
+    background: var(--preview-frame-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .preview-chrome {
+    background: var(--preview-header-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--muted2);
+  }
+
+  .chrome-dots {
+    display: flex;
+    gap: 4px;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border-hi);
+  }
+
+  .chrome-url {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sample-tag {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted2);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  .preview-screen {
+    padding: 16px;
+  }
+
+  .pk-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .pk-hello {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    display: block;
+  }
+
+  .pk-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+
+  .pk-streak {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #FF9F0A;
+    background: rgba(255, 159, 10, 0.1);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  .pk-macros {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .macro-pill {
+    background: var(--preview-tile-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mp-l { font-size: 10.5px; color: var(--muted); }
+  .mp-v { font-size: 12.5px; font-weight: 700; color: var(--text-heading); }
+  .mp-pro { color: #30D158; }
+  .mp-carb { color: #FF9F0A; }
+  .mp-fat { color: #FF453A; }
+
+  .pw-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .pw-box {
+    background: var(--preview-tile-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pw-l { font-size: 11px; color: var(--muted); }
+  .pw-v { font-size: 15px; font-weight: 700; color: var(--text-heading); }
+
+  .pg-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .pg-metric-box {
+    background: var(--preview-tile-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pg-l { font-size: 11px; color: var(--muted); }
+  .pg-v { font-size: 18px; font-weight: 800; color: var(--text-heading); }
+
+  .preview-jarvis {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .pj-wave {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 36px;
+  }
+
+  .audio-bar {
+    width: 3px;
+    background: var(--apple-blue);
+    border-radius: 2px;
+  }
+
+  .pj-text {
+    font-size: 13px;
+    color: var(--text-heading);
+  }
+
+  .card-features {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .feature-item svg {
+    color: #30D158;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .tech-expandable {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .tech-toggle {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--apple-blue);
+    user-select: none;
+    outline: none;
+  }
+
+  .tech-content {
+    margin-top: 8px;
+    line-height: 1.5;
+    color: var(--muted2);
+  }
+
+  .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: auto;
+  }
+
+  .btn-action {
+    padding: 11px 22px;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-sub-action {
+    padding: 11px 18px;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  @media (max-width: 960px) {
+    .bento-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .bento-card {
+      padding: 20px;
+    }
+    .bento-card-header {
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+    .btn-action, .btn-sub-action {
+      width: 100%;
+      justify-content: center;
+    }
+    .pk-macros {
+      grid-template-columns: 1fr 1fr;
+    }
+    .pw-stats, .pg-metrics {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
