@@ -1,0 +1,204 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import releases from '../../data/releases.json';
+
+const release = releases.jarvis;
+---
+
+<Layout
+  title={`Downloading ${release.name} (${release.version}) — Official Release`}
+  description={`Direct signed APK download for ${release.name} (${release.version}, ${release.sizeFormatted}). SHA-256 verified.`}
+>
+  <meta slot="head" http-equiv="refresh" content={`0;url=${release.apkUrl}`} />
+  
+  <main class="dl-redirect-page">
+    <div class="dl-redirect-card">
+      <div class="dl-icon-wrap">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </div>
+
+      <div class="badge-status">Official Signed Release</div>
+      <h1>Downloading {release.name}</h1>
+      <p class="dl-sub">Your download should begin automatically. If it doesn't, use the direct link below.</p>
+
+      <div class="dl-action-box">
+        <a href={release.apkUrl} class="btn btn-primary" download="jarvis.apk" id="manualDlLink">
+          <span>Download jarvis.apk ({release.sizeFormatted})</span>
+        </a>
+      </div>
+
+      <div class="dl-verify-panel">
+        <div class="verify-row">
+          <span class="v-label">Release Tag</span>
+          <span class="v-val font-mono">{release.version}</span>
+        </div>
+        <div class="verify-row">
+          <span class="v-label">File Size</span>
+          <span class="v-val">{release.sizeFormatted}</span>
+        </div>
+        <div class="verify-row">
+          <span class="v-label">Supported Android</span>
+          <span class="v-val">{release.supportedAndroid} (minSdk {release.minSdk})</span>
+        </div>
+        <div class="verify-row col">
+          <span class="v-label">SHA-256 Checksum</span>
+          <code class="v-hash font-mono">{release.sha256}</code>
+        </div>
+      </div>
+
+      <div class="dl-nav-links">
+        <a href="/#sideload" class="text-link">How to install on Android &rarr;</a>
+        <span class="dot-sep">&bull;</span>
+        <a href="/" class="text-link">Back to Homepage</a>
+        <span class="dot-sep">&bull;</span>
+        <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer" class="text-link">Release Notes</a>
+      </div>
+    </div>
+  </main>
+
+  <script is:inline define:vars={{ apkUrl: release.apkUrl }}>
+    setTimeout(() => {
+      window.location.href = apkUrl;
+    }, 400);
+  </script>
+
+  <style>
+    .dl-redirect-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      background: var(--bg);
+    }
+    .dl-redirect-card {
+      max-width: 580px;
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 44px 36px;
+      text-align: center;
+      box-shadow: var(--card-shadow);
+    }
+    .dl-icon-wrap {
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      background: var(--icon-bg);
+      color: var(--icon-text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .badge-status {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--apple-blue);
+      background: rgba(0, 113, 227, 0.08);
+      border: 1px solid rgba(0, 113, 227, 0.2);
+      border-radius: 100px;
+      padding: 4px 12px;
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+      margin-bottom: 12px;
+      color: var(--text-heading);
+    }
+    .dl-sub {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+    .dl-action-box {
+      margin-bottom: 32px;
+    }
+    .dl-verify-panel {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      text-align: left;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .verify-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .verify-row.col {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .v-label {
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .v-val {
+      color: var(--text-heading);
+      font-weight: 600;
+    }
+    .v-hash {
+      display: block;
+      width: 100%;
+      word-break: break-all;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      color: var(--text-heading);
+    }
+    .dl-nav-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .text-link {
+      color: var(--text-heading);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .text-link:hover {
+      color: var(--apple-blue);
+    }
+    .dot-sep {
+      color: var(--border-hi);
+    }
+    .font-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    @media (max-width: 520px) {
+      .dl-redirect-card {
+        padding: 32px 20px;
+      }
+      .dl-nav-links {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .dot-sep {
+        display: none;
+      }
+    }
+  </style>
+</Layout>

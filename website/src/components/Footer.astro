@@ -1,6 +1,7 @@
 ---
-const KFIT_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/download/v3.0.544/kfit.apk';
-const JARVIS_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/download/jarvis-v1.0.80/jarvis.apk';
+import releases from '../data/releases.json';
+
+const { kfit, jarvis } = releases;
 const GITHUB  = 'https://github.com/Karthik77-kk/kfit';
 const YEAR    = new Date().getFullYear();
 ---
@@ -13,8 +14,8 @@ const YEAR    = new Date().getFullYear();
         <span>KFit</span>
       </a>
       <p class="footer-tagline">
-        Private fitness &amp; nutrition suite.<br/>
-        Built with craft in Bangalore 🇮🇳. Free forever.
+        Fitness tracking that stays out of your way.<br/>
+        Built with craft in Bangalore. Free forever.
       </p>
       <div class="footer-socials">
         <a href={GITHUB} target="_blank" rel="noopener noreferrer" class="social-link" aria-label="GitHub">
@@ -28,33 +29,34 @@ const YEAR    = new Date().getFullYear();
     <div class="footer-links">
       <div class="link-col">
         <div class="link-col-title">Ecosystem &amp; Apps</div>
-        <a href="/download">All Downloads &amp; Hub</a>
-        <a href={KFIT_APK_URL} data-kfit-dl target="_blank" rel="noopener noreferrer">KFit App (Android APK)</a>
+        <a href="/download">Download Hub</a>
+        <a href="/downloads/kfit" data-kfit-dl download="kfit.apk">KFit App ({kfit.version} APK)</a>
         <a href="https://getkfit.app" target="_blank" rel="noopener noreferrer">KFit Web (getkfit.app)</a>
-        <a href="https://gymworld.getkfit.app" target="_blank" rel="noopener noreferrer">GymWorld Portal</a>
-        <a href={JARVIS_APK_URL} data-jarvis-dl target="_blank" rel="noopener noreferrer">JARVIS Voice Assistant</a>
+        <a href="https://gymworld.getkfit.app" target="_blank" rel="noopener noreferrer">GymWorld Workspace</a>
+        <a href="/downloads/jarvis" data-jarvis-dl download="jarvis.apk">JARVIS Assistant ({jarvis.version} APK)</a>
       </div>
       <div class="link-col">
         <div class="link-col-title">Navigation</div>
-        <a href="/#journal">Food Journal Simulator</a>
-        <a href="/#products">Product Bento Matrix</a>
-        <a href="/#comparison">Honest Comparison Matrix</a>
-        <a href="/#about">Creator Story &amp; Origin</a>
-        <a href="/#sideload">3-Step Sideload Guide</a>
+        <a href="/#journal">Food Journal</a>
+        <a href="/#products">Products</a>
+        <a href="/#synergy">How it Connects</a>
+        <a href="/#principles">Principles</a>
+        <a href="/#sideload">Install Guide</a>
+        <a href="/#about">About</a>
       </div>
       <div class="link-col">
-        <div class="link-col-title">Open Source</div>
+        <div class="link-col-title">Project</div>
         <a href={GITHUB} target="_blank" rel="noopener noreferrer">GitHub Repository</a>
-        <a href={`${GITHUB}/releases`} target="_blank" rel="noopener noreferrer">Release History</a>
-        <a href={`${GITHUB}/issues`} target="_blank" rel="noopener noreferrer">Report a Bug / Request</a>
+        <a href={`${GITHUB}/releases`} target="_blank" rel="noopener noreferrer">Releases</a>
+        <a href={`${GITHUB}/issues`} target="_blank" rel="noopener noreferrer">Report an Issue</a>
       </div>
     </div>
   </div>
 
   <div class="footer-bottom">
     <div class="container footer-bottom-inner">
-      <span>© {YEAR} K Fitness &middot; Built in Bangalore 🇮🇳 &middot; Free Forever</span>
-      <span class="footer-stack">Astro &middot; GSAP &middot; Cloudflare Pages</span>
+      <span>© {YEAR} KFit &middot; Built in Bangalore &middot; Free Forever</span>
+      <span class="footer-stack">Works offline &middot; Account optional &middot; Verified nutrition sources</span>
     </div>
   </div>
 </footer>
@@ -184,7 +186,6 @@ const YEAR    = new Date().getFullYear();
 
   .footer-stack {
     font-size: 12px;
-    opacity: 0.7;
   }
 
   /* Responsive */

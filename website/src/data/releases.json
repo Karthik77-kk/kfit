@@ -1,0 +1,44 @@
+{
+  "kfit": {
+    "name": "KFit for Android",
+    "version": "v3.0.544",
+    "buildNumber": 544,
+    "sizeBytes": 221731565,
+    "sizeFormatted": "211 MB",
+    "sha256": "46a344e9147bfee146d2a3cd83012933928d35c423c4da8a9c7f88cb818e2474",
+    "apkUrl": "https://github.com/Karthik77-kk/kfit/releases/download/v3.0.544/kfit.apk",
+    "releaseUrl": "https://github.com/Karthik77-kk/kfit/releases/tag/v3.0.544",
+    "minSdk": 24,
+    "minAndroid": "Android 7.0 (API 24)",
+    "supportedAndroid": "Android 8.0+",
+    "publishedAt": "2026-10-02"
+  },
+  "jarvis": {
+    "name": "JARVIS Voice Assistant",
+    "version": "v1.0.80",
+    "buildNumber": 80,
+    "sizeBytes": 98594409,
+    "sizeFormatted": "94 MB",
+    "sha256": "682ac6dbf0b2268854b040b6f19124410b660e2e0d63ed08588fd4f8a04e94df",
+    "apkUrl": "https://github.com/Karthik77-kk/kfit/releases/download/jarvis-v1.0.80/jarvis.apk",
+    "releaseUrl": "https://github.com/Karthik77-kk/kfit/releases/tag/jarvis-v1.0.80",
+    "minSdk": 24,
+    "minAndroid": "Android 7.0 (API 24)",
+    "supportedAndroid": "Android 10+",
+    "publishedAt": "2026-10-02"
+  },
+  "web": {
+    "name": "KFit Web",
+    "url": "https://getkfit.app",
+    "browsers": "Chrome, Edge, Firefox, Safari",
+    "pwa": true,
+    "offlineCapable": true,
+    "sync": "Optional account sync"
+  },
+  "gymworld": {
+    "name": "GymWorld",
+    "url": "https://gymworld.getkfit.app",
+    "type": "Studio & Gym Workspace",
+    "privacy": "Isolated from personal KFit tracking data"
+  }
+}

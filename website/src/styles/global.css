@@ -1,11 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
 /* ==========================================================================
    Apple Design System & Theme Engine
    ========================================================================== */
 
 :root {
-  --font:        -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", 'Inter', system-ui, -apple-system, sans-serif;
+  --font:        -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
   --radius-xs:   6px;
   --radius-sm:   10px;
   --radius:      16px;
@@ -33,7 +31,7 @@ html[data-theme="light"] {
   --text-main:          #1D1D1F;
   --text-heading:       #1D1D1F;
   --muted:              #6E6E73;
-  --muted2:             #86868B;
+  --muted2:             #525257;
   --nav-bg:             rgba(245, 245, 247, 0.85);
   --btn-primary-bg:     #000000;
   --btn-primary-text:   #FFFFFF;
@@ -53,7 +51,7 @@ html[data-theme="light"] {
   --seg-bg:             rgba(0, 0, 0, 0.06);
   --seg-pill-bg:        #FFFFFF;
   --seg-pill-text:      #000000;
-  --seg-text:           #6E6E73;
+  --seg-text:           #525257;
   --grain-opacity:      0.007;
   --theme-toggle-bg:    rgba(0, 0, 0, 0.06);
   --theme-toggle-border:rgba(0, 0, 0, 0.12);
@@ -73,7 +71,7 @@ html[data-theme="dark"] {
   --text-main:          #F5F5F7;
   --text-heading:       #FFFFFF;
   --muted:              #8E8E93;
-  --muted2:             #636366;
+  --muted2:             #98989D;
   --nav-bg:             rgba(0, 0, 0, 0.82);
   --btn-primary-bg:     #FFFFFF;
   --btn-primary-text:   #000000;
@@ -162,7 +160,7 @@ a { color: inherit; }
 }
 
 .section {
-  padding: 100px 0;
+  padding: 80px 0;
 }
 
 .section-label {
@@ -265,11 +263,45 @@ a { color: inherit; }
   color: inherit;
 }
 
-/* ── Reduced motion ─────────────────────────────────────────────────────────── */
+/* ── Focus States (Apple HIG standard) ─────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--apple-blue);
+  outline-offset: 3px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--apple-blue);
+  outline-offset: 3px;
+  border-radius: var(--radius-xs);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--apple-blue);
+  outline-offset: 3px;
+  border-radius: var(--radius-full);
+}
+
+/* ── Liquid Glass functional utility ────────────────────────────────────────── */
+.liquid-glass {
+  background: var(--nav-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Motion & Reduced Motion (Apple Guidance) ─────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
+  html {
+    scroll-behavior: auto;
+  }
   *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

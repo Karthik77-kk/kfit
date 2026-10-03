@@ -7,11 +7,12 @@ interface Props {
 }
 
 const {
-  title = 'KFit — Simple and Intuitive Fitness Tracking',
-  description = 'Track authentic Indian nutrition like writing in Apple Notes. Pure privacy, 100% offline, zero subscriptions. Android APK, KFit Web, GymWorld, and JARVIS.',
+  title = 'KFit — Fitness tracking that stays out of your way',
+  description = 'Log Indian meals in plain language. Track workouts, body composition, hydration and trends locally on your device. Works offline, account optional, zero subscriptions.',
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+const ogImageURL = new URL('/og-image.png', canonicalURL);
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -22,6 +23,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
     <meta name="description" content={description} />
     <meta name="theme-color" content="#F5F5F7" id="themeColorMeta" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="canonical" href={canonicalURL} />
 
     <!-- Open Graph -->
@@ -30,14 +32,17 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="KFit" />
     <meta property="og:url" content={canonicalURL} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL} />
 
     <meta name="color-scheme" content="dark light" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
 
     <!-- Schema.org SoftwareApplication JSON-LD -->
     <script type="application/ld+json">
@@ -52,17 +57,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
           "price": "0",
           "priceCurrency": "USD"
         },
-        "description": "Simple and intuitive fitness tracking engineered for authentic Indian nutrition and private performance.",
+        "description": "Fitness tracking that stays out of your way. Engineered for authentic Indian nutrition and private performance.",
         "author": {
           "@type": "Person",
           "name": "Karthik M"
         }
       }
     </script>
-
-    <!-- Preconnect for fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
     <!-- Inline Apple Theme Pre-paint Init (Zero FOUT & Dynamic System Sync) -->
     <script is:inline>
