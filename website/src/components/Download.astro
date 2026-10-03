@@ -2,6 +2,7 @@
 import releases from '../data/releases.json';
 
 const { kfit, jarvis, web, gymworld } = releases;
+const KFIT_RELEASES_URL = 'https://github.com/Karthik77-kk/kfit/releases';
 
 interface Props {
   isStandalone?: boolean;
@@ -31,7 +32,7 @@ const { isStandalone = false } = Astro.props;
       </p>
 
       <div class="hero-actions">
-        <a href="/downloads/kfit" class="btn btn-primary hero-btn-dl" id="heroDlBtn" download="kfit.apk" title={`Download KFit APK (${kfit.version}, ${kfit.sizeFormatted})`}>
+        <a href="/downloads/kfit" class="btn btn-primary hero-btn-dl" id="heroDlBtn" data-kfit-dl download="kfit.apk" title={`Download KFit APK (${kfit.version}, ${kfit.sizeFormatted})`}>
           <svg class="dl-arrow-icon" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
@@ -424,7 +425,7 @@ const { isStandalone = false } = Astro.props;
           </details>
 
           <div class="card-actions">
-            <a href="/downloads/kfit" class="btn btn-primary btn-action" download="kfit.apk">
+            <a href="/downloads/kfit" class="btn btn-primary btn-action" id="kfitMainDlBtn" data-kfit-dl download="kfit.apk">
               <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
               </svg>
@@ -691,7 +692,7 @@ const { isStandalone = false } = Astro.props;
           </details>
 
           <div class="card-actions">
-            <a href="/downloads/jarvis" class="btn btn-primary btn-action" download="jarvis.apk">
+            <a href="/downloads/jarvis" class="btn btn-primary btn-action" id="jarvisMainDlBtn" data-jarvis-dl download="jarvis.apk">
               <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
               </svg>
@@ -1210,6 +1211,24 @@ const { isStandalone = false } = Astro.props;
       }
     });
   });
+
+  // 5. Download Feedback Micro-Interactions
+  const setupDownloadFeedback = (btnId: string, originalText: string) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const textSpan = btn.querySelector('.btn-text, .nav-cta-text, .drawer-dl-text, span');
+      if (textSpan) textSpan.textContent = 'Starting Download…';
+      btn.style.opacity = '0.85';
+      setTimeout(() => {
+        if (textSpan) textSpan.textContent = originalText;
+        btn.style.opacity = '1';
+      }, 3000);
+    });
+  };
+  setupDownloadFeedback('heroDlBtn', 'Download KFit for Android');
+  setupDownloadFeedback('kfitMainDlBtn', 'Download KFit APK');
+  setupDownloadFeedback('jarvisMainDlBtn', 'Download JARVIS APK');
 </script>
 
 <style>

@@ -60,7 +60,14 @@ const kfitDlUrl = `/downloads/kfit`;
       </a>
 
       <!-- Stable Download URL consuming single source of truth -->
-      <a href={kfitDlUrl} class="btn btn-primary nav-cta" download="kfit.apk" title={`Download KFit APK (${kfitRelease.version})`}>
+      <a
+        href={kfitDlUrl}
+        class="btn btn-primary nav-cta"
+        id="navDlBtn"
+        data-kfit-dl
+        download="kfit.apk"
+        title={`Download KFit APK (${kfitRelease.version})`}
+      >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
         </svg>
@@ -117,11 +124,17 @@ const kfitDlUrl = `/downloads/kfit`;
           <span>Launch Web App (getkfit.app)</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
         </a>
-        <a href={kfitDlUrl} class="btn btn-primary drawer-btn" download="kfit.apk">
+        <a
+          href={kfitDlUrl}
+          class="btn btn-primary drawer-btn"
+          id="drawerNavDlBtn"
+          data-kfit-dl
+          download="kfit.apk"
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
-          <span>Download KFit APK ({kfitRelease.version})</span>
+          <span class="drawer-dl-text">Download KFit APK ({kfitRelease.version})</span>
         </a>
       </div>
     </div>
@@ -153,7 +166,7 @@ const kfitDlUrl = `/downloads/kfit`;
   updateToggleAria(initialTheme);
 
   toggleBtn?.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     updateToggleAria(next);
@@ -163,6 +176,22 @@ const kfitDlUrl = `/downloads/kfit`;
       if (meta) meta.setAttribute('content', next === 'dark' ? '#000000' : '#F5F5F7');
     } catch (e) {}
   });
+
+  // Download feedback
+  const bindDlFeedback = (id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', () => {
+      const textSpan = el.querySelector('.nav-cta-text, .drawer-dl-text, span');
+      if (textSpan) {
+        const prev = textSpan.textContent;
+        textSpan.textContent = 'Starting Download…';
+        setTimeout(() => { textSpan.textContent = prev; }, 3000);
+      }
+    });
+  };
+  bindDlFeedback('navDlBtn');
+  bindDlFeedback('drawerNavDlBtn');
 
   // Mobile Drawer with Full Accessible Dialog Behavior
   const menuBtn = document.getElementById('mobileMenuBtn');
@@ -362,10 +391,13 @@ const kfitDlUrl = `/downloads/kfit`;
     justify-content: center;
   }
 
-  :root:not([data-theme="light"]) .icon-moon { display: none; }
-  :root:not([data-theme="light"]) .icon-sun { display: flex; }
-  html[data-theme="light"] .icon-sun { display: none; }
-  html[data-theme="light"] .icon-moon { display: flex; }
+  /* Default is Light theme: show Moon icon */
+  .icon-sun { display: none; }
+  .icon-moon { display: flex; }
+
+  /* In Dark theme: show Sun icon */
+  html[data-theme="dark"] .icon-sun { display: flex; }
+  html[data-theme="dark"] .icon-moon { display: none; }
 
   .nav-link-web {
     display: inline-flex;
