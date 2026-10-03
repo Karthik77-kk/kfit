@@ -1,0 +1,182 @@
+{
+  "fixtures": [
+    {
+      "fixtureId": "dosa",
+      "name": "Traditional South Indian Breakfast",
+      "input": "1 Masala Dosa with coconut chutney, sambar, and 1 tumbler filter coffee",
+      "calories": 545,
+      "protein": 13.5,
+      "carbs": 67.0,
+      "fat": 23.6,
+      "source": "Curated KFit foods · 848 hand-written rows",
+      "illustrativeLabel": "Example interaction · Illustrative sample values",
+      "resolvedFoods": [
+        {
+          "name": "Masala Dosa",
+          "serving": "1 dosa (160g)",
+          "calories": 290,
+          "protein": 6.0,
+          "carbs": 42.0,
+          "fat": 10.0,
+          "source": "Curated"
+        },
+        {
+          "name": "Sambar",
+          "serving": "1 bowl (150g)",
+          "calories": 85,
+          "protein": 4.0,
+          "carbs": 12.0,
+          "fat": 2.8,
+          "source": "Curated"
+        },
+        {
+          "name": "Coconut Chutney",
+          "serving": "2 tbsp (40g)",
+          "calories": 90,
+          "protein": 1.5,
+          "carbs": 3.0,
+          "fat": 8.0,
+          "source": "Curated"
+        },
+        {
+          "name": "Filter Coffee",
+          "serving": "1 cup (150ml)",
+          "calories": 80,
+          "protein": 2.0,
+          "carbs": 10.0,
+          "fat": 2.8,
+          "source": "Curated"
+        }
+      ]
+    },
+    {
+      "fixtureId": "lunch",
+      "name": "Balanced High-Protein Lunch",
+      "input": "2 whole wheat rotis, 1 cup dal tadka, 100g paneer tikka, cucumber salad",
+      "calories": 603,
+      "protein": 33.7,
+      "carbs": 64.6,
+      "fat": 23.6,
+      "source": "Curated KFit foods · 848 hand-written rows",
+      "illustrativeLabel": "Example interaction · Illustrative sample values",
+      "resolvedFoods": [
+        {
+          "name": "Whole Wheat Roti",
+          "serving": "2 rotis (80g)",
+          "calories": 208,
+          "protein": 6.0,
+          "carbs": 36.0,
+          "fat": 5.0,
+          "source": "Curated"
+        },
+        {
+          "name": "Dal Tadka",
+          "serving": "1 bowl (150g)",
+          "calories": 150,
+          "protein": 8.0,
+          "carbs": 18.0,
+          "fat": 4.5,
+          "source": "Curated"
+        },
+        {
+          "name": "Paneer Tikka",
+          "serving": "100g",
+          "calories": 230,
+          "protein": 19.0,
+          "carbs": 7.0,
+          "fat": 14.0,
+          "source": "Curated"
+        },
+        {
+          "name": "Cucumber Salad",
+          "serving": "1 bowl (100g)",
+          "calories": 15,
+          "protein": 0.7,
+          "carbs": 3.6,
+          "fat": 0.1,
+          "source": "Raw vegetable"
+        }
+      ]
+    },
+    {
+      "fixtureId": "workout",
+      "name": "Post-Workout Recovery",
+      "input": "1 scoop whey protein in water, 1 banana, 8 almonds",
+      "calories": 267,
+      "protein": 27.2,
+      "carbs": 27.2,
+      "fat": 6.8,
+      "source": "Computed on-device · Standard macronutrient tables",
+      "illustrativeLabel": "Example interaction · Illustrative sample values",
+      "resolvedFoods": [
+        {
+          "name": "Whey Protein Isolate",
+          "serving": "1 scoop (30g)",
+          "calories": 120,
+          "protein": 24.0,
+          "carbs": 2.0,
+          "fat": 1.5,
+          "source": "On-device"
+        },
+        {
+          "name": "Robusta Banana",
+          "serving": "1 medium (100g)",
+          "calories": 89,
+          "protein": 1.1,
+          "carbs": 23.0,
+          "fat": 0.3,
+          "source": "IFCT-2017"
+        },
+        {
+          "name": "Raw Almonds",
+          "serving": "8 pieces (10g)",
+          "calories": 58,
+          "protein": 2.1,
+          "carbs": 2.2,
+          "fat": 5.0,
+          "source": "IFCT-2017"
+        }
+      ]
+    },
+    {
+      "fixtureId": "snack",
+      "name": "Light Afternoon Refreshment",
+      "input": "1 cup roasted chana, 1 tender coconut water, 1 apple",
+      "calories": 311,
+      "protein": 11.7,
+      "carbs": 59.3,
+      "fat": 3.5,
+      "source": "IFCT 2017 · 528 lab-measured foods per 100g",
+      "illustrativeLabel": "Example interaction · Illustrative sample values",
+      "resolvedFoods": [
+        {
+          "name": "Roasted Chana",
+          "serving": "1 cup (50g)",
+          "calories": 185,
+          "protein": 9.5,
+          "carbs": 29.0,
+          "fat": 2.7,
+          "source": "IFCT-2017"
+        },
+        {
+          "name": "Tender Coconut Water",
+          "serving": "250ml",
+          "calories": 48,
+          "protein": 1.8,
+          "carbs": 9.3,
+          "fat": 0.5,
+          "source": "IFCT-2017"
+        },
+        {
+          "name": "Fresh Apple",
+          "serving": "1 medium (150g)",
+          "calories": 78,
+          "protein": 0.4,
+          "carbs": 21.0,
+          "fat": 0.3,
+          "source": "IFCT-2017"
+        }
+      ]
+    }
+  ]
+}

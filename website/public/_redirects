@@ -1,0 +1,6 @@
+# Cloudflare Pages Redirects
+# Generated automatically by scripts/validate-releases.mjs — do not edit manually
+
+/welcome / 301
+/downloads/kfit https://github.com/Karthik77-kk/kfit/releases/download/v3.0.544/kfit.apk 302
+/downloads/jarvis https://github.com/Karthik77-kk/kfit/releases/download/jarvis-v1.0.80/jarvis.apk 302

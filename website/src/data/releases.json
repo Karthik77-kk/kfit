@@ -11,7 +11,7 @@
     "minSdk": 24,
     "minAndroid": "Android 7.0 (API 24)",
     "supportedAndroid": "Android 8.0+",
-    "publishedAt": "2026-10-02"
+    "publishedAt": "2026-09-29"
   },
   "jarvis": {
     "name": "JARVIS Voice Assistant",
@@ -25,7 +25,7 @@
     "minSdk": 24,
     "minAndroid": "Android 7.0 (API 24)",
     "supportedAndroid": "Android 10+",
-    "publishedAt": "2026-10-02"
+    "publishedAt": "2026-09-29"
   },
   "web": {
     "name": "KFit Web",

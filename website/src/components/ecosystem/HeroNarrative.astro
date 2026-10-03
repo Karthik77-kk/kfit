@@ -1,0 +1,479 @@
+---
+import fixturesData from '../../data/marketing_fixtures.json';
+
+const dosaFixture = fixturesData.fixtures[0];
+---
+
+<div class="hero-narrative-frame" id="heroNarrative">
+  <div class="narrative-nav" role="group" aria-label="Tracking narrative stages">
+    <button class="n-tab active" data-step="1" type="button" aria-pressed="true">
+      <span class="n-step-num">1</span>
+      <span class="n-step-name">Type your meal</span>
+    </button>
+    <button class="n-tab" data-step="2" type="button" aria-pressed="false">
+      <span class="n-step-num">2</span>
+      <span class="n-step-name">See what KFit matched</span>
+    </button>
+    <button class="n-tab" data-step="3" type="button" aria-pressed="false">
+      <span class="n-step-num">3</span>
+      <span class="n-step-name">Review the nutrition</span>
+    </button>
+    <button class="n-tab" data-step="4" type="button" aria-pressed="false">
+      <span class="n-step-num">4</span>
+      <span class="n-step-name">Add it to your day</span>
+    </button>
+  </div>
+
+  <div class="narrative-viewport">
+    <div class="preview-badge-row">
+      <span class="preview-badge">Example data &middot; Product preview</span>
+    </div>
+
+    <!-- Step 1: Input -->
+    <div class="n-stage active" data-stage="1">
+      <div class="stage-label">Step 1 &middot; Natural Indian meal input</div>
+      <div class="stage-input-box">
+        <div class="sim-mic-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </div>
+        <p class="sim-typing-text">{dosaFixture.input}</p>
+      </div>
+      <p class="stage-footnote">Instant local processing. No voice or meal text leaves your device.</p>
+    </div>
+
+    <!-- Step 2: Matched Items -->
+    <div class="n-stage" data-stage="2">
+      <div class="stage-label">Step 2 &middot; On-device dish matching</div>
+      <div class="matched-items-grid">
+        {dosaFixture.resolvedFoods.map((food) => (
+          <div class="matched-chip">
+            <div class="chip-dot"></div>
+            <div class="chip-content">
+              <span class="chip-title">{food.name} <span class="chip-portion">({food.serving})</span></span>
+              <span class="chip-macros">{food.calories} kcal &middot; {food.protein}g P &middot; {food.carbs}g C &middot; {food.fat}g F</span>
+            </div>
+            <span class="chip-source">{food.source}</span>
+          </div>
+        ))}
+      </div>
+      <p class="stage-footnote">Matched against 848 hand-written Indian dish profiles and 528 IFCT-2017 entries.</p>
+    </div>
+
+    <!-- Step 3: Verified Nutrition -->
+    <div class="n-stage" data-stage="3">
+      <div class="stage-label">Step 3 &middot; Verified macro composition</div>
+      <div class="stage-macros-row">
+        <div class="macro-cell macro-cell-hero">
+          <span class="mc-val">{dosaFixture.calories}</span>
+          <span class="mc-lbl">Total Calories</span>
+        </div>
+        <div class="macro-cell">
+          <span class="mc-val mc-pro">{dosaFixture.protein}g</span>
+          <span class="mc-lbl">Protein</span>
+        </div>
+        <div class="macro-cell">
+          <span class="mc-val mc-carb">{dosaFixture.carbs}g</span>
+          <span class="mc-lbl">Carbs</span>
+        </div>
+        <div class="macro-cell">
+          <span class="mc-val mc-fat">{dosaFixture.fat}g</span>
+          <span class="mc-lbl">Fat</span>
+        </div>
+      </div>
+      <div class="provenance-banner">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>Curated KFit foods &middot; 848 hand-written rows using familiar serving units</span>
+      </div>
+    </div>
+
+    <!-- Step 4: Today's Rhythm -->
+    <div class="n-stage" data-stage="4">
+      <div class="stage-label">Step 4 &middot; Daily tracking balance</div>
+      <div class="rhythm-card">
+        <div class="rhythm-metric">
+          <span class="rm-label">Logged Energy</span>
+          <span class="rm-val">1,285 <span class="rm-target">/ 1,700 kcal</span></span>
+          <div class="rm-bar-bg"><div class="rm-bar-fill" style="width: 75%;"></div></div>
+        </div>
+        <div class="rhythm-metric">
+          <span class="rm-label">Active Burned</span>
+          <span class="rm-val">310 <span class="rm-unit">kcal</span></span>
+          <div class="rm-bar-bg"><div class="rm-bar-fill fill-burn" style="width: 62%;"></div></div>
+        </div>
+        <div class="rhythm-metric">
+          <span class="rm-label">Hydration</span>
+          <span class="rm-val">2.4 <span class="rm-target">/ 3.0 L</span></span>
+          <div class="rm-bar-bg"><div class="rm-bar-fill fill-water" style="width: 80%;"></div></div>
+        </div>
+      </div>
+      <p class="stage-footnote">Persisted locally in SQLite. Syncs to KFit Web only when you choose to connect.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  import gsap from 'gsap';
+
+  const nTabs = document.querySelectorAll<HTMLButtonElement>('.n-tab');
+  const nStages = document.querySelectorAll<HTMLElement>('.n-stage');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  nTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const step = tab.getAttribute('data-step');
+      if (!step) return;
+
+      nTabs.forEach((t) => {
+        t.classList.remove('active');
+        t.setAttribute('aria-pressed', 'false');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-pressed', 'true');
+
+      nStages.forEach((stage) => {
+        const isMatch = stage.getAttribute('data-stage') === step;
+        if (isMatch) {
+          stage.classList.add('active');
+          if (!prefersReducedMotion) {
+            gsap.fromTo(stage, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' });
+          } else {
+            stage.style.opacity = '1';
+            stage.style.transform = 'none';
+          }
+        } else {
+          stage.classList.remove('active');
+        }
+      });
+    });
+  });
+</script>
+
+<style>
+  .hero-narrative-frame {
+    max-width: 1040px;
+    margin: 40px auto 60px auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    text-align: left;
+    position: relative;
+    z-index: 2;
+  }
+
+  .narrative-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .n-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: var(--radius-full);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    font-family: var(--font);
+  }
+
+  .n-tab:hover {
+    color: var(--text-heading);
+    background: var(--card-glass);
+  }
+
+  .n-tab.active {
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+    border-color: transparent;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .n-step-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.08);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .n-tab.active .n-step-num {
+    background: var(--btn-primary-text);
+    color: var(--btn-primary-bg);
+  }
+
+  .narrative-viewport {
+    padding-top: 20px;
+    min-height: 230px;
+  }
+
+  .preview-badge-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .preview-badge {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    padding: 2px 9px;
+  }
+
+  .n-stage {
+    display: none;
+  }
+
+  .n-stage.active {
+    display: block;
+  }
+
+  .stage-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  .stage-input-box {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+  }
+
+  .sim-mic-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--apple-blue);
+    flex-shrink: 0;
+  }
+
+  .sim-typing-text {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text-heading);
+    letter-spacing: -0.015em;
+    margin: 0;
+  }
+
+  .stage-footnote {
+    font-size: 12.5px;
+    color: var(--muted2);
+    margin-top: 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .matched-items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+  }
+
+  .matched-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+  }
+
+  .chip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--apple-blue);
+    flex-shrink: 0;
+  }
+
+  .chip-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chip-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+
+  .chip-portion {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .chip-macros {
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .chip-source {
+    font-size: 10.5px;
+    color: var(--muted2);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .stage-macros-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .macro-cell {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .macro-cell-hero {
+    border-color: var(--border-hi);
+  }
+
+  .mc-val {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text-heading);
+  }
+
+  .mc-pro { color: #30D158; }
+  .mc-carb { color: #FF9F0A; }
+  .mc-fat { color: #FF453A; }
+
+  .mc-lbl {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: -0.01em;
+  }
+
+  .provenance-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .rhythm-card {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+  }
+
+  .rhythm-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .rm-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .rm-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+  }
+
+  .rm-target, .rm-unit {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  .rm-bar-bg {
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .rm-bar-fill {
+    height: 100%;
+    background: var(--apple-blue);
+    border-radius: 3px;
+  }
+
+  .fill-burn { background: #FF9F0A; }
+  .fill-water { background: #64D2FF; }
+
+  @media (max-width: 680px) {
+    .stage-macros-row {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hero-narrative-frame {
+      padding: 16px;
+    }
+    .matched-items-grid {
+      grid-template-columns: 1fr;
+    }
+    .rhythm-card {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

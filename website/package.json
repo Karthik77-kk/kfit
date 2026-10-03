@@ -5,11 +5,19 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
+    "check": "astro check",
+    "test:manifest": "node scripts/validate-releases.mjs",
+    "test": "npm run test:manifest && npm run check",
+    "prebuild": "node scripts/validate-releases.mjs",
     "build": "astro build",
     "preview": "astro preview"
   },
   "dependencies": {
     "astro": "^4.16.18",
     "gsap": "^3.12.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^5.9.3"
   }
 }

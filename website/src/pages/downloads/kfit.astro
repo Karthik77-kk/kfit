@@ -6,13 +6,13 @@ const release = releases.kfit;
 ---
 
 <Layout
-  title={`Downloading ${release.name} (${release.version}) — Official Release`}
+  title={`${release.name} (${release.version}) — Official Release`}
   description={`Direct signed APK download for ${release.name} (${release.version}, ${release.sizeFormatted}). SHA-256 verified.`}
+  noindex={true}
+  enableStructuredData={false}
 >
-  <meta slot="head" http-equiv="refresh" content={`0;url=${release.apkUrl}`} />
-  
-  <main class="dl-redirect-page">
-    <div class="dl-redirect-card">
+  <main class="dl-verify-page">
+    <div class="dl-verify-card">
       <div class="dl-icon-wrap">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
@@ -20,11 +20,14 @@ const release = releases.kfit;
       </div>
 
       <div class="badge-status">Official Signed Release</div>
-      <h1>Downloading {release.name}</h1>
-      <p class="dl-sub">Your download should begin automatically. If it doesn't, use the direct link below.</p>
+      <h1>Download {release.name}</h1>
+      <p class="dl-sub">Cryptographically verified release. Built and signed for Android.</p>
 
       <div class="dl-action-box">
-        <a href={release.apkUrl} class="btn btn-primary" download="kfit.apk" id="manualDlLink">
+        <a href={release.apkUrl} class="btn btn-primary btn-lg" id="manualDlLink">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
           <span>Download kfit.apk ({release.sizeFormatted})</span>
         </a>
       </div>
@@ -36,11 +39,15 @@ const release = releases.kfit;
         </div>
         <div class="verify-row">
           <span class="v-label">File Size</span>
-          <span class="v-val">{release.sizeFormatted}</span>
+          <span class="v-val">{release.sizeFormatted} ({release.sizeBytes.toLocaleString()} bytes)</span>
         </div>
         <div class="verify-row">
           <span class="v-label">Supported Android</span>
           <span class="v-val">{release.supportedAndroid} (minSdk {release.minSdk})</span>
+        </div>
+        <div class="verify-row">
+          <span class="v-label">Published</span>
+          <span class="v-val font-mono">{release.publishedAt}</span>
         </div>
         <div class="verify-row col">
           <span class="v-label">SHA-256 Checksum</span>
@@ -57,145 +64,137 @@ const release = releases.kfit;
       </div>
     </div>
   </main>
-
-  <script is:inline define:vars={{ apkUrl: release.apkUrl }}>
-    setTimeout(() => {
-      window.location.href = apkUrl;
-    }, 400);
-  </script>
-
-  <style>
-    .dl-redirect-page {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 20px;
-      background: var(--bg);
-    }
-    .dl-redirect-card {
-      max-width: 580px;
-      width: 100%;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 44px 36px;
-      text-align: center;
-      box-shadow: var(--card-shadow);
-    }
-    .dl-icon-wrap {
-      width: 60px;
-      height: 60px;
-      border-radius: 16px;
-      background: var(--icon-bg);
-      color: var(--icon-text);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-    .badge-status {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--apple-blue);
-      background: rgba(0, 113, 227, 0.08);
-      border: 1px solid rgba(0, 113, 227, 0.2);
-      border-radius: 100px;
-      padding: 4px 12px;
-      margin-bottom: 14px;
-    }
-    h1 {
-      font-size: clamp(1.8rem, 3.5vw, 2.4rem);
-      margin-bottom: 12px;
-      color: var(--text-heading);
-    }
-    .dl-sub {
-      font-size: 15px;
-      color: var(--muted);
-      margin-bottom: 28px;
-      line-height: 1.5;
-    }
-    .dl-action-box {
-      margin-bottom: 32px;
-    }
-    .dl-verify-panel {
-      background: var(--bg-subtle);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 20px;
-      text-align: left;
-      font-size: 13px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 28px;
-    }
-    .verify-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
-    .verify-row.col {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 6px;
-    }
-    .v-label {
-      color: var(--muted);
-      font-weight: 500;
-    }
-    .v-val {
-      color: var(--text-heading);
-      font-weight: 600;
-    }
-    .v-hash {
-      display: block;
-      width: 100%;
-      word-break: break-all;
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 8px 10px;
-      border-radius: 6px;
-      font-size: 11.5px;
-      color: var(--text-heading);
-    }
-    .dl-nav-links {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .text-link {
-      color: var(--text-heading);
-      text-decoration: underline;
-      text-underline-offset: 3px;
-    }
-    .text-link:hover {
-      color: var(--apple-blue);
-    }
-    .dot-sep {
-      color: var(--border-hi);
-    }
-    .font-mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-    @media (max-width: 520px) {
-      .dl-redirect-card {
-        padding: 32px 20px;
-      }
-      .dl-nav-links {
-        flex-direction: column;
-        gap: 8px;
-      }
-      .dot-sep {
-        display: none;
-      }
-    }
-  </style>
 </Layout>
+
+<style>
+  .dl-verify-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background: var(--bg);
+  }
+  .dl-verify-card {
+    max-width: 580px;
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 44px 36px;
+    text-align: center;
+    box-shadow: var(--card-shadow);
+  }
+  .dl-icon-wrap {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    background: var(--icon-bg);
+    color: var(--icon-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .badge-status {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #30D158;
+    background: rgba(48, 209, 88, 0.1);
+    border: 1px solid rgba(48, 209, 88, 0.25);
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text-heading);
+    margin-bottom: 10px;
+    letter-spacing: -0.025em;
+  }
+  .dl-sub {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 28px;
+  }
+  .dl-action-box {
+    margin-bottom: 32px;
+  }
+  .btn-lg {
+    padding: 14px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: var(--radius-full);
+  }
+  .dl-verify-panel {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .verify-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+  }
+  .verify-row.col {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+  .v-label {
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .v-val {
+    color: var(--text-heading);
+    font-weight: 600;
+  }
+  .v-hash {
+    display: block;
+    width: 100%;
+    font-size: 11px;
+    line-height: 1.4;
+    word-break: break-all;
+    background: var(--preview-frame-bg);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: var(--radius-xs);
+    color: var(--text-heading);
+  }
+  .dl-nav-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .text-link {
+    color: var(--apple-blue);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .text-link:hover {
+    text-decoration: underline;
+  }
+  .dot-sep {
+    color: var(--border-hi);
+  }
+</style>

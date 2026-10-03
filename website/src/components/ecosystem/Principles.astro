@@ -1,0 +1,106 @@
+---
+---
+
+<section class="section principles-section" id="principles">
+  <div class="section-heading">
+    <span class="section-label">Core Values</span>
+    <h2 class="section-title">Built on a few simple principles.</h2>
+    <p class="section-subtitle">
+      We built KFit because health tracking apps became subscription-heavy, bloated with ads, and unfaithful to Indian diets.
+    </p>
+  </div>
+
+  <div class="principles-grid">
+    <div class="principle-card">
+      <div class="principle-number font-mono">01</div>
+      <h3>Local-first by default</h3>
+      <p>
+        Your health records live in a private SQLite database on your device. Logging meals, workouts, and hydration requires zero internet connection.
+      </p>
+    </div>
+
+    <div class="principle-card">
+      <div class="principle-number font-mono">02</div>
+      <h3>Transparent nutrition sources</h3>
+      <p>
+        Every calorie and macro resolves against curated Indian recipes and verified IFCT-2017 lab data. We do not invent numbers or guess based on word count.
+      </p>
+    </div>
+
+    <div class="principle-card">
+      <div class="principle-number font-mono">03</div>
+      <h3>Account optional</h3>
+      <p>
+        Open the app and start logging immediately. No account signup, phone number verification, or profile questionnaires required before you can track.
+      </p>
+    </div>
+
+    <div class="principle-card">
+      <div class="principle-number font-mono">04</div>
+      <h3>Core tracking without subscription</h3>
+      <p>
+        KFit core tracking is free with no subscription. Essential tracking features, macro resolution, and historical trends are never gated behind monthly paywalls.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .principles-section {
+    position: relative;
+    z-index: 2;
+  }
+
+  .principles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .principle-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .principle-card:hover {
+    border-color: var(--border-hi);
+    box-shadow: var(--card-hover-shadow);
+  }
+
+  .principle-number {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--apple-blue);
+    letter-spacing: 0.05em;
+  }
+
+  .principle-card h3 {
+    font-size: 17.5px;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .principle-card p {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  @media (max-width: 480px) {
+    .principle-card {
+      padding: 24px 20px;
+    }
+  }
+</style>

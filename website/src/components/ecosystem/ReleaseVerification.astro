@@ -1,0 +1,306 @@
+---
+import releases from '../../data/releases.json';
+
+const { kfit, jarvis } = releases;
+---
+
+<section class="section verify-section" id="verify">
+  <div class="section-heading">
+    <span class="section-label">Transparency</span>
+    <h2 class="section-title">Cryptographic release verification.</h2>
+    <p class="section-subtitle">
+      Verify the integrity of every published APK. Independent cryptographic checksums guarantee that your download is untampered.
+    </p>
+  </div>
+
+  <!-- Screen reader live region for accessible copy status -->
+  <div id="copyAnnouncer" class="sr-only" role="status" aria-live="polite"></div>
+
+  <div class="verify-grid">
+    <!-- KFit Android Verification -->
+    <div class="verify-card">
+      <div class="verify-header">
+        <div>
+          <span class="v-product-name">{kfit.name}</span>
+          <span class="v-version font-mono">{kfit.version}</span>
+        </div>
+        <a href={kfit.apkUrl} class="btn btn-primary btn-sm v-dl-btn" data-kfit-dl title="Direct APK download">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          <span>Download ({kfit.sizeFormatted})</span>
+        </a>
+      </div>
+
+      <div class="verify-rows">
+        <div class="v-row">
+          <span class="vr-label">File Size</span>
+          <span class="vr-val font-mono">{kfit.sizeFormatted} ({kfit.sizeBytes.toLocaleString()} bytes)</span>
+        </div>
+        <div class="v-row">
+          <span class="vr-label">Android Support</span>
+          <span class="vr-val">{kfit.supportedAndroid} (minSdk {kfit.minSdk})</span>
+        </div>
+        <div class="v-row">
+          <span class="vr-label">Release Date</span>
+          <span class="vr-val font-mono">{kfit.publishedAt}</span>
+        </div>
+        <div class="v-row v-row-col">
+          <div class="v-hash-header">
+            <span class="vr-label">SHA-256 Checksum</span>
+            <button
+              class="copy-hash-btn"
+              data-hash={kfit.sha256}
+              data-product="KFit for Android"
+              type="button"
+              aria-label="Copy KFit SHA-256 Checksum"
+            >
+              Copy Checksum
+            </button>
+          </div>
+          <code class="hash-display font-mono">{kfit.sha256}</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- JARVIS Assistant Verification -->
+    <div class="verify-card">
+      <div class="verify-header">
+        <div>
+          <span class="v-product-name">{jarvis.name}</span>
+          <span class="v-version font-mono">{jarvis.version}</span>
+        </div>
+        <a href={jarvis.apkUrl} class="btn btn-primary btn-sm v-dl-btn" data-jarvis-dl title="Direct APK download">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
+          </svg>
+          <span>Download ({jarvis.sizeFormatted})</span>
+        </a>
+      </div>
+
+      <div class="verify-rows">
+        <div class="v-row">
+          <span class="vr-label">File Size</span>
+          <span class="vr-val font-mono">{jarvis.sizeFormatted} ({jarvis.sizeBytes.toLocaleString()} bytes)</span>
+        </div>
+        <div class="v-row">
+          <span class="vr-label">Android Support</span>
+          <span class="vr-val">{jarvis.supportedAndroid} (minSdk {jarvis.minSdk})</span>
+        </div>
+        <div class="v-row">
+          <span class="vr-label">Release Date</span>
+          <span class="vr-val font-mono">{jarvis.publishedAt}</span>
+        </div>
+        <div class="v-row v-row-col">
+          <div class="v-hash-header">
+            <span class="vr-label">SHA-256 Checksum</span>
+            <button
+              class="copy-hash-btn"
+              data-hash={jarvis.sha256}
+              data-product="JARVIS Voice Assistant"
+              type="button"
+              aria-label="Copy JARVIS SHA-256 Checksum"
+            >
+              Copy Checksum
+            </button>
+          </div>
+          <code class="hash-display font-mono">{jarvis.sha256}</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const copyBtns = document.querySelectorAll('.copy-hash-btn');
+  const announcer = document.getElementById('copyAnnouncer');
+
+  copyBtns.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const hash = btn.getAttribute('data-hash');
+      const product = btn.getAttribute('data-product') || 'Release';
+      if (!hash) return;
+
+      try {
+        await navigator.clipboard.writeText(hash);
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        if (announcer) {
+          announcer.textContent = `SHA-256 checksum for ${product} copied to clipboard.`;
+        }
+
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.classList.remove('copied');
+          if (announcer) announcer.textContent = '';
+        }, 2400);
+      } catch (err) {
+        // Fallback for restricted clipboard
+        const input = document.createElement('textarea');
+        input.value = hash;
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        try {
+          document.execCommand('copy');
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = 'Copy Checksum'; }, 2400);
+        } catch {
+          btn.textContent = 'Select manually';
+        }
+        document.body.removeChild(input);
+      }
+    });
+  });
+</script>
+
+<style>
+  .verify-section {
+    position: relative;
+    z-index: 2;
+  }
+
+  .verify-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .verify-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .verify-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .v-product-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-heading);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .v-version {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .btn-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: var(--radius-full);
+  }
+
+  .verify-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .v-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    gap: 12px;
+  }
+
+  .v-row-col {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-top: 6px;
+  }
+
+  .vr-label {
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .vr-val {
+    color: var(--text-heading);
+    font-weight: 600;
+  }
+
+  .v-hash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .copy-hash-btn {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--apple-blue);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: var(--font);
+  }
+
+  .copy-hash-btn:hover {
+    background: var(--card-2);
+    border-color: var(--border-hi);
+  }
+
+  .copy-hash-btn.copied {
+    color: #30D158;
+    border-color: rgba(48, 209, 88, 0.4);
+    background: rgba(48, 209, 88, 0.08);
+  }
+
+  .hash-display {
+    display: block;
+    font-size: 11px;
+    line-height: 1.4;
+    word-break: break-all;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--text-heading);
+  }
+
+  @media (max-width: 480px) {
+    .verify-grid {
+      grid-template-columns: 1fr;
+    }
+    .verify-card {
+      padding: 20px;
+    }
+    .verify-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .v-dl-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>

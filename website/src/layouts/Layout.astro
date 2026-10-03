@@ -4,14 +4,20 @@ import '../styles/global.css';
 interface Props {
   title?: string;
   description?: string;
+  canonical?: string;
+  noindex?: boolean;
+  enableStructuredData?: boolean;
 }
 
 const {
   title = 'KFit — Fitness tracking that stays out of your way',
   description = 'Log Indian meals in plain language. Track workouts, body composition, hydration and trends locally on your device. Works offline, account optional, zero subscriptions.',
+  canonical,
+  noindex = false,
+  enableStructuredData = true,
 } = Astro.props;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+const canonicalURL = canonical ? new URL(canonical) : new URL(Astro.url.pathname, Astro.site ?? Astro.url);
 const ogImageURL = new URL('/og-image.png', canonicalURL);
 ---
 <!DOCTYPE html>
@@ -25,6 +31,7 @@ const ogImageURL = new URL('/og-image.png', canonicalURL);
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="canonical" href={canonicalURL} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
 
     <!-- Open Graph -->
     <meta property="og:title" content={title} />
@@ -44,26 +51,28 @@ const ogImageURL = new URL('/og-image.png', canonicalURL);
 
     <meta name="color-scheme" content="dark light" />
 
-    <!-- Schema.org SoftwareApplication JSON-LD -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "KFit",
-        "operatingSystem": "Android, Web",
-        "applicationCategory": "HealthAndFitnessApplication",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        },
-        "description": "Fitness tracking that stays out of your way. Engineered for authentic Indian nutrition and private performance.",
-        "author": {
-          "@type": "Person",
-          "name": "Karthik M"
+    <!-- Schema.org SoftwareApplication JSON-LD (configurable) -->
+    {enableStructuredData && (
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": "KFit",
+          "operatingSystem": "Android, Web",
+          "applicationCategory": "HealthAndFitnessApplication",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "description": "Fitness tracking that stays out of your way. Engineered for authentic Indian nutrition and private performance.",
+          "author": {
+            "@type": "Person",
+            "name": "Karthik M"
+          }
         }
-      }
-    </script>
+      </script>
+    )}
 
     <!-- Inline Apple Theme Pre-paint Init (Zero FOUT & Dynamic System Sync) -->
     <script is:inline>
@@ -96,6 +105,9 @@ const ogImageURL = new URL('/og-image.png', canonicalURL);
         } catch (e) {}
       })();
     </script>
+
+    <!-- Slot for additional head elements (meta tags, preloads) -->
+    <slot name="head" />
   </head>
   <body>
     <!-- Apple sleek scroll progress bar -->
