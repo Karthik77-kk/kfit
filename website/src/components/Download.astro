@@ -1,7 +1,7 @@
 ---
-// Public release URLs with dynamic client-side upgrade
-const KFIT_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk';
-const JARVIS_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/jarvis.apk';
+// Verified direct release URLs (100% reliable fallback)
+const KFIT_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/download/v3.0.544/kfit.apk';
+const JARVIS_APK_URL = 'https://github.com/Karthik77-kk/kfit/releases/download/jarvis-v1.0.80/jarvis.apk';
 const KFIT_RELEASES_URL = 'https://github.com/Karthik77-kk/kfit/releases';
 const KFIT_WEB_URL = 'https://getkfit.app';
 const GYMWORLD_URL = 'https://gymworld.getkfit.app';
@@ -38,7 +38,7 @@ const { isStandalone = false } = Astro.props;
       </p>
 
       <div class="hero-actions">
-        <a href={KFIT_APK_URL} class="btn btn-primary hero-btn-dl" id="heroDlBtn" download="kfit.apk">
+        <a href={KFIT_APK_URL} class="btn btn-primary hero-btn-dl" id="heroDlBtn" data-kfit-dl target="_blank" rel="noopener noreferrer">
           <svg class="dl-arrow-icon" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
@@ -286,7 +286,7 @@ const { isStandalone = false } = Astro.props;
           </div>
 
           <div class="card-actions">
-            <a href={KFIT_APK_URL} class="btn btn-primary btn-action" id="kfitMainDlBtn" download="kfit.apk">
+            <a href={KFIT_APK_URL} class="btn btn-primary btn-action" id="kfitMainDlBtn" data-kfit-dl target="_blank" rel="noopener noreferrer">
               <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
               </svg>
@@ -541,7 +541,7 @@ const { isStandalone = false } = Astro.props;
           </div>
 
           <div class="card-actions">
-            <a href={JARVIS_APK_URL} class="btn btn-primary btn-action" id="jarvisMainDlBtn" download="jarvis.apk">
+            <a href={JARVIS_APK_URL} class="btn btn-primary btn-action" id="jarvisMainDlBtn" data-jarvis-dl target="_blank" rel="noopener noreferrer">
               <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
               </svg>
@@ -801,13 +801,15 @@ const { isStandalone = false } = Astro.props;
       );
       if (kfitRelease) {
         const kfitAsset = kfitRelease.assets.find((a: any) => a.name === 'kfit.apk');
-        const kfitDlBtn = document.getElementById('kfitMainDlBtn') as HTMLAnchorElement | null;
-        const heroDlBtn = document.getElementById('heroDlBtn') as HTMLAnchorElement | null;
         const kfitVersionText = document.getElementById('kfitVersionText');
         const kfitSizeText = document.getElementById('kfitSizeText');
 
-        if (kfitDlBtn && kfitAsset?.browser_download_url) kfitDlBtn.href = kfitAsset.browser_download_url;
-        if (heroDlBtn && kfitAsset?.browser_download_url) heroDlBtn.href = kfitAsset.browser_download_url;
+        if (kfitAsset?.browser_download_url) {
+          const kfitUrl = kfitAsset.browser_download_url;
+          document.querySelectorAll('a[data-kfit-dl]').forEach((btn) => {
+            (btn as HTMLAnchorElement).href = kfitUrl;
+          });
+        }
         if (kfitVersionText && kfitRelease.tag_name) kfitVersionText.textContent = `${kfitRelease.tag_name}`;
         if (kfitSizeText && kfitAsset?.size) {
           const mb = (kfitAsset.size / (1024 * 1024)).toFixed(0);
@@ -821,11 +823,15 @@ const { isStandalone = false } = Astro.props;
       );
       if (jarvisRelease) {
         const jarvisAsset = jarvisRelease.assets.find((a: any) => a.name === 'jarvis.apk');
-        const jarvisDlBtn = document.getElementById('jarvisMainDlBtn') as HTMLAnchorElement | null;
         const jarvisVersionText = document.getElementById('jarvisVersionText');
         const jarvisSizeText = document.getElementById('jarvisSizeText');
 
-        if (jarvisDlBtn && jarvisAsset?.browser_download_url) jarvisDlBtn.href = jarvisAsset.browser_download_url;
+        if (jarvisAsset?.browser_download_url) {
+          const jarvisUrl = jarvisAsset.browser_download_url;
+          document.querySelectorAll('a[data-jarvis-dl]').forEach((btn) => {
+            (btn as HTMLAnchorElement).href = jarvisUrl;
+          });
+        }
         if (jarvisVersionText && jarvisRelease.tag_name) jarvisVersionText.textContent = `${jarvisRelease.tag_name}`;
         if (jarvisSizeText && jarvisAsset?.size) {
           const mb = (jarvisAsset.size / (1024 * 1024)).toFixed(0);
@@ -843,7 +849,7 @@ const { isStandalone = false } = Astro.props;
     const btn = document.getElementById(btnId);
     if (!btn) return;
     btn.addEventListener('click', () => {
-      const textSpan = btn.querySelector('.btn-text');
+      const textSpan = btn.querySelector('.btn-text, .nav-cta-text, .drawer-dl-text, span');
       if (textSpan) textSpan.textContent = 'Starting Download…';
       btn.style.opacity = '0.85';
       setTimeout(() => {

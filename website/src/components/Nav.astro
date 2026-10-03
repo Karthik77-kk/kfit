@@ -45,7 +45,15 @@
         </svg>
       </a>
 
-      <a href="https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk" class="btn btn-primary nav-cta" download="kfit.apk">
+      <a
+        href="https://github.com/Karthik77-kk/kfit/releases/download/v3.0.544/kfit.apk"
+        class="btn btn-primary nav-cta"
+        id="navDlBtn"
+        data-kfit-dl
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Download KFit Android APK"
+      >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
         </svg>
@@ -91,11 +99,18 @@
           <span>Launch Web App (getkfit.app)</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
         </a>
-        <a href="https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk" class="btn btn-primary drawer-btn" download="kfit.apk">
+        <a
+          href="https://github.com/Karthik77-kk/kfit/releases/download/v3.0.544/kfit.apk"
+          class="btn btn-primary drawer-btn"
+          id="drawerNavDlBtn"
+          data-kfit-dl
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
-          <span>Download Android APK</span>
+          <span class="drawer-dl-text">Download Android APK</span>
         </a>
       </div>
     </div>
@@ -114,7 +129,7 @@
 
   const toggleBtn = document.getElementById('themeToggleBtn');
   toggleBtn?.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     try {
@@ -123,6 +138,22 @@
       if (meta) meta.setAttribute('content', next === 'dark' ? '#000000' : '#F5F5F7');
     } catch (e) {}
   });
+
+  // Download feedback
+  const bindDlFeedback = (id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', () => {
+      const textSpan = el.querySelector('.nav-cta-text, .drawer-dl-text, span');
+      if (textSpan) {
+        const prev = textSpan.textContent;
+        textSpan.textContent = 'Starting Download…';
+        setTimeout(() => { textSpan.textContent = prev; }, 3000);
+      }
+    });
+  };
+  bindDlFeedback('navDlBtn');
+  bindDlFeedback('drawerNavDlBtn');
 
   // Mobile Drawer Toggle
   const menuBtn = document.getElementById('mobileMenuBtn');
@@ -276,10 +307,13 @@
     justify-content: center;
   }
 
-  :root:not([data-theme="light"]) .icon-moon { display: none; }
-  :root:not([data-theme="light"]) .icon-sun { display: flex; }
-  html[data-theme="light"] .icon-sun { display: none; }
-  html[data-theme="light"] .icon-moon { display: flex; }
+  /* Default is Light theme: show Moon icon */
+  .icon-sun { display: none; }
+  .icon-moon { display: flex; }
+
+  /* In Dark theme: show Sun icon */
+  html[data-theme="dark"] .icon-sun { display: flex; }
+  html[data-theme="dark"] .icon-moon { display: none; }
 
   .nav-link-web {
     display: inline-flex;
