@@ -5,7 +5,7 @@ name: Private PR Quality Gate (kfit-web)
 # A SEPARATE file rather than folding kfit-web into the existing one on purpose:
 # kfit-app's gate is Flutter + Supabase (flutter analyze, flutter test, a local
 # Supabase stack for pgTAP) and kfit-web's is Node (build, typecheck, test,
-# lint) — different toolchains, different failure modes, and the existing file
+# lint, Chromium browser checks) — different toolchains, different failure modes, and the existing file
 # is already hardened against real incidents (see its own comments). Branching
 # one file on repo identity for two unrelated toolchains would risk a change
 # meant for one silently touching the other. Two files, one pattern.
@@ -236,6 +236,14 @@ jobs:
       - name: Build
         if: steps.changed.outputs.code == 'true'
         run: npm run build
+
+      - name: Install Chromium for the required browser gate
+        if: steps.changed.outputs.code == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Chromium functional and mobile-width browser gate
+        if: steps.changed.outputs.code == 'true'
+        run: npx playwright test --project=chromium --project=w320 --project=w390 --project=w430 --project=w768 --project=w1280
 
       - name: Docs/skills-only PR
         if: steps.changed.outputs.code == 'false'
