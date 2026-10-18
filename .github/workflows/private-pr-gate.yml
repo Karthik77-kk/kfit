@@ -164,6 +164,11 @@ jobs:
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
+          if echo "$FILES" | grep -qE '(^android/|\.kt$|\.gradle|\.xml$)'; then
+            echo "android=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "android=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "Changed files: $(echo "$FILES" | wc -l)"
 
       - name: Secret scan (no hardcoded credentials in lib/, test/, or workflows)
@@ -244,14 +249,14 @@ jobs:
           echo "✅ No AI attribution in this PR's commits"
 
       - name: Set up Java
-        if: steps.changed.outputs.code == 'true'
+        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Flutter
-        if: steps.changed.outputs.code == 'true'
+        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.44.0"
@@ -259,7 +264,7 @@ jobs:
           cache: true
 
       - name: Cache pub packages
-        if: steps.changed.outputs.code == 'true'
+        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.pub-cache
@@ -267,8 +272,15 @@ jobs:
           restore-keys: pub-${{ runner.os }}-
 
       - name: Install dependencies
-        if: steps.changed.outputs.code == 'true'
+        if: steps.changed.outputs.code == 'true' || steps.changed.outputs.android == 'true'
         run: flutter pub get
+
+      - name: Compile Android Kotlin
+        if: steps.changed.outputs.android == 'true'
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew compileDebugKotlin
 
       - name: Analyze
         if: steps.changed.outputs.code == 'true'
