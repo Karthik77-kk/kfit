@@ -1,17 +1,17 @@
 {
   "kfit": {
     "name": "KFit for Android",
-    "version": "v3.0.544",
-    "buildNumber": 544,
-    "sizeBytes": 221731565,
-    "sizeFormatted": "211 MB",
-    "sha256": "46a344e9147bfee146d2a3cd83012933928d35c423c4da8a9c7f88cb818e2474",
-    "apkUrl": "https://github.com/Karthik77-kk/kfit/releases/download/v3.0.544/kfit.apk",
-    "releaseUrl": "https://github.com/Karthik77-kk/kfit/releases/tag/v3.0.544",
+    "version": "v3.0.619",
+    "buildNumber": 619,
+    "sizeBytes": 224058638,
+    "sizeFormatted": "214 MB",
+    "sha256": "c1a149a2447eff7416fae2493227bce37f04226eb914d1d6b3e8e24531b84451",
+    "apkUrl": "https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk",
+    "releaseUrl": "https://github.com/Karthik77-kk/kfit/releases/latest",
     "minSdk": 24,
     "minAndroid": "Android 7.0 (API 24)",
     "supportedAndroid": "Android 8.0+",
-    "publishedAt": "2026-09-29"
+    "publishedAt": "2026-10-18"
   },
   "jarvis": {
     "name": "JARVIS Voice Assistant",

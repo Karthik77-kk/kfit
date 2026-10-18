@@ -50,8 +50,8 @@ for (const productKey of requiredProducts) {
   if (!product.apkUrl || !product.apkUrl.endsWith('.apk')) {
     errors.push(`[${productKey}] apkUrl must end with .apk: "${product.apkUrl}"`);
   }
-  if (!product.apkUrl.includes(product.version)) {
-    errors.push(`[${productKey}] apkUrl does not contain tag "${product.version}": "${product.apkUrl}"`);
+  if (!product.apkUrl.includes(product.version) && !product.apkUrl.includes('/releases/latest/download/')) {
+    errors.push(`[${productKey}] apkUrl does not contain tag "${product.version}" or latest release endpoint: "${product.apkUrl}"`);
   }
 
   // 4. File size check

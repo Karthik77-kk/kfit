@@ -123,6 +123,40 @@ const ogImageURL = new URL('/og-image.png', canonicalURL);
         const pct = total > 0 ? (window.scrollY / total) * 100 : 0;
         bar.style.width = `${Math.min(pct, 100)}%`;
       }, { passive: true });
+
+      // Dynamically sync and update all KFit release download targets from GitHub Releases
+      (function() {
+        const fallbackUrl = 'https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk';
+        document.querySelectorAll<HTMLAnchorElement>('[data-kfit-dl]').forEach((btn) => {
+          btn.href = fallbackUrl;
+        });
+
+        fetch('https://api.github.com/repos/Karthik77-kk/kfit/releases/latest')
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (!data || !data.tag_name) return;
+            const tag = data.tag_name;
+            const asset = data.assets?.find((a: any) => a.name === 'kfit.apk');
+            const sizeFormatted = asset
+              ? `${Math.round(asset.size / (1024 * 1024))} MB`
+              : '214 MB';
+            const dlUrl = asset?.browser_download_url || fallbackUrl;
+
+            document.querySelectorAll<HTMLAnchorElement>('[data-kfit-dl]').forEach((btn) => {
+              btn.href = dlUrl;
+              btn.setAttribute('title', `Download KFit APK (${tag}, ${sizeFormatted})`);
+            });
+
+            document.querySelectorAll('.drawer-dl-text').forEach((span) => {
+              span.textContent = `Download KFit APK (${tag})`;
+            });
+
+            document.querySelectorAll('.v-version-tag, [data-kfit-version]').forEach((el) => {
+              el.textContent = tag;
+            });
+          })
+          .catch(() => {});
+      })();
     </script>
   </body>
 </html>
