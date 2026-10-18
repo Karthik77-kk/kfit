@@ -540,6 +540,8 @@ jobs:
           cp android_committed/settings.gradle.kts android/settings.gradle.kts
           cp android_committed/build.gradle.kts android/build.gradle.kts
           cp android_committed/gradle/wrapper/gradle-wrapper.properties android/gradle/wrapper/gradle-wrapper.properties
+          # Restore committed res directory so custom themes, drawables and mipmaps survive flutter create
+          cp -r android_committed/app/src/main/res/ android/app/src/main/res/
           rm -rf android_committed
           echo "=== settings.gradle.kts ==="
           cat android/settings.gradle.kts
@@ -717,167 +719,6 @@ jobs:
 
           echo "=== Signing + label + permissions configured ==="
 
-      - name: Patch MainActivity for battery optimization method channel
-        run: |
-          # Find and replace the generated MainActivity.kt with one that exposes
-          # battery optimization and notification settings via method channel
-          python3 - << 'PYEOF'
-          import os, glob
-          # Find MainActivity.kt
-          matches = glob.glob('android/app/src/main/kotlin/**/*.kt', recursive=True)
-          main_activity = next((f for f in matches if 'MainActivity' in f), None)
-          if not main_activity:
-              print('MainActivity.kt not found, skipping')
-          else:
-              pkg_line = open(main_activity).readline().strip()  # package com.example.xxx
-              lines = [
-                  pkg_line,
-                  '',
-                  'import android.content.Intent',
-                  'import android.content.pm.PackageManager',
-                  'import android.net.Uri',
-                  'import android.os.Build',
-                  'import android.os.PowerManager',
-                  'import android.view.WindowManager',
-                  'import android.provider.Settings',
-                  'import io.flutter.embedding.android.FlutterActivity',
-                  'import io.flutter.embedding.engine.FlutterEngine',
-                  'import io.flutter.plugin.common.MethodChannel',
-                  'import java.security.MessageDigest',
-                  '',
-                  '@Suppress("DEPRECATION")',
-                  'class MainActivity: FlutterActivity() {',
-                  '    private val CHANNEL = "com.kfitness/battery"',
-                  '    private val PRIVACY_CHANNEL = "com.kfitness/privacy"',
-                  '',
-                  '    // Hides the app from the recents switcher while it is in the',
-                  '    // background, WITHOUT blocking screenshots while it is in use —',
-                  '    // people screenshot their progress to share it, and a fitness app',
-                  '    // that refuses is worse than one that shows a thumbnail.',
-                  '    //',
-                  '    // Set on pause and cleared on resume, because the system takes the',
-                  '    // recents snapshot around pause. Only armed when the user has set a',
-                  '    // PIN: someone who locked the app has asked for this, and someone',
-                  '    // who has not should keep normal behaviour.',
-                  '    private var hideInRecents = false',
-                  '',
-                  '    override fun onPause() {',
-                  '        if (hideInRecents) {',
-                  '            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)',
-                  '        }',
-                  '        super.onPause()',
-                  '    }',
-                  '',
-                  '    override fun onResume() {',
-                  '        super.onResume()',
-                  '        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)',
-                  '    }',
-                  '    private val INTEGRITY_CHANNEL = "com.kfitness/integrity"',
-                  '',
-                  '    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {',
-                  '        super.configureFlutterEngine(flutterEngine)',
-                  '        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)',
-                  '            .setMethodCallHandler { call, result ->',
-                  '                when (call.method) {',
-                  '                    "requestIgnoreBatteryOptimizations" -> {',
-                  '                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
-                  '                            val pm = getSystemService(POWER_SERVICE) as PowerManager',
-                  '                            if (!pm.isIgnoringBatteryOptimizations(packageName)) {',
-                  '                                val intent = Intent(',
-                  '                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
-                  '                                )',
-                  '                                intent.data = Uri.parse("package:$packageName")',
-                  '                                startActivity(intent)',
-                  '                            }',
-                  '                        }',
-                  '                        result.success(true)',
-                  '                    }',
-                  '                    "isIgnoringBatteryOptimizations" -> {',
-                  '                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
-                  '                            val pm = getSystemService(POWER_SERVICE) as PowerManager',
-                  '                            result.success(pm.isIgnoringBatteryOptimizations(packageName))',
-                  '                        } else {',
-                  '                            result.success(true)',
-                  '                        }',
-                  '                    }',
-                  '                    "openNotificationSettings" -> {',
-                  '                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)',
-                  '                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)',
-                  '                        startActivity(intent)',
-                  '                        result.success(true)',
-                  '                    }',
-                  '                    "openExactAlarmSettings" -> {',
-                  '                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {',
-                  '                            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)',
-                  '                            intent.data = Uri.parse("package:$packageName")',
-                  '                            startActivity(intent)',
-                  '                        }',
-                  '                        result.success(true)',
-                  '                    }',
-                  '                    else -> result.notImplemented()',
-                  '                }',
-                  '            }',
-                  '',
-                  '        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PRIVACY_CHANNEL)',
-                  '            .setMethodCallHandler { call, result ->',
-                  '                when (call.method) {',
-                  '                    "setHideInRecents" -> {',
-                  '                        hideInRecents = call.arguments as? Boolean ?: false',
-                  '                        if (!hideInRecents) {',
-                  '                            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)',
-                  '                        }',
-                  '                        result.success(true)',
-                  '                    }',
-                  '                    else -> result.notImplemented()',
-                  '                }',
-                  '            }',
-                  '',
-                  '        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INTEGRITY_CHANNEL)',
-                  '            .setMethodCallHandler { call, result ->',
-                  '                when (call.method) {',
-                  '                    "getSigningSha256" -> {',
-                  '                        try {',
-                  '                            val sig = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {',
-                  '                                val info = packageManager.getPackageInfo(',
-                  '                                    packageName, PackageManager.GET_SIGNING_CERTIFICATES)',
-                  '                                info.signingInfo?.apkContentsSigners?.firstOrNull()',
-                  '                            } else {',
-                  '                                val info = packageManager.getPackageInfo(',
-                  '                                    packageName, PackageManager.GET_SIGNATURES)',
-                  '                                info.signatures?.firstOrNull()',
-                  '                            }',
-                  '                            if (sig != null) {',
-                  '                                val digest = MessageDigest.getInstance("SHA-256")',
-                  '                                    .digest(sig.toByteArray())',
-                  '                                val hex = digest.joinToString("") {',
-                  '                                    "%02x".format(it.toInt() and 0xFF)',
-                  '                                }',
-                  '                                result.success(hex)',
-                  '                            } else {',
-                  '                                result.success("")',
-                  '                            }',
-                  '                        } catch (e: Exception) {',
-                  '                            result.success("")',
-                  '                        }',
-                  '                    }',
-                  '                    "getInstalledApkPath" -> {',
-                  '                        try {',
-                  '                            result.success(applicationInfo.sourceDir)',
-                  '                        } catch (e: Exception) {',
-                  '                            result.success(null)',
-                  '                        }',
-                  '                    }',
-                  '                    else -> result.notImplemented()',
-                  '                }',
-                  '            }',
-                  '    }',
-                  '}',
-              ]
-              content = '\n'.join(lines) + '\n'
-              open(main_activity, 'w').write(content)
-              print(f'Patched {main_activity}')
-          PYEOF
-
       - name: Verify build.gradle signing config
         run: |
           echo "=== app/build.gradle (must contain release signingConfig) ==="
@@ -926,12 +767,14 @@ jobs:
               p = res + '/' + d
               os.makedirs(p, exist_ok=True)
               draw_mark(sz, 0.44, GREEN, (0, 0, 0, 0)).save(p + '/ic_launcher_foreground.png')
+          os.makedirs(res + '/drawable', exist_ok=True)
+          draw_mark(432, 0.44, GREEN, (0, 0, 0, 0)).save(res + '/drawable/ic_launcher_foreground.png')
           # Off-white background colour + adaptive-icon XML (green mark over off-white).
           os.makedirs(res + '/values', exist_ok=True)
           with open(res + '/values/colors.xml', 'w') as f:
-              f.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#F3F1EA</color>\n</resources>\n')
+              f.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#F3F1EA</color>\n    <color name="ic_launcher_notes_background">#FFFFFF</color>\n</resources>\n')
           os.makedirs(res + '/mipmap-anydpi-v26', exist_ok=True)
-          adaptive = '<?xml version="1.0" encoding="utf-8"?>\n<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n    <background android:drawable="@color/ic_launcher_background"/>\n    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n</adaptive-icon>\n'
+          adaptive = '<?xml version="1.0" encoding="utf-8"?>\n<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n    <background android:drawable="@color/ic_launcher_background"/>\n    <foreground android:drawable="@drawable/ic_launcher_foreground"/>\n    <monochrome android:drawable="@drawable/ic_launcher_foreground"/>\n</adaptive-icon>\n'
           for name in ['ic_launcher.xml', 'ic_launcher_round.xml']:
               with open(res + '/mipmap-anydpi-v26/' + name, 'w') as f:
                   f.write(adaptive)
