@@ -1119,7 +1119,7 @@ jobs:
         with:
           name: debug-symbols
           path: build/symbols
-          retention-days: 1
+          retention-days: 90
 
       - name: Rename APK
         if: steps.shipped.outputs.mode == 'release'
