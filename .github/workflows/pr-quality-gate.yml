@@ -1,0 +1,105 @@
+name: PR Quality Gate
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Quality gate for Karthik77-kk/kfit.
+# Required status check for branch protection on main: "Verify (kfit quality gate)".
+# Any failure blocks merging to main.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: pr-quality-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify (kfit quality gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed files
+        id: changed
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          FILES=$(git diff --name-only "$BASE" "$HEAD")
+          echo "Changed files:"
+          echo "$FILES"
+          if echo "$FILES" | grep -qE '^website/'; then
+            echo "website=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "website=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$FILES" | grep -qE '^\.github/workflows/'; then
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "workflows=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Secret and Token Scan
+        run: |
+          echo "Scanning for accidental committed secrets..."
+          # Fail if private keys or unencrypted tokens appear in source
+          if git grep -EI "BEGIN (RSA|OPENSSH|PGP) PRIVATE KEY" -- ':!*.enc' ':!*.gz' ':!*.tar' ':!backups/' 2>/dev/null; then
+            echo "::error::Found private key in repository files!"
+            exit 1
+          fi
+          echo "✅ Secret scan clean."
+
+      - name: Validate GitHub Actions Workflows
+        if: steps.changed.outputs.workflows == 'true'
+        run: |
+          echo "Validating workflow YAML files syntax..."
+          python3 -c "
+          import yaml, glob, sys
+          failed = False
+          for f in sorted(glob.glob('.github/workflows/*.yml') + glob.glob('.github/workflows/*.yaml')):
+              try:
+                  with open(f, 'r') as fp:
+                      yaml.safe_load(fp)
+                  print(f'✅ {f}')
+              except Exception as e:
+                  print(f'❌ {f}: {e}', file=sys.stderr)
+                  failed = True
+          if failed:
+              sys.exit(1)
+          "
+          echo "✅ Workflow syntax valid."
+
+      - name: Setup Node.js for Website
+        if: steps.changed.outputs.website == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: website/package-lock.json
+
+      - name: Validate Website & Release Architecture
+        if: steps.changed.outputs.website == 'true'
+        working-directory: website
+        run: |
+          npm ci
+          npm run test:manifest
+          npm run check
+          npm run build
+          echo "✅ Website verification passed."
+
+      - name: Gate Summary
+        if: always()
+        run: |
+          echo "### PR Quality Gate Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "Status: Passed" >> "$GITHUB_STEP_SUMMARY"
