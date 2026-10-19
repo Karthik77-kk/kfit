@@ -1,0 +1,69 @@
+name: Auto-merge on green
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enables GitHub native auto-merge (squash) for non-draft PRs in Karthik77-kk/kfit.
+# Automatically merges once required status checks ("Verify (kfit quality gate)") pass.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
+
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    name: Enable native auto-merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      github.event.pull_request.draft == false &&
+      github.actor != 'dependabot[bot]' &&
+      !startsWith(github.event.pull_request.title, 'wip:') &&
+      !contains(github.event.pull_request.title, '[wip]') &&
+      !contains(github.event.pull_request.title, 'do not merge') &&
+      !contains(github.event.pull_request.title, '[skip auto-merge]')
+
+    steps:
+      - name: Enable native auto-merge (squash)
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          script: |
+            const prId = context.payload.pull_request.node_id;
+            const mutation = `mutation($id: ID!) {
+              enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: SQUASH }) {
+                pullRequest { number }
+              }
+            }`;
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+            const attempts = 10;
+            const waitMs = 5000;
+
+            for (let i = 1; i <= attempts; i++) {
+              try {
+                await github.graphql(mutation, { id: prId });
+                core.info('✅ Native auto-merge enabled (squash). PR will merge when required checks pass.');
+                return;
+              } catch (e) {
+                const msg = e.message || String(e);
+                if (/already merged|pull request is not mergeable|clean status/i.test(msg)) {
+                  core.info('ℹ️ Auto-merge not needed: ' + msg);
+                  return;
+                }
+                if (/unstable status/i.test(msg) && i < attempts) {
+                  core.info(`ℹ️ PR not stable yet (attempt ${i}/${attempts}), retrying in ${waitMs / 1000}s`);
+                  await sleep(waitMs);
+                  continue;
+                }
+                core.warning('Could not enable auto-merge: ' + msg);
+                return;
+              }
+            }
