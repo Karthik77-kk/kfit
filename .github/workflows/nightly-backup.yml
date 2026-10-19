@@ -280,6 +280,13 @@ jobs:
           git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"
           echo "pushed to ${BACKUP_REPO}"
 
+      - name: Retention cleanup
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "Running telemetry retention cleanup (30 days)..."
+          psql "$SUPABASE_DB_URL" -c "SELECT public.cleanup_old_telemetry(30);"
+
       - name: Summary
         if: always()
         run: |
