@@ -63,7 +63,7 @@ function httpsPost(url, headers, body) {
 async function queryGemini(promptData, apiKey) {
   console.log('Querying Google Gemini API with High Effort / Thinking config...');
   // Try models in order: gemini-2.5-flash -> gemini-2.0-flash -> gemini-1.5-flash
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const models = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
   
   for (const model of models) {
     try {
@@ -71,7 +71,7 @@ async function queryGemini(promptData, apiKey) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const headers = { 'Content-Type': 'application/json' };
 
-      const isThinkingSupported = model.includes('2.5') || model.includes('2.0');
+      const isThinkingSupported = model.includes('3.8') || model.includes('2.5');
       const body = JSON.stringify({
         contents: [
           {
@@ -103,7 +103,7 @@ async function queryGemini(promptData, apiKey) {
 
 async function queryGitHubModels(promptData, token) {
   console.log('Querying Backup: GitHub Models API (gpt-4o-mini / Copilot)...');
-  const url = 'https://models.inference.ai.azure.com/chat/completions';
+  const url = 'https://models.github.ai/inference/chat/completions';
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`,

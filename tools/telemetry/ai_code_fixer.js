@@ -67,7 +67,7 @@ function httpsPost(url, headers, body) {
 
 async function requestPatchFromGemini(fileContent, relativePath, issue, apiKey) {
   console.log(`Asking Gemini to generate code patch for ${relativePath}...`);
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
   const headers = { 'Content-Type': 'application/json' };
 
   const prompt = `You are a principal Flutter engineer fixing a production crash in KFit.
