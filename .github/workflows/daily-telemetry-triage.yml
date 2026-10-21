@@ -1,0 +1,151 @@
+name: Daily Telemetry & AI Diagnostic Report
+
+on:
+  schedule:
+    # 05:25 UTC = 10:55 AM IST (Indian Standard Time) every day
+    # :25 avoids the :00 and :30 peak load spikes on GitHub Actions runners.
+    - cron: '25 5 * * *'
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: 'Hours to analyze (default: 24)'
+        required: false
+        default: '24'
+      create_issue:
+        description: 'Create/update GitHub issue if regressions or crashes detected'
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: daily-telemetry-triage
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    name: Telemetry Triage & Copilot Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          echo "Installing PostgreSQL 17 client..."
+          sudo install -d /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch telemetry logs from Supabase (or fallback to kfit-backups)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN || secrets.GITHUB_TOKEN }}
+          HOURS: ${{ inputs.hours || '24' }}
+        run: |
+          mkdir -p /tmp/telemetry_data
+          EXPORTED=false
+
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            echo "Querying Supabase pooler for last ${HOURS} hours of telemetry..."
+            psql "$SUPABASE_DB_URL" -X -t -A -c "
+              SELECT coalesce(json_agg(t), '[]'::json)
+              FROM (
+                SELECT * FROM public.telemetry_events
+                WHERE created_at >= NOW() - INTERVAL '${HOURS} hours'
+                ORDER BY created_at DESC
+              ) t;
+            " | jq . > /tmp/telemetry_data/telemetry_events.json || true
+
+            if [ -s /tmp/telemetry_data/telemetry_events.json ] && [ "$(cat /tmp/telemetry_data/telemetry_events.json)" != "null" ] && [ "$(jq 'length' /tmp/telemetry_data/telemetry_events.json)" -gt 0 ]; then
+              echo "✅ Successfully fetched $(jq 'length' /tmp/telemetry_data/telemetry_events.json) telemetry events from Supabase."
+              EXPORTED=true
+            fi
+          fi
+
+          if [ "$EXPORTED" = false ]; then
+            echo "Fetching telemetry from Karthik77-kk/kfit-backups repository..."
+            git clone --depth 1 "https://x-access-token:${BACKUP_TOKEN}@github.com/Karthik77-kk/kfit-backups.git" /tmp/backups_repo || true
+            if [ -f "/tmp/backups_repo/telemetry/telemetry_events.json" ]; then
+              cp /tmp/backups_repo/telemetry/telemetry_events.json /tmp/telemetry_data/telemetry_events.json
+              echo "✅ Succeeded with kfit-backups fallback dump ($(jq 'length' /tmp/telemetry_data/telemetry_events.json) events)."
+              EXPORTED=true
+            fi
+          fi
+
+          if [ "$EXPORTED" = false ]; then
+            echo "[]" > /tmp/telemetry_data/telemetry_events.json
+            echo "⚠️ Could not fetch from Supabase or backup repo; initialized empty event list."
+          fi
+
+      - name: Run Deterministic Triage Engine
+        run: |
+          node tools/telemetry/analyze_telemetry.js \
+            --file /tmp/telemetry_data/telemetry_events.json \
+            --hours ${{ inputs.hours || '24' }} \
+            --output-summary /tmp/telemetry_summary.md \
+            --output-prompt /tmp/ai_prompt.json
+
+      - name: Run Copilot / AI Root Cause Analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_COPILOT_TOKEN: ${{ secrets.GH_COPILOT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          node tools/telemetry/ai_triage.js \
+            --prompt /tmp/ai_prompt.json \
+            --summary /tmp/telemetry_summary.md
+
+      - name: Publish Step Summary
+        run: |
+          cat /tmp/telemetry_summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Daily Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-telemetry-report-${{ steps.date.outputs.date }}
+          path: /tmp/telemetry_summary.md
+          retention-days: 30
+
+      - name: Create or Update Telemetry Alert Issue
+        if: ${{ (inputs.create_issue == true || github.event_name == 'schedule') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Only alert if there is a new regression or elevated error state
+          if grep -q "NEW REGRESSION" /tmp/telemetry_summary.md || grep -q "ATTENTION NEEDED" /tmp/telemetry_summary.md; then
+            echo "🚨 Production anomaly detected! Checking for existing open issue..."
+            EXISTING_ISSUE=$(gh issue list --repo "${{ github.repository }}" --label "telemetry-alert" --state open --json number -q '.[0].number' || echo "")
+            
+            ISSUE_TITLE="🚨 [Telemetry Alert] Production Anomaly Detected (${{ steps.date.outputs.date }})"
+            if [ -n "$EXISTING_ISSUE" ]; then
+              echo "Updating existing issue #$EXISTING_ISSUE..."
+              gh issue comment "$EXISTING_ISSUE" --body-file /tmp/telemetry_summary.md
+            else
+              echo "Opening new telemetry alert issue..."
+              gh issue create \
+                --repo "${{ github.repository }}" \
+                --title "$ISSUE_TITLE" \
+                --label "telemetry-alert,bug" \
+                --body-file /tmp/telemetry_summary.md
+            fi
+          else
+            echo "✅ No critical regressions detected; skipping issue creation."
+          fi
