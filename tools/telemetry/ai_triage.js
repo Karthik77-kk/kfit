@@ -84,7 +84,7 @@ async function queryGemini(promptData, apiKey) {
         ],
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 1200,
+          maxOutputTokens: 4096,
           ...(isThinkingSupported ? { thinkingConfig: { thinkingBudget: 2048 } } : {})
         }
       });
