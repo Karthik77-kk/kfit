@@ -169,6 +169,7 @@ jobs:
           # Only alert if there is a new regression or elevated error state
           if grep -q "NEW REGRESSION" /tmp/telemetry_summary.md || grep -q "ATTENTION NEEDED" /tmp/telemetry_summary.md; then
             echo "🚨 Production anomaly detected! Checking for existing open issue..."
+            gh label create "telemetry-alert" --repo "${{ github.repository }}" --color "D93F0B" --description "Production telemetry anomalies" --force || true
             EXISTING_ISSUE=$(gh issue list --repo "${{ github.repository }}" --label "telemetry-alert" --state open --json number -q '.[0].number' || echo "")
             
             ISSUE_TITLE="🚨 [Telemetry Alert] Production Anomaly Detected (${{ steps.date.outputs.date }})"
