@@ -111,7 +111,8 @@ jobs:
 
       - name: Run Gemini & Copilot AI Root Cause Diagnosis
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_LOGS: ${{ secrets.GEMINI_API_KEY_LOGS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_LOGS || secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_COPILOT_TOKEN: ${{ secrets.GH_COPILOT_TOKEN }}
         run: |
@@ -138,7 +139,8 @@ jobs:
       - name: Execute Autonomous AI Code Fixer (Manual Approval Required)
         if: ${{ (inputs.enable_auto_fix != false) }}
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_LOGS: ${{ secrets.GEMINI_API_KEY_LOGS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_LOGS || secrets.GEMINI_API_KEY }}
           GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.KFIT_APP_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           if [ -d "/tmp/kfit-app/.git" ]; then

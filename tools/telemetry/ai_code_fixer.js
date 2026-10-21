@@ -138,7 +138,7 @@ async function run() {
   }
 
   let patchedCode = null;
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY_LOGS || process.env.GEMINI_API_KEY;
   if (geminiKey) {
     try {
       patchedCode = await requestPatchFromGemini(originalContent, issue.target_file_hint, issue, geminiKey);
@@ -236,3 +236,4 @@ run().catch(err => {
   console.error('ai_code_fixer error:', err);
   process.exit(0);
 });
+

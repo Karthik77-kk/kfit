@@ -191,7 +191,7 @@ async function run() {
   let modelUsed = 'Rule-based Triage Engine';
 
   // 1. PRIMARY: Try Google Gemini API (with thinking/high effort)
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY_LOGS || process.env.GEMINI_API_KEY;
   if (geminiKey) {
     try {
       aiReport = await queryGemini(promptData, geminiKey);
