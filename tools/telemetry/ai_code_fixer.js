@@ -67,7 +67,7 @@ function httpsPost(url, headers, body) {
 
 async function requestPatchFromGemini(fileContent, relativePath, issue, apiKey) {
   console.log(`Asking Gemini to generate code patch for ${relativePath}...`);
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+  const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
   const headers = { 'Content-Type': 'application/json' };
 
   const prompt = `You are a principal Flutter engineer fixing a production crash in KFit.
@@ -86,21 +86,29 @@ Produce the COMPLETE updated contents of the file with the fix cleanly applied.
 Preserve all formatting, comments, and structure.
 Output ONLY the raw dart code inside a single \`\`\`dart ... \`\`\` block.`;
 
-  const body = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.1,
-      maxOutputTokens: 8000,
-    }
-  });
+  for (const model of models) {
+    try {
+      console.log(`Attempting code patch with Gemini model: ${model}`);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const body = JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 8000,
+        }
+      });
 
-  const responseText = await httpsPost(url, headers, body);
-  const json = JSON.parse(responseText);
-  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
-    const reply = json.candidates[0].content.parts.map(p => p.text).join('\n');
-    const match = reply.match(/```dart\s*([\s\S]*?)\s*```/);
-    if (match && match[1] && match[1].length > 50) {
-      return match[1].trim();
+      const responseText = await httpsPost(url, headers, body);
+      const json = JSON.parse(responseText);
+      if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+        const reply = json.candidates[0].content.parts.map(p => p.text).join('\n');
+        const match = reply.match(/```dart\s*([\s\S]*?)\s*```/);
+        if (match && match[1] && match[1].length > 50) {
+          return match[1].trim();
+        }
+      }
+    } catch (e) {
+      console.warn(`Gemini (${model}) failed during code patch: ${e.message}. Trying next fallback...`);
     }
   }
   return null;
@@ -210,7 +218,7 @@ ${issue.fix_strategy}
 > **Manual Approval Required**: Auto-merge is strictly **disabled** for this PR. Please review the diff and verify the fix before manually merging into \`main\`.`;
 
     const prOutput = execSync(
-      `gh pr create --repo Karthik77-kk/kfit-app --title "🚨 [AI Triage Fix] Fix ${issue.signature.slice(0, 50)}" --body "${prBody.replace(/"/g, '\\"')}" --head "${branchName}" --base main --label "ai-fix,needs-manual-review"`,
+      `gh pr create --repo Karthik77-kk/kfit-app --title "🚨 [AI Triage Fix] Fix ${issue.signature.slice(0, 50)} [skip auto-merge]" --body "${prBody.replace(/"/g, '\\"')}" --head "${branchName}" --base main --label "ai-fix,needs-manual-review"`,
       { cwd: options.repoDir, encoding: 'utf8' }
     );
 
