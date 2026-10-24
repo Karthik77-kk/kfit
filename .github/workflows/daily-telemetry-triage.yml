@@ -217,11 +217,11 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
           DATE: ${{ steps.guard.outputs.date }}
         run: |
-          if [ "$(jq '.new_regression_count // 0' /tmp/ai_prompt.json)" -eq 0 ]; then
+          if ! jq -e '(.new_regression_count // 0) > 0' /tmp/ai_prompt.json > /dev/null 2>&1; then
             echo "No new regression on the latest build; no issue."
             exit 0
           fi
-          EXISTING=$(gh issue list --repo "$PRIVATE_REPO" --label telemetry-alert --state open --json number -q '.[0].number')
+          EXISTING=$(gh issue list --repo "$PRIVATE_REPO" --label telemetry-alert --state open --json number -q '.[0].number // empty')
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --repo "$PRIVATE_REPO" --body-file /tmp/telemetry_summary.md > /dev/null
             echo "Commented on the open alert issue #$EXISTING."
