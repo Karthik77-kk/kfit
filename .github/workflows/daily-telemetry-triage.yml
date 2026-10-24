@@ -1,0 +1,291 @@
+name: Daily telemetry triage
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reads the last day of app telemetry, flags errors the latest build still
+# throws, asks Gemini for a diagnosis, opens an alert issue in kfit-app, and
+# drafts a one-file fix PR when the evidence points at one file.
+#
+# It runs here rather than in kfit-app for the same reason every other CI job
+# does: kfit-app's Actions minutes are capped, and this workflow (Gemini calls
+# plus a full flutter analyze/test of the patch) no longer fits in them.
+#
+# This repo is public, so its logs are too. Telemetry text is written by app
+# clients, and the scripts it passes through only log counts and build numbers.
+# Nothing here writes a step summary or an artifact; the report goes only to
+# the private kfit-app issue.
+#
+# ## Why three jobs
+#
+# The patch is model output shaped by telemetry anyone with an account can
+# write, so it is untrusted code. `flutter test` runs it, and a process it
+# starts can read every env var and secret its job holds. So:
+#   triage   holds the secrets and opens the PR as a draft, but never runs it.
+#   verify   runs analyze + test on the draft with no secrets and no caches.
+#   finalize holds the PAT again, runs no code, and marks the draft ready (the
+#            kfit-app dispatch then starts the normal gate) or closes it.
+# The PR title carries [skip auto-merge]: a human approves every AI fix.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # 05:25 UTC = 10:55 IST. :25 avoids the :00 and :30 runner peaks.
+    - cron: '25 5 * * *'
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: 'Hours to analyze (1-720)'
+        required: false
+        default: '24'
+      create_issue:
+        description: 'Create or update the kfit-app alert issue on a new regression'
+        type: boolean
+        required: false
+        default: true
+      enable_auto_fix:
+        description: 'Draft a fix PR in kfit-app when one file is to blame'
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-telemetry-triage
+  cancel-in-progress: false
+
+env:
+  PRIVATE_REPO: Karthik77-kk/kfit-app
+
+jobs:
+  triage:
+    name: Triage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # GitHub Models is the fallback when Gemini is unavailable.
+      models: read
+    outputs:
+      branch: ${{ steps.fixer.outputs.branch }}
+      pr: ${{ steps.fixer.outputs.pr }}
+    steps:
+      - name: Check inputs and secrets
+        id: guard
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          HOURS: ${{ inputs.hours || '24' }}
+        run: |
+          if [ -z "$RELEASE_PAT" ]; then
+            echo "::error::RELEASE_PAT is not set; it is needed to read kfit-app and open its issue and PR."
+            exit 1
+          fi
+          # HOURS goes into SQL below, so only a plain integer is allowed.
+          if ! [[ "$HOURS" =~ ^[0-9]+$ ]] || [ "$HOURS" -lt 1 ] || [ "$HOURS" -gt 720 ]; then
+            echo "::error::hours must be an integer from 1 to 720."
+            exit 1
+          fi
+          echo "hours=$HOURS" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout kfit-app
+        uses: actions/checkout@v7
+        with:
+          repository: Karthik77-kk/kfit-app
+          ref: main
+          token: ${{ secrets.RELEASE_PAT }}
+          path: app
+          fetch-depth: 0
+          # The fixer pushes with the token on its own command line, so nothing
+          # else in this job needs it in the git config.
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Test triage scripts
+        run: node --test app/tools/telemetry/telemetry.test.js
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo install -d /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch telemetry
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
+          HOURS: ${{ steps.guard.outputs.hours }}
+        run: |
+          mkdir -p /tmp/telemetry_data
+          OUT=/tmp/telemetry_data/telemetry_events.json
+          EXPORTED=false
+
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            # An extra 7 days before the window is the baseline that tells a
+            # new regression from a chronic error.
+            FETCH_HOURS=$((HOURS + 168))
+            echo "Querying the last ${FETCH_HOURS}h (${HOURS}h window + 7d baseline)..."
+            psql "$SUPABASE_DB_URL" -X -q -t -A -c "
+              SELECT coalesce(json_agg(t), '[]'::json)
+              FROM (
+                SELECT * FROM public.telemetry_events
+                WHERE created_at >= NOW() - INTERVAL '${FETCH_HOURS} hours'
+                ORDER BY created_at DESC
+              ) t;
+            " 2>/dev/null | jq . > "$OUT" 2>/dev/null || true
+            if [ "$(jq 'length' "$OUT" 2>/dev/null || echo 0)" -gt 0 ]; then
+              echo "Fetched $(jq 'length' "$OUT") events from Supabase."
+              EXPORTED=true
+            fi
+          fi
+
+          if [ "$EXPORTED" = false ] && [ -n "$BACKUP_TOKEN" ]; then
+            echo "Falling back to the kfit-backups telemetry export..."
+            git clone -q --depth 1 "https://x-access-token:${BACKUP_TOKEN}@github.com/Karthik77-kk/kfit-backups.git" /tmp/backups_repo 2>/dev/null || true
+            if [ -f /tmp/backups_repo/telemetry/telemetry_events.json ]; then
+              cp /tmp/backups_repo/telemetry/telemetry_events.json "$OUT"
+              echo "Using the backup export ($(jq 'length' "$OUT") events)."
+              EXPORTED=true
+            fi
+            rm -rf /tmp/backups_repo
+          fi
+
+          if [ "$EXPORTED" = false ]; then
+            echo "[]" > "$OUT"
+            echo "::warning::No telemetry from Supabase or kfit-backups; analyzing an empty list."
+          fi
+
+      - name: Analyze
+        env:
+          HOURS: ${{ steps.guard.outputs.hours }}
+        run: |
+          node app/tools/telemetry/analyze_telemetry.js \
+            --file /tmp/telemetry_data/telemetry_events.json \
+            --hours "$HOURS" \
+            --output-summary /tmp/telemetry_summary.md \
+            --output-prompt /tmp/ai_prompt.json
+
+      - name: AI diagnosis
+        env:
+          GEMINI_API_KEY_LOGS: ${{ secrets.GEMINI_API_KEY_LOGS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_LOGS || secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node app/tools/telemetry/ai_triage.js \
+            --prompt /tmp/ai_prompt.json \
+            --summary /tmp/telemetry_summary.md \
+            --action-plan /tmp/ai_action_plan.json \
+            --repo-dir app
+
+      - name: Decide on a fix
+        id: plan
+        if: github.event_name == 'schedule' || inputs.enable_auto_fix
+        run: |
+          if jq -e '.has_fixable_code_issue == true' /tmp/ai_action_plan.json > /dev/null 2>&1; then
+            echo "fix=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No fixable code issue in the plan."
+          fi
+
+      - name: Draft fix PR
+        id: fixer
+        if: steps.plan.outputs.fix == 'true'
+        # A failed fix must not cost the day's alert issue.
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY_LOGS: ${{ secrets.GEMINI_API_KEY_LOGS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_LOGS || secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          node app/tools/telemetry/ai_code_fixer.js \
+            --action-plan /tmp/ai_action_plan.json \
+            --prompt /tmp/ai_prompt.json \
+            --summary /tmp/telemetry_summary.md \
+            --repo-dir app \
+            --repo "$PRIVATE_REPO"
+
+      - name: Create or update alert issue
+        if: github.event_name == 'schedule' || inputs.create_issue
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          DATE: ${{ steps.guard.outputs.date }}
+        run: |
+          if ! jq -e '(.new_regression_count // 0) > 0' /tmp/ai_prompt.json > /dev/null 2>&1; then
+            echo "No new regression on the latest build; no issue."
+            exit 0
+          fi
+          EXISTING=$(gh issue list --repo "$PRIVATE_REPO" --label telemetry-alert --state open --json number -q '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$PRIVATE_REPO" --body-file /tmp/telemetry_summary.md > /dev/null
+            echo "Commented on the open alert issue #$EXISTING."
+          else
+            gh issue create --repo "$PRIVATE_REPO" \
+              --title "🚨 [Telemetry Alert] New regression on the latest build ($DATE)" \
+              --label "telemetry-alert,bug" \
+              --body-file /tmp/telemetry_summary.md
+          fi
+
+  verify:
+    name: Verify fix (no secrets)
+    needs: triage
+    if: needs.triage.outputs.pr != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: {}
+    steps:
+      - name: Checkout fix branch
+        uses: actions/checkout@v7
+        with:
+          repository: Karthik77-kk/kfit-app
+          ref: ${{ needs.triage.outputs.branch }}
+          token: ${{ secrets.KFIT_APP_TOKEN }}
+          persist-credentials: false
+
+      # No caches in this job: a save here would land in the default branch's
+      # scope, where the release build restores it, and the code that ran
+      # before the save is the untrusted patch.
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          channel: stable
+          cache: false
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+  finalize:
+    name: Ready or close
+    needs: [triage, verify]
+    if: always() && needs.triage.outputs.pr != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Mark ready or close
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          PR: ${{ needs.triage.outputs.pr }}
+          VERIFY: ${{ needs.verify.result }}
+        run: |
+          if [ "$VERIFY" = "success" ]; then
+            gh pr ready "$PR" --repo "$PRIVATE_REPO"
+            echo "Analyze and test passed; PR marked ready for review."
+          else
+            gh pr close "$PR" --repo "$PRIVATE_REPO" --delete-branch \
+              --comment "Closed automatically: flutter analyze or flutter test did not pass on this patch (verify job: $VERIFY)."
+            echo "Verify did not pass ($VERIFY); PR closed."
+          fi
