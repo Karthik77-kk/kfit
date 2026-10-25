@@ -297,7 +297,7 @@ jobs:
           echo "Open PRs: $TOTAL"
           if [ "$TOTAL" -eq 0 ]; then echo "Nothing to do."; exit 0; fi
 
-          MERGED=0; UPDATED=0; SKIPPED=0
+          MERGED=0; UPDATED=0; SKIPPED=0; MERGED_PRS=""
 
           for row in $(echo "$PRS" | jq -r '.[] | @base64'); do
             get() { echo "$row" | base64 -d | jq -r "$1"; }
@@ -571,6 +571,7 @@ jobs:
             if gh api "${ARGS[@]}" >/dev/null 2>"${RUNNER_TEMP:-/tmp}/merge_err"; then
               echo "✅ Merged PR #$NUM"
               MERGED=$((MERGED+1))
+              MERGED_PRS="${MERGED_PRS} ${NUM}"
               # delete_branch_on_merge is false on kfit-app, so the branch
               # outlives the merge (Rule 7 wants it gone). Never touched for a
               # fork — that branch is not ours to delete.
@@ -607,9 +608,11 @@ jobs:
             gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || \
             GH_TOKEN="${{ github.token }}" gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || true
 
-            # Close matching notification issues in kfit
-            for issue in $(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "🚨 [Approval Required]" --json number --jq '.[].number' 2>/dev/null || echo ""); do
-              GH_TOKEN="${{ github.token }}" gh issue close "$issue" --repo "${{ github.repository }}" --comment "PR merged. Automated release triggered." || true
+            # Close matching notification issues for merged PRs in kfit
+            for merged_pr in $MERGED_PRS; do
+              for issue in $(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "🚨 [Approval Required] AI Telemetry Fix PR #${merged_pr}" --json number --jq '.[].number' 2>/dev/null || echo ""); do
+                GH_TOKEN="${{ github.token }}" gh issue close "$issue" --repo "${{ github.repository }}" --comment "PR #${merged_pr} merged. Automated release triggered." || true
+              done
             done
           fi
 

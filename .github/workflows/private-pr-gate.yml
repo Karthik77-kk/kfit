@@ -396,12 +396,25 @@ jobs:
             fi
 
             TARGET_DART=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
-            if ! GEMINI_API_KEY_LOGS="$API_KEY" node tools/telemetry/repair_patch.js --error-file "$LOG_FILE" --repo-dir . --target "$TARGET_DART"; then
+            if ! GEMINI_API_KEY_LOGS="$API_KEY" GITHUB_TOKEN="${{ github.token }}" node tools/telemetry/repair_patch.js \
+                 --error-file "$LOG_FILE" \
+                 --repo-dir . \
+                 --target "$TARGET_DART" \
+                 --failure-stage "$FAILURE_STAGE"; then
               echo "::error::repair_patch.js was unable to synthesize a valid repair."
               if [ -n "$PUSH_TOKEN" ]; then
                 GH_TOKEN="$PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated repair engine could not synthesize a valid fix for $FAILURE_STAGE." || true
               fi
               exit 1
+            fi
+
+            # Pre-validate repaired code syntax before git commit
+            echo "Pre-validating repaired code syntax with flutter analyze..."
+            if ! flutter analyze --no-fatal-infos > /tmp/ci_errors/syntax_check.log 2>&1; then
+              echo "::warning::Repaired code has syntax errors. Retrying in next repair iteration..."
+              cat /tmp/ci_errors/syntax_check.log
+              git checkout lib/ test/ 2>/dev/null || true
+              continue
             fi
 
             git config user.name "Karthik M"
@@ -546,8 +559,16 @@ jobs:
                 git add daily_check/
                 if ! git diff --cached --quiet; then
                   git commit -m "report: PR #$PR_NUM gate checks passed"
-                  git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"
-                  echo "Updated kfit-backups daily check with gate verification."
+                  for attempt in 1 2 3; do
+                    if git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"; then
+                      echo "✅ Successfully updated kfit-backups daily check with gate verification (attempt $attempt)."
+                      break
+                    else
+                      echo "Push rejected (concurrency collision). Rebasing and retrying (attempt $attempt)..."
+                      git pull --rebase origin main || git rebase --abort || true
+                      sleep 2
+                    fi
+                  done
                 fi
               fi
               cd /
