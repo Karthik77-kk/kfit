@@ -314,6 +314,37 @@ jobs:
             fi
 
             if [ -z "$FAILURE_STAGE" ]; then
+              # Look for a targeted unit test matching any modified lib file
+              TARGET_TEST=""
+              CHANGED_DART=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
+              if [ -n "$CHANGED_DART" ]; then
+                BASE_NAME=$(basename "$CHANGED_DART" .dart)
+                CANDIDATE_1=$(echo "$CHANGED_DART" | sed 's|^lib/|test/|; s|\.dart$|_test.dart|')
+                CANDIDATE_2="test/${BASE_NAME}_test.dart"
+                if [ -f "$CANDIDATE_1" ]; then
+                  TARGET_TEST="$CANDIDATE_1"
+                elif [ -f "$CANDIDATE_2" ]; then
+                  TARGET_TEST="$CANDIDATE_2"
+                else
+                  FOUND=$(find test -name "${BASE_NAME}_test.dart" 2>/dev/null | head -n1 || echo "")
+                  if [ -n "$FOUND" ] && [ -f "$FOUND" ]; then
+                    TARGET_TEST="$FOUND"
+                  fi
+                fi
+              fi
+
+              if [ -n "$TARGET_TEST" ]; then
+                echo "🎯 Running fast targeted component test first: $TARGET_TEST..."
+                if ! flutter test "$TARGET_TEST" > "$LOG_FILE" 2>&1; then
+                  FAILURE_STAGE="targeted test ($TARGET_TEST)"
+                  cat "$LOG_FILE"
+                else
+                  echo "✅ Fast targeted component test passed ($TARGET_TEST)"
+                fi
+              fi
+            fi
+
+            if [ -z "$FAILURE_STAGE" ]; then
               echo "Running flutter test --coverage..."
               if ! flutter test --coverage > "$LOG_FILE" 2>&1; then
                 FAILURE_STAGE="flutter test"
@@ -374,7 +405,7 @@ jobs:
 
             git config user.name "Karthik M"
             git config user.email "iammrkarthik2002@gmail.com"
-            git add lib/
+            git add lib/ test/
             if git diff --staged --quiet; then
               echo "::error::Repaired code produced no git changes."
               exit 1
