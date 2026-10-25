@@ -1,0 +1,148 @@
+name: Token Expiry Monitor
+
+# Proactive monitoring for GitHub fine-grained PAT expiration.
+# Checks RELEASE_PAT, KFIT_APP_TOKEN, and GH_BACKUP_TOKEN once a week (or via manual dispatch).
+# When any token has <= 14 days of validity remaining, it triggers an urgent alert
+# via a GitHub Issue in kfit (assigned to Karthik77-kk) and an instant ntfy.sh mobile push.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Every Monday at 03:00 UTC (08:30 IST)
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  monitor:
+    name: Check Token Expirations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify Token Lifetimes & Dispatch Alerts
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          KFIT_APP_TOKEN: ${{ secrets.KFIT_APP_TOKEN }}
+          GH_BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          NOW_EPOCH=$(date +%s)
+          ALERT_DAYS=14
+          EXPIRING_COUNT=0
+
+          check_token() {
+            local NAME="$1"
+            local TOKEN="$2"
+
+            if [ -z "$TOKEN" ]; then
+              echo "⚠️ $NAME is not set in secrets."
+              return 0
+            fi
+
+            echo "Checking $NAME..."
+            local HEADERS
+            HEADERS=$(curl -sI -H "Authorization: Bearer $TOKEN" https://api.github.com/user 2>/dev/null || true)
+
+            local HTTP_STATUS
+            HTTP_STATUS=$(echo "$HEADERS" | grep -i "^HTTP" | head -n1 | awk '{print $2}' || echo "000")
+
+            if [ "$HTTP_STATUS" = "401" ]; then
+              echo "::error::$NAME returned 401 Unauthorized — the token is expired or revoked!"
+              EXPIRING_COUNT=$((EXPIRING_COUNT + 1))
+              dispatch_alert "$NAME" "EXPIRED" "Token returned 401 Unauthorized. Automated workflows cannot authenticate!"
+              return 0
+            fi
+
+            local EXP_HEADER
+            EXP_HEADER=$(echo "$HEADERS" | grep -i "^github-authentication-token-expiration:" | head -n1 | cut -d':' -f2- | tr -d '\r' | sed 's/^[[:space:]]*//' || echo "")
+
+            if [ -z "$EXP_HEADER" ]; then
+              echo "✅ $NAME does not have an expiration header (either no-expiration PAT or header omitted)."
+              return 0
+            fi
+
+            local EXP_EPOCH
+            EXP_EPOCH=$(date -d "$EXP_HEADER" +%s 2>/dev/null || echo 0)
+
+            if [ "$EXP_EPOCH" -eq 0 ]; then
+              echo "⚠️ Could not parse expiration date: '$EXP_HEADER' for $NAME"
+              return 0
+            fi
+
+            local SECONDS_LEFT=$((EXP_EPOCH - NOW_EPOCH))
+            local DAYS_LEFT=$((SECONDS_LEFT / 86400))
+
+            echo "$NAME expires on $EXP_HEADER ($DAYS_LEFT days remaining)."
+
+            if [ "$DAYS_LEFT" -le "$ALERT_DAYS" ]; then
+              echo "::warning::$NAME expires in $DAYS_LEFT days (<= $ALERT_DAYS days threshold)!"
+              EXPIRING_COUNT=$((EXPIRING_COUNT + 1))
+              dispatch_alert "$NAME" "$DAYS_LEFT" "Token expires on $EXP_HEADER ($DAYS_LEFT days remaining). Please rotate this credential in GitHub Secrets."
+            else
+              echo "✅ $NAME has $DAYS_LEFT days remaining (> $ALERT_DAYS days threshold)."
+            fi
+          }
+
+          dispatch_alert() {
+            local TOKEN_NAME="$1"
+            local DAYS_INFO="$2"
+            local DETAILS="$3"
+
+            local ISSUE_TITLE="🚨 [Action Required] PAT Secret '${TOKEN_NAME}' Expiring (${DAYS_INFO} days)"
+
+            # Check if an open alert issue already exists to avoid spamming
+            local EXISTING
+            EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open --search "🚨 [Action Required] PAT Secret '${TOKEN_NAME}'" --json number --jq '.[].number' 2>/dev/null || echo "")
+
+            if [ -n "$EXISTING" ]; then
+              echo "Alert issue already exists (#$EXISTING). Adding reminder comment..."
+              gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "⚠️ Reminder: $DETAILS" || true
+            else
+              echo "Creating alert issue for $TOKEN_NAME..."
+              local BODY_FILE
+              BODY_FILE=$(mktemp)
+              printf "%s\n" \
+                "### 🚨 Credential Expiration Warning" \
+                "" \
+                "The fine-grained Personal Access Token stored in **\`${TOKEN_NAME}\`** is nearing expiration:" \
+                "" \
+                "- **Secret Name**: \`${TOKEN_NAME}\`" \
+                "- **Status**: ${DETAILS}" \
+                "" \
+                "> [!CAUTION]" \
+                "> If this token expires, automated CI/CD workflows (PR gating, auto-merge, daily telemetry triage) will fail." \
+                "> " \
+                "> **How to rotate**:" \
+                "> 1. Go to GitHub **Settings > Developer Settings > Personal access tokens > Fine-grained tokens**." \
+                "> 2. Regenerate or create a replacement token with required scopes." \
+                "> 3. Update the secret in repository settings: **Settings > Secrets and variables > Actions > \`${TOKEN_NAME}\`**." > "$BODY_FILE"
+
+              gh issue create --repo "${{ github.repository }}" \
+                --title "$ISSUE_TITLE" \
+                --assignee "Karthik77-kk" \
+                --body-file "$BODY_FILE" || true
+              rm -f "$BODY_FILE"
+            fi
+
+            # Mobile Push via ntfy.sh
+            echo "Sending mobile push notification via ntfy.sh..."
+            curl -s \
+              -H "Title: 🚨 Token ${TOKEN_NAME} Expiring in ${DAYS_INFO} Days" \
+              -H "Priority: urgent" \
+              -H "Tags: warning,key,security" \
+              -H "Click: https://github.com/${{ github.repository }}/settings/secrets/actions" \
+              -d "${TOKEN_NAME} expires soon (${DAYS_INFO} days left). Tap to update secret." \
+              https://ntfy.sh/kfit-karthik-alerts || true
+          }
+
+          check_token "RELEASE_PAT" "$RELEASE_PAT"
+          check_token "KFIT_APP_TOKEN" "$KFIT_APP_TOKEN"
+          check_token "GH_BACKUP_TOKEN" "$GH_BACKUP_TOKEN"
+
+          if [ "$EXPIRING_COUNT" -gt 0 ]; then
+            echo "::warning::$EXPIRING_COUNT token(s) require attention."
+          else
+            echo "✅ All monitored tokens are valid and have > $ALERT_DAYS days remaining."
+          fi

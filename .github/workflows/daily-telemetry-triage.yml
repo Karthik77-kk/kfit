@@ -356,8 +356,16 @@ jobs:
             echo "Daily check report already up-to-date in $BACKUP_REPO."
           else
             git commit -m "report: telemetry daily check ${REPORT_DATE}"
-            git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"
-            echo "✅ Successfully archived daily check report to ${BACKUP_REPO}/daily_check."
+            for attempt in 1 2 3; do
+              if git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"; then
+                echo "✅ Successfully archived daily check report to ${BACKUP_REPO}/daily_check (attempt $attempt)."
+                break
+              else
+                echo "Push rejected (concurrency collision). Rebasing and retrying (attempt $attempt)..."
+                git pull --rebase origin main || git rebase --abort || true
+                sleep 2
+              fi
+            done
           fi
           cd /
           rm -rf "$CLONE_DIR"
