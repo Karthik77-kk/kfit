@@ -366,10 +366,15 @@ jobs:
               REVIEWS=$(gh api "repos/$PRIVATE_REPO/pulls/$NUM/reviews" \
                 --jq '[.[] | select(.user.login == "Karthik77-kk")]' 2>/dev/null || echo '[]')
               LATEST_STATE=$(echo "$REVIEWS" | jq -r 'last | .state // "NONE"')
-              if [ "$LATEST_STATE" = "APPROVED" ]; then
-                echo "PR #$NUM: AI fix has owner approval from Karthik77-kk — auto-merge authorized"
+              
+              HAS_APPROVED_LABEL=$(gh pr view "$NUM" --repo "$PRIVATE_REPO" --json labels --jq '[.labels[].name] | contains(["approved"])' 2>/dev/null || echo false)
+              HAS_APPROVED_COMMENT=$(gh api --paginate "repos/$PRIVATE_REPO/issues/$NUM/comments" \
+                --jq '[.[] | select(.user.login == "Karthik77-kk") | .body] | any(test("^(approved|/approve|lgtm)$"; "i"))' 2>/dev/null || echo false)
+
+              if [ "$LATEST_STATE" = "APPROVED" ] || [ "$HAS_APPROVED_LABEL" = "true" ] || [ "$HAS_APPROVED_COMMENT" = "true" ]; then
+                echo "PR #$NUM: AI fix has owner approval from Karthik77-kk (review: $LATEST_STATE, label: $HAS_APPROVED_LABEL, comment: $HAS_APPROVED_COMMENT) — auto-merge authorized"
               else
-                echo "PR #$NUM: AI fix awaiting owner approval (review state: $LATEST_STATE)"
+                echo "PR #$NUM: AI fix awaiting owner approval (review: $LATEST_STATE, label: $HAS_APPROVED_LABEL, comment: $HAS_APPROVED_COMMENT)"
                 SKIPPED=$((SKIPPED+1))
                 continue
               fi
@@ -601,6 +606,11 @@ jobs:
             echo "PR(s) merged — dispatching private-release on kfit..."
             gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || \
             GH_TOKEN="${{ github.token }}" gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || true
+
+            # Close matching notification issues in kfit
+            for issue in $(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "🚨 [Approval Required]" --json number --jq '.[].number' 2>/dev/null || echo ""); do
+              GH_TOKEN="${{ github.token }}" gh issue close "$issue" --repo "${{ github.repository }}" --comment "PR merged. Automated release triggered." || true
+            done
           fi
 
           # Going red is reserved for "a missing permission actually cost
