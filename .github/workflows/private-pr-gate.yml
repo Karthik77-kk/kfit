@@ -48,6 +48,7 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
 
 env:
   PRIVATE_REPO: Karthik77-kk/kfit-app
@@ -485,6 +486,38 @@ jobs:
           fi
 
           # Record verification in kfit-backups daily check report
+          # Create/update alert issue in kfit authored by github-actions[bot] to trigger GitHub Mobile push notification
+          ALERT_TITLE="🚨 [Approval Required] AI Fix PR #${PR_NUM} passed all checks"
+          EXISTING_ISSUE=$(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "$ALERT_TITLE" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -z "$EXISTING_ISSUE" ]; then
+            printf '%s\n' \
+              "@Karthik77-kk 🚨 **Urgent**: All PR quality gate checks (\`flutter analyze\`, \`flutter test\`, and coverage floor) have **PASSED** on the public runner for AI fix PR #${PR_NUM}." \
+              "" \
+              "👉 **Approve & Merge Here**: https://github.com/${PRIVATE_REPO}/pull/${PR_NUM}" \
+              "" \
+              "> **How to approve**:" \
+              "> 1. Click **Merge pull request** directly on GitHub (mobile or web)." \
+              "> 2. OR comment \`approved\` or \`/approve\` on the PR." \
+              "> 3. OR add the \`approved\` label to the PR." \
+              "" \
+              "> Once approved or merged, this alert will automatically close and the automated release workflow will trigger." > /tmp/alert_issue.md
+            GH_TOKEN="${{ github.token }}" gh issue create --repo "${{ github.repository }}" \
+              --title "$ALERT_TITLE" \
+              --assignee "Karthik77-kk" \
+              --body-file /tmp/alert_issue.md || true
+            rm -f /tmp/alert_issue.md
+            echo "Created mobile push notification issue in ${{ github.repository }}."
+          fi
+
+          # Instant phone push notification via ntfy.sh
+          NTFY_TOPIC="${{ secrets.NTFY_TOPIC || 'kfit-karthik-alerts' }}"
+          curl -s -H "Title: 🚨 AI Fix PR #${PR_NUM} Ready for Approval" \
+               -H "Priority: high" \
+               -H "Tags: warning,robot" \
+               -H "Click: https://github.com/${PRIVATE_REPO}/pull/${PR_NUM}" \
+               -d "All checks passed. Tap to open and merge PR #${PR_NUM}." \
+               "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null 2>&1 || true
+
           if [ -n "$BACKUP_TOKEN" ]; then
             CLONE_DIR="$(mktemp -d)"
             if git clone --depth 1 "https://x-access-token:${BACKUP_TOKEN}@github.com/${BACKUP_REPO}.git" "$CLONE_DIR" 2>/dev/null; then
