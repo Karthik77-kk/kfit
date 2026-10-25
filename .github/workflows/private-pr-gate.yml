@@ -473,10 +473,10 @@ jobs:
             printf '%s\n' \
               "$MARKER" \
               "" \
-              "@Karthik77-kk 🚨 **Urgent**: All PR quality gate checks (`flutter analyze`, `flutter test`, and coverage floor) have **PASSED** on the public runner for this AI fix PR (#$PR_NUM)." \
+              "@Karthik77-kk 🚨 **Urgent**: All PR quality gate checks (\`flutter analyze\`, \`flutter test\`, and coverage floor) have **PASSED** on the public runner for this AI fix PR (#$PR_NUM)." \
               "" \
               "> **Status**: ⏳ Ready for owner approval." \
-              "> - **Approve to Auto-Merge**: Submit an **Approved** review in GitHub (web or mobile). The auto-merge sweep will then safely merge it into `main`." \
+              "> - **Approve to Auto-Merge**: Submit an **Approved** review in GitHub (web or mobile). The auto-merge sweep will then safely merge it into \`main\`." \
               "> - **Or Merge Directly**: Click **Merge pull request** when you are ready." \
               "> As soon as you approve or merge, the automated release workflow will trigger." > /tmp/urgent_comment.md
             gh pr comment "$PR_NUM" --repo "$PRIVATE_REPO" --body-file /tmp/urgent_comment.md || true
@@ -497,8 +497,8 @@ jobs:
                   "" \
                   "### 🧪 Quality Gate Verification Passed" \
                   "- **Pull Request**: [#$PR_NUM](https://github.com/${PRIVATE_REPO}/pull/$PR_NUM)" \
-                  "- **Branch**: `${HEAD_REF}`" \
-                  "- **Checks**: ✅ `flutter analyze`, `flutter test`, and coverage floor passed (run ${{ github.run_id }})." \
+                  "- **Branch**: \`$HEAD_REF\`" \
+                  "- **Checks**: ✅ \`flutter analyze\`, \`flutter test\`, and coverage floor passed (run ${{ github.run_id }})." \
                   "- **Status**: ⏳ Awaiting owner approval from @Karthik77-kk." > /tmp/gate_verify.md
 
                 cat /tmp/gate_verify.md >> daily_check/latest.md
