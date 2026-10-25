@@ -269,17 +269,16 @@ jobs:
 
           # Update daily_check/README.md with a table of recent daily check reports
           INDEX_FILE="daily_check/README.md"
-          cat << 'EOF' > "$INDEX_FILE"
-# 📋 KFit Daily Telemetry & Health Reports
-
-Automated daily production health checks, telemetry analytics, and AI diagnostic reviews.
-
-- **Latest Report**: [daily_check/latest.md](latest.md)
-
-### Recent Reports
-| Date | Report |
-| :--- | :--- |
-EOF
+          printf '%s\n' \
+            "# 📋 KFit Daily Telemetry & Health Reports" \
+            "" \
+            "Automated daily production health checks, telemetry analytics, and AI diagnostic reviews." \
+            "" \
+            "- **Latest Report**: [daily_check/latest.md](latest.md)" \
+            "" \
+            "### Recent Reports" \
+            "| Date | Report |" \
+            "| :--- | :--- |" > "$INDEX_FILE"
 
           for f in $(ls -1 daily_check/reports/*.md 2>/dev/null | sort -r); do
             BASENAME=$(basename "$f")
