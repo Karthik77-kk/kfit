@@ -366,6 +366,14 @@ jobs:
                 echo "PR #$NUM: title asks to skip auto-merge"; SKIPPED=$((SKIPPED+1)); continue ;;
             esac
 
+            # AI fix PRs from daily-telemetry-triage merge by hand. The title
+            # marker above already covers them; the branch rule still holds if
+            # someone edits the title.
+            case "$HEAD_REF" in
+              ai-fix/*)
+                echo "PR #$NUM: AI fix — merges by hand"; SKIPPED=$((SKIPPED+1)); continue ;;
+            esac
+
             # Schema migrations merge by hand. The Supabase GitHub integration
             # deploys `main` to PRODUCTION, so merging a PR that touches
             # supabase/migrations/ APPLIES it to the live database. There is no
