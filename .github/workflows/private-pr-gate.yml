@@ -328,6 +328,86 @@ jobs:
             -f description="$DESC" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
+      - name: Notify owner and record gate verification for AI fix PR
+        if: always() && job.status == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
+          BACKUP_REPO: Karthik77-kk/kfit-backups
+          PR_NUM: ${{ matrix.pr }}
+          HEAD_SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+          HEAD_REF=$(gh api "repos/$PRIVATE_REPO/pulls/$PR_NUM" --jq .head.ref 2>/dev/null || echo "")
+          if [[ "$HEAD_REF" != ai-fix/* ]]; then
+            exit 0
+          fi
+
+          echo "AI fix PR #$PR_NUM ($HEAD_REF) passed quality gate."
+
+          # Post urgent notification comment to alert owner on mobile if not already posted for this commit
+          MARKER="<!-- kfit-gate-notified:${HEAD_SHA} -->"
+          PRIOR=$(gh api --paginate "repos/$PRIVATE_REPO/issues/$PR_NUM/comments" \
+                    --jq '.[].body' 2>/dev/null | grep -cF "$MARKER" || true)
+          if [ "${PRIOR:-0}" -eq 0 ]; then
+            cat << 'EOF' > /tmp/urgent_comment.md
+$MARKER
+
+@Karthik77-kk 🚨 **Urgent**: All PR quality gate checks (`flutter analyze`, `flutter test`, and coverage floor) have **PASSED** on the public runner for this AI fix PR (#$PR_NUM).
+
+> **Status**: ⏳ Ready for owner approval.
+> - **Approve to Auto-Merge**: Submit an **Approved** review in GitHub (web or mobile). The auto-merge sweep will then safely merge it into `main`.
+> - **Or Merge Directly**: Click **Merge pull request** when you are ready.
+> As soon as you approve or merge, the automated release workflow will trigger.
+EOF
+            # Replace $MARKER and $PR_NUM in comment template
+            sed -i "s|\$MARKER|$MARKER|g" /tmp/urgent_comment.md
+            sed -i "s|\$PR_NUM|$PR_NUM|g" /tmp/urgent_comment.md
+            gh pr comment "$PR_NUM" --repo "$PRIVATE_REPO" --body-file /tmp/urgent_comment.md || true
+            rm -f /tmp/urgent_comment.md
+            echo "Posted urgent notification comment on PR #$PR_NUM."
+          fi
+
+          # Record verification in kfit-backups daily check report
+          if [ -n "$BACKUP_TOKEN" ]; then
+            CLONE_DIR="$(mktemp -d)"
+            if git clone --depth 1 "https://x-access-token:${BACKUP_TOKEN}@github.com/${BACKUP_REPO}.git" "$CLONE_DIR" 2>/dev/null; then
+              cd "$CLONE_DIR"
+              GATE_NOTE="<!-- gate-verification-pr-$PR_NUM-$HEAD_SHA -->"
+              if [ -f "daily_check/latest.md" ] && ! grep -q "$GATE_NOTE" "daily_check/latest.md"; then
+                cat << EOF > /tmp/gate_verify.md
+
+
+$GATE_NOTE
+
+### 🧪 Quality Gate Verification Passed
+- **Pull Request**: [#$PR_NUM](https://github.com/${PRIVATE_REPO}/pull/$PR_NUM)
+- **Branch**: `${HEAD_REF}`
+- **Checks**: ✅ `flutter analyze`, `flutter test`, and coverage floor passed (run ${{ github.run_id }}).
+- **Status**: ⏳ Awaiting owner approval from @Karthik77-kk.
+EOF
+                cat /tmp/gate_verify.md >> daily_check/latest.md
+                TODAY_REPORT="daily_check/reports/$(date -u +%Y-%m-%d).md"
+                if [ -f "$TODAY_REPORT" ]; then
+                  cat /tmp/gate_verify.md >> "$TODAY_REPORT"
+                fi
+                rm -f /tmp/gate_verify.md
+
+                git config user.name "Karthik M"
+                git config user.email "iammrkarthik2002@gmail.com"
+                git add daily_check/
+                if ! git diff --cached --quiet; then
+                  git commit -m "report: PR #$PR_NUM gate checks passed"
+                  git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"
+                  echo "Updated kfit-backups daily check with gate verification."
+                fi
+              fi
+              cd /
+              rm -rf "$CLONE_DIR"
+            fi
+          fi
+
+
   # The SECOND required context on kfit-app/main. Both must report before a PR
   # can merge, so porting only the Dart gate would have left every PR blocked
   # while looking like the migration had worked.

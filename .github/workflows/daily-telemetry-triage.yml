@@ -239,3 +239,68 @@ jobs:
               --label "telemetry-alert,bug" \
               --body-file /tmp/telemetry_summary.md
           fi
+
+      - name: Archive daily check report to kfit-backups
+        if: always()
+        env:
+          BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
+          BACKUP_REPO: Karthik77-kk/kfit-backups
+          DATE: ${{ steps.guard.outputs.date }}
+        run: |
+          if [ ! -f /tmp/telemetry_summary.md ]; then
+            echo "No telemetry summary to archive."
+            exit 0
+          fi
+          if [ -z "$BACKUP_TOKEN" ]; then
+            echo "::warning::GH_BACKUP_TOKEN not set; skipping archiving to kfit-backups."
+            exit 0
+          fi
+
+          REPORT_DATE="${DATE:-$(date -u +'%Y-%m-%d')}"
+          CLONE_DIR="$(mktemp -d)"
+          git clone --depth 1 "https://x-access-token:${BACKUP_TOKEN}@github.com/${BACKUP_REPO}.git" "$CLONE_DIR" 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"
+          cd "$CLONE_DIR"
+          mkdir -p daily_check/reports
+
+          # Save today's report and update latest.md
+          REPORT_PATH="daily_check/reports/${REPORT_DATE}.md"
+          cp /tmp/telemetry_summary.md "$REPORT_PATH"
+          cp /tmp/telemetry_summary.md daily_check/latest.md
+
+          # Update daily_check/README.md with a table of recent daily check reports
+          INDEX_FILE="daily_check/README.md"
+          cat << 'EOF' > "$INDEX_FILE"
+# 📋 KFit Daily Telemetry & Health Reports
+
+Automated daily production health checks, telemetry analytics, and AI diagnostic reviews.
+
+- **Latest Report**: [daily_check/latest.md](latest.md)
+
+### Recent Reports
+| Date | Report |
+| :--- | :--- |
+EOF
+
+          for f in $(ls -1 daily_check/reports/*.md 2>/dev/null | sort -r); do
+            BASENAME=$(basename "$f")
+            ITEM_DATE="${BASENAME%.md}"
+            echo "| $ITEM_DATE | [View Report](reports/$BASENAME) |" >> "$INDEX_FILE"
+          done
+
+          # Retain most recent 90 daily reports
+          ls -1 daily_check/reports/*.md 2>/dev/null | sort -r | tail -n +91 | while read -r old_file; do
+            git rm -q "$old_file" 2>/dev/null || rm -f "$old_file"
+          done
+
+          git config user.name "Karthik M"
+          git config user.email "iammrkarthik2002@gmail.com"
+          git add daily_check/
+          if git diff --cached --quiet; then
+            echo "Daily check report already up-to-date in $BACKUP_REPO."
+          else
+            git commit -m "report: telemetry daily check ${REPORT_DATE}"
+            git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"
+            echo "✅ Successfully archived daily check report to ${BACKUP_REPO}/daily_check."
+          fi
+          cd /
+          rm -rf "$CLONE_DIR"
