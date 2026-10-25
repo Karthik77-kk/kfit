@@ -86,12 +86,12 @@ jobs:
           ONLY="${{ github.event.inputs.pr || github.event.client_payload.pr || '' }}"
 
           PRS=$(gh pr list --repo "$PRIVATE_REPO" --state open --base main \
-                  --json number,headRefOid,baseRefOid,title,isDraft --limit 50)
+                  --json number,headRefOid,baseRefOid,headRefName,title,isDraft --limit 50)
 
           SELECTED='[]'
           for row in $(echo "$PRS" | jq -r '.[] | @base64'); do
             pr() { echo "$row" | base64 -d | jq -r "$1"; }
-            NUM=$(pr .number); SHA=$(pr .headRefOid); BASE=$(pr .baseRefOid)
+            NUM=$(pr .number); SHA=$(pr .headRefOid); BASE=$(pr .baseRefOid); REF=$(pr .headRefName)
             [ "$(pr .isDraft)" = "true" ] && continue
             if [ -n "$ONLY" ] && [ "$NUM" != "$ONLY" ]; then continue; fi
 
@@ -109,8 +109,8 @@ jobs:
             fi
 
             SELECTED=$(echo "$SELECTED" | jq -c \
-              --argjson n "$NUM" --arg s "$SHA" --arg b "$BASE" \
-              '. + [{pr:$n, sha:$s, base:$b}]')
+              --argjson n "$NUM" --arg s "$SHA" --arg b "$BASE" --arg r "$REF" \
+              '. + [{pr:$n, sha:$s, base:$b, ref:$r}]')
           done
 
           COUNT=$(echo "$SELECTED" | jq 'length')
@@ -279,31 +279,116 @@ jobs:
         if: steps.changed.outputs.android == 'true'
         run: flutter build apk --debug --target-platform android-arm64
 
-      - name: Analyze
+      - name: Analyze, test, and self-healing repair
         if: steps.changed.outputs.code == 'true'
-        run: flutter analyze --no-fatal-infos
-
-      - name: Test
-        if: steps.changed.outputs.code == 'true'
-        run: flutter test --coverage
-
-      - name: Coverage floor
-        if: steps.changed.outputs.code == 'true'
+        env:
+          HEAD_REF: ${{ matrix.ref }}
+          PR_NUM: ${{ matrix.pr }}
+          BASE_SHA: ${{ matrix.base }}
+          GEMINI_API_KEY_LOGS: ${{ secrets.GEMINI_API_KEY_LOGS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_LOGS || secrets.GEMINI_API_KEY }}
+          PUSH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          PRIVATE_REPO: ${{ env.PRIVATE_REPO }}
+          COVERAGE_MIN: ${{ env.COVERAGE_MIN }}
         run: |
-          [ -f coverage/lcov.info ] || {
-            echo "::error::coverage/lcov.info missing."; exit 1; }
-          # Generated sources are dropped before measuring: they are machine
-          # written and already exercised through the code that uses them, and
-          # counting them makes the floor punish adding a generated file while a
-          # real drop hides in the noise.
-          awk '/^SF:/ { skip = ($0 ~ /\.g\.dart$/) } !skip' \
-            coverage/lcov.info > coverage/lcov.measured
-          PCT=$(awk -F: '/^LF:/{lf+=$2} /^LH:/{lh+=$2} END{ if(lf>0) printf "%.1f", lh/lf*100; else print "0" }' coverage/lcov.measured)
-          echo "Line coverage: ${PCT}% (floor ${COVERAGE_MIN}%)"
-          if awk "BEGIN{exit !($PCT < $COVERAGE_MIN)}"; then
-            echo "::error::Coverage ${PCT}% is below the ${COVERAGE_MIN}% floor."
-            exit 1
-          fi
+          set -eo pipefail
+
+          HEAD_REF="${HEAD_REF:-}"
+          MAX_REPAIRS=3
+          ATTEMPT=0
+
+          while true; do
+            echo "============================================================"
+            echo "▶ Validation pass (Attempt $ATTEMPT of $MAX_REPAIRS) on $HEAD_REF"
+            echo "============================================================"
+
+            FAILURE_STAGE=""
+            mkdir -p /tmp/ci_errors
+            LOG_FILE="/tmp/ci_errors/failure.log"
+            rm -f "$LOG_FILE"
+
+            echo "Running flutter analyze..."
+            if ! flutter analyze --no-fatal-infos > "$LOG_FILE" 2>&1; then
+              FAILURE_STAGE="flutter analyze"
+              cat "$LOG_FILE"
+            fi
+
+            if [ -z "$FAILURE_STAGE" ]; then
+              echo "Running flutter test --coverage..."
+              if ! flutter test --coverage > "$LOG_FILE" 2>&1; then
+                FAILURE_STAGE="flutter test"
+                cat "$LOG_FILE"
+              fi
+            fi
+
+            if [ -z "$FAILURE_STAGE" ]; then
+              echo "Evaluating line coverage..."
+              if [ ! -f coverage/lcov.info ]; then
+                FAILURE_STAGE="coverage/lcov.info missing"
+                echo "$FAILURE_STAGE" > "$LOG_FILE"
+              else
+                awk '/^SF:/ { skip = ($0 ~ /\.g\.dart$/) } !skip' coverage/lcov.info > coverage/lcov.measured
+                PCT=$(awk -F: '/^LF:/{lf+=$2} /^LH:/{lh+=$2} END{ if(lf>0) printf "%.1f", lh/lf*100; else print "0" }' coverage/lcov.measured)
+                echo "Line coverage: ${PCT}% (floor ${COVERAGE_MIN}%)"
+                if awk "BEGIN{exit !($PCT < $COVERAGE_MIN)}"; then
+                  FAILURE_STAGE="Coverage floor failed (${PCT}% < ${COVERAGE_MIN}%)"
+                  echo "Line coverage is ${PCT}%, which is below the required floor of ${COVERAGE_MIN}%." > "$LOG_FILE"
+                fi
+              fi
+            fi
+
+            # If all checks passed, validation succeeded
+            if [ -z "$FAILURE_STAGE" ]; then
+              echo "✅ All checks passed successfully!"
+              break
+            fi
+
+            # If not an ai-fix branch or max repairs reached, fail the step
+            if [[ "$HEAD_REF" != ai-fix/* ]] || [ "$ATTEMPT" -ge "$MAX_REPAIRS" ]; then
+              echo "::error::Validation failed at $FAILURE_STAGE."
+              if [[ "$HEAD_REF" == ai-fix/* ]] && [ -n "$PUSH_TOKEN" ]; then
+                echo "Auto-repair exhausted ($MAX_REPAIRS attempts). Auto-closing failed AI fix PR to unblock queue."
+                GH_TOKEN="$PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated checks ($FAILURE_STAGE) failed after $MAX_REPAIRS repair attempts." || true
+              fi
+              exit 1
+            fi
+
+            # Perform AI repair
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "🔧 Attempting in-flow AI repair (Attempt $ATTEMPT of $MAX_REPAIRS) for $FAILURE_STAGE..."
+
+            API_KEY="${GEMINI_API_KEY_LOGS:-$GEMINI_API_KEY}"
+            if [ -z "$API_KEY" ]; then
+              echo "::error::No GEMINI_API_KEY available for repair."
+              exit 1
+            fi
+
+            TARGET_DART=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
+            if ! GEMINI_API_KEY_LOGS="$API_KEY" node tools/telemetry/repair_patch.js --error-file "$LOG_FILE" --repo-dir . --target "$TARGET_DART"; then
+              echo "::error::repair_patch.js was unable to synthesize a valid repair."
+              if [ -n "$PUSH_TOKEN" ]; then
+                GH_TOKEN="$PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated repair engine could not synthesize a valid fix for $FAILURE_STAGE." || true
+              fi
+              exit 1
+            fi
+
+            git config user.name "Karthik M"
+            git config user.email "iammrkarthik2002@gmail.com"
+            git add lib/
+            if git diff --staged --quiet; then
+              echo "::error::Repaired code produced no git changes."
+              exit 1
+            fi
+
+            git commit -m "fix(telemetry): auto-repair $FAILURE_STAGE failure"
+            if [ -n "$PUSH_TOKEN" ]; then
+              git push "https://x-access-token:${PUSH_TOKEN}@github.com/${PRIVATE_REPO}.git" "HEAD:${HEAD_REF}"
+              echo "Pushed repaired commit to ${HEAD_REF}. Retesting immediately in this runner..."
+            else
+              echo "::error::PUSH_TOKEN not available to push repair."
+              exit 1
+            fi
+          done
 
       - name: Docs-only PR
         if: steps.changed.outputs.code == 'false'
@@ -322,7 +407,8 @@ jobs:
             cancelled) STATE=error;  DESC="Cancelled" ;;
             *) STATE=failure; DESC="Failed — see the run log" ;;
           esac
-          gh api -X POST "repos/$PRIVATE_REPO/statuses/${{ matrix.sha }}" \
+          TARGET_SHA=$(git rev-parse HEAD 2>/dev/null || echo "${{ matrix.sha }}")
+          gh api -X POST "repos/$PRIVATE_REPO/statuses/$TARGET_SHA" \
             -f state="$STATE" \
             -f context="$CONTEXT" \
             -f description="$DESC" \
@@ -335,15 +421,18 @@ jobs:
           BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
           BACKUP_REPO: Karthik77-kk/kfit-backups
           PR_NUM: ${{ matrix.pr }}
-          HEAD_SHA: ${{ matrix.sha }}
         run: |
           set -euo pipefail
-          HEAD_REF=$(gh api "repos/$PRIVATE_REPO/pulls/$PR_NUM" --jq .head.ref 2>/dev/null || echo "")
+          HEAD_REF="${{ matrix.ref }}"
+          if [ -z "$HEAD_REF" ]; then
+            HEAD_REF=$(gh api "repos/$PRIVATE_REPO/pulls/$PR_NUM" --jq .head.ref 2>/dev/null || echo "")
+          fi
           if [[ "$HEAD_REF" != ai-fix/* ]]; then
             exit 0
           fi
 
-          echo "AI fix PR #$PR_NUM ($HEAD_REF) passed quality gate."
+          HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "${{ matrix.sha }}")
+          echo "AI fix PR #$PR_NUM ($HEAD_REF, $HEAD_SHA) passed quality gate."
 
           # Post urgent notification comment to alert owner on mobile if not already posted for this commit
           MARKER="<!-- kfit-gate-notified:${HEAD_SHA} -->"

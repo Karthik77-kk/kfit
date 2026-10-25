@@ -144,9 +144,16 @@ jobs:
           fi
 
           if [ "$EXPORTED" = false ] && [ -n "$BACKUP_TOKEN" ]; then
-            echo "Falling back to the kfit-backups telemetry export..."
+            echo "Direct Supabase query produced no events; checking kfit-backups..."
             git clone -q --depth 1 "https://x-access-token:${BACKUP_TOKEN}@github.com/Karthik77-kk/kfit-backups.git" /tmp/backups_repo 2>/dev/null || true
             if [ -f /tmp/backups_repo/telemetry/telemetry_events.json ]; then
+              DUMP_AGE_SEC=$(( $(date +%s) - $(git -C /tmp/backups_repo log -1 --format=%ct telemetry/telemetry_events.json 2>/dev/null || echo 0) ))
+              DUMP_AGE_HOURS=$(( DUMP_AGE_SEC / 3600 ))
+              echo "Backup export age: ${DUMP_AGE_HOURS}h."
+              if [ "$DUMP_AGE_HOURS" -gt 10 ]; then
+                echo "Backup export is older than 10 hours (${DUMP_AGE_HOURS}h). Triggering nightly backup workflow to refresh..."
+                GH_TOKEN="${{ github.token }}" gh workflow run nightly-backup.yml 2>/dev/null || true
+              fi
               cp /tmp/backups_repo/telemetry/telemetry_events.json "$OUT"
               echo "Using the backup export ($(jq 'length' "$OUT") events)."
               EXPORTED=true
@@ -207,6 +214,19 @@ jobs:
             --summary /tmp/telemetry_summary.md \
             --repo-dir app \
             --repo "$PRIVATE_REPO"
+
+      - name: Trigger immediate PR quality gate
+        if: steps.plan.outputs.fix == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          PR_URL=$(grep -oE 'https://github.com/[^/]+/[^/]+/pull/([0-9]+)' /tmp/telemetry_summary.md | head -n1 || true)
+          if [ -n "$PR_URL" ]; then
+            PR_NUM=$(basename "$PR_URL")
+            echo "Triggering immediate quality gate on kfit for fix PR #$PR_NUM..."
+            GH_TOKEN="${{ github.token }}" gh workflow run private-pr-gate.yml -f pr="$PR_NUM" 2>/dev/null || \
+            gh workflow run private-pr-gate.yml -f pr="$PR_NUM" 2>/dev/null || true
+          fi
 
       # Before the alert step, so a new regression is not added to a fixed issue.
       - name: Close fixed alert issues
