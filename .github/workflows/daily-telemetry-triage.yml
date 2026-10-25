@@ -3,27 +3,26 @@ name: Daily telemetry triage
 # ─────────────────────────────────────────────────────────────────────────────
 # Reads the last day of app telemetry, flags errors the latest build still
 # throws, asks Gemini for a diagnosis, opens an alert issue in kfit-app, and
-# drafts a one-file fix PR when the evidence points at one file.
+# opens a one-file fix PR when the evidence points at one file. It also closes
+# open alert issues once a newer build runs without their errors.
 #
 # It runs here rather than in kfit-app for the same reason every other CI job
-# does: kfit-app's Actions minutes are capped, and this workflow (Gemini calls
-# plus a full flutter analyze/test of the patch) no longer fits in them.
+# does: kfit-app's Actions minutes are capped, and a long Gemini fallback chain
+# no longer fits in them.
 #
 # This repo is public, so its logs are too. Telemetry text is written by app
 # clients, and the scripts it passes through only log counts and build numbers.
 # Nothing here writes a step summary or an artifact; the report goes only to
 # the private kfit-app issue.
 #
-# ## Why three jobs
+# ## Why the patch never runs here
 #
 # The patch is model output shaped by telemetry anyone with an account can
-# write, so it is untrusted code. `flutter test` runs it, and a process it
-# starts can read every env var and secret its job holds. So:
-#   triage   holds the secrets and opens the PR as a draft, but never runs it.
-#   verify   runs analyze + test on the draft with no secrets and no caches.
-#   finalize holds the PAT again, runs no code, and marks the draft ready (the
-#            kfit-app dispatch then starts the normal gate) or closes it.
-# The PR title carries [skip auto-merge]: a human approves every AI fix.
+# write, so it is untrusted code, and this job holds every secret. It only
+# pushes the patch and opens a normal PR. The kfit-app dispatch then runs the
+# PR gate on it (analyze, test, coverage floor) with no secrets in reach.
+# private-auto-merge skips `ai-fix/*` branches and the [skip auto-merge]
+# title: a human merges every AI fix.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -42,7 +41,7 @@ on:
         required: false
         default: true
       enable_auto_fix:
-        description: 'Draft a fix PR in kfit-app when one file is to blame'
+        description: 'Open a fix PR in kfit-app when one file is to blame'
         type: boolean
         required: false
         default: true
@@ -61,14 +60,12 @@ jobs:
   triage:
     name: Triage
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Each Gemini model in the diagnosis and fix chains may wait 5 minutes.
+    timeout-minutes: 120
     permissions:
       contents: read
       # GitHub Models is the fallback when Gemini is unavailable.
       models: read
-    outputs:
-      branch: ${{ steps.fixer.outputs.branch }}
-      pr: ${{ steps.fixer.outputs.pr }}
     steps:
       - name: Check inputs and secrets
         id: guard
@@ -170,7 +167,8 @@ jobs:
             --file /tmp/telemetry_data/telemetry_events.json \
             --hours "$HOURS" \
             --output-summary /tmp/telemetry_summary.md \
-            --output-prompt /tmp/ai_prompt.json
+            --output-prompt /tmp/ai_prompt.json \
+            --output-tracking /tmp/telemetry_tracking.json
 
       - name: AI diagnosis
         env:
@@ -194,8 +192,7 @@ jobs:
             echo "No fixable code issue in the plan."
           fi
 
-      - name: Draft fix PR
-        id: fixer
+      - name: Open fix PR
         if: steps.plan.outputs.fix == 'true'
         # A failed fix must not cost the day's alert issue.
         continue-on-error: true
@@ -209,6 +206,17 @@ jobs:
             --prompt /tmp/ai_prompt.json \
             --summary /tmp/telemetry_summary.md \
             --repo-dir app \
+            --repo "$PRIVATE_REPO"
+
+      # Before the alert step, so a new regression is not added to a fixed issue.
+      - name: Close fixed alert issues
+        if: github.event_name == 'schedule' || inputs.create_issue
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          node app/tools/telemetry/close_fixed_issues.js \
+            --tracking /tmp/telemetry_tracking.json \
             --repo "$PRIVATE_REPO"
 
       - name: Create or update alert issue
@@ -230,62 +238,4 @@ jobs:
               --title "🚨 [Telemetry Alert] New regression on the latest build ($DATE)" \
               --label "telemetry-alert,bug" \
               --body-file /tmp/telemetry_summary.md
-          fi
-
-  verify:
-    name: Verify fix (no secrets)
-    needs: triage
-    if: needs.triage.outputs.pr != ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions: {}
-    steps:
-      - name: Checkout fix branch
-        uses: actions/checkout@v7
-        with:
-          repository: Karthik77-kk/kfit-app
-          ref: ${{ needs.triage.outputs.branch }}
-          token: ${{ secrets.KFIT_APP_TOKEN }}
-          persist-credentials: false
-
-      # No caches in this job: a save here would land in the default branch's
-      # scope, where the release build restores it, and the code that ran
-      # before the save is the untrusted patch.
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.44.0"
-          channel: stable
-          cache: false
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos
-
-      - name: Test
-        run: flutter test
-
-  finalize:
-    name: Ready or close
-    needs: [triage, verify]
-    if: always() && needs.triage.outputs.pr != ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions: {}
-    steps:
-      - name: Mark ready or close
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-          PR: ${{ needs.triage.outputs.pr }}
-          VERIFY: ${{ needs.verify.result }}
-        run: |
-          if [ "$VERIFY" = "success" ]; then
-            gh pr ready "$PR" --repo "$PRIVATE_REPO"
-            echo "Analyze and test passed; PR marked ready for review."
-          else
-            gh pr close "$PR" --repo "$PRIVATE_REPO" --delete-branch \
-              --comment "Closed automatically: flutter analyze or flutter test did not pass on this patch (verify job: $VERIFY)."
-            echo "Verify did not pass ($VERIFY); PR closed."
           fi
