@@ -45,6 +45,10 @@ on:
         type: boolean
         required: false
         default: true
+      test_target_file:
+        description: 'Target file for end-to-end verification (e.g. lib/services/food_notes_service.dart, blank for normal)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -193,7 +197,41 @@ jobs:
         id: plan
         if: github.event_name == 'schedule' || inputs.enable_auto_fix
         run: |
+          TEST_TARGET="${{ github.event.inputs.test_target_file }}"
           if jq -e '.has_fixable_code_issue == true' /tmp/ai_action_plan.json > /dev/null 2>&1; then
+            echo "fix=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$TEST_TARGET" ]; then
+            echo "End-to-end test verification mode for target: $TEST_TARGET"
+            node -e "
+              const fs = require('fs');
+              const target = process.argv[1];
+              fs.writeFileSync('/tmp/ai_prompt.json', JSON.stringify({
+                window_hours: 24,
+                latest_version: '3.0.0+652p666',
+                new_regression_count: 1,
+                top_errors: [{
+                  ref: 0,
+                  category: 'food_notes',
+                  operation: 'loadTodayNotes',
+                  message: 'FormatException: Unexpected character (at character 1)',
+                  code: 'CORRUPTED_JSON',
+                  on_latest_version: true,
+                  is_new_regression: true,
+                  breadcrumbs: ['[food_notes/init] start', '[food_notes/loadTodayNotes] read_prefs'],
+                  stack_preview: 'dart:convert _JsonDecoder.convert\\npackage:kfit/services/food_notes_service.dart 55:30 loadTodayNotes'
+                }]
+              }, null, 2));
+              fs.writeFileSync('/tmp/ai_action_plan.json', JSON.stringify({
+                has_fixable_code_issue: true,
+                issues: [{
+                  error_ref: 0,
+                  signature: 'food_notes/loadTodayNotes | CORRUPTED_JSON | FormatException',
+                  target_file_hint: target,
+                  issue_type: 'state_error',
+                  fix_strategy: 'Wrap jsonDecode with try-catch block falling back gracefully to empty list when JSON is corrupted or invalid.'
+                }]
+              }, null, 2));
+            " "$TEST_TARGET"
             echo "fix=true" >> "$GITHUB_OUTPUT"
           else
             echo "No fixable code issue in the plan."
