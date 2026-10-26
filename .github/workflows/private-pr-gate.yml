@@ -298,6 +298,20 @@ jobs:
           MAX_REPAIRS=3
           ATTEMPT=0
 
+          # Helper: sanitize public runner logs by stripping local runner paths and credentials
+          sanitize_log() {
+            local target_log="$1"
+            if [ -f "$target_log" ]; then
+              sed -E \
+                -e 's|/home/runner/work/[^/]+/[^/]+/||g' \
+                -e 's|ghp_[A-Za-z0-9]{36}|[REDACTED_GH_TOKEN]|g' \
+                -e 's|github_pat_[A-Za-z0-9_]{40}|[REDACTED_PAT]|g' \
+                -e 's|AIza[0-9A-Za-z_-]{35}|[REDACTED_GEMINI_KEY]|g' \
+                -e 's|Bearer [A-Za-z0-9._-]{20,}|Bearer [REDACTED]|g' \
+                "$target_log" | head -n 150
+            fi
+          }
+
           while true; do
             echo "============================================================"
             echo "▶ Validation pass (Attempt $ATTEMPT of $MAX_REPAIRS) on $HEAD_REF"
@@ -311,7 +325,7 @@ jobs:
             echo "Running flutter analyze..."
             if ! flutter analyze --no-fatal-infos > "$LOG_FILE" 2>&1; then
               FAILURE_STAGE="flutter analyze"
-              cat "$LOG_FILE"
+              sanitize_log "$LOG_FILE"
             fi
 
             if [ -z "$FAILURE_STAGE" ]; then
@@ -338,7 +352,7 @@ jobs:
                 echo "🎯 Running fast targeted component test first: $TARGET_TEST..."
                 if ! flutter test "$TARGET_TEST" > "$LOG_FILE" 2>&1; then
                   FAILURE_STAGE="targeted test ($TARGET_TEST)"
-                  cat "$LOG_FILE"
+                  sanitize_log "$LOG_FILE"
                 else
                   echo "✅ Fast targeted component test passed ($TARGET_TEST)"
                 fi
@@ -349,7 +363,7 @@ jobs:
               echo "Running flutter test --coverage..."
               if ! flutter test --coverage > "$LOG_FILE" 2>&1; then
                 FAILURE_STAGE="flutter test"
-                cat "$LOG_FILE"
+                sanitize_log "$LOG_FILE"
               fi
             fi
 
@@ -412,7 +426,7 @@ jobs:
             echo "Pre-validating repaired code syntax with flutter analyze..."
             if ! flutter analyze --no-fatal-infos > /tmp/ci_errors/syntax_check.log 2>&1; then
               echo "::warning::Repaired code has syntax errors. Retrying in next repair iteration..."
-              cat /tmp/ci_errors/syntax_check.log
+              sanitize_log /tmp/ci_errors/syntax_check.log
               git checkout lib/ test/ 2>/dev/null || true
               continue
             fi
