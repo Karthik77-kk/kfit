@@ -291,6 +291,7 @@ jobs:
           PUSH_TOKEN: ${{ secrets.RELEASE_PAT }}
           PRIVATE_REPO: ${{ env.PRIVATE_REPO }}
           COVERAGE_MIN: ${{ env.COVERAGE_MIN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -eo pipefail
 
@@ -308,7 +309,7 @@ jobs:
                 -e 's|github_pat_[A-Za-z0-9_]{40}|[REDACTED_PAT]|g' \
                 -e 's|AIza[0-9A-Za-z_-]{35}|[REDACTED_GEMINI_KEY]|g' \
                 -e 's|Bearer [A-Za-z0-9._-]{20,}|Bearer [REDACTED]|g' \
-                "$target_log" | head -n 150
+                "$target_log" | tail -n 120 || true
             fi
           }
 
@@ -410,7 +411,7 @@ jobs:
             fi
 
             TARGET_DART=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
-            if ! GEMINI_API_KEY_LOGS="$API_KEY" GITHUB_TOKEN="${{ github.token }}" node tools/telemetry/repair_patch.js \
+            if ! GEMINI_API_KEY_LOGS="$API_KEY" GITHUB_TOKEN="$GITHUB_TOKEN" node tools/telemetry/repair_patch.js \
                  --error-file "$LOG_FILE" \
                  --repo-dir . \
                  --target "$TARGET_DART" \
