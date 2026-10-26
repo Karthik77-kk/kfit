@@ -1305,6 +1305,7 @@ jobs:
 
       - name: Update daily check report in kfit-backups
         if: success() && github.event_name != 'workflow_dispatch'
+        continue-on-error: true
         env:
           BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
           BACKUP_REPO: Karthik77-kk/kfit-backups
@@ -1328,9 +1329,9 @@ jobs:
 
             if [ -f "daily_check/latest.md" ] && ! grep -q "$DEPLOY_NOTE" "daily_check/latest.md"; then
               if [ "$MODE" = "patch" ]; then
-                DESC="Shorebird Silent OTA Patch (applied to `${RELEASE_VER}`, patch #${CODE})"
+                DESC="Shorebird Silent OTA Patch (applied to \`${RELEASE_VER}\`, patch #${CODE})"
               else
-                DESC="Full APK Release [`${TAG}`](https://github.com/${{ github.repository }}/releases/tag/${TAG}) (versionCode ${CODE})"
+                DESC="Full APK Release [\`${TAG}\`](https://github.com/${{ github.repository }}/releases/tag/${TAG}) (versionCode ${CODE})"
               fi
 
               printf '%s\n' \
