@@ -295,7 +295,38 @@ jobs:
 
           TOTAL=$(echo "$PRS" | jq 'length')
           echo "Open PRs: $TOTAL"
-          if [ "$TOTAL" -eq 0 ]; then echo "Nothing to do."; exit 0; fi
+
+          check_unbuilt_and_cleanup() {
+            # Close matching notification issues for any merged PRs in kfit
+            for issue in $(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "[Approval Required] AI" --json number,title --jq '.[] | "\(.number) \(.title)"' 2>/dev/null || echo ""); do
+              if [ -n "$issue" ]; then
+                iss_num=$(echo "$issue" | awk '{print $1}')
+                pr_num=$(echo "$issue" | grep -o 'PR #[0-9]*' | grep -o '[0-9]*' || true)
+                if [ -n "$pr_num" ]; then
+                  pr_state=$(gh pr view "$pr_num" --repo "$PRIVATE_REPO" --json state --jq .state 2>/dev/null || echo "UNKNOWN")
+                  if [ "$pr_state" = "MERGED" ]; then
+                    echo "Closing approval issue #$iss_num because PR #$pr_num was merged."
+                    GH_TOKEN="${{ github.token }}" gh issue close "$iss_num" --repo "${{ github.repository }}" --comment "PR #${pr_num} merged. Automated release triggered." || true
+                  fi
+                fi
+              fi
+            done
+
+            # Check if kfit-app/main has unbuilt commits newer than ci/last-built (e.g. from manual merges)
+            LATEST_MAIN=$(gh api "repos/$PRIVATE_REPO/commits/main" --jq .sha 2>/dev/null || echo "")
+            LAST_BUILT=$(gh api "repos/$PRIVATE_REPO/git/ref/tags/ci/last-built" --jq .object.sha 2>/dev/null || echo "")
+            if [ -n "$LATEST_MAIN" ] && [ -n "$LAST_BUILT" ] && [ "$LATEST_MAIN" != "$LAST_BUILT" ] && [ "${DRY_RUN:-false}" != "true" ]; then
+              echo "⚡ Unbuilt commit on main ($LATEST_MAIN != $LAST_BUILT) — dispatching private-release..."
+              gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || \
+              GH_TOKEN="${{ github.token }}" gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || true
+            fi
+          }
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "Nothing to do (0 open PRs)."
+            check_unbuilt_and_cleanup
+            exit 0
+          fi
 
           MERGED=0; UPDATED=0; SKIPPED=0; MERGED_PRS=""
 
@@ -610,11 +641,13 @@ jobs:
 
             # Close matching notification issues for merged PRs in kfit
             for merged_pr in $MERGED_PRS; do
-              for issue in $(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "🚨 [Approval Required] AI Telemetry Fix PR #${merged_pr}" --json number --jq '.[].number' 2>/dev/null || echo ""); do
+              for issue in $(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "PR #${merged_pr}" --json number --jq '.[].number' 2>/dev/null || echo ""); do
                 GH_TOKEN="${{ github.token }}" gh issue close "$issue" --repo "${{ github.repository }}" --comment "PR #${merged_pr} merged. Automated release triggered." || true
               done
             done
           fi
+
+          check_unbuilt_and_cleanup
 
           # Going red is reserved for "a missing permission actually cost
           # something". An idle sweep stays green and quiet, so this failure
