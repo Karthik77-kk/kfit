@@ -244,6 +244,8 @@ jobs:
           # arrives as shell variables from gh.
           ONLY_PR: ${{ github.event.inputs.pr || github.event.client_payload.pr }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
+          GITHUB_TOKEN: ${{ github.token }}
+          CURRENT_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
@@ -298,7 +300,7 @@ jobs:
 
           check_unbuilt_and_cleanup() {
             # Close matching notification issues for any merged PRs in kfit
-            for issue in $(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "[Approval Required] AI" --json number,title --jq '.[] | "\(.number) \(.title)"' 2>/dev/null || echo ""); do
+            for issue in $(GH_TOKEN="$GITHUB_TOKEN" gh issue list --repo "$CURRENT_REPO" --state open --search "[Approval Required] AI" --json number,title --jq '.[] | "\(.number) \(.title)"' 2>/dev/null || echo ""); do
               if [ -n "$issue" ]; then
                 iss_num=$(echo "$issue" | awk '{print $1}')
                 pr_num=$(echo "$issue" | grep -o 'PR #[0-9]*' | grep -o '[0-9]*' || true)
@@ -306,7 +308,7 @@ jobs:
                   pr_state=$(gh pr view "$pr_num" --repo "$PRIVATE_REPO" --json state --jq .state 2>/dev/null || echo "UNKNOWN")
                   if [ "$pr_state" = "MERGED" ]; then
                     echo "Closing approval issue #$iss_num because PR #$pr_num was merged."
-                    GH_TOKEN="${{ github.token }}" gh issue close "$iss_num" --repo "${{ github.repository }}" --comment "PR #${pr_num} merged. Automated release triggered." || true
+                    GH_TOKEN="$GITHUB_TOKEN" gh issue close "$iss_num" --repo "$CURRENT_REPO" --comment "PR #${pr_num} merged. Automated release triggered." || true
                   fi
                 fi
               fi
@@ -318,7 +320,7 @@ jobs:
             if [ -n "$LATEST_MAIN" ] && [ -n "$LAST_BUILT" ] && [ "$LATEST_MAIN" != "$LAST_BUILT" ] && [ "${DRY_RUN:-false}" != "true" ]; then
               echo "⚡ Unbuilt commit on main ($LATEST_MAIN != $LAST_BUILT) — dispatching private-release..."
               gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || \
-              GH_TOKEN="${{ github.token }}" gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || true
+              GH_TOKEN="$GITHUB_TOKEN" gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || true
             fi
           }
 
@@ -637,12 +639,12 @@ jobs:
           if [ "$MERGED" -gt 0 ] && [ "${DRY_RUN:-false}" != "true" ]; then
             echo "PR(s) merged — dispatching private-release on kfit..."
             gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || \
-            GH_TOKEN="${{ github.token }}" gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || true
+            GH_TOKEN="$GITHUB_TOKEN" gh api -X POST repos/Karthik77-kk/kfit/dispatches -f event_type=private-release 2>/dev/null || true
 
             # Close matching notification issues for merged PRs in kfit
             for merged_pr in $MERGED_PRS; do
-              for issue in $(GH_TOKEN="${{ github.token }}" gh issue list --repo "${{ github.repository }}" --state open --search "PR #${merged_pr}" --json number --jq '.[].number' 2>/dev/null || echo ""); do
-                GH_TOKEN="${{ github.token }}" gh issue close "$issue" --repo "${{ github.repository }}" --comment "PR #${merged_pr} merged. Automated release triggered." || true
+              for issue in $(GH_TOKEN="$GITHUB_TOKEN" gh issue list --repo "$CURRENT_REPO" --state open --search "PR #${merged_pr}" --json number --jq '.[].number' 2>/dev/null || echo ""); do
+                GH_TOKEN="$GITHUB_TOKEN" gh issue close "$issue" --repo "$CURRENT_REPO" --comment "PR #${merged_pr} merged. Automated release triggered." || true
               done
             done
           fi
