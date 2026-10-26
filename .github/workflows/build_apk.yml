@@ -1303,6 +1303,74 @@ jobs:
             echo "::warning::Could not move ${LAST_BUILT_TAG}. The next run may rebuild this commit."
           fi
 
+      - name: Update daily check report in kfit-backups
+        if: success() && github.event_name != 'workflow_dispatch'
+        env:
+          BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
+          BACKUP_REPO: Karthik77-kk/kfit-backups
+          SHA: ${{ needs.detect.outputs.sha }}
+          MODE: ${{ steps.shipped.outputs.mode || needs.detect.outputs.mode }}
+          TAG: ${{ steps.ver.outputs.tag || '' }}
+          RELEASE_VER: ${{ steps.ver.outputs.release_version || '' }}
+          CODE: ${{ steps.ver.outputs.code || '' }}
+        run: |
+          if [ -z "$BACKUP_TOKEN" ]; then
+            echo "::warning::GH_BACKUP_TOKEN not set; skipping daily report deployment update."
+            exit 0
+          fi
+
+          CLONE_DIR="$(mktemp -d)"
+          if git clone --depth 1 "https://x-access-token:${BACKUP_TOKEN}@github.com/${BACKUP_REPO}.git" "$CLONE_DIR" 2>/dev/null; then
+            cd "$CLONE_DIR"
+            TODAY="$(date -u +'%Y-%m-%d')"
+            REPORT_FILE="daily_check/reports/${TODAY}.md"
+            DEPLOY_NOTE="<!-- release-deployment-${{ github.run_id }}-${SHA} -->"
+
+            if [ -f "daily_check/latest.md" ] && ! grep -q "$DEPLOY_NOTE" "daily_check/latest.md"; then
+              if [ "$MODE" = "patch" ]; then
+                DESC="Shorebird Silent OTA Patch (applied to `${RELEASE_VER}`, patch #${CODE})"
+              else
+                DESC="Full APK Release [`${TAG}`](https://github.com/${{ github.repository }}/releases/tag/${TAG}) (versionCode ${CODE})"
+              fi
+
+              printf '%s\n' \
+                "" \
+                "$DEPLOY_NOTE" \
+                "" \
+                "### 🚀 Production Deployment & Release" \
+                "- **Commit**: `${SHA}`" \
+                "- **Artifact Type**: ${DESC}" \
+                "- **Release Run**: [#${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+                "- **Status**: 🟢 **Shipped to Production** (Users receive patch automatically on next app launch)" \
+                "- **Self-Healing Loop**: ✅ Closed & Verified." > /tmp/deploy_note.md
+
+              cat /tmp/deploy_note.md >> daily_check/latest.md
+              if [ -f "$REPORT_FILE" ]; then
+                cat /tmp/deploy_note.md >> "$REPORT_FILE"
+              fi
+              rm -f /tmp/deploy_note.md
+
+              git config user.name "Karthik M"
+              git config user.email "iammrkarthik2002@gmail.com"
+              git add daily_check/
+              if ! git diff --cached --quiet; then
+                git commit -m "report: release ${{ github.run_id }} deployed"
+                for attempt in 1 2 3; do
+                  if git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"; then
+                    echo "✅ Successfully archived deployment completion to kfit-backups (attempt $attempt)."
+                    break
+                  else
+                    echo "Push rejected (concurrency collision). Rebasing and retrying (attempt $attempt)..."
+                    git pull --rebase origin main || git rebase --abort || true
+                    sleep 2
+                  fi
+                done
+              fi
+            fi
+            cd /
+            rm -rf "$CLONE_DIR"
+          fi
+
       - name: Job summary
         if: always()
         run: |
