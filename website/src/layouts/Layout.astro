@@ -77,6 +77,10 @@ const ogImageURL = new URL('/og-image.png', canonicalURL);
     <!-- Inline Apple Theme Pre-paint Init (Zero FOUT & Dynamic System Sync) -->
     <script is:inline>
       (function() {
+        if (window.location.hostname === 'download.getkfit.app' && (window.location.pathname === '/' || window.location.pathname === '')) {
+          window.location.replace('/downloads/kfit');
+          return;
+        }
         try {
           const saved = localStorage.getItem('kfit-theme');
           let theme = 'light'; // Default is white
