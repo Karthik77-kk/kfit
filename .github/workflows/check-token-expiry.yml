@@ -129,13 +129,14 @@ jobs:
 
             # Mobile Push via ntfy.sh
             echo "Sending mobile push notification via ntfy.sh..."
+            NTFY_TOPIC="${{ secrets.NTFY_TOPIC || 'kfit-alerts-v2-9f4a8b2c1d0e5f7a6b3c8d1e' }}"
             curl -s \
               -H "Title: 🚨 Token ${TOKEN_NAME} Expiring in ${DAYS_INFO} Days" \
               -H "Priority: urgent" \
               -H "Tags: warning,key,security" \
               -H "Click: https://github.com/${{ github.repository }}/settings/secrets/actions" \
               -d "${TOKEN_NAME} expires soon (${DAYS_INFO} days left). Tap to update secret." \
-              https://ntfy.sh/kfit-karthik-alerts || true
+              "https://ntfy.sh/${NTFY_TOPIC}" || true
           }
 
           check_token "RELEASE_PAT" "$RELEASE_PAT" "https://api.github.com/user"

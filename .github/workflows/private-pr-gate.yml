@@ -295,6 +295,14 @@ jobs:
         run: |
           set -eo pipefail
 
+          # CI Runner Secret Isolation:
+          # Extract sensitive tokens into local shell variables and unset from the exported environment
+          # before running any test or analysis code, preventing untrusted PR code from reading secrets.
+          LOCAL_PUSH_TOKEN="${PUSH_TOKEN:-}"
+          LOCAL_GEMINI_KEY="${GEMINI_API_KEY_LOGS:-${GEMINI_API_KEY:-}}"
+          LOCAL_GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+          unset PUSH_TOKEN RELEASE_PAT GEMINI_API_KEY GEMINI_API_KEY_LOGS GITHUB_TOKEN GH_TOKEN
+
           HEAD_REF="${HEAD_REF:-}"
           MAX_REPAIRS=3
           ATTEMPT=0
@@ -324,7 +332,7 @@ jobs:
             rm -f "$LOG_FILE"
 
             echo "Running flutter analyze..."
-            if ! flutter analyze --no-fatal-infos > "$LOG_FILE" 2>&1; then
+            if ! env -u PUSH_TOKEN -u RELEASE_PAT -u GEMINI_API_KEY -u GEMINI_API_KEY_LOGS -u GH_TOKEN -u GITHUB_TOKEN flutter analyze --no-fatal-infos > "$LOG_FILE" 2>&1; then
               FAILURE_STAGE="flutter analyze"
               sanitize_log "$LOG_FILE"
             fi
@@ -351,7 +359,7 @@ jobs:
 
               if [ -n "$TARGET_TEST" ]; then
                 echo "🎯 Running fast targeted component test first: $TARGET_TEST..."
-                if ! flutter test "$TARGET_TEST" > "$LOG_FILE" 2>&1; then
+                if ! env -u PUSH_TOKEN -u RELEASE_PAT -u GEMINI_API_KEY -u GEMINI_API_KEY_LOGS -u GH_TOKEN -u GITHUB_TOKEN flutter test "$TARGET_TEST" > "$LOG_FILE" 2>&1; then
                   FAILURE_STAGE="targeted test ($TARGET_TEST)"
                   sanitize_log "$LOG_FILE"
                 else
@@ -362,7 +370,7 @@ jobs:
 
             if [ -z "$FAILURE_STAGE" ]; then
               echo "Running flutter test --coverage..."
-              if ! flutter test --coverage > "$LOG_FILE" 2>&1; then
+              if ! env -u PUSH_TOKEN -u RELEASE_PAT -u GEMINI_API_KEY -u GEMINI_API_KEY_LOGS -u GH_TOKEN -u GITHUB_TOKEN flutter test --coverage > "$LOG_FILE" 2>&1; then
                 FAILURE_STAGE="flutter test"
                 sanitize_log "$LOG_FILE"
               fi
@@ -393,9 +401,9 @@ jobs:
             # If not an ai-fix branch or max repairs reached, fail the step
             if [[ "$HEAD_REF" != ai-fix/* ]] || [ "$ATTEMPT" -ge "$MAX_REPAIRS" ]; then
               echo "::error::Validation failed at $FAILURE_STAGE."
-              if [[ "$HEAD_REF" == ai-fix/* ]] && [ -n "$PUSH_TOKEN" ]; then
+              if [[ "$HEAD_REF" == ai-fix/* ]] && [ -n "$LOCAL_PUSH_TOKEN" ]; then
                 echo "Auto-repair exhausted ($MAX_REPAIRS attempts). Auto-closing failed AI fix PR to unblock queue."
-                GH_TOKEN="$PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated checks ($FAILURE_STAGE) failed after $MAX_REPAIRS repair attempts." || true
+                GH_TOKEN="$LOCAL_PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated checks ($FAILURE_STAGE) failed after $MAX_REPAIRS repair attempts." || true
               fi
               exit 1
             fi
@@ -404,28 +412,28 @@ jobs:
             ATTEMPT=$((ATTEMPT + 1))
             echo "🔧 Attempting in-flow AI repair (Attempt $ATTEMPT of $MAX_REPAIRS) for $FAILURE_STAGE..."
 
-            API_KEY="${GEMINI_API_KEY_LOGS:-$GEMINI_API_KEY}"
+            API_KEY="$LOCAL_GEMINI_KEY"
             if [ -z "$API_KEY" ]; then
               echo "::error::No GEMINI_API_KEY available for repair."
               exit 1
             fi
 
             TARGET_DART=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
-            if ! GEMINI_API_KEY_LOGS="$API_KEY" GITHUB_TOKEN="$GITHUB_TOKEN" node tools/telemetry/repair_patch.js \
+            if ! GEMINI_API_KEY_LOGS="$API_KEY" GITHUB_TOKEN="$LOCAL_GITHUB_TOKEN" node tools/telemetry/repair_patch.js \
                  --error-file "$LOG_FILE" \
                  --repo-dir . \
                  --target "$TARGET_DART" \
                  --failure-stage "$FAILURE_STAGE"; then
               echo "::error::repair_patch.js was unable to synthesize a valid repair."
-              if [ -n "$PUSH_TOKEN" ]; then
-                GH_TOKEN="$PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated repair engine could not synthesize a valid fix for $FAILURE_STAGE." || true
+              if [ -n "$LOCAL_PUSH_TOKEN" ]; then
+                GH_TOKEN="$LOCAL_PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated repair engine could not synthesize a valid fix for $FAILURE_STAGE." || true
               fi
               exit 1
             fi
 
             # Pre-validate repaired code syntax before git commit
             echo "Pre-validating repaired code syntax with flutter analyze..."
-            if ! flutter analyze --no-fatal-infos > /tmp/ci_errors/syntax_check.log 2>&1; then
+            if ! env -u PUSH_TOKEN -u RELEASE_PAT -u GEMINI_API_KEY -u GEMINI_API_KEY_LOGS -u GH_TOKEN -u GITHUB_TOKEN flutter analyze --no-fatal-infos > /tmp/ci_errors/syntax_check.log 2>&1; then
               echo "::warning::Repaired code has syntax errors. Retrying in next repair iteration..."
               sanitize_log /tmp/ci_errors/syntax_check.log
               git checkout lib/ test/ 2>/dev/null || true
@@ -441,8 +449,8 @@ jobs:
             fi
 
             git commit -m "fix(telemetry): auto-repair $FAILURE_STAGE failure"
-            if [ -n "$PUSH_TOKEN" ]; then
-              git push "https://x-access-token:${PUSH_TOKEN}@github.com/${PRIVATE_REPO}.git" "HEAD:${HEAD_REF}"
+            if [ -n "$LOCAL_PUSH_TOKEN" ]; then
+              PUSH_TOKEN="$LOCAL_PUSH_TOKEN" git push "https://x-access-token:${LOCAL_PUSH_TOKEN}@github.com/${PRIVATE_REPO}.git" "HEAD:${HEAD_REF}"
               echo "Pushed repaired commit to ${HEAD_REF}. Retesting immediately in this runner..."
             else
               echo "::error::PUSH_TOKEN not available to push repair."
@@ -538,7 +546,7 @@ jobs:
           fi
 
           # Instant phone push notification via ntfy.sh
-          NTFY_TOPIC="${{ secrets.NTFY_TOPIC || 'kfit-karthik-alerts' }}"
+          NTFY_TOPIC="${{ secrets.NTFY_TOPIC || 'kfit-alerts-v2-9f4a8b2c1d0e5f7a6b3c8d1e' }}"
           curl -s -H "Title: 🚨 AI Fix PR #${PR_NUM} Ready for Approval" \
                -H "Priority: high" \
                -H "Tags: warning,robot" \
