@@ -36,8 +36,7 @@ website/.astro/
 # Test coverage output
 coverage/
 
-# Internal Claude Code / MCP tooling — keep out of the public repo
+# Internal Claude Code / Agents / MCP tooling — keep out of the public repo
 .mcp.json
-.claude/settings.json
-.claude/commands/
-.claude/scripts/
+.claude/
+.agents/
