@@ -2,8 +2,6 @@
 # Generated automatically by scripts/validate-releases.mjs — do not edit manually
 
 /welcome / 301
-/download https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk 302
-/downloads https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk 302
 /downloads/kfit https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk 302
 /downloads/jarvis https://github.com/Karthik77-kk/kfit/releases/download/jarvis-v1.0.80/jarvis.apk 302
 /kfit.apk https://github.com/Karthik77-kk/kfit/releases/latest/download/kfit.apk 302
