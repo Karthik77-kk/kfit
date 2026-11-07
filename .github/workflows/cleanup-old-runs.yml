@@ -2,8 +2,13 @@ name: Cleanup Old Workflow Runs
 
 on:
   schedule:
-    - cron: '0 2 * * 0'  # Weekly, Sunday 2 AM UTC
+    - cron: '0 3 * * *'  # Daily at 3 AM UTC (after nightly backups & triage complete)
   workflow_dispatch:
+    inputs:
+      keep_per_workflow:
+        description: 'Number of recent runs to keep per workflow'
+        required: false
+        default: '2'
 
 permissions:
   actions: write  # required to delete workflow runs
@@ -15,17 +20,17 @@ concurrency:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - name: Delete old runs (keep newest 5 per workflow)
+      - name: Delete old runs (keep newest N per workflow)
         uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
-            console.log(`Cleaning old workflow runs for ${owner}/${repo}...`);
+            const keepCount = parseInt(context.payload?.inputs?.keep_per_workflow || '2', 10);
+            console.log(`Cleaning old workflow runs for ${owner}/${repo} (keeping newest ${keepCount} per workflow)...`);
 
-            // listWorkflowRunsForRepo = ALL runs (listWorkflowRuns needs a workflow_id
-            // and was the bug that made this job throw before any deletion).
+            // listWorkflowRunsForRepo = ALL runs
             const runs = await github.paginate(
               github.rest.actions.listWorkflowRunsForRepo,
               { owner, repo, per_page: 100 },
@@ -36,11 +41,24 @@ jobs:
             for (const r of runs) (byWorkflow[r.workflow_id] ??= []).push(r);
 
             let deleted = 0;
+            const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+            const now = Date.now();
+
             for (const id of Object.keys(byWorkflow)) {
               const list = byWorkflow[id]
                 .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-              for (const run of list.slice(5)) {          // keep the newest 5
+              for (const run of list.slice(keepCount)) {
                 if (run.status !== 'completed') continue;  // never touch in-progress
+
+                // Safety grace period: do not delete runs completed within the last 2 hours
+                const ageMs = now - new Date(run.created_at).getTime();
+                if (ageMs < TWO_HOURS_MS) continue;
+
+                // Safety: never delete if attached to an open PR in repo
+                if (run.pull_requests && run.pull_requests.length > 0) {
+                  continue;
+                }
+
                 try {
                   await github.rest.actions.deleteWorkflowRun({ owner, repo, run_id: run.id });
                   deleted++;
