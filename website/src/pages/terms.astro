@@ -1,0 +1,231 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+const LAST_UPDATED = 'November 7, 2026';
+---
+
+<Layout
+  title="Terms of Service — KFit"
+  description="KFit terms of service: wellness tracking guidelines, age eligibility (15+), AI estimation disclaimer, and service boundaries."
+>
+  <Nav />
+  <main class="legal-main">
+    <div class="container legal-container">
+      <div class="legal-header">
+        <span class="legal-badge">Legal Terms</span>
+        <h1>Terms of Service</h1>
+        <p class="legal-date">Last updated: {LAST_UPDATED}</p>
+      </div>
+
+      <div class="legal-card">
+        <section class="legal-section">
+          <h2>1. Acceptance of Terms</h2>
+          <p>
+            By downloading, accessing, or using the KFit mobile application, web dashboard, or associated services (collectively, the "Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use KFit.
+          </p>
+        </section>
+
+        <section class="legal-section">
+          <h2>2. Eligibility &amp; Age Requirement</h2>
+          <p>
+            KFit is designed for individuals aged <strong>15 years and older</strong>.
+          </p>
+          <ul>
+            <li>You must be at least 15 years old to use the Service.</li>
+            <li>If you are between the ages of 15 and 17, you represent and warrant that you have obtained permission from your parent or legal guardian to use the Service under their supervision.</li>
+            <li>If we learn that personal data of a user under 15 has been collected, we will take immediate steps to terminate the account and purge the data.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>3. Not Medical Advice</h2>
+          <p>
+            <strong>KFit is a personal wellness, nutrition, and workout logging tool. It does NOT provide medical advice, medical diagnoses, dietary prescriptions, or medical treatment.</strong>
+          </p>
+          <ul>
+            <li>All content, calculations, macronutrient breakdowns, and coach suggestions are provided for general informational and educational purposes only.</li>
+            <li>Never disregard professional medical advice or delay seeking it because of something you have recorded or read in KFit.</li>
+            <li>Always consult a qualified physician, certified sports dietitian, or healthcare provider before embarking on any intense exercise regimen or significant dietary change, especially if you have pre-existing health conditions.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>4. AI Estimates &amp; Nutrition Accuracy</h2>
+          <p>
+            KFit resolves nutrition against verified on-device databases first (including curated Indian recipes and IFCT-2017 lab data from ICMR-NIN). However:
+          </p>
+          <ul>
+            <li>When an item is not found in local verified tables, KFit may generate nutrition approximations using third-party artificial intelligence models (Google Gemini).</li>
+            <li>Portion estimations from meal photos and natural language descriptions are algorithmic estimates and may be imprecise.</li>
+            <li>KFit clearly labels AI-generated values as "AI estimate". You are responsible for reviewing, adjusting, and confirming your portions and nutritional intake.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>5. User Accounts &amp; Data Security</h2>
+          <p>
+            Core tracking features work offline without an account. If you choose to enable cloud synchronization:
+          </p>
+          <ul>
+            <li>You are responsible for maintaining the confidentiality of your credentials and device access PIN.</li>
+            <li>You agree not to attempt to reverse engineer, tamper with, or bypass device attestation, cryptographic validation gates, or access controls.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>6. License &amp; Intellectual Property</h2>
+          <p>
+            KFit is developed by Karthik M. The application software, branding, icons, and interface design are proprietary and protected by intellectual property laws. Open-source components included in KFit are subject to their respective open-source licenses (accessible in-app via <em>Settings &rarr; About &rarr; Open-source licences</em>).
+          </p>
+        </section>
+
+        <section class="legal-section">
+          <h2>7. Disclaimer of Warranties &amp; Limitation of Liability</h2>
+          <p>
+            The Service is provided on an <strong>"AS IS"</strong> and <strong>"AS AVAILABLE"</strong> basis, without warranties of any kind, whether express or implied.
+          </p>
+          <ul>
+            <li>We do not guarantee uninterrupted uptime, flawless cloud synchronization, or complete error-free operation.</li>
+            <li>To the maximum extent permitted by applicable law, KFit and its creators shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising out of your access to or use of the Service.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>8. Governing Law &amp; Jurisdiction</h2>
+          <p>
+            These Terms shall be governed by and construed in accordance with the laws of the Republic of India. Any dispute, claim, or controversy arising out of or relating to these Terms shall be subject to the exclusive jurisdiction of the competent courts in <strong>Bangalore, Karnataka, India</strong>.
+          </p>
+        </section>
+
+        <section class="legal-section">
+          <h2>9. Contact &amp; Questions</h2>
+          <p>
+            If you have any questions or concerns regarding these Terms, please contact us at:
+          </p>
+          <div class="contact-box">
+            <p><strong>KFit Support &amp; Legal Desk</strong></p>
+            <p>Email: <a href="mailto:support@getkfit.app">support@getkfit.app</a></p>
+            <p>Web Form: <a href="/contact">https://getkfit.app/contact</a></p>
+            <p>Bangalore, Karnataka, India</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<style>
+  .legal-main {
+    padding-top: 100px;
+    padding-bottom: 80px;
+    background: var(--bg);
+  }
+
+  .legal-container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  .legal-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .legal-badge {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--apple-blue);
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+
+  .legal-header h1 {
+    font-size: clamp(32px, 5vw, 44px);
+    font-weight: 800;
+    color: var(--text-heading);
+    letter-spacing: -0.03em;
+    margin: 0 0 10px;
+  }
+
+  .legal-date {
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .legal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 48px;
+    box-shadow: var(--card-shadow);
+  }
+
+  .legal-section {
+    margin-bottom: 36px;
+  }
+
+  .legal-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .legal-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legal-section p {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+
+  .legal-section ul {
+    margin: 8px 0 16px 20px;
+    padding: 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .legal-section li {
+    margin-bottom: 8px;
+  }
+
+  .legal-section a {
+    color: var(--apple-blue);
+    text-decoration: underline;
+  }
+
+  .contact-box {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .contact-box p {
+    margin: 0 0 4px;
+  }
+
+  @media (max-width: 600px) {
+    .legal-card {
+      padding: 28px 20px;
+    }
+  }
+</style>

@@ -23,7 +23,7 @@
       <div class="principle-number font-mono">02</div>
       <h3>Transparent nutrition sources</h3>
       <p>
-        Every calorie and macro resolves against curated Indian recipes and verified IFCT-2017 lab data. We do not invent numbers or guess based on word count.
+        Nutrition comes from your saved foods, curated Indian recipes and IFCT-2017 lab data first. When a dish isn't in any of them, KFit uses an AI estimate and labels it.
       </p>
     </div>
 
@@ -41,6 +41,51 @@
       <p>
         KFit core tracking is free with no subscription. Essential tracking features, macro resolution, and historical trends are never gated behind monthly paywalls.
       </p>
+    </div>
+  </div>
+
+  <div class="data-boundary-card">
+    <div class="boundary-header">
+      <div class="boundary-badge">Data Privacy &amp; Boundaries</div>
+      <h3>What leaves your phone?</h3>
+      <p>KFit is local-first by default. Your logs, food items, workouts, and body metrics stay on your physical device unless you explicitly use connected features:</p>
+    </div>
+    <div class="boundary-grid">
+      <div class="boundary-item">
+        <div class="boundary-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+        </div>
+        <div>
+          <h4>Cloud Sync (Optional)</h4>
+          <p>Syncs your database across devices only when you sign in (hosted in AWS ap-south-1 Mumbai) with hardware-bound encryption.</p>
+        </div>
+      </div>
+      <div class="boundary-item">
+        <div class="boundary-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+        </div>
+        <div>
+          <h4>AI Features (Optional)</h4>
+          <p>Meal photo scanning and conversational estimates use your own Google Gemini API key, communicating directly with Google.</p>
+        </div>
+      </div>
+      <div class="boundary-item">
+        <div class="boundary-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div>
+          <h4>Diagnostics &amp; Crash Reports</h4>
+          <p>Sent only when signed in with "Share diagnostics" enabled. Kept 30 days max. Never logs your meals, body, or notes.</p>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -100,6 +145,80 @@
 
   @media (max-width: 480px) {
     .principle-card {
+      padding: 24px 20px;
+    }
+  }
+  .data-boundary-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 36px 32px;
+    max-width: 1100px;
+    margin: 40px auto 0;
+    box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .boundary-badge {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--apple-blue);
+    margin-bottom: 8px;
+  }
+
+  .boundary-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+  }
+
+  .boundary-header p {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0 0 24px;
+  }
+
+  .boundary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  .boundary-item {
+    display: flex;
+    gap: 16px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+  }
+
+  .boundary-icon {
+    flex-shrink: 0;
+    color: var(--apple-blue);
+    padding-top: 2px;
+  }
+
+  .boundary-item h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-heading);
+    margin: 0 0 6px;
+  }
+
+  .boundary-item p {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  @media (max-width: 480px) {
+    .data-boundary-card {
       padding: 24px 20px;
     }
   }

@@ -1,7 +1,7 @@
 ---
 import releases from '../data/releases.json';
 
-const { kfit, jarvis } = releases;
+const { kfit } = releases;
 const GITHUB  = 'https://github.com/Karthik77-kk/kfit';
 const YEAR    = new Date().getFullYear();
 ---
@@ -33,7 +33,7 @@ const YEAR    = new Date().getFullYear();
         <a href={kfit.apkUrl} data-kfit-dl title="Direct Android APK download">KFit App ({kfit.version} APK)</a>
         <a href="https://getkfit.app" target="_blank" rel="noopener noreferrer">KFit Web (getkfit.app)</a>
         <a href="https://gymworld.getkfit.app" target="_blank" rel="noopener noreferrer">GymWorld Workspace</a>
-        <a href={jarvis.apkUrl} data-jarvis-dl title="Direct Android APK download">JARVIS Assistant ({jarvis.version} APK)</a>
+        <span class="footer-disabled-link" title="Autonomous Agent — Coming Soon">JARVIS (Autonomous Agent &middot; Coming Soon)</span>
       </div>
       <div class="link-col">
         <div class="link-col-title">Navigation</div>
@@ -49,6 +49,13 @@ const YEAR    = new Date().getFullYear();
         <a href={GITHUB} target="_blank" rel="noopener noreferrer">GitHub Repository</a>
         <a href={`${GITHUB}/releases`} target="_blank" rel="noopener noreferrer">Releases</a>
         <a href={`${GITHUB}/issues`} target="_blank" rel="noopener noreferrer">Report an Issue</a>
+      </div>
+      <div class="link-col">
+        <div class="link-col-title">Legal &amp; Support</div>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Service</a>
+        <a href="/contact">Contact &amp; Support</a>
+        <a href="mailto:support@getkfit.app">support@getkfit.app</a>
       </div>
     </div>
   </div>
@@ -162,7 +169,7 @@ const YEAR    = new Date().getFullYear();
     margin-bottom: 4px;
   }
 
-  .link-col a {
+  .link-col a, .footer-disabled-link {
     font-size: 13.5px;
     color: var(--muted);
     text-decoration: none;

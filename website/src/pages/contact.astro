@@ -1,0 +1,363 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout
+  title="Contact & Support — KFit"
+  description="Contact KFit support for bug reports, account inquiries, privacy requests, or feedback."
+>
+  <Nav />
+  <main class="contact-main">
+    <div class="container contact-container">
+      <div class="contact-header">
+        <span class="contact-badge">Support Desk</span>
+        <h1>Get in Touch</h1>
+        <p class="contact-subtitle">
+          Have a question, feedback, or a privacy request? Send a message directly to our engineering desk.
+        </p>
+      </div>
+
+      <div class="contact-grid">
+        <!-- Contact Form Card -->
+        <div class="contact-card">
+          <form class="contact-form" id="contactForm" method="POST">
+            <div class="form-group">
+              <label for="contactName">Name <span class="optional">(optional)</span></label>
+              <input type="text" id="contactName" name="name" placeholder="Your name" class="form-input" />
+            </div>
+
+            <div class="form-group">
+              <label for="contactEmailOrPhone">Email or Phone <span class="required">*</span></label>
+              <input
+                type="text"
+                id="contactEmailOrPhone"
+                name="contact"
+                required
+                placeholder="name@example.com or +91 98765 43210"
+                class="form-input"
+              />
+              <span class="field-hint">We will reply via email or SMS to this address/number.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="contactTopic">Topic <span class="required">*</span></label>
+              <select id="contactTopic" name="topic" required class="form-select">
+                <option value="Question">Question</option>
+                <option value="Bug">Bug Report</option>
+                <option value="Privacy or data request">Privacy or Data Request / Deletion</option>
+                <option value="Feedback">Feedback &amp; Feature Suggestion</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="contactMessage">Message <span class="required">*</span></label>
+              <textarea
+                id="contactMessage"
+                name="message"
+                required
+                rows="5"
+                placeholder="Describe your question, issue, or request..."
+                class="form-textarea"
+              ></textarea>
+            </div>
+
+            <div class="form-privacy-note">
+              Messages are emailed directly to our team via secure routing. Nothing is stored on untrusted web servers. For privacy rights, see our <a href="/privacy">Privacy Policy</a>.
+            </div>
+
+            <div id="formStatus" class="form-status" style="display: none;" role="alert"></div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary submit-btn">
+              <span>Send Message</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- Info / Sidebar Card -->
+        <div class="contact-info-card">
+          <div class="info-block">
+            <h3>Direct Contact</h3>
+            <p>Prefer email? You can message our support inbox directly at:</p>
+            <a href="mailto:support@getkfit.app" class="info-link">support@getkfit.app</a>
+          </div>
+
+          <div class="info-block">
+            <h3>Privacy &amp; Data Erasure</h3>
+            <p>
+              Under the Indian DPDP Act, you have the right to request access to or complete deletion of your synchronized cloud data.
+            </p>
+            <p class="info-hint">
+              Select <strong>"Privacy or data request"</strong> in the form or email us with your registered account identifier. Requests are resolved within 30 days.
+            </p>
+          </div>
+
+          <div class="info-block">
+            <h3>Open Source &amp; Issue Tracking</h3>
+            <p>Found a technical bug or want to inspect the architecture?</p>
+            <a
+              href="https://github.com/Karthik77-kk/kfit/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-ghost"
+            >
+              <span>GitHub Issues</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M10 14L21 3"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<script>
+  const form = document.getElementById('contactForm') as HTMLFormElement | null;
+  const statusEl = document.getElementById('formStatus');
+  const submitBtn = document.getElementById('submitBtn') as HTMLButtonElement | null;
+
+  if (form && statusEl && submitBtn) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      statusEl.style.display = 'none';
+      statusEl.className = 'form-status';
+
+      const formData = new FormData(form);
+      const payload = {
+        name: formData.get('name'),
+        contact: formData.get('contact'),
+        topic: formData.get('topic'),
+        message: formData.get('message'),
+      };
+
+      try {
+        const res = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          form.reset();
+          statusEl.textContent = 'Thank you! Your message has been sent. We will get back to you shortly.';
+          statusEl.classList.add('status-success');
+          statusEl.style.display = 'block';
+        } else {
+          // Fallback to mailto link if backend endpoint is unavailable or waiting on Cloudflare route
+          const subject = encodeURIComponent(`[${payload.topic}] Message from ${payload.name || 'User'}`);
+          const body = encodeURIComponent(`Contact: ${payload.contact}\n\nMessage:\n${payload.message}`);
+          window.location.href = `mailto:support@getkfit.app?subject=${subject}&body=${body}`;
+        }
+      } catch {
+        const subject = encodeURIComponent(`[${payload.topic}] Message from ${payload.name || 'User'}`);
+        const body = encodeURIComponent(`Contact: ${payload.contact}\n\nMessage:\n${payload.message}`);
+        window.location.href = `mailto:support@getkfit.app?subject=${subject}&body=${body}`;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span>Send Message</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>`;
+      }
+    });
+  }
+</script>
+
+<style>
+  .contact-main {
+    padding-top: 100px;
+    padding-bottom: 80px;
+    background: var(--bg);
+  }
+
+  .contact-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  .contact-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .contact-badge {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--apple-blue);
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+
+  .contact-header h1 {
+    font-size: clamp(32px, 5vw, 44px);
+    font-weight: 800;
+    color: var(--text-heading);
+    letter-spacing: -0.03em;
+    margin: 0 0 10px;
+  }
+
+  .contact-subtitle {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 0.9fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .contact-card, .contact-info-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 36px 32px;
+    box-shadow: var(--card-shadow);
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group label {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+
+  .form-group .optional {
+    font-weight: 400;
+    color: var(--muted2);
+    font-size: 12px;
+  }
+
+  .form-group .required {
+    color: var(--apple-red, #ff453a);
+  }
+
+  .form-input, .form-select, .form-textarea {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    font-size: 14.5px;
+    color: var(--text-heading);
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--apple-blue);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+  }
+
+  .field-hint {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .form-privacy-note {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .form-privacy-note a {
+    color: var(--apple-blue);
+    text-decoration: underline;
+  }
+
+  .submit-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .form-status {
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: 13.5px;
+    margin-bottom: 20px;
+  }
+
+  .status-success {
+    background: rgba(52, 199, 89, 0.12);
+    border: 1px solid rgba(52, 199, 89, 0.3);
+    color: #30d158;
+  }
+
+  .contact-info-card {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .info-block h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-heading);
+    margin: 0 0 8px;
+  }
+
+  .info-block p {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+
+  .info-hint {
+    font-size: 13px !important;
+    background: var(--bg-subtle);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--apple-blue);
+  }
+
+  .info-link {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--apple-blue);
+    text-decoration: none;
+  }
+
+  .info-link:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 768px) {
+    .contact-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

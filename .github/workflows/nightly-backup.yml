@@ -269,15 +269,14 @@ jobs:
             exit 1
           fi
 
-          git add -A database/
-          if git diff --cached --quiet; then
-            echo "nothing changed — no commit"
-            exit 0
-          fi
-          git commit -q -m "backup: database snapshot $BACKUP_DATE"
-          # Plain push: this branch has one writer and is not protected. A
-          # failure here is a real failure and should go red.
-          git push origin HEAD 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"
+          # True 30-day retention: Encrypted blobs pruned with git rm still reside
+          # in past git commit tree objects if commits are appended linearly.
+          # We squash history into a fresh commit containing only the active
+          # 30-day rolling snapshot window, current users/ backups, and check reports.
+          git checkout --orphan clean-history
+          git add -A
+          git commit -q -m "backup: rolling 30-day snapshot $BACKUP_DATE"
+          git push --force origin clean-history:main 2>&1 | sed "s/${BACKUP_TOKEN}/***/g"
           echo "pushed to ${BACKUP_REPO}"
 
       - name: Retention cleanup

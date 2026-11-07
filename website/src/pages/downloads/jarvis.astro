@@ -22,17 +22,24 @@ const release = releases.jarvis;
         </svg>
       </div>
 
-      <div class="badge-status">Official Signed Release</div>
-      <h1>Download {release.name}</h1>
-      <p class="dl-sub">Cryptographically verified release. Built and signed for Android.</p>
+      <div class="badge-status" style="color: var(--apple-blue); border-color: var(--apple-blue);">In Active Development</div>
+      <h1>JARVIS Autonomous Agent</h1>
+      <p class="dl-sub">An autonomous AI health &amp; fitness agent that works for you. JARVIS is currently in development and coming soon.</p>
 
       <div class="dl-action-box">
-        <a href={release.apkUrl} class="btn btn-primary btn-lg" id="manualDlLink">
+        <button class="btn btn-primary btn-lg" disabled style="opacity: 0.85; cursor: default;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span>Coming Soon &middot; In Active Development</span>
+        </button>
+        <!--
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
           <span>Download jarvis.apk ({release.sizeFormatted})</span>
-        </a>
+        </a> -->
       </div>
 
       <div class="dl-verify-panel">

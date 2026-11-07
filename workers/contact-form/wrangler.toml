@@ -1,0 +1,10 @@
+name = "kfit-contact-worker"
+main = "src/index.ts"
+compatibility_date = "2024-10-18"
+
+[vars]
+CONTACT_EMAIL = "support@getkfit.app"
+
+# Send email binding via Cloudflare Email Routing
+# [send_email]
+# name = "SEND_EMAIL"
