@@ -35,15 +35,16 @@ jobs:
           check_token() {
             local NAME="$1"
             local TOKEN="$2"
+            local TARGET_URL="${3:-https://api.github.com/user}"
 
             if [ -z "$TOKEN" ]; then
               echo "⚠️ $NAME is not set in secrets."
               return 0
             fi
 
-            echo "Checking $NAME..."
+            echo "Checking $NAME against $TARGET_URL..."
             local HEADERS
-            HEADERS=$(curl -sI -H "Authorization: Bearer $TOKEN" https://api.github.com/user 2>/dev/null || true)
+            HEADERS=$(curl -sI -H "Authorization: Bearer $TOKEN" "$TARGET_URL" 2>/dev/null || true)
 
             local HTTP_STATUS
             HTTP_STATUS=$(echo "$HEADERS" | grep -i "^HTTP" | head -n1 | awk '{print $2}' || echo "000")
@@ -137,9 +138,9 @@ jobs:
               https://ntfy.sh/kfit-karthik-alerts || true
           }
 
-          check_token "RELEASE_PAT" "$RELEASE_PAT"
-          check_token "KFIT_APP_TOKEN" "$KFIT_APP_TOKEN"
-          check_token "GH_BACKUP_TOKEN" "$GH_BACKUP_TOKEN"
+          check_token "RELEASE_PAT" "$RELEASE_PAT" "https://api.github.com/user"
+          check_token "KFIT_APP_TOKEN" "$KFIT_APP_TOKEN" "https://api.github.com/repos/Karthik77-kk/kfit-app"
+          check_token "GH_BACKUP_TOKEN" "$GH_BACKUP_TOKEN" "https://api.github.com/repos/Karthik77-kk/kfit-backups"
 
           if [ "$EXPIRING_COUNT" -gt 0 ]; then
             echo "::warning::$EXPIRING_COUNT token(s) require attention."
