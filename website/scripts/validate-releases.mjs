@@ -82,8 +82,11 @@ const redirectsContent = `# Cloudflare Pages Redirects
 # Generated automatically by scripts/validate-releases.mjs — do not edit manually
 
 /welcome / 301
+/download ${manifest.kfit.apkUrl} 302
+/downloads ${manifest.kfit.apkUrl} 302
 /downloads/kfit ${manifest.kfit.apkUrl} 302
 /downloads/jarvis ${manifest.jarvis.apkUrl} 302
+/kfit.apk ${manifest.kfit.apkUrl} 302
 `;
 
 fs.writeFileSync(redirectsPath, redirectsContent, 'utf8');
