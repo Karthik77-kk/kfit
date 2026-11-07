@@ -1,0 +1,310 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+const LAST_UPDATED = 'November 7, 2026';
+---
+
+<Layout
+  title="Privacy Policy — KFit"
+  description="KFit privacy policy: local-first health tracking, transparent nutrition sources, encrypted cloud sync in AWS Mumbai, and strict 30-day diagnostic retention."
+>
+  <Nav />
+  <main class="legal-main">
+    <div class="container legal-container">
+      <div class="legal-header">
+        <span class="legal-badge">Legal &amp; Privacy</span>
+        <h1>Privacy Policy</h1>
+        <p class="legal-date">Last updated: {LAST_UPDATED}</p>
+      </div>
+
+      <div class="legal-card">
+        <section class="legal-section">
+          <h2>1. Core Philosophy: Local-First Privacy</h2>
+          <p>
+            KFit is designed from the ground up as a <strong>local-first</strong> wellness companion. Your day-to-day fitness data — meals logged, calorie targets, workout sets, body weight, hydration, and personal notes — is saved locally on your physical device in an encrypted SQLite database.
+          </p>
+          <p>
+            Using core tracking requires <strong>no account signup, no phone number, and no email address</strong>. If you use KFit without signing in, none of your health metrics leave your phone.
+          </p>
+        </section>
+
+        <section class="legal-section">
+          <h2>2. What Data Leaves Your Phone (When Enabled)</h2>
+          <p>Data leaves your device only when you explicitly opt in to connected features:</p>
+          
+          <h3>A. Optional Cloud Sync &amp; Backups</h3>
+          <p>
+            If you create an account and sign in (via Google, GitHub, or email):
+          </p>
+          <ul>
+            <li>Your database records synchronize with our cloud database powered by <strong>Supabase</strong>, hosted in <strong>AWS ap-south-1 (Mumbai, India)</strong>.</li>
+            <li>Cloud backups are encrypted using AES-256-GCM before transport and storage.</li>
+            <li>We retain server snapshots on a strict <strong>30-day rolling retention window</strong>, after which older backups are permanently deleted.</li>
+          </ul>
+
+          <h3>B. AI Meal Estimates &amp; Food Scanning</h3>
+          <p>
+            KFit connects to Google Gemini models using your personal Gemini API key to understand meal descriptions and estimate dish portions from photos:
+          </p>
+          <ul>
+            <li>When you scan a meal or ask the coach, your image or prompt is transmitted directly to Google's API endpoints.</li>
+            <li>Your API key is stored securely in your phone's hardware-backed keystore (Android Keystore).</li>
+            <li>Depending on your Gemini API tier (free vs. paid), Google's API terms of service govern how prompts are processed. KFit servers never intercept or store your meal photos.</li>
+          </ul>
+
+          <h3>C. Barcode &amp; Nutrition Lookups</h3>
+          <p>
+            When searching for packaged foods or scanning barcodes, the app queries public databases including <strong>Open Food Facts</strong> and <strong>USDA FoodData Central</strong>. These lookups transmit only the barcode number or search query string without user identifiers.
+          </p>
+
+          <h3>D. Diagnostics &amp; Crash Reports (Opt-In)</h3>
+          <p>
+            To monitor app stability and fix bugs, KFit can collect diagnostic telemetry:
+          </p>
+          <ul>
+            <li>Diagnostics are collected <strong>only for signed-in users</strong> who have <em>"Share diagnostics"</em> enabled in Settings.</li>
+            <li>Reports include error codes, device OS version, app version, and operation latency.</li>
+            <li><strong>We never collect or transmit your logged meals, body statistics, journal notes, or photos in telemetry.</strong></li>
+            <li>All telemetry events are automatically purged after <strong>30 days</strong>.</li>
+            <li>You can disable diagnostics at any time in <em>Settings &rarr; Your data &rarr; Share diagnostics</em>, which immediately deletes any locally queued telemetry.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>3. Compliance with India's DPDP Act</h2>
+          <p>
+            KFit complies with the Digital Personal Data Protection (DPDP) Act, 2023 of India:
+          </p>
+          <ul>
+            <li><strong>Lawful Basis &amp; Consent:</strong> We process personal data solely on the basis of your explicit consent and for providing the fitness tracking services you request.</li>
+            <li><strong>Purpose Limitation:</strong> Data collected is used strictly for fitness tracking, synchronization, and error resolution. We do not sell data, build advertising profiles, or monetize your personal health information.</li>
+            <li><strong>Data Storage Localization:</strong> Cloud synchronization data is hosted in the <strong>AWS ap-south-1 (Mumbai)</strong> region.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>4. Age Restriction &amp; Children's Privacy</h2>
+          <p>
+            KFit is intended for individuals aged <strong>15 and older</strong>. We do not knowingly collect personal data from children under 15. If a user is between 15 and 17 years old, the terms require parental or guardian knowledge and consent.
+          </p>
+        </section>
+
+        <section class="legal-section">
+          <h2>5. Your Rights: Access, Correction &amp; Deletion</h2>
+          <p>
+            Under applicable data protection laws, you have the right to:
+          </p>
+          <ul>
+            <li><strong>Access &amp; Export:</strong> Export your full database at any time as an open JSON file directly from <em>Settings &rarr; Backup &rarr; Export</em>.</li>
+            <li><strong>Correction:</strong> Update or delete any food entry, weight log, or profile attribute locally in the app.</li>
+            <li><strong>Account &amp; Cloud Deletion:</strong> You can request complete erasure of your cloud account, synced tables, and telemetry by emailing <a href="mailto:support@getkfit.app">support@getkfit.app</a> or submitting a request via our <a href="/contact">Contact Form</a>. Deletion requests are processed within 30 days.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>6. Third-Party Service Providers</h2>
+          <div class="legal-table-wrap">
+            <table class="legal-table">
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Purpose</th>
+                  <th>Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Supabase / AWS</strong></td>
+                  <td>User authentication, database sync &amp; backups</td>
+                  <td>Mumbai, India (AWS ap-south-1)</td>
+                </tr>
+                <tr>
+                  <td><strong>Google Gemini</strong></td>
+                  <td>Natural language parsing &amp; meal photo scans (via user API key)</td>
+                  <td>Google Global Cloud</td>
+                </tr>
+                <tr>
+                  <td><strong>Cloudflare</strong></td>
+                  <td>Website hosting, contact routing &amp; edge proxy security</td>
+                  <td>Global Edge Network</td>
+                </tr>
+                <tr>
+                  <td><strong>Open Food Facts</strong></td>
+                  <td>Packaged food barcode nutrition lookup</td>
+                  <td>France / Global</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="legal-section">
+          <h2>7. Updates to this Policy</h2>
+          <p>
+            If we make material changes to how we handle user data, we will update this page and present an updated terms acceptance notice within the KFit mobile application.
+          </p>
+        </section>
+
+        <section class="legal-section">
+          <h2>8. Contact &amp; Grievance Redressal</h2>
+          <p>
+            For privacy inquiries, questions regarding this policy, or data erasure requests, please contact our support desk:
+          </p>
+          <div class="contact-box">
+            <p><strong>KFit Support &amp; Privacy Desk</strong></p>
+            <p>Email: <a href="mailto:support@getkfit.app">support@getkfit.app</a></p>
+            <p>Web Form: <a href="/contact">https://getkfit.app/contact</a></p>
+            <p>Bangalore, Karnataka, India</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<style>
+  .legal-main {
+    padding-top: 100px;
+    padding-bottom: 80px;
+    background: var(--bg);
+  }
+
+  .legal-container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  .legal-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .legal-badge {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--apple-blue);
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+
+  .legal-header h1 {
+    font-size: clamp(32px, 5vw, 44px);
+    font-weight: 800;
+    color: var(--text-heading);
+    letter-spacing: -0.03em;
+    margin: 0 0 10px;
+  }
+
+  .legal-date {
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .legal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 48px;
+    box-shadow: var(--card-shadow);
+  }
+
+  .legal-section {
+    margin-bottom: 36px;
+  }
+
+  .legal-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .legal-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legal-section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-heading);
+    margin: 18px 0 8px;
+  }
+
+  .legal-section p {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+
+  .legal-section ul {
+    margin: 8px 0 16px 20px;
+    padding: 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .legal-section li {
+    margin-bottom: 8px;
+  }
+
+  .legal-section a {
+    color: var(--apple-blue);
+    text-decoration: underline;
+  }
+
+  .legal-table-wrap {
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+
+  .legal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .legal-table th, .legal-table td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legal-table th {
+    color: var(--text-heading);
+    font-weight: 600;
+    background: var(--bg-subtle);
+  }
+
+  .contact-box {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .contact-box p {
+    margin: 0 0 4px;
+  }
+
+  @media (max-width: 600px) {
+    .legal-card {
+      padding: 28px 20px;
+    }
+  }
+</style>

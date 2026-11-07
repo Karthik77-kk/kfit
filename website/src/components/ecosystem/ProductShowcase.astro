@@ -111,7 +111,7 @@ const { kfit, jarvis, web, gymworld } = releases;
       <details class="tech-expandable">
         <summary class="tech-toggle">Technical architecture &rarr;</summary>
         <div class="tech-content">
-          Runs fully on-device using SQLite via Drift. Energy expenditure uses MET-based exercise formulas. Optional Supabase sync shares supported records across signed-in devices. Companion actions link via Android Binder IPC.
+          Runs fully on-device using SQLite with at-rest encryption via SQLCipher. Hardware key attestation (Android TEE/StrongBox) and in-app biometric lock secure your logs. Optional Supabase cloud sync provides encrypted multi-device backup.
         </div>
       </details>
 
@@ -314,22 +314,23 @@ const { kfit, jarvis, web, gymworld } = releases;
           </div>
           <div>
             <div class="product-name-row">
-              <h3 class="bento-title">JARVIS Assistant</h3>
-              <span class="version-badge font-mono">{jarvis.version}</span>
+              <h3 class="bento-title">JARVIS</h3>
+              <span class="version-badge font-mono">Autonomous Agent</span>
+
             </div>
-            <p class="bento-desc">Low-latency voice companion for workouts and fast hands-free food logging.</p>
+            <p class="bento-desc">An autonomous AI health &amp; fitness agent that works for you. Proactively manages workout routines, adapts recovery, and logs nutrition hands-free.</p>
           </div>
         </div>
         <div class="status-indicator">
           <span class="live-pulse"></span>
-          <span>Companion</span>
+          <span>Coming Soon</span>
         </div>
       </div>
 
       <div class="bento-preview">
         <div class="preview-chrome">
           <div class="chrome-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-          <span class="chrome-url font-mono">jarvis://ipc/kfit-bridge</span>
+          <span class="chrome-url font-mono">jarvis://autonomous-agent/engine</span>
           <span class="sample-tag">Example preview</span>
         </div>
         <div class="preview-screen preview-jarvis">
@@ -341,43 +342,43 @@ const { kfit, jarvis, web, gymworld } = releases;
             <div class="audio-bar" style="height: 16px;"></div>
             <div class="audio-bar" style="height: 24px;"></div>
           </div>
-          <div class="pj-text font-mono">"Logged 2 rotis and 1 bowl dal tadka to KFit."</div>
+          <div class="pj-text font-mono">"Analyzing recovery: Recommended upper hypertrophy session for 6:00 PM."</div>
         </div>
       </div>
 
       <div class="card-features">
         <div class="feature-item">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>Hands-free food logging without unlocking your screen</span>
+          <span>Autonomous agent that proactively plans workouts &amp; monitors fatigue</span>
         </div>
         <div class="feature-item">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>Workout interval pacing, rep counts and rest timers</span>
+          <span>Intelligent hands-free natural voice logging without unlocking screen</span>
         </div>
         <div class="feature-item">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>Direct Android Binder IPC: zero roundtrip internet overhead</span>
+          <span>Zero cloud dependency for local reasoning: fully private on your device</span>
         </div>
         <div class="feature-item">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>Optional companion: KFit operates 100% independently</span>
+          <span>Seamless synergy: connects natively with your KFit wellness database</span>
         </div>
       </div>
 
       <details class="tech-expandable">
         <summary class="tech-toggle">Technical architecture &rarr;</summary>
         <div class="tech-content">
-          The KFit integration uses a permission-controlled Android Binder bridge that remains on-device. Voice and assistant capabilities depend on the configured runtime and providers.
+          Operates as an on-device autonomous AI agent with local contextual intelligence. Works seamlessly alongside KFit to automate health tracking, progressive overload, and dietary insights.
         </div>
       </details>
 
       <div class="card-actions">
-        <a href={jarvis.apkUrl} class="btn btn-primary btn-action" id="jarvisMainDlBtn" data-jarvis-dl>
+        <button class="btn btn-primary btn-action" disabled style="opacity: 0.85; cursor: default;">
           <svg class="dl-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/>
           </svg>
-          <span class="btn-text">Download JARVIS APK</span>
-        </a>
+          <span class="btn-text">Coming Soon</span>
+        </button>
         <a href={jarvis.releaseUrl} target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sub-action">
           <span>Release Notes</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
