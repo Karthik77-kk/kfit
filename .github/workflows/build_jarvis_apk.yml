@@ -206,17 +206,34 @@ jobs:
           WORK=build/patchwork
           mkdir -p "$WORK"
 
-          # Look for previous JARVIS release in public repo
-          PREV_TAG=$(gh release list --repo "${{ github.repository }}" --limit 20 | grep -E 'jarvis-v' | head -1 | awk '{print $3}')
-          if [ -z "$PREV_TAG" ]; then
-            echo "No previous JARVIS release found — skipping delta patch."; exit 0
-          fi
-          echo "Generating delta patch: previous $PREV_TAG -> new $NEW_TAG"
+          # Look for newest earlier JARVIS release carrying jarvis.apk
+          PREV_TAG=""
+          FROM_BUILD=""
+          for TAG in $(gh release list --repo "${{ github.repository }}" --limit 100 --exclude-drafts \
+                         --json tagName \
+                         --jq '[.[] | .tagName | select(startswith("jarvis-v"))] | .[]' \
+                       2>/dev/null); do
+            [ "$TAG" = "$NEW_TAG" ] && continue
+            BLD=$(printf '%s' "$TAG" | awk -F. '{print $NF}')
+            if ! printf '%s' "$BLD" | grep -qE '^[0-9]+$'; then
+              continue
+            fi
+            if [ "$BLD" -ge "$NEW_BUILD" ]; then
+              continue
+            fi
+            if gh release download "$TAG" --repo "${{ github.repository }}" \
+                   -p 'jarvis.apk' -D "$WORK" --clobber 2>/dev/null; then
+              PREV_TAG="$TAG"
+              FROM_BUILD="$BLD"
+              break
+            fi
+            echo "Release $TAG carries no jarvis.apk — looking further back."
+          done
 
-          if ! gh release download "$PREV_TAG" --repo "${{ github.repository }}" \
-                 -p 'jarvis.apk' -D "$WORK" --clobber 2>/dev/null; then
-            echo "Previous release $PREV_TAG has no jarvis.apk asset — skipping patch."; exit 0
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous JARVIS release found with jarvis.apk — skipping delta patch."; exit 0
           fi
+          echo "Generating delta patch: previous $PREV_TAG (build $FROM_BUILD) -> new $NEW_TAG (build $NEW_BUILD)"
           PREV="$WORK/jarvis.apk"
 
           sudo apt-get update -qq >/dev/null 2>&1
