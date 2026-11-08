@@ -351,3 +351,14 @@ jobs:
           else
             echo "::warning::Could not update marker ${LAST_BUILT_TAG} on ${PRIVATE_REPO}"
           fi
+
+  # Backstop for the --latest=false above. Right after a JARVIS release is
+  # published, make sure Latest is still a KFit release with kfit.apk, so the
+  # website's kfit.apk link and KFit's background updater keep working. Runs
+  # even if a later step of the build failed, but only when a build ran: the
+  # guard's own hourly schedule covers every other case.
+  keep-kfit-latest:
+    name: Keep KFit release as Latest
+    needs: [detect, build-and-release]
+    if: ${{ !cancelled() && needs.detect.outputs.build == 'true' }}
+    uses: ./.github/workflows/ensure-kfit-latest.yml
