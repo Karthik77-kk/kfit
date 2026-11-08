@@ -304,6 +304,17 @@ jobs:
             echo "Attaching delta patch assets: jarvis.patch + patch.json"
           fi
           
+          # Never overwrite an existing jarvis.apk unless force is explicitly set:
+          # the next release's patch.json fromSha256 must match what phones actually installed.
+          FORCE_BUILD="${{ github.event.inputs.force || 'false' }}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[] | select(.name=="jarvis.apk") | .name' 2>/dev/null | grep -q "jarvis.apk"; then
+            if [ "$FORCE_BUILD" != "true" ]; then
+              echo "Release $TAG already contains jarvis.apk and force is not set — skipping upload to protect delta chain."
+              exit 0
+            fi
+            echo "Force flag is set — overwriting release $TAG assets."
+          fi
+          
           echo "Publishing ${TAG} with ${#ASSETS[@]} assets to ${{ github.repository }}..."
           # Never mark JARVIS releases as the repo's "Latest": /releases/latest must
           # stay on a KFit release, because the KFit website download links
