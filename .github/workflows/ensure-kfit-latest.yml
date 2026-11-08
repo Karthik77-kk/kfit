@@ -7,15 +7,23 @@ name: Keep KFit Release as Latest
 # On a JARVIS release the download link returns 404 and KFit silently stops
 # downloading updates in the background.
 #
-# If Latest is not a KFit release, this marks the newest KFit release that has
-# kfit.apk as Latest. An older KFit release marked Latest is left alone, since
-# that may be a deliberate rollback. Logic and tests: .github/scripts/.
+# If Latest is not a KFit release with kfit.apk, this marks the newest KFit
+# release that has kfit.apk as Latest. An older KFit release marked Latest is
+# left alone, since that may be a deliberate rollback. Logic and tests are in
+# .github/scripts/.
 #
-# build_jarvis_apk.yml calls this after every run. Run it by hand from the
-# Actions tab to check (dry run) or repair Latest.
+# Runs:
+#   * from build_jarvis_apk.yml, right after each JARVIS release it publishes;
+#   * hourly, for everything else (a hand-run `gh release edit --latest`, or
+#     the KFit release marked Latest being deleted). Its failures show up under
+#     this workflow's own name, not as a broken JARVIS build;
+#   * by hand from the Actions tab, to check (dry run) or repair Latest.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
+  schedule:
+    # Offset from build_apk (8-59/15) and build_jarvis_apk (12-59/15).
+    - cron: "47 * * * *"
   workflow_call:
     inputs:
       dry_run:

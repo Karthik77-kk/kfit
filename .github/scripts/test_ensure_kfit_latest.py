@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import unittest
 from pathlib import Path
@@ -21,7 +22,10 @@ _spec.loader.exec_module(guard)
 
 try:
     import yaml
-except ImportError:  # pragma: no cover - PyYAML ships on GitHub's ubuntu runners
+except ImportError:
+    # In CI the workflow checks below must run, not skip: fail loudly there.
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        raise
     yaml = None
 
 REPO = "owner/kfit"
@@ -38,23 +42,33 @@ def jarvis(build):
 class FakeGh:
     """Stands in for the gh CLI: answers the three calls the guard makes."""
 
-    def __init__(self, releases, latest, fail=(), on_edit=None, stuck=False):
+    def __init__(self, releases, latest, fail=(), on_edit=None, on_latest=None, stuck=False):
         self.releases = list(releases)
         self.latest = latest
         self.fail = set(fail)  # any of "latest", "list", "edit"
-        self.on_edit = on_edit
+        self.on_edit = on_edit  # called before an edit lands
+        self.on_latest = on_latest  # called before each Latest read
         self.stuck = stuck  # edits "succeed" but Latest never changes
         self.edits = []
         self.list_calls = 0
+        self.latest_reads = 0
+
+    def release(self, tag):
+        return next((r for r in self.releases if r["tag_name"] == tag), None)
 
     def __call__(self, args):
         args = list(args)
         if args == ["api", f"repos/{REPO}/releases/latest"]:
+            self.latest_reads += 1
+            if self.on_latest:
+                self.on_latest(self)
             if "latest" in self.fail:
                 return 1, "", "gh: Server Error (HTTP 500)"
             if self.latest is None:
                 return 1, '{"message":"Not Found","status":"404"}', "gh: Not Found (HTTP 404)"
-            return 0, json.dumps({"tag_name": self.latest}), ""
+            found = self.release(self.latest) or {"assets": []}
+            body = {"tag_name": self.latest, "assets": [{"name": name} for name in found["assets"]]}
+            return 0, json.dumps(body), ""
         if args == ["api", f"repos/{REPO}/releases?per_page=100", "--paginate", "--jq", guard.RELEASES_JQ]:
             self.list_calls += 1
             if "list" in self.fail:
@@ -96,10 +110,11 @@ class KfitVersionTest(unittest.TestCase):
 class EnsureTest(unittest.TestCase):
     def test_kfit_latest_is_left_alone(self):
         fake = FakeGh([jarvis(96), rel("v3.0.717")], latest="v3.0.717")
-        code, log, _ = run(fake)
+        code, log, sleeps = run(fake)
         self.assertEqual(code, 0)
         self.assertEqual(fake.edits, [])
         self.assertEqual(fake.list_calls, 0)
+        self.assertEqual(sleeps, [])
         self.assertIn("Nothing to do", log)
 
     def test_older_kfit_latest_is_left_alone_as_a_rollback(self):
@@ -114,10 +129,11 @@ class EnsureTest(unittest.TestCase):
             [jarvis(96), rel("v3.0.99"), rel("v3.0.717"), rel("v3.0.700"), jarvis(95)],
             latest="jarvis-v1.0.96",
         )
-        code, log, _ = run(fake)
+        code, log, sleeps = run(fake)
         self.assertEqual(code, 0)
         self.assertEqual(fake.edits, ["v3.0.717"])
         self.assertEqual(fake.latest, "v3.0.717")
+        self.assertEqual(sleeps, [])  # no asset re-check for a JARVIS Latest
         self.assertIn("Latest is now v3.0.717", log)
 
     def test_no_latest_at_all_gets_newest_kfit(self):
@@ -126,6 +142,34 @@ class EnsureTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(fake.edits, ["v3.0.717"])
         self.assertIn("(no release)", log)
+
+    def test_kfit_latest_without_kfit_apk_is_repaired(self):
+        fake = FakeGh(
+            [rel("v3.0.718", assets=("kfit.patch", "patch.json")), rel("v3.0.717"), jarvis(96)],
+            latest="v3.0.718",
+        )
+        code, log, sleeps = run(fake)
+        self.assertEqual(code, 0)
+        self.assertEqual(fake.edits, ["v3.0.717"])
+        self.assertEqual(sleeps, [guard.ASSET_RECHECK_SECONDS])
+        self.assertIn("without kfit.apk", log)
+
+    def test_kfit_apk_that_reappears_on_recheck_is_left_alone(self):
+        def upload_finishes(fake):
+            if fake.latest_reads == 2:
+                fake.release("v3.0.718")["assets"] = ["kfit.apk"]
+
+        fake = FakeGh(
+            [rel("v3.0.718", assets=()), rel("v3.0.717")],
+            latest="v3.0.718",
+            on_latest=upload_finishes,
+        )
+        code, log, sleeps = run(fake)
+        self.assertEqual(code, 0)
+        self.assertEqual(fake.edits, [])
+        self.assertEqual(fake.latest, "v3.0.718")
+        self.assertEqual(sleeps, [guard.ASSET_RECHECK_SECONDS])
+        self.assertIn("Nothing to do", log)
 
     def test_skips_drafts_prereleases_missing_apk_and_other_tags(self):
         fake = FakeGh(
@@ -163,7 +207,7 @@ class EnsureTest(unittest.TestCase):
     def test_follows_a_kfit_release_published_mid_run(self):
         def kfit_publishes_first(fake, tag):
             # KFit's own build publishes v3.0.718 (with --latest) just before
-            # our first edit lands, so the edit would demote it.
+            # our first edit lands, so the edit demotes it.
             if not fake.edits:
                 fake.releases.insert(0, rel("v3.0.718"))
                 fake.latest = "v3.0.718"
@@ -174,6 +218,20 @@ class EnsureTest(unittest.TestCase):
         self.assertEqual(fake.edits, ["v3.0.717", "v3.0.718"])
         self.assertEqual(fake.latest, "v3.0.718")
         self.assertIn("v3.0.718 was published meanwhile", log)
+
+    def test_every_release_it_switches_to_is_marked_even_when_the_race_never_settles(self):
+        def kfit_keeps_publishing(fake, tag):
+            newest = max(guard.kfit_version(r["tag_name"])[2] for r in fake.releases if guard.kfit_version(r["tag_name"]))
+            fake.releases.insert(0, rel(f"v3.0.{newest + 1}"))
+
+        fake = FakeGh([jarvis(96), rel("v3.0.717")], latest="jarvis-v1.0.96", on_edit=kfit_keeps_publishing)
+        code, log, _ = run(fake)
+        self.assertEqual(code, 0)
+        switched = re.findall(r"(v3\.0\.\d+) was published meanwhile", log)
+        self.assertEqual(len(switched), guard.RACE_RECHECKS)
+        # The initial target plus every release it said it switched to was marked.
+        self.assertEqual(fake.edits, ["v3.0.717", *switched])
+        self.assertEqual(fake.latest, switched[-1])
 
     def test_edit_failure_fails(self):
         fake = FakeGh([jarvis(96), rel("v3.0.717")], latest="jarvis-v1.0.96", fail={"edit"})
@@ -198,7 +256,7 @@ class EnsureTest(unittest.TestCase):
         fake = FakeGh([jarvis(96), rel("v3.0.717")], latest="jarvis-v1.0.96", stuck=True)
         code, log, sleeps = run(fake)
         self.assertEqual(code, 1)
-        self.assertEqual(len(sleeps), guard.CONFIRM_ATTEMPTS - 1)
+        self.assertEqual(sleeps, [guard.CONFIRM_DELAY_SECONDS] * (guard.CONFIRM_ATTEMPTS - 1))
         self.assertIn("still reports jarvis-v1.0.96", log)
 
 
@@ -210,24 +268,49 @@ def load_workflow(name):
     return data
 
 
+def run_scripts(workflow):
+    return [step["run"] for job in workflow["jobs"].values() for step in job.get("steps", []) if "run" in step]
+
+
+def shell_commands(script, command):
+    """Every occurrence of `command` in a shell script, with its continuation lines."""
+    found = []
+    for match in re.finditer(re.escape(command), script):
+        lines = []
+        for line in script[match.start():].split("\n"):
+            lines.append(line)
+            if not line.rstrip().endswith("\\"):
+                break
+        found.append("\n".join(lines))
+    return found
+
+
 @unittest.skipIf(yaml is None, "PyYAML not installed")
 class WorkflowWiringTest(unittest.TestCase):
-    def test_jarvis_releases_are_never_marked_latest(self):
-        text = (WORKFLOWS / "build_jarvis_apk.yml").read_text(encoding="utf-8")
-        self.assertIn("--latest=false", text)
-        self.assertIsNone(
-            re.search(r"--latest(?!=false)\b", text),
-            "build_jarvis_apk.yml must not publish JARVIS releases with --latest",
-        )
+    def test_every_jarvis_release_create_passes_latest_false(self):
+        scripts = run_scripts(load_workflow("build_jarvis_apk.yml"))
+        creates = [cmd for script in scripts for cmd in shell_commands(script, "gh release create")]
+        self.assertTrue(creates, "build_jarvis_apk.yml no longer creates releases?")
+        for cmd in creates:
+            self.assertIn("--latest=false", cmd, cmd)
+            self.assertIsNone(re.search(r"--latest(?!=false)\b", cmd), cmd)
 
-    def test_build_jarvis_apk_calls_the_guard_after_every_run(self):
+    def test_jarvis_workflow_never_marks_anything_latest_another_way(self):
+        joined = "\n".join(run_scripts(load_workflow("build_jarvis_apk.yml")))
+        self.assertNotIn("make_latest", joined)
+        for cmd in shell_commands(joined, "gh release edit"):
+            self.assertNotIn("--latest", cmd, cmd)
+
+    def test_build_jarvis_apk_calls_the_guard_after_a_publish(self):
         job = load_workflow("build_jarvis_apk.yml")["jobs"]["keep-kfit-latest"]
         self.assertEqual(job["uses"], "./.github/workflows/ensure-kfit-latest.yml")
         self.assertIn("build-and-release", job["needs"])
         self.assertIn("!cancelled()", job["if"])
+        self.assertIn("needs.detect.outputs.build == 'true'", job["if"])
 
-    def test_guard_workflow_can_be_called_and_run_by_hand(self):
+    def test_guard_workflow_runs_on_a_schedule_when_called_and_by_hand(self):
         wf = load_workflow("ensure-kfit-latest.yml")
+        self.assertTrue(wf["on"]["schedule"][0]["cron"])
         for trigger in ("workflow_call", "workflow_dispatch"):
             dry_run = wf["on"][trigger]["inputs"]["dry_run"]
             self.assertEqual(dry_run["type"], "boolean")

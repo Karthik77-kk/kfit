@@ -49,7 +49,7 @@ for the next poll, not broken.
 | `nightly-backup.yml` | Writes to the backups repository |
 | `supabase-deploy.yml` | Deploys database migrations and functions |
 | `build_jarvis_apk.yml` | Builds and publishes JARVIS releases (`jarvis-v1.0.N`) to this repository, **never marked Latest** |
-| `ensure-kfit-latest.yml` | Keeps the repository's Latest release on a KFit release, because the website's `/releases/latest/download/kfit.apk` link and KFit's background updater follow it. Runs after every `build_jarvis_apk.yml` run; run it by hand (optionally as a dry run) to check or repair. Logic and tests are in `.github/scripts/` |
+| `ensure-kfit-latest.yml` | Keeps the repository's Latest release on a KFit release with `kfit.apk`, because the website's `/releases/latest/download/kfit.apk` link and KFit's background updater follow it. Runs after each JARVIS release and hourly; run it by hand (optionally as a dry run) to check or repair. Logic and tests are in `.github/scripts/` |
 | `cleanup-old-releases.yml` | Prunes superseded releases |
 | `cleanup-old-runs.yml` | Prunes old workflow runs |
 | `daily-telemetry-triage.yml` | Reads a day of app telemetry, archives the report to the backups repository, and opens an `ai-fix/*` pull request only when the evidence points at one file. The gate checks that PR like any other; its repair loop may only edit files the PR changed, and a PR it cannot repair is closed with its branch. A human merges every AI fix |

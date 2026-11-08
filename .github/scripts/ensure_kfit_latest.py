@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
-"""Keep this repository's "Latest" release on a KFit release.
+"""Keep this repository's "Latest" release on a KFit release that has kfit.apk.
 
 Two apps publish releases to Karthik77-kk/kfit:
 
   * KFit:   v3.0.N         (build_apk.yml, published with --latest)
   * JARVIS: jarvis-v1.0.N  (build_jarvis_apk.yml, published with --latest=false)
 
-/releases/latest has to be a KFit release. The website download links
-(/releases/latest/download/kfit.apk) and KFit's background updater
-(KFitUpdateJobService) both follow it. When it lands on a JARVIS release, the
-download link returns 404 and KFit silently stops downloading updates in the
-background.
+/releases/latest has to be a KFit release carrying kfit.apk. The website
+download links (/releases/latest/download/kfit.apk) and KFit's background
+updater (KFitUpdateJobService) both follow it. Anywhere else, the download link
+returns 404 and KFit silently stops downloading updates in the background.
 
 What this does:
 
-  * Latest is a KFit release: nothing. That includes an OLDER KFit release,
-    because someone may have marked it on purpose to roll back a bad build.
-  * Latest is anything else, or nothing is Latest: mark the newest published
-    KFit release that carries kfit.apk as Latest, then confirm it took.
+  * Latest is a KFit release with kfit.apk: nothing. That includes an OLDER
+    KFit release, because someone may have marked it on purpose to roll back a
+    bad build.
+  * Latest is anything else (a JARVIS release, a KFit release without
+    kfit.apk, or nothing at all): mark the newest published KFit release that
+    has kfit.apk as Latest, then confirm it took.
   * There is no such KFit release: fail, because there is nothing safe to
     point Latest at.
 
-Exit code 0 means Latest is (now) a KFit release, or this was a dry run.
-Exit code 1 means it could not make sure of that.
+Exit code 0 means Latest is (now) a KFit release with kfit.apk, or this was a
+dry run. Exit code 1 means it could not make sure of that.
 
 Usage: ensure_kfit_latest.py [--repo OWNER/NAME] [--dry-run]
 Needs the gh CLI, authenticated with contents:write on the repository.
@@ -37,8 +38,9 @@ import re
 import subprocess
 import sys
 import time
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Callable, List, NamedTuple, Optional, Sequence, Tuple
 
+# The tag shape build_apk.yml publishes: TAG="v${NAME%.*}.${CODE}", e.g. v3.0.717.
 KFIT_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 KFIT_ASSET = "kfit.apk"
 
@@ -46,6 +48,8 @@ KFIT_ASSET = "kfit.apk"
 # independent of the gh version (no --slurp needed).
 RELEASES_JQ = ".[] | {tag_name, draft, prerelease, assets: [.assets[].name]}"
 
+# A KFit Latest without kfit.apk may be mid re-upload; look again after this.
+ASSET_RECHECK_SECONDS = 15
 # Times to re-list after marking, in case a KFit release is published mid-run.
 RACE_RECHECKS = 3
 # Times to read Latest back before giving up on the change showing.
@@ -54,6 +58,11 @@ CONFIRM_DELAY_SECONDS = 2
 
 GhResult = Tuple[int, str, str]
 Gh = Callable[[Sequence[str]], GhResult]
+
+
+class Release(NamedTuple):
+    tag: str
+    assets: Tuple[str, ...]
 
 
 class GhError(RuntimeError):
@@ -68,7 +77,7 @@ def run_gh(args: Sequence[str]) -> GhResult:
     return proc.returncode, proc.stdout, proc.stderr
 
 
-def kfit_version(tag: str) -> Optional[Tuple[int, int, int]]:
+def kfit_version(tag: Optional[str]) -> Optional[Tuple[int, int, int]]:
     """(3, 0, 717) for "v3.0.717"; None for anything that is not a KFit tag."""
     match = KFIT_TAG.match(tag or "")
     if not match:
@@ -77,14 +86,30 @@ def kfit_version(tag: str) -> Optional[Tuple[int, int, int]]:
     return major, minor, build
 
 
-def latest_tag(gh: Gh, repo: str) -> Optional[str]:
-    """Tag of the release GitHub currently reports as Latest, or None if none is."""
+def serves_kfit(release: Optional[Release]) -> bool:
+    """True when /releases/latest/download/kfit.apk would work for this release."""
+    return bool(release and kfit_version(release.tag) and KFIT_ASSET in release.assets)
+
+
+def describe(release: Optional[Release]) -> str:
+    if release is None:
+        return "(no release)"
+    if kfit_version(release.tag) and KFIT_ASSET not in release.assets:
+        return f"{release.tag} (a KFit release without {KFIT_ASSET})"
+    return release.tag
+
+
+def latest_release(gh: Gh, repo: str) -> Optional[Release]:
+    """The release GitHub currently reports as Latest, or None if none is."""
     code, out, err = gh(["api", f"repos/{repo}/releases/latest"])
     if code != 0:
         if "HTTP 404" in err:
             return None
         raise GhError(f"Reading the Latest release failed: {err.strip() or 'exit ' + str(code)}")
-    return json.loads(out).get("tag_name") or None
+    data = json.loads(out)
+    tag = data.get("tag_name") or ""
+    assets = tuple(asset.get("name", "") for asset in data.get("assets") or [])
+    return Release(tag, assets) if tag else None
 
 
 def newest_kfit_release(gh: Gh, repo: str) -> Optional[str]:
@@ -128,12 +153,19 @@ def ensure(
     sleep: Callable[[float], None] = time.sleep,
 ) -> int:
     try:
-        current = latest_tag(gh, repo)
-        if current and kfit_version(current):
-            log(f"Latest is {current}, a KFit release. Nothing to do.")
+        current = latest_release(gh, repo)
+        if current and kfit_version(current.tag) and not serves_kfit(current):
+            # kfit.apk may be in the middle of a re-upload. Look once more
+            # before moving Latest off what may be the newest KFit build.
+            log(f"Latest is {describe(current)}. Checking again in {ASSET_RECHECK_SECONDS}s.")
+            sleep(ASSET_RECHECK_SECONDS)
+            current = latest_release(gh, repo)
+
+        if serves_kfit(current):
+            log(f"Latest is {current.tag}, a KFit release with {KFIT_ASSET}. Nothing to do.")
             return 0
 
-        shown = current or "(no release)"
+        shown = describe(current)
         target = newest_kfit_release(gh, repo)
         if not target:
             log(
@@ -144,31 +176,32 @@ def ensure(
             return 1
 
         if dry_run:
-            log(f"::warning::Latest is {shown}, not a KFit release. Dry run: would mark {target} as Latest.")
+            log(f"::warning::Latest is {shown}, which breaks the KFit download link. Dry run: would mark {target} as Latest.")
             return 0
 
-        log(f"Latest is {shown}, not a KFit release. Marking {target} as Latest.")
+        log(f"Latest is {shown}, which breaks the KFit download link. Marking {target} as Latest.")
+        mark_latest(gh, repo, target)
         # A KFit release published between the listing and the edit is newer than
-        # target, and the edit would take Latest away from it. Re-list after each
-        # edit and follow the newest one.
+        # target, and the edit just took Latest away from it. Re-list and follow
+        # the newest one; every target chosen here is marked before moving on.
         for _ in range(RACE_RECHECKS):
-            mark_latest(gh, repo, target)
             newer = newest_kfit_release(gh, repo)
             if not newer or newer == target:
                 break
             log(f"{newer} was published meanwhile. Marking it instead.")
             target = newer
+            mark_latest(gh, repo, target)
 
-        final: Optional[str] = None
+        final: Optional[Release] = None
         for attempt in range(CONFIRM_ATTEMPTS):
-            final = latest_tag(gh, repo)
-            if final and kfit_version(final):
-                log(f"Latest is now {final}.")
+            final = latest_release(gh, repo)
+            if serves_kfit(final):
+                log(f"Latest is now {final.tag}.")
                 return 0
             if attempt < CONFIRM_ATTEMPTS - 1:
                 sleep(CONFIRM_DELAY_SECONDS)
 
-        log(f"::error::Marked {target} as Latest, but GitHub still reports {final or '(no release)'}.")
+        log(f"::error::Marked {target} as Latest, but GitHub still reports {describe(final)}.")
         return 1
     except GhError as exc:
         log(f"::error::{exc}")
