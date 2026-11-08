@@ -1,0 +1,59 @@
+name: Keep KFit Release as Latest
+
+# ─────────────────────────────────────────────────────────────────────────────
+# KFit (v3.0.N) and JARVIS (jarvis-v1.0.N) both publish releases to this repo.
+# /releases/latest must stay on a KFit release: the website download links
+# (/releases/latest/download/kfit.apk) and KFit's background updater follow it.
+# On a JARVIS release the download link returns 404 and KFit silently stops
+# downloading updates in the background.
+#
+# If Latest is not a KFit release, this marks the newest KFit release that has
+# kfit.apk as Latest. An older KFit release marked Latest is left alone, since
+# that may be a deliberate rollback. Logic and tests: .github/scripts/.
+#
+# build_jarvis_apk.yml calls this after every run. Run it by hand from the
+# Actions tab to check (dry run) or repair Latest.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Only report what would change"
+        type: boolean
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report what would change"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  # Marking a release as Latest in THIS repo.
+  contents: write
+
+jobs:
+  ensure:
+    name: Ensure Latest is a KFit release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout CI scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Check and repair Latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          ARGS=(--repo "${{ github.repository }}")
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          python3 .github/scripts/ensure_kfit_latest.py "${ARGS[@]}"

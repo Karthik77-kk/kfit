@@ -49,6 +49,11 @@ jobs:
           else
             echo "workflows=false" >> "$GITHUB_OUTPUT"
           fi
+          if echo "$FILES" | grep -qE '^\.github/(scripts|workflows)/'; then
+            echo "ci_scripts=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ci_scripts=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Secret and Token Scan
         run: |
@@ -79,6 +84,13 @@ jobs:
               sys.exit(1)
           "
           echo "✅ Workflow syntax valid."
+
+      # The CI helper scripts' tests also check how workflows wire them in
+      # (for example that JARVIS releases are never published as Latest), so
+      # they run when either the scripts or the workflows change.
+      - name: Test CI helper scripts
+        if: steps.changed.outputs.ci_scripts == 'true'
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
 
       - name: Setup Node.js for Website
         if: steps.changed.outputs.website == 'true'

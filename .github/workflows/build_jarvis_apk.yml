@@ -340,3 +340,13 @@ jobs:
           else
             echo "::warning::Could not update marker ${LAST_BUILT_TAG} on ${PRIVATE_REPO}"
           fi
+
+  # Backstop for the --latest=false above. If Latest has ended up on anything
+  # other than a KFit release, put it back on the newest KFit release, so the
+  # website's kfit.apk link and KFit's background updater keep working. Runs
+  # after every run that wasn't cancelled, built or not, so each run re-checks.
+  keep-kfit-latest:
+    name: Keep KFit release as Latest
+    needs: [detect, build-and-release]
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/ensure-kfit-latest.yml
