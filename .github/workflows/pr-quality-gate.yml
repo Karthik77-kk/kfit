@@ -49,7 +49,7 @@ jobs:
           else
             echo "workflows=false" >> "$GITHUB_OUTPUT"
           fi
-          if echo "$FILES" | grep -qE '^\.github/(scripts|workflows)/'; then
+          if echo "$FILES" | grep -qE '^\.github/scripts/'; then
             echo "ci_scripts=true" >> "$GITHUB_OUTPUT"
           else
             echo "ci_scripts=false" >> "$GITHUB_OUTPUT"
@@ -89,7 +89,7 @@ jobs:
       # (for example that JARVIS releases are never published as Latest), so
       # they run when either the scripts or the workflows change.
       - name: Test CI helper scripts
-        if: steps.changed.outputs.ci_scripts == 'true'
+        if: steps.changed.outputs.ci_scripts == 'true' || steps.changed.outputs.workflows == 'true'
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
 
       - name: Setup Node.js for Website

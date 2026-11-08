@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep this repository's "Latest" release on a KFit release that has kfit.apk.
+"""Keep this repository's "Latest" release on a KFit release.
 
 Two apps publish releases to Karthik77-kk/kfit:
 
@@ -13,17 +13,23 @@ returns 404 and KFit silently stops downloading updates in the background.
 
 What this does:
 
-  * Latest is a KFit release with kfit.apk: nothing. That includes an OLDER
-    KFit release, because someone may have marked it on purpose to roll back a
-    bad build.
-  * Latest is anything else (a JARVIS release, a KFit release without
-    kfit.apk, or nothing at all): mark the newest published KFit release that
-    has kfit.apk as Latest, then confirm it took.
-  * There is no such KFit release: fail, because there is nothing safe to
-    point Latest at.
+  * Latest is a KFit release with an uploaded kfit.apk: nothing. That includes
+    an OLDER KFit release, because someone may have marked it on purpose to
+    roll back a bad build.
+  * Latest is not a KFit release (a JARVIS release, or nothing at all): mark the
+    newest published KFit release with an uploaded kfit.apk as Latest, then
+    confirm it took.
+  * Latest is a KFit release WITHOUT kfit.apk: report it and fail, but do not
+    move Latest. kfit.apk may be mid re-upload (it is ~200 MB), and moving
+    Latest to an older build would then stick, because of the rule above.
+  * There is no KFit release to point Latest at: fail.
+
+To roll back KFit, mark the bad release as a pre-release (or delete it) as well
+as marking the good one Latest. This never picks a pre-release, so a later
+repair cannot bring the bad build back.
 
 Exit code 0 means Latest is (now) a KFit release with kfit.apk, or this was a
-dry run. Exit code 1 means it could not make sure of that.
+dry run that found nothing it could not fix. Exit code 1 means it is not.
 
 Usage: ensure_kfit_latest.py [--repo OWNER/NAME] [--dry-run]
 Needs the gh CLI, authenticated with contents:write on the repository.
@@ -43,10 +49,15 @@ from typing import Callable, List, NamedTuple, Optional, Sequence, Tuple
 # The tag shape build_apk.yml publishes: TAG="v${NAME%.*}.${CODE}", e.g. v3.0.717.
 KFIT_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 KFIT_ASSET = "kfit.apk"
+# Assets whose upload has not finished (state "open"/"starter") cannot be downloaded.
+UPLOADED = "uploaded"
 
-# One compact JSON object per release, one per line. Parsing lines keeps this
-# independent of the gh version (no --slurp needed).
-RELEASES_JQ = ".[] | {tag_name, draft, prerelease, assets: [.assets[].name]}"
+# One compact JSON object per release, one per line, listing only finished
+# uploads. Parsing lines keeps this independent of the gh version (no --slurp).
+RELEASES_JQ = (
+    ".[] | {tag_name, draft, prerelease, "
+    'assets: [.assets[] | select(.state == "uploaded") | .name]}'
+)
 
 # A KFit Latest without kfit.apk may be mid re-upload; look again after this.
 ASSET_RECHECK_SECONDS = 15
@@ -62,11 +73,11 @@ Gh = Callable[[Sequence[str]], GhResult]
 
 class Release(NamedTuple):
     tag: str
-    assets: Tuple[str, ...]
+    assets: Tuple[str, ...]  # names of fully uploaded assets
 
 
 class GhError(RuntimeError):
-    """A gh call failed in a way this script cannot work around."""
+    """A gh call failed, or returned something this script cannot read."""
 
 
 def run_gh(args: Sequence[str]) -> GhResult:
@@ -95,8 +106,15 @@ def describe(release: Optional[Release]) -> str:
     if release is None:
         return "(no release)"
     if kfit_version(release.tag) and KFIT_ASSET not in release.assets:
-        return f"{release.tag} (a KFit release without {KFIT_ASSET})"
+        return f"{release.tag} (a KFit release without an uploaded {KFIT_ASSET})"
     return release.tag
+
+
+def _json(text: str, what: str):
+    try:
+        return json.loads(text)
+    except ValueError as exc:
+        raise GhError(f"{what} returned something that is not JSON: {exc}") from exc
 
 
 def latest_release(gh: Gh, repo: str) -> Optional[Release]:
@@ -106,14 +124,20 @@ def latest_release(gh: Gh, repo: str) -> Optional[Release]:
         if "HTTP 404" in err:
             return None
         raise GhError(f"Reading the Latest release failed: {err.strip() or 'exit ' + str(code)}")
-    data = json.loads(out)
+    data = _json(out, "Reading the Latest release")
+    if not isinstance(data, dict):
+        raise GhError("Reading the Latest release returned an unexpected shape.")
     tag = data.get("tag_name") or ""
-    assets = tuple(asset.get("name", "") for asset in data.get("assets") or [])
+    assets = tuple(
+        asset.get("name", "")
+        for asset in data.get("assets") or []
+        if isinstance(asset, dict) and asset.get("state") == UPLOADED
+    )
     return Release(tag, assets) if tag else None
 
 
 def newest_kfit_release(gh: Gh, repo: str) -> Optional[str]:
-    """Highest-versioned published KFit release that carries kfit.apk, or None."""
+    """Highest-versioned published KFit release with an uploaded kfit.apk, or None."""
     code, out, err = gh(
         ["api", f"repos/{repo}/releases?per_page=100", "--paginate", "--jq", RELEASES_JQ]
     )
@@ -125,7 +149,9 @@ def newest_kfit_release(gh: Gh, repo: str) -> Optional[str]:
         line = line.strip()
         if not line:
             continue
-        release = json.loads(line)
+        release = _json(line, "Listing releases")
+        if not isinstance(release, dict):
+            raise GhError("Listing releases returned an unexpected shape.")
         if release.get("draft") or release.get("prerelease"):
             continue  # GitHub never lets these be Latest
         tag = release.get("tag_name") or ""
@@ -155,8 +181,6 @@ def ensure(
     try:
         current = latest_release(gh, repo)
         if current and kfit_version(current.tag) and not serves_kfit(current):
-            # kfit.apk may be in the middle of a re-upload. Look once more
-            # before moving Latest off what may be the newest KFit build.
             log(f"Latest is {describe(current)}. Checking again in {ASSET_RECHECK_SECONDS}s.")
             sleep(ASSET_RECHECK_SECONDS)
             current = latest_release(gh, repo)
@@ -166,6 +190,15 @@ def ensure(
             return 0
 
         shown = describe(current)
+        if current and kfit_version(current.tag):
+            # Not moved automatically: see the module docstring.
+            log(
+                f"::error::Latest is {shown}, so the KFit download link returns 404. Not moving "
+                f"Latest automatically: re-upload {KFIT_ASSET} to {current.tag}, or mark another "
+                "KFit release as Latest."
+            )
+            return 1
+
         target = newest_kfit_release(gh, repo)
         if not target:
             log(
@@ -180,17 +213,22 @@ def ensure(
             return 0
 
         log(f"Latest is {shown}, which breaks the KFit download link. Marking {target} as Latest.")
-        mark_latest(gh, repo, target)
-        # A KFit release published between the listing and the edit is newer than
-        # target, and the edit just took Latest away from it. Re-list and follow
-        # the newest one; every target chosen here is marked before moving on.
-        for _ in range(RACE_RECHECKS):
+        # A KFit release published between a listing and an edit is newer than
+        # target, and the edit takes Latest away from it. After every edit,
+        # list again; follow a newer release, or stop once nothing newer shows.
+        for attempt in range(RACE_RECHECKS + 1):
+            mark_latest(gh, repo, target)
             newer = newest_kfit_release(gh, repo)
             if not newer or newer == target:
                 break
+            if attempt == RACE_RECHECKS:
+                log(
+                    f"::error::KFit releases kept appearing while Latest was being repaired. "
+                    f"Marked {target}, but {newer} is newer. Run this workflow again."
+                )
+                return 1
             log(f"{newer} was published meanwhile. Marking it instead.")
             target = newer
-            mark_latest(gh, repo, target)
 
         final: Optional[Release] = None
         for attempt in range(CONFIRM_ATTEMPTS):

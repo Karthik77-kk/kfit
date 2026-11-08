@@ -36,6 +36,10 @@ website/.astro/
 # Test coverage output
 coverage/
 
+# Python bytecode (from running the .github/scripts tests)
+__pycache__/
+*.pyc
+
 # Internal Claude Code / Agents / MCP tooling — keep out of the public repo
 .mcp.json
 .claude/

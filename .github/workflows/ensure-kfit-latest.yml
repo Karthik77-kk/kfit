@@ -7,10 +7,16 @@ name: Keep KFit Release as Latest
 # On a JARVIS release the download link returns 404 and KFit silently stops
 # downloading updates in the background.
 #
-# If Latest is not a KFit release with kfit.apk, this marks the newest KFit
-# release that has kfit.apk as Latest. An older KFit release marked Latest is
-# left alone, since that may be a deliberate rollback. Logic and tests are in
-# .github/scripts/.
+# If Latest is not a KFit release, this marks the newest KFit release that has
+# kfit.apk as Latest. An older KFit release marked Latest is left alone, since
+# that may be a deliberate rollback. A KFit release marked Latest without
+# kfit.apk fails the run but is not moved (kfit.apk may be re-uploading).
+#
+# To roll back KFit: mark the good release Latest AND mark the bad one as a
+# pre-release (or delete it). This never picks a pre-release, so a later repair
+# can't bring the bad build back.
+#
+# Logic and tests are in .github/scripts/.
 #
 # Runs:
 #   * from build_jarvis_apk.yml, right after each JARVIS release it publishes;

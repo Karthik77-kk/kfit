@@ -31,8 +31,15 @@ except ImportError:
 REPO = "owner/kfit"
 
 
-def rel(tag, assets=("kfit.apk",), draft=False, prerelease=False):
-    return {"tag_name": tag, "draft": draft, "prerelease": prerelease, "assets": list(assets)}
+def rel(tag, assets=("kfit.apk",), draft=False, prerelease=False, uploading=()):
+    """A release. `assets` are fully uploaded; `uploading` are still in state "open"."""
+    return {
+        "tag_name": tag,
+        "draft": draft,
+        "prerelease": prerelease,
+        "assets": list(assets),
+        "uploading": list(uploading),
+    }
 
 
 def jarvis(build):
@@ -45,7 +52,7 @@ class FakeGh:
     def __init__(self, releases, latest, fail=(), on_edit=None, on_latest=None, stuck=False):
         self.releases = list(releases)
         self.latest = latest
-        self.fail = set(fail)  # any of "latest", "list", "edit"
+        self.fail = set(fail)  # any of "latest", "list", "edit", "latest-garbage", "list-garbage"
         self.on_edit = on_edit  # called before an edit lands
         self.on_latest = on_latest  # called before each Latest read
         self.stuck = stuck  # edits "succeed" but Latest never changes
@@ -64,16 +71,26 @@ class FakeGh:
                 self.on_latest(self)
             if "latest" in self.fail:
                 return 1, "", "gh: Server Error (HTTP 500)"
+            if "latest-garbage" in self.fail:
+                return 0, "<html>502 Bad Gateway</html>", ""
             if self.latest is None:
                 return 1, '{"message":"Not Found","status":"404"}', "gh: Not Found (HTTP 404)"
-            found = self.release(self.latest) or {"assets": []}
-            body = {"tag_name": self.latest, "assets": [{"name": name} for name in found["assets"]]}
-            return 0, json.dumps(body), ""
+            found = self.release(self.latest) or {"assets": [], "uploading": []}
+            assets = [{"name": n, "state": "uploaded"} for n in found["assets"]]
+            assets += [{"name": n, "state": "open"} for n in found["uploading"]]
+            return 0, json.dumps({"tag_name": self.latest, "assets": assets}), ""
         if args == ["api", f"repos/{REPO}/releases?per_page=100", "--paginate", "--jq", guard.RELEASES_JQ]:
             self.list_calls += 1
             if "list" in self.fail:
                 return 1, "", "gh: Bad credentials (HTTP 401)"
-            return 0, "".join(json.dumps(r) + "\n" for r in self.releases), ""
+            if "list-garbage" in self.fail:
+                return 0, '{"tag_name": "v3.0.7\n', ""
+            # What RELEASES_JQ emits: one object per release, finished uploads only.
+            lines = [
+                {k: r[k] for k in ("tag_name", "draft", "prerelease")} | {"assets": r["assets"]}
+                for r in self.releases
+            ]
+            return 0, "".join(json.dumps(line) + "\n" for line in lines), ""
         if len(args) == 6 and args[:2] == ["release", "edit"] and args[3:] == ["--repo", REPO, "--latest"]:
             if "edit" in self.fail:
                 return 1, "", "HTTP 403: Resource not accessible by integration"
@@ -143,16 +160,37 @@ class EnsureTest(unittest.TestCase):
         self.assertEqual(fake.edits, ["v3.0.717"])
         self.assertIn("(no release)", log)
 
-    def test_kfit_latest_without_kfit_apk_is_repaired(self):
+    def test_kfit_latest_without_kfit_apk_fails_but_is_not_moved(self):
+        # Moving Latest to v3.0.717 would stick (older KFit Latest = rollback),
+        # even after kfit.apk finishes re-uploading to v3.0.718.
         fake = FakeGh(
             [rel("v3.0.718", assets=("kfit.patch", "patch.json")), rel("v3.0.717"), jarvis(96)],
             latest="v3.0.718",
         )
         code, log, sleeps = run(fake)
-        self.assertEqual(code, 0)
-        self.assertEqual(fake.edits, ["v3.0.717"])
+        self.assertEqual(code, 1)
+        self.assertEqual(fake.edits, [])
+        self.assertEqual(fake.latest, "v3.0.718")
         self.assertEqual(sleeps, [guard.ASSET_RECHECK_SECONDS])
-        self.assertIn("without kfit.apk", log)
+        self.assertIn("::error::Latest is v3.0.718 (a KFit release without an uploaded kfit.apk)", log)
+        self.assertIn("Not moving Latest automatically", log)
+
+    def test_kfit_apk_still_uploading_counts_as_missing(self):
+        fake = FakeGh(
+            [rel("v3.0.718", assets=(), uploading=("kfit.apk",)), rel("v3.0.717")],
+            latest="v3.0.718",
+        )
+        code, log, _ = run(fake)
+        self.assertEqual(code, 1)
+        self.assertEqual(fake.edits, [])
+        self.assertIn("without an uploaded kfit.apk", log)
+
+    def test_dry_run_reports_a_kfit_latest_without_kfit_apk_as_a_failure(self):
+        fake = FakeGh([rel("v3.0.718", assets=()), rel("v3.0.717")], latest="v3.0.718")
+        code, log, _ = run(fake, dry_run=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(fake.edits, [])
+        self.assertIn("::error::", log)
 
     def test_kfit_apk_that_reappears_on_recheck_is_left_alone(self):
         def upload_finishes(fake):
@@ -219,19 +257,47 @@ class EnsureTest(unittest.TestCase):
         self.assertEqual(fake.latest, "v3.0.718")
         self.assertIn("v3.0.718 was published meanwhile", log)
 
-    def test_every_release_it_switches_to_is_marked_even_when_the_race_never_settles(self):
+    def test_race_that_never_settles_fails_and_marks_every_release_it_switched_to(self):
         def kfit_keeps_publishing(fake, tag):
             newest = max(guard.kfit_version(r["tag_name"])[2] for r in fake.releases if guard.kfit_version(r["tag_name"]))
             fake.releases.insert(0, rel(f"v3.0.{newest + 1}"))
 
         fake = FakeGh([jarvis(96), rel("v3.0.717")], latest="jarvis-v1.0.96", on_edit=kfit_keeps_publishing)
         code, log, _ = run(fake)
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 1)
         switched = re.findall(r"(v3\.0\.\d+) was published meanwhile", log)
         self.assertEqual(len(switched), guard.RACE_RECHECKS)
-        # The initial target plus every release it said it switched to was marked.
+        # The initial target plus every release it said it switched to was marked...
         self.assertEqual(fake.edits, ["v3.0.717", *switched])
-        self.assertEqual(fake.latest, switched[-1])
+        # ...and it does not claim success while a newer KFit release exists.
+        self.assertIn("kept appearing", log)
+        self.assertNotIn("Latest is now", log)
+
+    def test_race_that_settles_on_the_last_recheck_succeeds(self):
+        def kfit_publishes_a_few(fake, tag):
+            if len(fake.edits) < guard.RACE_RECHECKS:
+                newest = max(guard.kfit_version(r["tag_name"])[2] for r in fake.releases if guard.kfit_version(r["tag_name"]))
+                fake.releases.insert(0, rel(f"v3.0.{newest + 1}"))
+
+        fake = FakeGh([jarvis(96), rel("v3.0.717")], latest="jarvis-v1.0.96", on_edit=kfit_publishes_a_few)
+        code, log, _ = run(fake)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(fake.edits), guard.RACE_RECHECKS + 1)
+        self.assertEqual(fake.latest, fake.edits[-1])
+        self.assertIn(f"Latest is now {fake.edits[-1]}", log)
+
+    def test_malformed_latest_response_fails_cleanly(self):
+        fake = FakeGh([rel("v3.0.717")], latest="v3.0.717", fail={"latest-garbage"})
+        code, log, _ = run(fake)
+        self.assertEqual(code, 1)
+        self.assertIn("::error::Reading the Latest release returned something that is not JSON", log)
+
+    def test_malformed_release_listing_fails_cleanly(self):
+        fake = FakeGh([rel("v3.0.717")], latest="jarvis-v1.0.96", fail={"list-garbage"})
+        code, log, _ = run(fake)
+        self.assertEqual(code, 1)
+        self.assertEqual(fake.edits, [])
+        self.assertIn("::error::Listing releases returned something that is not JSON", log)
 
     def test_edit_failure_fails(self):
         fake = FakeGh([jarvis(96), rel("v3.0.717")], latest="jarvis-v1.0.96", fail={"edit"})
