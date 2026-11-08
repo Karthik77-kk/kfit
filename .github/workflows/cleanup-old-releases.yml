@@ -1,13 +1,15 @@
 name: Cleanup Old Releases (kfit)
 
 # Releases pile up on this distribution repo (every merge to main ships one).
-# Keeps only the newest KEEP releases — deletes the release AND its git tag for
-# everything older.
+# Both KFit and JARVIS publish releases to Karthik77-kk/kfit.
+# Keeps the newest KEEP releases FOR EACH APP SEPARATELY — deletes the release
+# AND its git tag for everything older within that app's group. Releases for one
+# app never prune releases of another app.
 #
 # Ported from kfit-app 2026-08-14. It used to run cross-repo with RELEASE_PAT,
 # because it lived in the private repo and reached into this one. Running here,
 # the target IS this repo, so the built-in token does it and there is no PAT to
-# expire. The deletion logic is unchanged.
+# expire.
 #
 # Offset an hour from cleanup-old-runs.yml's Sunday 2 AM UTC slot so the two
 # scheduled jobs don't overlap.
@@ -36,27 +38,83 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
-      - name: Delete old releases + tags (keep newest ${{ env.KEEP }})
+      - name: Delete old releases + tags (keep newest ${{ env.KEEP }} per app)
         run: |
           if [ -z "$GITHUB_TOKEN" ]; then
             echo "::error::github.token is empty — can't reach $TARGET_REPO."
             exit 1
           fi
 
-          gh api "repos/$TARGET_REPO/releases" --paginate \
-            --jq '.[] | "\(.id)\t\(.tag_name)\t\(.created_at)"' \
-            | sort -t $'\t' -k3 -r > releases.tsv
+          python3 - << 'EOF'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
 
-          total=$(wc -l < releases.tsv)
-          echo "Found $total releases on $TARGET_REPO, keeping newest $KEEP."
+          keep = int(os.environ.get("KEEP", "5"))
+          target_repo = os.environ.get("TARGET_REPO", os.environ.get("GITHUB_REPOSITORY", "Karthik77-kk/kfit"))
 
-          tail -n "+$((KEEP + 1))" releases.tsv | while IFS=$'\t' read -r id tag _created; do
-            echo "Deleting $tag (release id $id)..."
-            gh api -X DELETE "repos/$TARGET_REPO/releases/$id" \
-              || echo "::warning::Failed to delete release $tag (id $id)"
-            gh api -X DELETE "repos/$TARGET_REPO/git/refs/tags/$tag" \
-              || echo "::warning::Failed to delete tag $tag"
-          done
+          print(f"Fetching releases for {target_repo}...")
+          cmd = ["gh", "api", f"repos/{target_repo}/releases", "--paginate"]
+          res = subprocess.run(cmd, capture_output=True, text=True)
+          if res.returncode != 0:
+              print(f"::error::Failed to fetch releases: {res.stderr}")
+              sys.exit(1)
 
-          remaining=$(gh api "repos/$TARGET_REPO/releases" --paginate --jq '.[].tag_name' | wc -l)
-          echo "✅ Cleanup complete. $remaining releases remain on $TARGET_REPO."
+          releases = json.loads(res.stdout) if res.stdout.strip() else []
+          print(f"Found {len(releases)} total releases on {target_repo}.")
+
+          def get_app(tag: str) -> str:
+              tag = tag.strip()
+              if tag.endswith("-assets"):
+                  return "assets-protected"
+              if tag.startswith("jarvis-"):
+                  return "jarvis"
+              if tag.startswith("kfit-") or re.match(r"^v\d+", tag):
+                  return "kfit"
+              m = re.match(r"^([a-zA-Z0-9_-]+)-(v\d+.*)$", tag)
+              if m:
+                  return m.group(1).lower()
+              return "other"
+
+          grouped = {}
+          for r in releases:
+              tag = r.get("tag_name", "")
+              app = get_app(tag)
+              grouped.setdefault(app, []).append(r)
+
+          print("\nReleases grouped by application:")
+          for app, items in sorted(grouped.items()):
+              print(f"  - {app}: {len(items)} releases")
+
+          to_delete = []
+          for app, items in sorted(grouped.items()):
+              if app == "assets-protected":
+                  print(f"\nApp '{app}': preserved unconditionally.")
+                  continue
+              # Sort descending by creation date (newest first)
+              items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+              kept = items[:keep]
+              deleted = items[keep:]
+              kept_tags = [x.get("tag_name") for x in kept]
+              del_tags = [x.get("tag_name") for x in deleted]
+              print(f"\nApp '{app}': keeping newest {len(kept)} ({', '.join(kept_tags)})")
+              if del_tags:
+                  print(f"  Deleting {len(deleted)} older releases: {', '.join(del_tags)}")
+              to_delete.extend(deleted)
+
+          if not to_delete:
+              print("\n✅ All apps are within retention limit of 5. Nothing to delete.")
+              sys.exit(0)
+
+          print(f"\n🗑️ Deleting {len(to_delete)} expired releases and tags...")
+          for item in to_delete:
+              rel_id = item["id"]
+              tag = item["tag_name"]
+              print(f"Deleting release '{tag}' (id {rel_id})...")
+              subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{target_repo}/releases/{rel_id}"])
+              subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{target_repo}/git/refs/tags/{tag}"])
+
+          print("\n✅ Cleanup complete.")
+          EOF
