@@ -59,6 +59,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish:
+        description: "Publish GitHub Release (default false — manual runs normally validate only)"
+        required: false
+        type: boolean
+        default: false
 
 # Serialize releases. Two builds racing (e.g. a manual re-run overlapping a
 # real merge) can compute the same version tag — versionCode is derived from
@@ -885,7 +890,7 @@ jobs:
               "${FLAGS[@]}" --build-number=${{ steps.ver.outputs.code }}
           }
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.publish }}" != "true" ]; then
             # VALIDATION ONLY. A manual dispatch is used to check that a branch still
             # builds — it must NOT run `shorebird release`, because that permanently
             # registers versionCode N (= commit count) on Shorebird's backend, and
@@ -1233,7 +1238,7 @@ jobs:
         # automatic trigger is now a cron or a repository_dispatch rather than
         # a push, so testing for 'push' would have silently disabled publishing
         # altogether and left every poll building an APK nobody receives.
-        if: github.event_name != 'workflow_dispatch' && steps.shipped.outputs.mode == 'release'
+        if: (github.event_name != 'workflow_dispatch' || github.event.inputs.publish == 'true') && steps.shipped.outputs.mode == 'release'
         run: |
           OUT=build/app/outputs/flutter-apk
           ASSETS=("$OUT/kfit.apk")
@@ -1261,7 +1266,7 @@ jobs:
       # Skipped for a manual dispatch: that is a validation build, possibly of
       # an unmerged branch, and must not claim main has been released.
       - name: Record this commit as built
-        if: success() && github.event_name != 'workflow_dispatch'
+        if: success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.publish == 'true')
         env:
           # RELEASE_PAT, not KFIT_APP_TOKEN. Writing a tag needs Contents:write
           # and KFIT_APP_TOKEN is deliberately read-only (it exists to check
@@ -1305,7 +1310,7 @@ jobs:
           fi
 
       - name: Update daily check report in kfit-backups
-        if: success() && github.event_name != 'workflow_dispatch'
+        if: success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.publish == 'true')
         continue-on-error: true
         env:
           BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
