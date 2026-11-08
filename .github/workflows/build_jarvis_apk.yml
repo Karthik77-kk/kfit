@@ -305,11 +305,16 @@ jobs:
           fi
           
           echo "Publishing ${TAG} with ${#ASSETS[@]} assets to ${{ github.repository }}..."
+          # Never mark JARVIS releases as the repo's "Latest": /releases/latest must
+          # stay on a KFit release, because the KFit website download links
+          # (/releases/latest/download/kfit.apk) and KFit's background updater read it.
+          # The JARVIS updater lists releases and filters by the jarvis-v prefix, so it
+          # does not need "Latest".
           gh release create "$TAG" "${ASSETS[@]}" \
             --repo "${{ github.repository }}" \
             --title "JARVIS v${{ steps.release_info.outputs.ver_name }}" \
             --notes-file release_notes.md \
-            --latest \
+            --latest=false \
             || gh release upload "$TAG" "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
 
       - name: Upload APK Workflow Artifact
