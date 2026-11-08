@@ -46,7 +46,7 @@ on:
         required: false
         default: true
       test_target_file:
-        description: 'Target file for end-to-end verification (e.g. lib/services/food_notes_service.dart, blank for normal)'
+        description: 'End-to-end test: open a real fix PR for this lib/ file (e.g. lib/services/food_notes_service.dart); never touches alert issues or the daily report. Blank for normal.'
         required: false
         default: ''
 
@@ -196,12 +196,15 @@ jobs:
       - name: Decide on a fix
         id: plan
         if: github.event_name == 'schedule' || inputs.enable_auto_fix
+        env:
+          # Through env, never pasted into the script: an input is text.
+          TEST_TARGET: ${{ inputs.test_target_file }}
         run: |
-          TEST_TARGET="${{ github.event.inputs.test_target_file }}"
-          if jq -e '.has_fixable_code_issue == true' /tmp/ai_action_plan.json > /dev/null 2>&1; then
-            echo "fix=true" >> "$GITHUB_OUTPUT"
-          elif [ -n "$TEST_TARGET" ]; then
-            echo "End-to-end test verification mode for target: $TEST_TARGET"
+          if [ -n "$TEST_TARGET" ]; then
+            # Test mode wins over the model's plan, so the fixer, the PR and the
+            # gate run whatever the telemetry says. The synthetic stack names the
+            # target, which is the evidence the fixer requires.
+            echo "End-to-end test mode for target: $TEST_TARGET"
             node -e "
               const fs = require('fs');
               const target = process.argv[1];
@@ -218,7 +221,7 @@ jobs:
                   on_latest_version: true,
                   is_new_regression: true,
                   breadcrumbs: ['[food_notes/init] start', '[food_notes/loadTodayNotes] read_prefs'],
-                  stack_preview: 'dart:convert _JsonDecoder.convert\\npackage:kfit/services/food_notes_service.dart 55:30 loadTodayNotes'
+                  stack_preview: 'dart:convert _JsonDecoder.convert\\npackage:kfit/' + target.replace(/^lib\//, '') + ' 55:30 loadTodayNotes'
                 }]
               }, null, 2));
               fs.writeFileSync('/tmp/ai_action_plan.json', JSON.stringify({
@@ -232,6 +235,8 @@ jobs:
                 }]
               }, null, 2));
             " "$TEST_TARGET"
+            echo "fix=true" >> "$GITHUB_OUTPUT"
+          elif jq -e '.has_fixable_code_issue == true' /tmp/ai_action_plan.json > /dev/null 2>&1; then
             echo "fix=true" >> "$GITHUB_OUTPUT"
           else
             echo "No fixable code issue in the plan."
@@ -253,22 +258,17 @@ jobs:
             --repo-dir app \
             --repo "$PRIVATE_REPO"
 
-      - name: Trigger immediate PR quality gate
-        if: steps.plan.outputs.fix == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-        run: |
-          PR_URL=$(grep -oE 'https://github.com/[^/]+/[^/]+/pull/([0-9]+)' /tmp/telemetry_summary.md | head -n1 || true)
-          if [ -n "$PR_URL" ]; then
-            PR_NUM=$(basename "$PR_URL")
-            echo "Triggering immediate quality gate on kfit for fix PR #$PR_NUM..."
-            GH_TOKEN="${{ github.token }}" gh workflow run private-pr-gate.yml -f pr="$PR_NUM" 2>/dev/null || \
-            gh workflow run private-pr-gate.yml -f pr="$PR_NUM" 2>/dev/null || true
-          fi
+      # No step here starts the PR gate: opening the PR does. kfit-app's
+      # dispatch-to-kfit sends repository_dispatch within seconds, and the
+      # gate's own poll is the fallback. A dispatch from this job never ran: it
+      # had no repository to name and GITHUB_TOKEN has no actions: write, and
+      # granting that here would hand it to the job that runs model output.
 
       # Before the alert step, so a new regression is not added to a fixed issue.
+      # Test mode replaced the analysis with a synthetic one, so it never
+      # touches the alert issues or the daily report.
       - name: Close fixed alert issues
-        if: github.event_name == 'schedule' || inputs.create_issue
+        if: (github.event_name == 'schedule' || inputs.create_issue) && !inputs.test_target_file
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
@@ -278,7 +278,7 @@ jobs:
             --repo "$PRIVATE_REPO"
 
       - name: Create or update alert issue
-        if: github.event_name == 'schedule' || inputs.create_issue
+        if: (github.event_name == 'schedule' || inputs.create_issue) && !inputs.test_target_file
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
           DATE: ${{ steps.guard.outputs.date }}
@@ -299,7 +299,7 @@ jobs:
           fi
 
       - name: Archive daily check report to kfit-backups
-        if: always()
+        if: always() && !inputs.test_target_file
         env:
           BACKUP_TOKEN: ${{ secrets.GH_BACKUP_TOKEN }}
           BACKUP_REPO: Karthik77-kk/kfit-backups

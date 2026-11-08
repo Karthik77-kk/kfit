@@ -403,7 +403,9 @@ jobs:
               echo "::error::Validation failed at $FAILURE_STAGE."
               if [[ "$HEAD_REF" == ai-fix/* ]] && [ -n "$LOCAL_PUSH_TOKEN" ]; then
                 echo "Auto-repair exhausted ($MAX_REPAIRS attempts). Auto-closing failed AI fix PR to unblock queue."
-                GH_TOKEN="$LOCAL_PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated checks ($FAILURE_STAGE) failed after $MAX_REPAIRS repair attempts." || true
+                # --delete-branch: a closed ai-fix branch is litter. The PR keeps
+                # its diff after the branch is gone (refs/pull/N/head).
+                GH_TOKEN="$LOCAL_PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --delete-branch --comment "Auto-closing AI fix PR: automated checks ($FAILURE_STAGE) failed after $MAX_REPAIRS repair attempts." || true
               fi
               exit 1
             fi
@@ -419,14 +421,18 @@ jobs:
             fi
 
             TARGET_DART=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
+            # --base limits the repair to files this PR changed. Without it the
+            # script once took the first path in the analyze log, which is
+            # sorted by path, and rewrote a file the PR never touched.
             if ! GEMINI_API_KEY_LOGS="$API_KEY" GITHUB_TOKEN="$LOCAL_GITHUB_TOKEN" node tools/telemetry/repair_patch.js \
                  --error-file "$LOG_FILE" \
                  --repo-dir . \
                  --target "$TARGET_DART" \
+                 --base "$BASE_SHA" \
                  --failure-stage "$FAILURE_STAGE"; then
               echo "::error::repair_patch.js was unable to synthesize a valid repair."
               if [ -n "$LOCAL_PUSH_TOKEN" ]; then
-                GH_TOKEN="$LOCAL_PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --comment "Auto-closing AI fix PR: automated repair engine could not synthesize a valid fix for $FAILURE_STAGE." || true
+                GH_TOKEN="$LOCAL_PUSH_TOKEN" gh pr close "$PR_NUM" --repo "$PRIVATE_REPO" --delete-branch --comment "Auto-closing AI fix PR: automated repair engine could not synthesize a valid fix for $FAILURE_STAGE." || true
               fi
               exit 1
             fi

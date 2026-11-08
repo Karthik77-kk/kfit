@@ -50,6 +50,7 @@ for the next poll, not broken.
 | `supabase-deploy.yml` | Deploys database migrations and functions |
 | `cleanup-old-releases.yml` | Prunes superseded releases |
 | `cleanup-old-runs.yml` | Prunes old workflow runs |
+| `daily-telemetry-triage.yml` | Reads a day of app telemetry, archives the report to the backups repository, and opens an `ai-fix/*` pull request only when the evidence points at one file. The gate checks that PR like any other; its repair loop may only edit files the PR changed, and a PR it cannot repair is closed with its branch. A human merges every AI fix |
 
 Each gate posts its verdict back as a **commit status** on the private
 repository, matching the required check by exact context string. A typo in that
