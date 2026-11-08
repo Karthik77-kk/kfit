@@ -340,7 +340,9 @@ jobs:
             if [ -z "$FAILURE_STAGE" ]; then
               # Look for a targeted unit test matching any modified lib file
               TARGET_TEST=""
-              CHANGED_DART=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
+              # Three dots: from the merge base, so a PR that is behind main
+              # does not count main's own changes as its files.
+              CHANGED_DART=$(git diff --name-only --diff-filter=d "$BASE_SHA"...HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
               if [ -n "$CHANGED_DART" ]; then
                 BASE_NAME=$(basename "$CHANGED_DART" .dart)
                 CANDIDATE_1=$(echo "$CHANGED_DART" | sed 's|^lib/|test/|; s|\.dart$|_test.dart|')
@@ -420,7 +422,8 @@ jobs:
               exit 1
             fi
 
-            TARGET_DART=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
+            # Three dots, matching repair_patch.js's own diff from --base.
+            TARGET_DART=$(git diff --name-only --diff-filter=d "$BASE_SHA"...HEAD 2>/dev/null | grep -E '^lib/.*\.dart$' | head -n1 || echo "")
             # --base limits the repair to files this PR changed. Without it the
             # script once took the first path in the analyze log, which is
             # sorted by path, and rewrote a file the PR never touched.
