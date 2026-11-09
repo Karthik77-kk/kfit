@@ -90,8 +90,8 @@ jobs:
             # Skip heads that already carry a verdict (an explicit PR number forces a re-run).
             if [ -z "$ONLY" ]; then
               ST=$(gh api "repos/$PRIVATE_REPO/commits/$SHA/status" \
-                     --jq --arg c "$CONTEXT" \
-                     '[.statuses[] | select(.context == $c)] | first | "\(.state // "none") \(.updated_at // "")"' \
+                     --jq \
+                     '[.statuses[] | select(.context == env.CONTEXT)] | first | "\(.state // "none") \(.updated_at // "")"' \
                      2>/dev/null || echo "none ")
               STATE=${ST%% *}; UPDATED=${ST#* }
               case "$STATE" in
@@ -360,8 +360,8 @@ jobs:
               wip:*|*"[wip]"*|*"do not merge"*|*"[skip auto-merge]"*)
                 echo "PR #$NUM held by its title."; continue ;;
             esac
-            STATE=$(gh api "repos/$PRIVATE_REPO/commits/$SHA/status" --jq --arg c "$CONTEXT" \
-                      '[.statuses[] | select(.context == $c)] | first | .state // "none"' 2>/dev/null || echo none)
+            STATE=$(gh api "repos/$PRIVATE_REPO/commits/$SHA/status" --jq \
+                      '[.statuses[] | select(.context == env.CONTEXT)] | first | .state // "none"' 2>/dev/null || echo none)
             [ "$STATE" = "success" ] || continue
 
             # Read merge state right before acting: an earlier merge in this loop
