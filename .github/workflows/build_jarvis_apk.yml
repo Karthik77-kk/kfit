@@ -1,4 +1,5 @@
 name: Build JARVIS Release APK
+run-name: ${{ github.event.client_payload.commit_sha && format('Build JARVIS Release APK ({0}, PR #{1})', github.event.client_payload.commit_sha, github.event.client_payload.pr_number) || 'Build JARVIS Release APK' }}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Builds and releases JARVIS APK FROM HERE, in the public kfit repository,
@@ -229,6 +230,7 @@ jobs:
             echo "$CHANGES"
             echo ""
             echo "---"
+            echo "**Commit**: \`${{ steps.detect.outputs.sha }}\`"
             echo "**Asset**: \`jarvis.apk\` (~${{ steps.assets.outputs.size_mb }} MB)"
             echo "**SHA-256**: \`${{ steps.assets.outputs.apk_sha }}\`"
           } > release_notes.md
