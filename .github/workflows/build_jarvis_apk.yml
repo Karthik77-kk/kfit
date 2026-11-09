@@ -182,17 +182,51 @@ jobs:
           echo "APK SHA-256: ${APK_SHA}"
 
       - name: Generate Release Notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
+          NEW_TAG: ${{ steps.release_info.outputs.tag }}
         run: |
+          # Find newest earlier JARVIS release tag to compute changelog range
+          PREV_TAG=""
+          for TAG in $(gh release list --repo "${{ github.repository }}" --limit 30 --exclude-drafts \
+                         --json tagName \
+                         --jq '[.[] | .tagName | select(startswith("jarvis-v"))] | .[]' \
+                       2>/dev/null); do
+            [ "$TAG" = "$NEW_TAG" ] && continue
+            PREV_TAG="$TAG"
+            break
+          done
+
+          RANGE=""
+          if [ -n "$PREV_TAG" ] && git rev-parse "$PREV_TAG" >/dev/null 2>&1; then
+            RANGE="${PREV_TAG}..HEAD"
+          else
+            RANGE="HEAD~1..HEAD"
+          fi
+          echo "Changelog range: ${RANGE}"
+
+          # Extract clean commit titles (following kfit-app dynamic notes convention)
+          CHANGES=$(git log "$RANGE" --no-merges --pretty=format:'%s' \
+            | sed -E 's/\[(full-release|patch|skip)\]//gI; s/^Build [0-9]+:[[:space:]]*//; s/[[:space:]]*\(#[0-9]+\)[[:space:]]*$//; s/[[:space:]]+/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//' \
+            | grep -v '^$' \
+            | grep -viE '^(merge|wip|fixup|revert |bump )' \
+            | grep -viE '^(ci|chore|docs|test|refactor|build|style|perf)[:(]' \
+            | grep -viE '(release cleanup|weekly release|co-?author|branch protection|quality gate|governance|pipeline|workflow|keystore|dual-approval|harden|rule [0-9]+)' \
+            | sed -E 's/^/- /' \
+            | head -12)
+
+          [ -z "$CHANGES" ] && CHANGES=$(git log -n 5 --no-merges --pretty=format:'%s' \
+            | sed -E 's/[[:space:]]*\(#[0-9]+\)[[:space:]]*$//; s/^[[:space:]]+//; s/[[:space:]]+$//' \
+            | grep -v '^$' \
+            | sed -E 's/^/- /' \
+            | head -5)
+
+          [ -z "$CHANGES" ] && CHANGES="- Autonomous improvements, performance polish, and bug fixes"
+
           {
-            echo "### JARVIS Autonomous Personal AI Assistant v${{ steps.release_info.outputs.ver_name }} (Build ${{ steps.release_info.outputs.build_num }})"
+            echo "### What's new in v${{ steps.release_info.outputs.ver_name }}"
             echo ""
-            echo "- Built automatically in public \`Karthik77-kk/kfit\` GitHub Actions"
-            echo "- Amy Minimalist Interface: Apple Notes design with distraction-free layout"
-            echo "- Gemini 3.6 Flash: Workhorse model with self-healing fallback"
-            echo "- Local On-Device AI: LiteRT Hexagon NPU model download & cache management"
-            echo "- Dynamic Version Auto-Bump: In-app updater tracks true build number"
-            echo "- Delta Updates: Differential bsdiff patches (downloads only what changed)"
-            echo "- LiveKit Real-Time Voice with barge-in & Dual-SIM Telecom Resolver"
+            echo "$CHANGES"
             echo ""
             echo "---"
             echo "**Asset**: \`jarvis.apk\` (~${{ steps.assets.outputs.size_mb }} MB)"
@@ -326,7 +360,10 @@ jobs:
             --title "JARVIS v${{ steps.release_info.outputs.ver_name }}" \
             --notes-file release_notes.md \
             --latest=false \
-            || gh release upload "$TAG" "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
+            || {
+              gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file release_notes.md || true
+              gh release upload "$TAG" "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
+            }
 
       - name: Upload APK Workflow Artifact
         uses: actions/upload-artifact@v4
