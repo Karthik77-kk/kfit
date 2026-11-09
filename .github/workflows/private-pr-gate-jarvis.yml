@@ -1,15 +1,34 @@
 name: Private PR Quality Gate (JARVIS)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Runs JARVIS's PR quality gate in the public kfit repository to preserve
-# private-repo GitHub Actions quota.
+# Runs JARVIS's whole PR pipeline HERE, in the public repo, so the private
+# JARVIS repo needs zero Actions minutes:
 #
-# Context matches JARVIS required check: "Verify (analyze + test)"
+#   1. discover  – ask JARVIS which open PR heads have no verdict yet
+#   2. verify    – run the full quality gate on each and report the commit
+#                  status "Verify (analyze + test)" back to the private PR
+#   3. merge     – squash-merge green PRs, update PRs that are behind main
+#                  (strict protection), then start build_jarvis_apk.yml
+#
+# Same polling design as private-pr-gate.yml (kfit-app): a cron poll needs no
+# private-repo minutes, so it keeps working even if the private quota is gone.
+# repository_dispatch (sent by the JARVIS daemon when it opens or updates a PR)
+# is only a fast path.
+#
+# Privacy: this repo is public, so its logs are public. The private source is
+# checked out onto the runner only (never pushed here). Check output goes to
+# files; the public log shows pass/fail per step, and failure details are
+# posted as a comment on the PRIVATE pull request instead.
+#
+# JARVIS_REPO_TOKEN (fine-grained, JARVIS only) needs:
+#   Contents: read & write   (checkout, merge, update-branch)
+#   Pull requests: read & write (list, merge, comment)
+#   Commit statuses: read & write (verdicts)
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
   schedule:
-    # Offset by 4 minutes to avoid runner queue contention with kfit-app & kfit-web
+    # Offset by 4 minutes to avoid runner queue contention with kfit-app & kfit-web.
     - cron: "4-59/10 * * * *"
   workflow_dispatch:
     inputs:
@@ -20,15 +39,22 @@ on:
     types: [private-pr-quality-jarvis, jarvis-pr-gate]
 
 concurrency:
+  # Not cancel-in-progress: runs pick up different PRs, and cancelling one would
+  # leave its PR waiting a full cycle.
   group: private-pr-gate-jarvis
   cancel-in-progress: false
 
+# Least privilege: only the merge job (which never runs PR code) may start workflows.
 permissions:
   contents: read
 
 env:
   PRIVATE_REPO: Karthik77-kk/JARVIS
+  # Must match the required status check on JARVIS/main exactly.
   CONTEXT: Verify (analyze + test)
+  # A "pending" verdict older than this is treated as abandoned and re-run.
+  STALE_PENDING_MINUTES: "45"
+  GATE_MARKER: "<!-- jarvis-public-gate -->"
 
 jobs:
   discover:
@@ -42,29 +68,331 @@ jobs:
       - name: Ask the private repo what needs running
         id: find
         env:
-          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN || secrets.KFIT_DISPATCH_TOKEN || secrets.RELEASE_PAT || github.token }}
+          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN }}
+          ONLY: ${{ github.event.inputs.pr || github.event.client_payload.pr || '' }}
         run: |
           set -euo pipefail
-          # Check if private repo is accessible
-          if ! gh repo view "$PRIVATE_REPO" >/dev/null 2>&1; then
-            echo "::warning::Cannot view $PRIVATE_REPO — token may be missing. Skipping poll."
-            echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
-            echo "any=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::JARVIS_REPO_TOKEN is not set on this repo."
+            exit 1
           fi
 
-          PR_LIST=$(gh pr list -R "$PRIVATE_REPO" --state open --json number,headRefOid,isDraft)
-          # Collect PRs that do not have a green status yet
-          echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
-          echo "any=false" >> "$GITHUB_OUTPUT"
+          PRS=$(gh pr list --repo "$PRIVATE_REPO" --state open --base main \
+                  --json number,headRefOid,baseRefOid,isDraft --limit 50)
+          NOW=$(date -u +%s)
+          SELECTED='[]'
+          for row in $(echo "$PRS" | jq -r '.[] | @base64'); do
+            pr() { echo "$row" | base64 -d | jq -r "$1"; }
+            NUM=$(pr .number); SHA=$(pr .headRefOid); BASE=$(pr .baseRefOid)
+            [ "$(pr .isDraft)" = "true" ] && continue
+            if [ -n "$ONLY" ] && [ "$NUM" != "$ONLY" ]; then continue; fi
+
+            # Skip heads that already carry a verdict (an explicit PR number forces a re-run).
+            if [ -z "$ONLY" ]; then
+              ST=$(gh api "repos/$PRIVATE_REPO/commits/$SHA/status" \
+                     --jq --arg c "$CONTEXT" \
+                     '[.statuses[] | select(.context == $c)] | first | "\(.state // "none") \(.updated_at // "")"' \
+                     2>/dev/null || echo "none ")
+              STATE=${ST%% *}; UPDATED=${ST#* }
+              case "$STATE" in
+                success|failure|error) continue ;;
+                pending)
+                  AGE=$(( (NOW - $(date -u -d "$UPDATED" +%s 2>/dev/null || echo "$NOW")) / 60 ))
+                  if [ "$AGE" -lt "$STALE_PENDING_MINUTES" ]; then continue; fi
+                  echo "PR #$NUM: pending for ${AGE}m, re-running." ;;
+              esac
+            fi
+            SELECTED=$(echo "$SELECTED" | jq -c --argjson n "$NUM" --arg s "$SHA" --arg b "$BASE" \
+              '. + [{pr:$n, sha:$s, base:$b}]')
+          done
+
+          COUNT=$(echo "$SELECTED" | jq 'length')
+          echo "Selected $COUNT PR(s) to gate."
+          echo "matrix=$(echo "$SELECTED" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
+          echo "any=$([ "$COUNT" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   verify:
     name: Verify (analyze + test)
     needs: discover
     if: needs.discover.outputs.any == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:
-      - name: Runner ready
-        run: echo "Runner allocated for JARVIS PR verification."
+      - name: Mark the PR as running
+        env:
+          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN }}
+        run: |
+          gh api -X POST "repos/$PRIVATE_REPO/statuses/${{ matrix.sha }}" \
+            -f state=pending -f context="$CONTEXT" \
+            -f description="Running on the public kfit runner" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >/dev/null
 
+      - name: Check out the private source (runner only)
+        uses: actions/checkout@v4
+        with:
+          repository: Karthik77-kk/JARVIS
+          ref: ${{ matrix.sha }}
+          token: ${{ secrets.JARVIS_REPO_TOKEN }}
+          path: jarvis
+          fetch-depth: 0
+          # The PR's own code runs below; it must not find a token in .git/config.
+          persist-credentials: false
+
+      - name: Prepare quiet check runner
+        run: |
+          mkdir -p "$RUNNER_TEMP/gate"
+          cat > "$RUNNER_TEMP/gate/check.sh" <<'EOF'
+          # usage: check "<name>" <command...>   (run from the JARVIS checkout)
+          # Output goes to a private log file; the public log only says pass/fail.
+          check() {
+            local name="$1"; shift
+            local slug; slug=$(echo "$name" | tr -c 'A-Za-z0-9' '_')
+            local log="$RUNNER_TEMP/gate/${slug}.log"
+            if "$@" >"$log" 2>&1; then
+              echo "✅ $name"
+            else
+              local rc=$?
+              echo "❌ $name (exit $rc) — details posted on the private PR"
+              {
+                echo "### ❌ $name (exit $rc)"
+                echo '```'
+                tail -n 120 "$log" | sed -e "s#$GITHUB_WORKSPACE#<workspace>#g" -e "s#$RUNNER_TEMP#<tmp>#g"
+                echo '```'
+              } >> "$RUNNER_TEMP/gate/failures.md"
+              return $rc
+            fi
+          }
+          EOF
+
+      - name: Guards (secrets, keystore, reality)
+        working-directory: jarvis
+        run: |
+          . "$RUNNER_TEMP/gate/check.sh"
+          PATTERN='hf_[A-Za-z0-9]{30}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+          # Each guard collects its hits into a variable first, so the result never
+          # depends on pipefail or on grep's exit code for folders that don't exist.
+          existing_dirs() { for d in "$@"; do [ -d "$d" ] && echo "$d"; done; }
+          secret_scan() {
+            local dirs hits
+            dirs=$(existing_dirs core apps android .github service)
+            [ -z "$dirs" ] && return 0
+            # shellcheck disable=SC2086
+            # Line-level, so a line marked "gate-allow-token" (test fixtures) is exempt
+            # without exempting the whole file. Only file:line is printed, never the value.
+            hits=$(grep -rEn "$PATTERN" $dirs 2>/dev/null \
+                     | grep -v -e 'google-services.json' -e 'firebase_options.dart' -e 'gate-allow-token' \
+                     | cut -d: -f1,2 || true)
+            [ -z "$hits" ] && return 0
+            echo "Possible hardcoded credentials at:"; echo "$hits"; return 1
+          }
+          keystore_guard() {
+            local hits
+            hits=$(git ls-files | grep -E '\.(jks|keystore|p12|pfx)$' || true)
+            [ -z "$hits" ] && return 0
+            echo "Keystore files are tracked:"; echo "$hits"; return 1
+          }
+          reality_gate() {
+            local dirs hits
+            dirs=$(existing_dirs apps/mobile/lib core/src)
+            [ -z "$dirs" ] && return 0
+            # shellcheck disable=SC2086
+            hits=$(grep -rEl 'sample-token|Simulated Verification|active-session-token|authenticated-user@gmail\.com|mockStateStore|Simulate action execution' \
+                     $dirs 2>/dev/null || true)
+            [ -z "$hits" ] && return 0
+            echo "Fake production simulation strings in:"; echo "$hits"; return 1
+          }
+          rc=0
+          check "Secret scan" secret_scan || rc=1
+          check "Keystore guard" keystore_guard || rc=1
+          check "Reality gate" reality_gate || rc=1
+          exit $rc
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Python service (3.12)
+        working-directory: jarvis
+        run: |
+          . "$RUNNER_TEMP/gate/check.sh"
+          check "pip install (3.12)" python -m pip install -q -r service/requirements.txt
+          rc=0
+          check "ruff" ruff check service || rc=1
+          check "pytest (3.12)" python -m pytest service/tests -q -p no:cacheprovider || rc=1
+          check "daemon smoke test (3.12)" python service/daemon.py --smoke-test || rc=1
+          exit $rc
+
+      - name: Setup Python 3.14
+        id: py314
+        uses: actions/setup-python@v5
+        continue-on-error: true
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Python service (3.14, the laptop's version)
+        if: steps.py314.outcome == 'success'
+        working-directory: jarvis
+        run: |
+          . "$RUNNER_TEMP/gate/check.sh"
+          check "pip install (3.14)" python -m pip install -q -r service/requirements.txt
+          rc=0
+          check "pytest (3.14)" python -m pytest service/tests -q -p no:cacheprovider || rc=1
+          check "daemon smoke test (3.14)" python service/daemon.py --smoke-test || rc=1
+          exit $rc
+
+      - name: Did core/ change?
+        id: core
+        working-directory: jarvis
+        run: |
+          if git diff --name-only "${{ matrix.base }}...${{ matrix.sha }}" -- core/ | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java (Firestore emulator)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Core + Firestore rules tests
+        working-directory: jarvis
+        run: |
+          . "$RUNNER_TEMP/gate/check.sh"
+          check "npm install (core)" npm --prefix core install --no-audit --no-fund
+          rc=0
+          if [ "${{ steps.core.outputs.changed }}" = "true" ]; then
+            check "core tests" npm --prefix core test || rc=1
+          else
+            echo "⏭️ core tests (core/ unchanged)"
+          fi
+          check "install firebase-tools" npm install -g firebase-tools
+          check "Firestore rules tests" firebase emulators:exec --only firestore "npm --prefix core run test:rules" || rc=1
+          exit $rc
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter app
+        working-directory: jarvis/apps/mobile
+        run: |
+          . "$RUNNER_TEMP/gate/check.sh"
+          check "flutter pub get" flutter pub get
+          rc=0
+          check "flutter analyze" flutter analyze --no-fatal-infos || rc=1
+          check "flutter test" flutter test || rc=1
+          exit $rc
+
+      # always(): a failed or cancelled run must still report, or the PR waits on
+      # "pending" until the stale timeout.
+      - name: Report the verdict to the private PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN }}
+          RESULT: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$RESULT" in
+            success)   STATE=success; DESC="Passed on the public kfit runner" ;;
+            cancelled) STATE=error;   DESC="Cancelled" ;;
+            *)         STATE=failure; DESC="Failed — details in a comment on this PR" ;;
+          esac
+          gh api -X POST "repos/$PRIVATE_REPO/statuses/${{ matrix.sha }}" \
+            -f state="$STATE" -f context="$CONTEXT" -f description="$DESC" \
+            -f target_url="$RUN_URL" >/dev/null
+          echo "Reported $STATE for ${{ matrix.sha }} on PR #${{ matrix.pr }}."
+
+          if [ "$STATE" != "success" ]; then
+            {
+              echo "$GATE_MARKER"
+              echo "**Quality gate failed** for \`${{ matrix.sha }}\` ([run]($RUN_URL))."
+              echo
+              if [ -s "$RUNNER_TEMP/gate/failures.md" ]; then
+                cat "$RUNNER_TEMP/gate/failures.md"
+              else
+                echo "No check output was captured (the run was $RESULT before a check finished)."
+              fi
+            } | head -c 60000 > "$RUNNER_TEMP/gate/comment.md"
+            gh pr comment "${{ matrix.pr }}" --repo "$PRIVATE_REPO" --body-file "$RUNNER_TEMP/gate/comment.md" >/dev/null \
+              || echo "::warning::Could not comment on the private PR."
+          fi
+
+  merge:
+    name: Merge green JARVIS PRs
+    needs: [discover, verify]
+    # Runs after verify, and also on polls where nothing needed gating.
+    if: always() && needs.discover.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write   # start build_jarvis_apk.yml after a merge
+    timeout-minutes: 10
+    steps:
+      - name: Merge, update behind branches, start the release build
+        env:
+          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN }}
+          KFIT_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          MERGED=0
+          PRS=$(gh pr list --repo "$PRIVATE_REPO" --state open --base main \
+                  --json number,title,headRefOid,isDraft --limit 50)
+          for row in $(echo "$PRS" | jq -r '.[] | @base64'); do
+            pr() { echo "$row" | base64 -d | jq -r "$1"; }
+            NUM=$(pr .number); SHA=$(pr .headRefOid); TITLE=$(pr .title)
+            [ "$(pr .isDraft)" = "true" ] && continue
+            case "$(echo "$TITLE" | tr '[:upper:]' '[:lower:]')" in
+              wip:*|*"[wip]"*|*"do not merge"*|*"[skip auto-merge]"*)
+                echo "PR #$NUM held by its title."; continue ;;
+            esac
+            STATE=$(gh api "repos/$PRIVATE_REPO/commits/$SHA/status" --jq --arg c "$CONTEXT" \
+                      '[.statuses[] | select(.context == $c)] | first | .state // "none"' 2>/dev/null || echo none)
+            [ "$STATE" = "success" ] || continue
+
+            # Read merge state right before acting: an earlier merge in this loop
+            # can turn a CLEAN snapshot into BEHIND.
+            MSS=UNKNOWN
+            for _ in 1 2 3 4 5; do
+              MSS=$(gh pr view "$NUM" --repo "$PRIVATE_REPO" --json mergeStateStatus --jq .mergeStateStatus 2>/dev/null || echo UNKNOWN)
+              [ "$MSS" != "UNKNOWN" ] && break
+              sleep 3
+            done
+            case "$MSS" in
+              CLEAN|HAS_HOOKS|UNSTABLE)
+                if gh pr merge "$NUM" --repo "$PRIVATE_REPO" --squash --match-head-commit "$SHA"; then
+                  echo "Merged PR #$NUM."; MERGED=$((MERGED + 1))
+                else
+                  echo "::warning::Merge of PR #$NUM refused (state $MSS)."
+                fi ;;
+              BEHIND)
+                # The new head has no verdict, so the next poll gates it, then merges.
+                gh pr update-branch "$NUM" --repo "$PRIVATE_REPO" \
+                  && echo "PR #$NUM was behind main; branch updated." \
+                  || echo "::warning::Could not update PR #$NUM." ;;
+              *)
+                echo "PR #$NUM not mergeable yet (state $MSS)." ;;
+            esac
+          done
+
+          if [ "$MERGED" -gt 0 ]; then
+            # workflow_dispatch from GITHUB_TOKEN is allowed to start a run.
+            GH_TOKEN="$KFIT_TOKEN" gh workflow run build_jarvis_apk.yml --repo "$GITHUB_REPOSITORY" --ref main \
+              && echo "Started build_jarvis_apk.yml." \
+              || echo "::warning::Could not start the release build; its 15-minute poll will pick the merge up."
+          fi
+          echo "Merged $MERGED PR(s)."
