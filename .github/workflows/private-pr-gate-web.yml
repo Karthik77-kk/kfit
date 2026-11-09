@@ -90,8 +90,8 @@ jobs:
             # one PR overrides this.
             if [ -z "$ONLY" ]; then
               STATE=$(gh api "repos/$PRIVATE_REPO/commits/$SHA/status" \
-                        --jq --arg c "$CONTEXT" \
-                        '[.statuses[] | select(.context == $c)] | first | .state // "none"' \
+                        --jq \
+                        '[.statuses[] | select(.context == env.CONTEXT)] | first | .state // "none"' \
                         2>/dev/null || echo none)
               case "$STATE" in success|failure|error|pending) continue ;; esac
             fi
