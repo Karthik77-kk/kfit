@@ -8,7 +8,7 @@ name: Private PR Quality Gate (JARVIS)
 #   2. verify    – run the full quality gate on each and report the commit
 #                  status "Verify (analyze + test)" back to the private PR
 #   3. merge     – squash-merge green PRs, update PRs that are behind main
-#                  (strict protection), then start build_jarvis_apk.yml
+#                  (strict protection), then send jarvis-release to build_jarvis_apk.yml
 #
 # Same polling design as private-pr-gate.yml (kfit-app): a cron poll needs no
 # private-repo minutes, so it keeps working even if the private quota is gone.
@@ -339,8 +339,7 @@ jobs:
     if: always() && needs.discover.result == 'success'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      actions: write   # start build_jarvis_apk.yml after a merge
+      contents: write  # POST /dispatches (jarvis-release) to this repo after a merge
     timeout-minutes: 10
     steps:
       - name: Merge, update behind branches, start the release build
@@ -350,6 +349,17 @@ jobs:
         run: |
           set -uo pipefail
           MERGED=0
+          release() {
+            # Same event JARVIS's old auto-merge.yml sent; build_jarvis_apk.yml puts the
+            # commit and PR into the run name and the release notes.
+            local num="$1" merge_sha
+            merge_sha=$(gh pr view "$num" --repo "$PRIVATE_REPO" --json mergeCommit --jq '.mergeCommit.oid // ""' 2>/dev/null || true)
+            jq -n --arg sha "$merge_sha" --argjson pr "$num" \
+              '{event_type: "jarvis-release", client_payload: {source_repo: "Karthik77-kk/JARVIS", commit_sha: $sha, pr_number: $pr}}' \
+              | GH_TOKEN="$KFIT_TOKEN" gh api -X POST "repos/$GITHUB_REPOSITORY/dispatches" --input - \
+              && echo "Release build requested for PR #$num (${merge_sha:0:7})." \
+              || echo "::warning::Could not request the release build; its 15-minute poll will pick the merge up."
+          }
           PRS=$(gh pr list --repo "$PRIVATE_REPO" --state open --base main \
                   --json number,title,headRefOid,isDraft --limit 50)
           for row in $(echo "$PRS" | jq -r '.[] | @base64'); do
@@ -375,7 +385,7 @@ jobs:
             case "$MSS" in
               CLEAN|HAS_HOOKS|UNSTABLE)
                 if gh pr merge "$NUM" --repo "$PRIVATE_REPO" --squash --match-head-commit "$SHA"; then
-                  echo "Merged PR #$NUM."; MERGED=$((MERGED + 1))
+                  echo "Merged PR #$NUM."; MERGED=$((MERGED + 1)); release "$NUM"
                 else
                   echo "::warning::Merge of PR #$NUM refused (state $MSS)."
                 fi ;;
@@ -389,10 +399,4 @@ jobs:
             esac
           done
 
-          if [ "$MERGED" -gt 0 ]; then
-            # workflow_dispatch from GITHUB_TOKEN is allowed to start a run.
-            GH_TOKEN="$KFIT_TOKEN" gh workflow run build_jarvis_apk.yml --repo "$GITHUB_REPOSITORY" --ref main \
-              && echo "Started build_jarvis_apk.yml." \
-              || echo "::warning::Could not start the release build; its 15-minute poll will pick the merge up."
-          fi
           echo "Merged $MERGED PR(s)."
