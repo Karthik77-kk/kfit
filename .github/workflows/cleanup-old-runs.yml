@@ -36,6 +36,21 @@ jobs:
               { owner, repo, per_page: 100 },
             );
 
+            // Runs that still hold debug symbols are kept until the artifact
+            // expires (90 days for a release, 30 for a patch). An artifact is
+            // deleted with its run, and keeping two runs per workflow meant no
+            // symbols survived a day, so no crash could ever be decoded.
+            const artifacts = await github.paginate(
+              github.rest.actions.listArtifactsForRepo,
+              { owner, repo, per_page: 100 },
+            );
+            const keepRuns = new Set(
+              artifacts
+                .filter(a => !a.expired && a.name.startsWith('debug-symbols') && a.workflow_run)
+                .map(a => a.workflow_run.id),
+            );
+            console.log(`Keeping ${keepRuns.size} run(s) that hold debug symbols.`);
+
             // Group by workflow, newest first.
             const byWorkflow = {};
             for (const r of runs) (byWorkflow[r.workflow_id] ??= []).push(r);
@@ -49,6 +64,7 @@ jobs:
                 .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
               for (const run of list.slice(keepCount)) {
                 if (run.status !== 'completed') continue;  // never touch in-progress
+                if (keepRuns.has(run.id)) continue;         // its debug symbols are still needed
 
                 // Safety grace period: do not delete runs completed within the last 2 hours
                 const ageMs = now - new Date(run.created_at).getTime();

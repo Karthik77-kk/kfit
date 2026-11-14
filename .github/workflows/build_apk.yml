@@ -840,7 +840,7 @@ jobs:
         # gradle packaging filter keep the APK arm64-only. (patch can't set this —
         # android_patcher hardcodes all ABIs — but a patch's list is distinct, so
         # no duplicate.) --obfuscate/--split-debug-info: release hardening; symbols
-        # kept as a 1-day artifact.
+        # are uploaded below, named by build id.
         # Secrets are base64-encoded so they aren't plaintext, grep-able strings in
         # the APK (decoded at runtime, e.g. GeminiVisionService._key). GitHub sets
         # CI=true so Shorebird runs non-interactively.
@@ -965,16 +965,49 @@ jobs:
           # Publish steps below gate on THIS, not on detect's mode.
           echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
 
+      # Debug symbols, for releases AND patches. A release stack names the build
+      # it came from (`build_id: '…'`), and only that build's `.symbols` file
+      # decodes it; a patch is its own build with its own id. The artifact is
+      # named after the arm64 build id (the APK is arm64-only), so the daily
+      # telemetry triage finds the right one by name without downloading the
+      # rest. ProGuard's mapping.txt rides along for Java/Kotlin frames.
+      # cleanup-old-runs.yml keeps any run that still holds one of these.
+      - name: Prepare debug symbols
+        id: symbols
+        if: steps.shipped.outputs.mode == 'release' || steps.shipped.outputs.mode == 'patch'
+        run: |
+          MAP=build/app/outputs/mapping/release/mapping.txt
+          if [ -f "$MAP" ] && [ -d build/symbols ]; then cp "$MAP" build/symbols/mapping.txt; fi
+          FILE=build/symbols/app.android-arm64.symbols
+          ID=""
+          if [ -f "$FILE" ]; then
+            ID=$(readelf -n "$FILE" 2>/dev/null | awk '/Build ID:/{print $3; exit}' | tr -cd '0-9a-f')
+          fi
+          if [ -n "$ID" ]; then
+            echo "name=debug-symbols-${ID}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No arm64 build id found in build/symbols; uploading as plain debug-symbols."
+            echo "name=debug-symbols" >> "$GITHUB_OUTPUT"
+          fi
+          # A release is installed for months; a patch is replaced by the next one.
+          if [ "${{ steps.shipped.outputs.mode }}" = "release" ]; then
+            echo "days=90" >> "$GITHUB_OUTPUT"
+          else
+            echo "days=30" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload debug symbols
+        if: steps.symbols.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.symbols.outputs.name }}
+          path: build/symbols
+          retention-days: ${{ steps.symbols.outputs.days }}
+          if-no-files-found: warn
+
       # ── Everything below publishes an APK/GitHub release → RELEASE MODE ONLY.
       # A patch produces no installable APK (it uploads a diff to Shorebird), so
       # these are all skipped for patch mode.
-      - name: Upload debug symbols
-        if: steps.shipped.outputs.mode == 'release'
-        uses: actions/upload-artifact@v7
-        with:
-          name: debug-symbols
-          path: build/symbols
-          retention-days: 90
 
       - name: Rename APK
         if: steps.shipped.outputs.mode == 'release'
