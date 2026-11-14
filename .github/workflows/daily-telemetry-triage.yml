@@ -70,6 +70,8 @@ jobs:
       contents: read
       # GitHub Models is the fallback when Gemini is unavailable.
       models: read
+      # To list and download this repo's debug-symbols artifacts.
+      actions: read
     steps:
       - name: Check inputs and secrets
         id: guard
@@ -170,28 +172,84 @@ jobs:
             echo "::warning::No telemetry from Supabase or kfit-backups; analyzing an empty list."
           fi
 
+      # Release stacks are obfuscated. Each names the build it came from
+      # (`build_id: '…'`), and build_apk.yml uploads that build's symbols as
+      # `debug-symbols-<build id>`, so only the builds that crashed are fetched.
+      # Only counts are logged: this repo's logs are public.
+      - name: Fetch matching debug symbols
+        id: symbols
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          WANT=$(grep -oE "build_id(: |=)'[0-9a-f]{16,64}'" /tmp/telemetry_data/telemetry_events.json \
+                   | grep -oE "[0-9a-f]{16,64}" | sort -u || true)
+          echo "Builds named in crash stacks: $(printf '%s' "$WANT" | grep -c . || true)"
+          [ -n "$WANT" ] || exit 0
+          gh api --paginate "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired | not) | select(.name | startswith("debug-symbols-")) | "\(.id) \(.name)"' \
+            > /tmp/symbol_artifacts.txt
+          FOUND=0
+          while read -r ART NAME; do
+            ID="${NAME#debug-symbols-}"
+            printf '%s\n' "$WANT" | grep -qx "$ID" || continue
+            [ -d "/tmp/symbols/$ID" ] && continue
+            mkdir -p "/tmp/symbols/$ID"
+            if gh api "repos/${{ github.repository }}/actions/artifacts/$ART/zip" > /tmp/symbols.zip \
+               && unzip -q -o /tmp/symbols.zip -d "/tmp/symbols/$ID"; then
+              FOUND=$((FOUND + 1))
+            else
+              rm -rf "/tmp/symbols/$ID"
+            fi
+            rm -f /tmp/symbols.zip
+            [ "$FOUND" -lt 10 ] || break
+          done < /tmp/symbol_artifacts.txt
+          echo "Builds with debug symbols: $FOUND"
+          if [ "$FOUND" -gt 0 ]; then
+            echo "dir=/tmp/symbols" >> "$GITHUB_OUTPUT"
+          fi
+
+      # `flutter symbolize` does the decoding; only set up when there is
+      # something to decode. Same Flutter as the release build.
+      - name: Set up Flutter
+        if: steps.symbols.outputs.dir != ''
+        continue-on-error: true
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.44.5"
+          cache: true
+
       - name: Analyze
         env:
           HOURS: ${{ steps.guard.outputs.hours }}
+          SYMBOLS_DIR: ${{ steps.symbols.outputs.dir }}
         run: |
           node app/tools/telemetry/analyze_telemetry.js \
             --file /tmp/telemetry_data/telemetry_events.json \
             --hours "$HOURS" \
+            ${SYMBOLS_DIR:+--symbols-dir "$SYMBOLS_DIR"} \
             --output-summary /tmp/telemetry_summary.md \
             --output-prompt /tmp/ai_prompt.json \
-            --output-tracking /tmp/telemetry_tracking.json
+            --output-tracking /tmp/telemetry_tracking.json \
+            --output-digest /tmp/telemetry_digest.md
 
       - name: AI diagnosis
         env:
           GEMINI_API_KEY_LOGS: ${{ secrets.GEMINI_API_KEY_LOGS }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_LOGS || secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
+          SYMBOLS_DIR: ${{ steps.symbols.outputs.dir }}
         run: |
+          # The digest is appended to the summary, so it reaches the private
+          # alert issue and the kfit-backups report, never this public log.
           node app/tools/telemetry/ai_triage.js \
             --prompt /tmp/ai_prompt.json \
             --summary /tmp/telemetry_summary.md \
             --action-plan /tmp/ai_action_plan.json \
-            --repo-dir app
+            --repo-dir app \
+            ${SYMBOLS_DIR:+--symbols-dir "$SYMBOLS_DIR"} \
+            --digest-file /tmp/telemetry_digest.md
 
       - name: Decide on a fix
         id: plan
