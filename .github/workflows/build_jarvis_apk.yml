@@ -78,14 +78,34 @@ jobs:
           LAST_BUILT_SHA=$(gh api "repos/${PRIVATE_REPO}/git/ref/tags/${LAST_BUILT_TAG}" --jq '.object.sha' 2>/dev/null || echo "")
           echo "Last built SHA: ${LAST_BUILT_SHA}"
 
-          if [ "$FORCE" = "true" ] || [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+          # Only a change to the app (apps/mobile) needs a new APK. Daemon, docs and CI changes
+          # reach the laptop through the daemon's own self-update; building on every JARVIS
+          # commit published 59 app releases in a week (2026-11-15). This also covers the
+          # daemon's post-merge `jarvis-release` dispatch. A manual run with `force` and the
+          # `jarvis-build-apk` dispatch always build. Anything uncertain (no marker, a history
+          # that is not a straight line from it, an API error, 300+ files) builds.
+          app_changed() {
+            [ -n "$LAST_BUILT_SHA" ] || return 0
+            local cmp files
+            cmp=$(gh api "repos/${PRIVATE_REPO}/compare/${LAST_BUILT_SHA}...${SHA}?per_page=1"                     --jq '.status, (.files | length), (.files[].filename)' 2>/dev/null) || return 0
+            [ "$(echo "$cmp" | sed -n 1p)" = "ahead" ] || return 0
+            [ "$(echo "$cmp" | sed -n 2p)" -lt 300 ] || return 0
+            files=$(echo "$cmp" | sed -n '3,$p')
+            echo "Changed since the last build:"; echo "$files" | sed 's/^/  /' | head -50
+            echo "$files" | grep -q '^apps/mobile/'
+          }
+
+          if [ "$FORCE" = "true" ] || [ "${{ github.event.action }}" = "jarvis-build-apk" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           elif [ "$SHA" = "$LAST_BUILT_SHA" ]; then
             echo "No new commits since ${LAST_BUILT_SHA}. Skipping build."
             echo "build=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "New commit detected (${SHA} != ${LAST_BUILT_SHA}). Triggering build."
+          elif app_changed; then
+            echo "App changed since ${LAST_BUILT_SHA}. Triggering build of ${SHA}."
             echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No app change since ${LAST_BUILT_SHA:0:7}; no new APK (the daemon updates itself)."
+            echo "build=false" >> "$GITHUB_OUTPUT"
           fi
 
   build-and-release:
