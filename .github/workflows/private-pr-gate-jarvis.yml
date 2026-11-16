@@ -8,7 +8,8 @@ name: Private PR Quality Gate (JARVIS)
 #   2. verify    – run the full quality gate on each and report the commit
 #                  status "Verify (analyze + test)" back to the private PR
 #   3. merge     – squash-merge green PRs, update PRs that are behind main
-#                  (strict protection), then send jarvis-release to build_jarvis_apk.yml
+#                  (strict protection) and re-gate them at once, then send
+#                  jarvis-release to build_jarvis_apk.yml
 #
 # Same polling design as private-pr-gate.yml (kfit-app): a cron poll needs no
 # private-repo minutes, so it keeps working even if the private quota is gone.
@@ -354,6 +355,33 @@ jobs:
         run: |
           set -uo pipefail
           MERGED=0
+          UPDATED=0
+          wait_for_new_head() {
+            # update-branch only queues the merge (HTTP 202). Re-gating before the new head
+            # exists would see the old, already-green head, find nothing to do, update again and
+            # dispatch again: a loop. So wait (up to 60 s) until the head really changed.
+            local num="$1" old="$2" head
+            for _ in $(seq 1 12); do
+              head=$(gh pr view "$num" --repo "$PRIVATE_REPO" --json headRefOid --jq .headRefOid 2>/dev/null || echo "$old")
+              if [ -n "$head" ] && [ "$head" != "$old" ]; then
+                echo "PR #$num has its new head ${head:0:7}."
+                return 0
+              fi
+              sleep 5
+            done
+            echo "::warning::PR #$num kept head ${old:0:7} for 60 s after the update; the next poll gates it."
+            return 1
+          }
+          regate() {
+            # repository_dispatch sent with GITHUB_TOKEN does start a run (GitHub's exception for
+            # workflow_dispatch and repository_dispatch). No PR number: the run gates every PR
+            # without a verdict, so it never makes a queued poll skip another PR. A run that
+            # updates nothing sends nothing, so this cannot repeat on its own.
+            jq -n '{event_type: "jarvis-pr-gate", client_payload: {source: "gate-after-update"}}' \
+              | GH_TOKEN="$KFIT_TOKEN" gh api -X POST "repos/$GITHUB_REPOSITORY/dispatches" --input - \
+              && echo "Re-gate requested for the updated PR(s)." \
+              || echo "::warning::Could not request the re-gate; the next poll will run it."
+          }
           release() {
             # Same event JARVIS's old auto-merge.yml sent; build_jarvis_apk.yml puts the
             # commit and PR into the run name and the release notes.
@@ -395,13 +423,20 @@ jobs:
                   echo "::warning::Merge of PR #$NUM refused (state $MSS)."
                 fi ;;
               BEHIND)
-                # The new head has no verdict, so the next poll gates it, then merges.
-                gh pr update-branch "$NUM" --repo "$PRIVATE_REPO" \
-                  && echo "PR #$NUM was behind main; branch updated." \
-                  || echo "::warning::Could not update PR #$NUM." ;;
+                # The new head has no verdict yet. Gate it right away instead of on the next
+                # 10-minute poll (JARVIS #189 waited for it after #188 merged, 2026-11-16).
+                if gh pr update-branch "$NUM" --repo "$PRIVATE_REPO"; then
+                  echo "PR #$NUM was behind main; branch updated."
+                  wait_for_new_head "$NUM" "$SHA" && UPDATED=$((UPDATED + 1))
+                else
+                  echo "::warning::Could not update PR #$NUM."
+                fi ;;
               *)
                 echo "PR #$NUM not mergeable yet (state $MSS)." ;;
             esac
           done
 
           echo "Merged $MERGED PR(s)."
+          if [ "$UPDATED" -gt 0 ]; then
+            regate
+          fi
