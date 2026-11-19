@@ -382,7 +382,8 @@ jobs:
           links=""
           count=0
           for f in "$shots"/*.png; do
-            name=$(basename "$f" | tr -c 'A-Za-z0-9._-' '_')
+            name=$(basename "$f")
+            name=${name//[^A-Za-z0-9._-]/_}
             [ "$(stat -c %s "$f")" -le 2000000 ] || continue
             count=$((count + 1)); [ "$count" -le 12 ] || break
             base64 -w0 "$f" > "$RUNNER_TEMP/gate/shot.b64"
