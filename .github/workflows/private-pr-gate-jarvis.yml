@@ -117,7 +117,7 @@ jobs:
     needs: discover
     if: needs.discover.outputs.any == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -221,10 +221,17 @@ jobs:
         working-directory: jarvis
         run: |
           . "$RUNNER_TEMP/gate/check.sh"
-          check "pip install (3.12)" python -m pip install -q -r service/requirements.txt
+          check "pip install (3.12)" python -m pip install -q -r service/requirements.txt pytest-cov diff-cover
           rc=0
           check "ruff" ruff check service || rc=1
-          check "pytest (3.12)" python -m pytest service/tests -q -p no:cacheprovider || rc=1
+          check "pytest (3.12)" python -m pytest service/tests -q -p no:cacheprovider \
+            --cov=service --cov-report="xml:$RUNNER_TEMP/gate/py-coverage.xml" || rc=1
+          # New and changed lines need tests (item 16 of the 2026-11-19 review). Tests themselves
+          # are not counted. A PR without Python changes passes.
+          if [ -s "$RUNNER_TEMP/gate/py-coverage.xml" ]; then
+            check "changed Python lines covered (>= 60 %)" diff-cover "$RUNNER_TEMP/gate/py-coverage.xml" \
+              --compare-branch="${{ matrix.base }}" --exclude "service/tests/*" --fail-under=60 || rc=1
+          fi
           check "daemon smoke test (3.12)" python service/daemon.py --smoke-test || rc=1
           exit $rc
 
@@ -241,7 +248,7 @@ jobs:
         working-directory: jarvis
         run: |
           . "$RUNNER_TEMP/gate/check.sh"
-          check "pip install (3.14)" python -m pip install -q -r service/requirements.txt
+          check "pip install (3.14)" python -m pip install -q -r service/requirements.txt diff-cover
           rc=0
           check "pytest (3.14)" python -m pytest service/tests -q -p no:cacheprovider || rc=1
           check "daemon smoke test (3.14)" python service/daemon.py --smoke-test || rc=1
@@ -281,6 +288,12 @@ jobs:
           fi
           check "install firebase-tools" npm install -g firebase-tools
           check "Firestore rules tests" firebase emulators:exec --only firestore "npm --prefix core run test:rules" || rc=1
+          # The daemon's chat listener, tools, queue and verification against a real Firestore, with
+          # the phone app's writes simulated (service/tests/e2e).
+          if [ -d service/tests/e2e ]; then
+            check "Firestore end-to-end (daemon + app writes)" firebase emulators:exec --only firestore \
+              --project demo-jarvis "python -m pytest service/tests/e2e -q -p no:cacheprovider" || rc=1
+          fi
           exit $rc
 
       - name: Setup Flutter
@@ -301,8 +314,89 @@ jobs:
           check "flutter pub get" flutter pub get
           rc=0
           check "flutter analyze" flutter analyze --no-fatal-infos || rc=1
-          check "flutter test" flutter test || rc=1
+          export JARVIS_SCREENSHOT_DIR="$RUNNER_TEMP/gate/screenshots"
+          check "flutter test" flutter test --coverage || rc=1
+          if [ -s coverage/lcov.info ]; then
+            sed 's#^SF:#SF:apps/mobile/#' coverage/lcov.info > "$RUNNER_TEMP/gate/dart-lcov.info"
+            ( cd ../.. && check "changed Dart lines covered (>= 40 %)" python -m diff_cover.diff_cover_tool \
+                "$RUNNER_TEMP/gate/dart-lcov.info" --compare-branch="${{ matrix.base }}" \
+                --exclude "apps/mobile/test/*" "apps/mobile/integration_test/*" "*.g.dart" --fail-under=40 ) || rc=1
+          fi
           exit $rc
+
+      # Native code, assets or the voice path changed: run the real app on an Android emulator and ask
+      # its native side to load and run the wake-word models (item 14; three releases shipped with the
+      # model failing to load on the phone while every unit test passed).
+      - name: Did native or voice code change?
+        id: native
+        working-directory: jarvis
+        run: |
+          if git diff --name-only "${{ matrix.base }}...${{ matrix.sha }}" -- \
+               apps/mobile/android apps/mobile/assets/wakeword apps/mobile/integration_test apps/mobile/pubspec.yaml \
+               apps/mobile/lib/services/wake_word_service.dart apps/mobile/lib/services/live_audio.dart \
+               apps/mobile/lib/services/gemini_live_service.dart | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Java 17 (Android build)
+        if: steps.native.outputs.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Enable KVM
+        if: steps.native.outputs.changed == 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Native self-test on an Android emulator
+        if: steps.native.outputs.changed == 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash -c '. "$RUNNER_TEMP/gate/check.sh"; cd jarvis/apps/mobile && check "Native self-test (emulator)" flutter test integration_test/native_selftest_test.dart -d emulator-5554'
+
+      # The screenshots the widget tests rendered go to a private branch of the JARVIS repo and are
+      # linked on the PR (this repo is public: they are never uploaded here). PNG files only.
+      - name: Publish screenshots to the private PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.JARVIS_REPO_TOKEN }}
+        run: |
+          shots="$RUNNER_TEMP/gate/screenshots"
+          [ -d "$shots" ] || exit 0
+          ls "$shots"/*.png >/dev/null 2>&1 || exit 0
+          branch="gate-shots/pr-${{ matrix.pr }}"
+          folder="${{ matrix.sha }}"
+          gh api -X POST "repos/$PRIVATE_REPO/git/refs" -f ref="refs/heads/$branch" -f sha="${{ matrix.sha }}" \
+            >/dev/null 2>&1 || true
+          links=""
+          count=0
+          for f in "$shots"/*.png; do
+            name=$(basename "$f" | tr -c 'A-Za-z0-9._-' '_')
+            [ "$(stat -c %s "$f")" -le 2000000 ] || continue
+            count=$((count + 1)); [ "$count" -le 12 ] || break
+            base64 -w0 "$f" > "$RUNNER_TEMP/gate/shot.b64"
+            jq -n --arg msg "gate screenshot $name" --arg branch "$branch" --rawfile content "$RUNNER_TEMP/gate/shot.b64" \
+              '{message: $msg, branch: $branch, content: $content}' > "$RUNNER_TEMP/gate/shot.json"
+            if gh api -X PUT "repos/$PRIVATE_REPO/contents/gate-shots/$folder/$name" --input "$RUNNER_TEMP/gate/shot.json" >/dev/null 2>&1; then
+              links="$links"$'\n'"- [$name](https://github.com/$PRIVATE_REPO/blob/$branch/gate-shots/$folder/$name)"
+            fi
+          done
+          [ -n "$links" ] || exit 0
+          printf '%s\n**Screenshots** rendered by the widget tests for `%s` (layout at a 392 dp phone, real font):%s\n' \
+            "<!-- jarvis-gate-screenshots -->" "${{ matrix.sha }}" "$links" > "$RUNNER_TEMP/gate/shots.md"
+          gh pr comment "${{ matrix.pr }}" --repo "$PRIVATE_REPO" --body-file "$RUNNER_TEMP/gate/shots.md" >/dev/null \
+            || echo "::warning::Could not link the screenshots on the private PR."
 
       # always(): a failed or cancelled run must still report, or the PR waits on
       # "pending" until the stale timeout.
