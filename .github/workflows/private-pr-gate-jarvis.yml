@@ -514,6 +514,9 @@ jobs:
               CLEAN|HAS_HOOKS|UNSTABLE)
                 if gh pr merge "$NUM" --repo "$PRIVATE_REPO" --squash --match-head-commit "$SHA"; then
                   echo "Merged PR #$NUM."; MERGED=$((MERGED + 1)); release "$NUM"
+                  # Its screenshots branch (gate-shots/pr-N) is no longer needed; left alone it shows as
+                  # a "Compare & pull request" banner on the private repo.
+                  gh api -X DELETE "repos/$PRIVATE_REPO/git/refs/heads/gate-shots/pr-$NUM" >/dev/null 2>&1 || true
                 else
                   echo "::warning::Merge of PR #$NUM refused (state $MSS)."
                 fi ;;
