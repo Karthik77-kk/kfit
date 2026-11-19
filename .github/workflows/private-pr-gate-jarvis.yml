@@ -363,7 +363,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: bash -c '. "$RUNNER_TEMP/gate/check.sh"; cd jarvis/apps/mobile && check "Native self-test (emulator)" flutter test integration_test/native_selftest_test.dart -d emulator-5554'
+          script: bash -c '. "$RUNNER_TEMP/gate/check.sh"; cd jarvis/apps/mobile && check "Native self-test (emulator)" flutter test integration_test/native_selftest_test.dart -d emulator-5554 || { sleep 30; check "Native self-test (emulator, retry after a download failure)" flutter test integration_test/native_selftest_test.dart -d emulator-5554; }'
 
       # The screenshots the widget tests rendered go to a private branch of the JARVIS repo and are
       # linked on the PR (this repo is public: they are never uploaded here). PNG files only.
